@@ -160,6 +160,17 @@ where
             Err(e) => Err(Box::new(MarlinError::from(e).into())),
         }
     }
+
+    fn partial_verify(
+        verifying_key: &PreparedCircuitVerifyingKey<TargetField, PC>,
+        input: &[TargetField],
+        proof: &Proof<TargetField, PC>,
+    ) -> Result<Vec<snarkvm_polycommit::LinearCombination<TargetField>>, SNARKError> {
+        match MarlinCore::<TargetField, BaseField, PC, FS, MM>::partial_verify(verifying_key, input, proof) {
+            Ok(res) => Ok(res),
+            Err(e) => Err(SNARKError::from(e)),
+        }
+    }
 }
 
 impl<TargetField, BaseField, PC, FS, MM, C> SNARK for MarlinSNARK<TargetField, BaseField, PC, FS, MM, C>
@@ -232,6 +243,40 @@ where
     mm_phantom: PhantomData<MM>,
     pcg_phantom: PhantomData<PCG>,
     fsg_phantom: PhantomData<FSG>,
+}
+
+impl<TargetField, BaseField, PC, FS, MM, PCG, FSG> MarlinSNARKGadget<TargetField, BaseField, PC, FS, MM, PCG, FSG>
+where
+    TargetField: PrimeField,
+    BaseField: PrimeField,
+    PC: PolynomialCommitment<TargetField>,
+    FS: FiatShamirRng<TargetField, BaseField>,
+    MM: MarlinMode,
+    PCG: PCCheckVar<TargetField, PC, BaseField>,
+    FSG: FiatShamirRngVar<TargetField, BaseField, FS>,
+    PC::VerifierKey: ToConstraintField<BaseField>,
+    PC::Commitment: ToConstraintField<BaseField>,
+    PCG::VerifierKeyVar: ToConstraintFieldGadget<BaseField>,
+    PCG::CommitmentVar: ToConstraintFieldGadget<BaseField>,
+{
+    fn partial_verify<CS: ConstraintSystem<BaseField>>(
+        mut cs: CS,
+        circuit_vk: &CircuitVerifyingKeyVar<TargetField, BaseField, PC, PCG>,
+        x: &NonNativeFieldInputVar<TargetField, BaseField>,
+        proof: &ProofVar<TargetField, BaseField, PC, PCG>,
+        rng: &mut FSG,
+    ) -> Result<Vec<snarkvm_polycommit::LinearCombinationVar<TargetField, BaseField>>, SynthesisError> {
+        Ok(
+            MarlinVerificationGadget::<TargetField, BaseField, PC, PCG>::partial_verify::<_, FS, FSG>(
+                cs.ns(|| "partial_verify"),
+                circuit_vk,
+                &x.val,
+                proof,
+                rng,
+            )
+            .unwrap(),
+        )
+    }
 }
 
 impl<TargetField, BaseField, PC, FS, MM, PCG, FSG, C>
@@ -378,13 +423,18 @@ mod test {
     use snarkvm_fields::Field;
     use snarkvm_gadgets::{
         curves::bls12_377::PairingGadget as Bls12_377PairingGadget,
+        traits::fields::FieldGadget,
         utilities::{alloc::AllocGadget, eq::EqGadget},
     };
+    use snarkvm_nonnative::NonNativeFieldVar;
     use snarkvm_polycommit::marlin_pc::{marlin_kzg10::MarlinKZG10Gadget, MarlinKZG10};
     use snarkvm_r1cs::TestConstraintSystem;
     use snarkvm_utilities::{test_rng, UniformRand};
 
+    use crate::marlin::compute_vk_hash;
     use core::ops::MulAssign;
+    use snarkvm_nonnative::params::OptimizationType;
+    use snarkvm_polycommit::{LinearCombinationCoeffVar, LinearCombinationVar};
 
     #[derive(Copy, Clone)]
     struct Circuit<F: Field> {
@@ -534,6 +584,213 @@ mod test {
         verification_result
             .enforce_equal(cs.ns(|| "enforce_equal_verification"), &Boolean::Constant(true))
             .unwrap();
+
+        assert!(
+            cs.is_satisfied(),
+            "Constraints not satisfied: {}",
+            cs.which_is_unsatisfied().unwrap()
+        );
+    }
+
+    #[test]
+    fn partial_marlin_verifier_test() {
+        let mut rng = test_rng();
+
+        // Construct the circuit.
+
+        let a = Fr::rand(&mut rng);
+        let b = Fr::rand(&mut rng);
+        let mut c = a;
+        c.mul_assign(&b);
+
+        let circ = Circuit {
+            a: Some(a),
+            b: Some(b),
+            num_constraints: 100,
+            num_variables: 25,
+        };
+
+        // Generate the circuit parameters.
+
+        let (pk, vk) = TestSNARK::circuit_specific_setup(circ, &mut rng).unwrap();
+
+        // Test native proof and verification.
+
+        let proof = TestSNARK::prove(&pk, &circ, &mut rng).unwrap();
+
+        // assert!(
+        //     TestSNARK::verify(&vk.clone().into(), &[c.clone()], &proof).unwrap(),
+        //     "The native verification check fails."
+        // );
+
+        let partial_verify_lc_s = TestSNARK::partial_verify(&vk.clone().into(), &[c.clone()], &proof).unwrap();
+
+        // Initialize constraint system.
+        let mut cs = TestConstraintSystem::<Fq>::new();
+
+        // let input_gadget = <TestSNARKGadget as SNARKGadget<Fr, Fq, TestSNARK>>::InputVar::alloc(
+        //     cs.ns(|| "alloc_input_gadget"),
+        //     || Ok(vec![c]),
+        // )
+        // .unwrap();
+
+        // TODO (raychu86): Should be allocated as input.
+        let input_gadget = <TestSNARKGadget as SNARKGadget<Fr, Fq, TestSNARK>>::InputVar::alloc_input(
+            cs.ns(|| "alloc_input_gadget"),
+            || Ok(vec![c]),
+        )
+        .unwrap();
+
+        let proof_gadget =
+            <TestSNARKGadget as SNARKGadget<Fr, Fq, TestSNARK>>::ProofVar::alloc(cs.ns(|| "alloc_proof"), || Ok(proof))
+                .unwrap();
+
+        let vk_gadget =
+            <TestSNARKGadget as SNARKGadget<Fr, Fq, TestSNARK>>::VerifyingKeyVar::alloc(cs.ns(|| "alloc_vk"), || {
+                Ok(vk.clone())
+            })
+            .unwrap();
+
+        assert!(
+            cs.is_satisfied(),
+            "Constraints not satisfied: {}",
+            cs.which_is_unsatisfied().unwrap()
+        );
+
+        let fs_rng = &mut FS::new();
+
+        let public_input = &[c];
+
+        use snarkvm_utilities::{to_bytes, ToBytes};
+
+        if true {
+            fs_rng.absorb_bytes(&to_bytes![b"MARLIN-2019"].unwrap());
+            fs_rng.absorb_native_field_elements(&compute_vk_hash::<Fr, Fq, PC, FS>(&vk).unwrap());
+            fs_rng.absorb_nonnative_field_elements(public_input, OptimizationType::Weight);
+        } else {
+            // fs_rng.absorb_bytes(&to_bytes![b"MARLIN-2019", &vk, public_input].unwrap());
+        }
+
+        let fs_rng_gadget = &mut FSG::constant(cs.ns(|| "alloc_rng"), &fs_rng);
+
+        let lc_gadgets = TestSNARKGadget::partial_verify(
+            cs.ns(|| "marlin_partial_verify"),
+            &vk_gadget,
+            &input_gadget,
+            &proof_gadget,
+            fs_rng_gadget,
+        )
+        .unwrap();
+
+        // let first_round_message_gadget = verifier_state_gadget.first_round_msg.clone().unwrap();
+        // let second_round_message_gadget = verifier_state_gadget.second_round_msg.clone().unwrap();
+        // let first_round_message = verifier_state_native.first_round_message.unwrap();
+        // let second_round_message = verifier_state_native.second_round_message.unwrap();
+        //
+        // let expected_alpha = NonNativeFieldVar::alloc(cs.ns(|| "alpha"), || Ok(first_round_message.alpha)).unwrap();
+        // let expected_eta_a = NonNativeFieldVar::alloc(cs.ns(|| "eta_a"), || Ok(first_round_message.eta_a)).unwrap();
+        // let expected_eta_b = NonNativeFieldVar::alloc(cs.ns(|| "eta_b"), || Ok(first_round_message.eta_b)).unwrap();
+        // let expected_eta_c = NonNativeFieldVar::alloc(cs.ns(|| "eta_c"), || Ok(first_round_message.eta_c)).unwrap();
+        //
+        // expected_alpha
+        //     .enforce_equal(cs.ns(|| "enforce_equal_alpha"), &first_round_message_gadget.alpha)
+        //     .unwrap();
+        // expected_eta_a
+        //     .enforce_equal(cs.ns(|| "enforce_equal_eta_a"), &first_round_message_gadget.eta_a)
+        //     .unwrap();
+        // expected_eta_b
+        //     .enforce_equal(cs.ns(|| "enforce_equal_eta_b"), &first_round_message_gadget.eta_b)
+        //     .unwrap();
+        // expected_eta_c
+        //     .enforce_equal(cs.ns(|| "enforce_equal_eta_c"), &first_round_message_gadget.eta_c)
+        //     .unwrap();
+        //
+        // // Enforce that the native and gadget verifier first round state is equivalent.
+        //
+        // let expected_beta = NonNativeFieldVar::alloc(cs.ns(|| "beta"), || Ok(second_round_message.beta)).unwrap();
+        //
+        // expected_beta
+        //     .enforce_equal(cs.ns(|| "enforce_equal_beta"), &second_round_message_gadget.beta)
+        //     .unwrap();
+        //
+        // let expected_gamma =
+        //     NonNativeFieldVar::alloc(cs.ns(|| "gamma"), || Ok(verifier_state_native.gamma.unwrap())).unwrap();
+        //
+        // expected_gamma
+        //     .enforce_equal(
+        //         cs.ns(|| "enforce_equal_gamma"),
+        //         &verifier_state_gadget.gamma.clone().unwrap(),
+        //     )
+        //     .unwrap();
+        //
+        // // Enforce that the native and gadget verifier first round state is equivalent.
+        //
+        // assert_eq!(
+        //     verifier_state_native.first_round_message.is_some(),
+        //     verifier_state_gadget.first_round_msg.is_some()
+        // );
+        // assert_eq!(
+        //     verifier_state_native.second_round_message.is_some(),
+        //     verifier_state_gadget.second_round_msg.is_some()
+        // );
+        // assert_eq!(
+        //     verifier_state_native.gamma.is_some(),
+        //     verifier_state_gadget.gamma.is_some()
+        // );
+        //
+        // if !cs.is_satisfied() {
+        //     println!("which is unsatisfied: {:?}", cs.which_is_unsatisfied().unwrap());
+        // }
+        //
+        // assert!(cs.is_satisfied());
+
+        // // ---- Gadget verification
+        //
+        // let verification_result = <TestSNARKGadget as SNARKGadget<Fr, Fq, TestSNARK>>::verify(
+        //     cs.ns(|| "marlin_verify"),
+        //     &vk_gadget,
+        //     &input_gadget,
+        //     &proof_gadget,
+        // )
+        // .unwrap();
+
+        // CHeck that the lc decision is valid
+
+        for (i, (native_lc, lc)) in partial_verify_lc_s.iter().zip(lc_gadgets).enumerate() {
+            let expected_lc =
+                LinearCombinationVar::alloc(cs.ns(|| format!("alloc_lc_{}", i)), || Ok(native_lc)).unwrap();
+
+            assert_eq!(expected_lc.label, lc.label);
+
+            for (j, ((expected_lc_coeff, expected_lc_term), (lc_coeff, lc_term))) in
+                expected_lc.terms.iter().zip(lc.terms).enumerate()
+            {
+                assert_eq!(expected_lc_term, &lc_term);
+
+                match (expected_lc_coeff, &lc_coeff) {
+                    (LinearCombinationCoeffVar::MinusOne, LinearCombinationCoeffVar::MinusOne) => {}
+                    (LinearCombinationCoeffVar::One, LinearCombinationCoeffVar::One) => {}
+                    (LinearCombinationCoeffVar::Var(expected_coeff), LinearCombinationCoeffVar::Var(coeff)) => {
+                        expected_coeff
+                            .enforce_equal(cs.ns(|| format!("enforce_eq_coeff_{}_{}", i, j)), &coeff)
+                            .unwrap();
+                    }
+                    (LinearCombinationCoeffVar::Var(expected_coeff), LinearCombinationCoeffVar::One) => {
+                        let one = NonNativeFieldVar::one(cs.ns(|| format!("testing_{}_{}", i, j))).unwrap();
+                        expected_coeff
+                            .enforce_equal(cs.ns(|| format!("enforce_eq_coeff_one_{}_{}", i, j)), &one)
+                            .unwrap();
+                    }
+                    (_, _) => {
+                        println!(
+                            "Mismatched linear combination coeff_{}_{} \n{:?} \n{:?}",
+                            i, j, expected_lc_coeff, lc_coeff
+                        );
+                        assert_eq!(0, 1);
+                    }
+                }
+            }
+        }
 
         assert!(
             cs.is_satisfied(),

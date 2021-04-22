@@ -216,7 +216,7 @@ pub trait PCCheckVar<PCF: PrimeField, PC: PolynomialCommitment<PCF>, ConstraintF
     ) -> Self::PreparedLabeledCommitmentVar;
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 /// A labeled point variable, for queries to a polynomial commitment.
 pub struct LabeledPointVar<TargetField: PrimeField, BaseField: PrimeField> {
     /// The label of the point.
@@ -227,7 +227,7 @@ pub struct LabeledPointVar<TargetField: PrimeField, BaseField: PrimeField> {
 }
 
 /// An allocated version of `QuerySet`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuerySetVar<TargetField: PrimeField, BaseField: PrimeField>(
     pub HashSet<(String, LabeledPointVar<TargetField, BaseField>)>,
 );
