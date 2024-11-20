@@ -90,6 +90,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         }
 
         // Compute the Merkle root of the transaction.
+        // Debug-mode only, as the `Transaction` constructor recomputes the transaction ID at initialization.
+        #[cfg(debug_assertions)]
         match transaction.to_root() {
             // Ensure the transaction ID is correct.
             Ok(root) if *transaction.id() != root => bail!("Incorrect transaction ID ({})", transaction.id()),
