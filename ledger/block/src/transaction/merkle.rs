@@ -173,6 +173,20 @@ impl<N: Network> Transaction<N> {
         N::merkle_tree_bhp::<TRANSACTION_DEPTH>(&leaves)
     }
 
+    /// Returns the Merkle tree for the given execution tree and fee.
+    pub fn transaction_tree(
+        mut execution_tree: TransactionTree<N>,
+        fee_index: usize,
+        fee: &Fee<N>,
+    ) -> Result<TransactionTree<N>> {
+        // Construct the transaction leaf.
+        let leaf = TransactionLeaf::new_fee(u16::try_from(fee_index)?, **fee.transition_id()).to_bits_le();
+        // Compute the transaction tree.
+        execution_tree.append(&[leaf])?;
+
+        Ok(execution_tree)
+    }
+
     /// Returns the Merkle tree for the given fee.
     pub fn fee_tree(fee: &Fee<N>) -> Result<TransactionTree<N>> {
         // Construct the transaction leaf.
