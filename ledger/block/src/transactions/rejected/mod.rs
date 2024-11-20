@@ -103,7 +103,7 @@ pub mod test_helpers {
     pub(crate) fn sample_rejected_deployment(is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
         // Sample a deploy transaction.
         let deployment = match crate::transaction::test_helpers::sample_deployment_transaction(is_fee_private, rng) {
-            Transaction::Deploy(_, _, deployment, _) => (*deployment).clone(),
+            Transaction::Deploy(_, _, _, deployment, _) => (*deployment).clone(),
             _ => unreachable!(),
         };
 
@@ -121,7 +121,7 @@ pub mod test_helpers {
         // Sample an execute transaction.
         let execution =
             match crate::transaction::test_helpers::sample_execution_transaction_with_fee(is_fee_private, rng) {
-                Transaction::Execute(_, execution, _) => execution,
+                Transaction::Execute(_, _, execution, _) => execution,
                 _ => unreachable!(),
             };
 

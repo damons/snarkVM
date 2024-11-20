@@ -166,7 +166,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     fn insert(&self, transaction: &Transaction<N>) -> Result<()> {
         // Ensure the transaction is a deployment.
         let (transaction_id, owner, deployment, fee) = match transaction {
-            Transaction::Deploy(transaction_id, owner, deployment, fee) => (transaction_id, owner, deployment, fee),
+            Transaction::Deploy(transaction_id, _, owner, deployment, fee) => (transaction_id, owner, deployment, fee),
             Transaction::Execute(..) => bail!("Attempted to insert an execute transaction into deployment storage."),
             Transaction::Fee(..) => bail!("Attempted to insert fee transaction into deployment storage."),
         };
@@ -725,7 +725,7 @@ mod tests {
         for transaction in transactions {
             let transaction_id = transaction.id();
             let program_id = match transaction {
-                Transaction::Deploy(_, _, ref deployment, _) => *deployment.program_id(),
+                Transaction::Deploy(_, _, _, ref deployment, _) => *deployment.program_id(),
                 _ => panic!("Incorrect transaction type"),
             };
 

@@ -157,6 +157,6 @@ pub mod test_helpers {
         // Retrieve a transaction.
         let transaction = block.transactions().iter().next().unwrap().deref().clone();
         // Retrieve the execution.
-        if let Transaction::Execute(_, execution, _) = transaction { execution } else { unreachable!() }
+        if let Transaction::Execute(_, _, execution, _) = transaction { execution } else { unreachable!() }
     }
 }

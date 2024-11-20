@@ -27,7 +27,7 @@ impl<N: Network> Transaction<N> {
     /// Returns the Merkle leaf for the given ID of a function or transition in the transaction.
     pub fn to_leaf(&self, id: &Field<N>) -> Result<TransactionLeaf<N>> {
         match self {
-            Self::Deploy(_, _, deployment, fee) => {
+            Self::Deploy(_, _, _, deployment, fee) => {
                 // Check if the ID is the transition ID for the fee.
                 if *id == **fee.id() {
                     // Return the transaction leaf.
@@ -48,7 +48,7 @@ impl<N: Network> Transaction<N> {
                 // Error if the function hash was not found.
                 bail!("Function hash not found in deployment transaction");
             }
-            Self::Execute(_, execution, fee) => {
+            Self::Execute(_, _, execution, fee) => {
                 // Check if the ID is the transition ID for the fee.
                 if let Some(fee) = fee {
                     if *id == **fee.id() {
@@ -92,9 +92,9 @@ impl<N: Network> Transaction<N> {
     pub fn to_tree(&self) -> Result<TransactionTree<N>> {
         match self {
             // Compute the deployment tree.
-            Transaction::Deploy(_, _, deployment, fee) => Self::deployment_tree(deployment, Some(fee)),
+            Transaction::Deploy(_, _, _, deployment, fee) => Self::deployment_tree(deployment, Some(fee)),
             // Compute the execution tree.
-            Transaction::Execute(_, execution, fee) => Self::execution_tree(execution, fee),
+            Transaction::Execute(_, _, execution, fee) => Self::execution_tree(execution, fee),
             // Compute the fee tree.
             Transaction::Fee(_, fee) => Self::fee_tree(fee),
         }
