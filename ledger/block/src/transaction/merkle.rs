@@ -113,7 +113,7 @@ impl<N: Network> Transaction<N> {
 
 impl<N: Network> Transaction<N> {
     /// Returns the Merkle tree for the given deployment.
-    pub fn deployment_tree(deployment: &Deployment<N>) -> Result<TransactionTree<N>> {
+    pub fn deployment_tree(deployment: &Deployment<N>) -> Result<DeploymentTree<N>> {
         // Ensure the number of leaves is within the Merkle tree size.
         Self::check_deployment_size(deployment)?;
         // Retrieve the program.
@@ -137,14 +137,14 @@ impl<N: Network> Transaction<N> {
     }
 
     /// Returns the Merkle tree for the given execution.
-    pub fn execution_tree(execution: &Execution<N>) -> Result<TransactionTree<N>> {
+    pub fn execution_tree(execution: &Execution<N>) -> Result<ExecutionTree<N>> {
         Self::transitions_tree(execution.transitions())
     }
 
     /// Returns the Merkle tree for the given transitions.
     pub fn transitions_tree<'a>(
         transitions: impl ExactSizeIterator<Item = &'a Transition<N>>,
-    ) -> Result<TransactionTree<N>> {
+    ) -> Result<ExecutionTree<N>> {
         // Retrieve the number of transitions.
         let num_transitions = transitions.len();
         // Ensure the number of leaves is within the Merkle tree size.
