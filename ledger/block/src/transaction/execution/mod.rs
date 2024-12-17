@@ -70,7 +70,7 @@ impl<N: Network> Execution<N> {
 
     /// Returns the execution ID.
     pub fn to_execution_id(&self) -> Result<Field<N>> {
-        Ok(*Transaction::execution_tree(self, &None)?.root())
+        Ok(*Transaction::execution_tree(self)?.root())
     }
 }
 

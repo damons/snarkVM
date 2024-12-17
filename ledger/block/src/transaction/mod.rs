@@ -53,7 +53,7 @@ impl<N: Network> Transaction<N> {
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty deployment transaction");
         // Compute the deployment tree.
-        let deployment_tree = Self::deployment_tree(&deployment, None)?;
+        let deployment_tree = Self::deployment_tree(&deployment)?;
         // Compute the deployment ID.
         let deployment_id = *deployment_tree.root();
         // Compute the transaction ID
@@ -69,7 +69,7 @@ impl<N: Network> Transaction<N> {
         // Ensure the transaction is not empty.
         ensure!(!execution.is_empty(), "Attempted to create an empty execution transaction");
         // Compute the execution tree.
-        let execution_tree = Self::execution_tree(&execution, &None)?;
+        let execution_tree = Self::execution_tree(&execution)?;
         // Compute the execution ID.
         let execution_id = *execution_tree.root();
         // Compute the transaction ID
@@ -505,14 +505,18 @@ mod tests {
         {
             match expected {
                 // Compare against transaction IDs created using `deployment_tree`.
-                Transaction::Deploy(_, id, _, deployment, fee) => {
-                    let computed_id = *Transaction::deployment_tree(&deployment, Some(&fee))?.root();
-                    assert_eq!(computed_id, id);
+                Transaction::Deploy(transaction_id, deployment_id, _, ref deployment, _) => {
+                    let expected_transaction_id = *expected.clone().to_tree()?.root();
+                    assert_eq!(expected_transaction_id, *transaction_id);
+                    let expected_deployment_id = *Transaction::deployment_tree(deployment)?.root();
+                    assert_eq!(expected_deployment_id, deployment_id);
                 }
                 // Compare against transaction IDs created using `execution_tree`.
-                Transaction::Execute(_, id, execution, fee) => {
-                    let computed_id = *Transaction::execution_tree(&execution, &fee)?.root();
-                    assert_eq!(computed_id, id);
+                Transaction::Execute(transaction_id, execution_id, ref execution, _) => {
+                    let expected_transaction_id = *expected.clone().to_tree()?.root();
+                    assert_eq!(expected_transaction_id, *transaction_id);
+                    let expected_execution_id = *Transaction::execution_tree(execution)?.root();
+                    assert_eq!(expected_execution_id, execution_id);
                 }
                 _ => panic!("Unexpected test case."),
             };
