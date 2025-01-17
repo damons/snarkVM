@@ -19,8 +19,10 @@ use console::{
     prelude::*,
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
-use ledger_block::{Deployment, Execution};
+use ledger_block::{Deployment, Execution, Transaction};
 use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, StackProgram};
+
+use std::sync::Arc;
 
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost)).
 pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64))> {
@@ -30,10 +32,6 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
     let program_id = deployment.program_id();
     // Determine the number of characters in the program ID.
     let num_characters = u32::try_from(program_id.name().to_string().len())?;
-    // Compute the number of combined variables in the program.
-    let num_combined_variables = deployment.num_combined_variables()?;
-    // Compute the number of combined constraints in the program.
-    let num_combined_constraints = deployment.num_combined_constraints()?;
 
     // Compute the storage cost in microcredits.
     let storage_cost = size_in_bytes
@@ -41,7 +39,7 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
         .ok_or(anyhow!("The storage cost computation overflowed for a deployment"))?;
 
     // Compute the synthesis cost in microcredits.
-    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
+    let synthesis_cost = deployment_synthesis_cost(deployment)?;
 
     // Compute the namespace cost in credits: 10^(10 - num_characters).
     let namespace_cost = 10u64
@@ -56,6 +54,15 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
         .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
 
     Ok((total_cost, (storage_cost, synthesis_cost, namespace_cost)))
+}
+
+/// Returns the cost in microcredits to synthesize a deployment.
+pub fn deployment_synthesis_cost<N: Network>(deployment: &Deployment<N>) -> Result<u64> {
+    let num_combined_variables = deployment.num_combined_variables()?;
+    let num_combined_constraints = deployment.num_combined_constraints()?;
+    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
+
+    Ok(synthesis_cost)
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
@@ -458,6 +465,32 @@ pub fn cost_in_microcredits_v1<N: Network>(stack: &Stack<N>, function_name: &Ide
         .try_fold(future_cost, |acc, res| {
             res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Finalize cost overflowed")))
         })
+}
+
+/// Returns the compute cost for a transaction in microcredits.
+/// TODO(nkls): clarify context w.r.t. `PROPOSAL_SPEND_LIMIT`.
+/// This does NOT represent the full costs which a user has to pay.
+pub fn compute_cost_in_microcredits<N: Network>(
+    transaction: &Transaction<N>,
+    stack: Option<Arc<Stack<N>>>,
+) -> Result<u64> {
+    match transaction {
+        // Synthesis cost accounts for the majority of deployment transaction compute.
+        Transaction::Deploy(_, _, deployment, _) => deployment_synthesis_cost(deployment),
+        // Base and finalize costs account for the majority of execute transaction compute.
+        Transaction::Execute(_, execution, _) => {
+            // Get the root transition for the program.
+            let root_transition = execution.peek()?;
+            // Check a stack is present for the execution.
+            let stack = stack.as_ref().ok_or(anyhow!("Expected a Stack containing the Execution's finalize cost."))?;
+            // Retrieve the finalize cost for the root program.
+            let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
+
+            Ok(finalize_cost.saturating_add(N::EXECUTION_BASE_COST))
+        }
+        // Fee transactions are internal to the VM, they do not have a compute cost.
+        Transaction::Fee(..) => Ok(0),
+    }
 }
 
 #[cfg(test)]
