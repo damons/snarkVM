@@ -22,8 +22,6 @@ use console::{
 use ledger_block::{Deployment, Execution, Transaction};
 use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, StackProgram};
 
-use std::sync::Arc;
-
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost)).
 pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64))> {
     // Determine the number of bytes in the deployment.
@@ -470,6 +468,7 @@ pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier
 /// Returns the compute cost for a transaction in microcredits.
 /// TODO(nkls): clarify context w.r.t. `PROPOSAL_SPEND_LIMIT`.
 /// This does NOT represent the full costs which a user has to pay.
+use std::sync::Arc;
 pub fn compute_cost<N: Network>(transaction: &Transaction<N>, stack: Option<Arc<Stack<N>>>) -> Result<u64> {
     match transaction {
         // Synthesis cost accounts for the majority of deployment transaction compute.
@@ -479,7 +478,7 @@ pub fn compute_cost<N: Network>(transaction: &Transaction<N>, stack: Option<Arc<
             // Get the root transition for the program.
             let root_transition = execution.peek()?;
             // Check a stack is present for the execution.
-            let stack = stack.as_ref().ok_or(anyhow!("Expected a Stack containing the Execution's finalize cost."))?;
+            let stack = stack.ok_or(anyhow!("Expected a Stack containing the Execution's finalize cost."))?;
             // Retrieve the finalize cost for the root program.
             let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
 
