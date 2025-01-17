@@ -94,7 +94,7 @@ pub fn execution_cost_v1<N: Network>(process: &Process<N>, execution: &Execution
 
     // Get the finalize cost for the root transition.
     let stack = process.get_stack(transition.program_id())?;
-    let finalize_cost = cost_in_microcredits_v1(&stack, transition.function_name())?;
+    let finalize_cost = finalize_cost_v1(&stack, transition.function_name())?;
 
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
@@ -410,7 +410,7 @@ pub fn cost_per_command<N: Network>(
 }
 
 /// Returns the minimum number of microcredits required to run the finalize.
-pub fn cost_in_microcredits_v2<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
+pub fn finalize_cost_v2<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
     // Retrieve the finalize logic.
     let Some(finalize) = stack.get_function_ref(function_name)?.finalize_logic() else {
         // Return a finalize cost of 0, if the function does not have a finalize scope.
@@ -439,7 +439,7 @@ pub fn cost_in_microcredits_v2<N: Network>(stack: &Stack<N>, function_name: &Ide
 }
 
 /// Returns the minimum number of microcredits required to run the finalize (depcrated).
-pub fn cost_in_microcredits_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
+pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
     // Retrieve the finalize logic.
     let Some(finalize) = stack.get_function_ref(function_name)?.finalize_logic() else {
         // Return a finalize cost of 0, if the function does not have a finalize scope.
@@ -453,7 +453,7 @@ pub fn cost_in_microcredits_v1<N: Network>(stack: &Stack<N>, function_name: &Ide
             let stack = stack.get_external_stack(future.program_id())?;
             // Accumulate the finalize cost of the future.
             future_cost = future_cost
-                .checked_add(cost_in_microcredits_v1(&stack, future.resource())?)
+                .checked_add(finalize_cost_v1(&stack, future.resource())?)
                 .ok_or(anyhow!("Finalize cost overflowed"))?;
         }
     }
@@ -470,15 +470,12 @@ pub fn cost_in_microcredits_v1<N: Network>(stack: &Stack<N>, function_name: &Ide
 /// Returns the compute cost for a transaction in microcredits.
 /// TODO(nkls): clarify context w.r.t. `PROPOSAL_SPEND_LIMIT`.
 /// This does NOT represent the full costs which a user has to pay.
-pub fn compute_cost_in_microcredits<N: Network>(
-    transaction: &Transaction<N>,
-    stack: Option<Arc<Stack<N>>>,
-) -> Result<u64> {
+pub fn compute_cost<N: Network>(transaction: &Transaction<N>, stack: Option<Arc<Stack<N>>>) -> Result<u64> {
     match transaction {
         // Synthesis cost accounts for the majority of deployment transaction compute.
-        Transaction::Deploy(_, _, deployment, _) => deployment_synthesis_cost(deployment),
+        Transaction::Deploy(_, _, _, deployment, _) => deployment_synthesis_cost(deployment),
         // Base and finalize costs account for the majority of execute transaction compute.
-        Transaction::Execute(_, execution, _) => {
+        Transaction::Execute(_, _, execution, _) => {
             // Get the root transition for the program.
             let root_transition = execution.peek()?;
             // Check a stack is present for the execution.
