@@ -133,12 +133,31 @@ impl Network for TestnetV0 {
     /// The transmission checksum type.
     type TransmissionChecksum = u128;
 
+    /// The block height from which consensus V2 rules apply.
+    #[cfg(not(any(test, feature = "test")))]
+    const CONSENSUS_V2_HEIGHT: u32 = 2_950_000;
+    /// The block height from which consensus V2 rules apply.
+    #[cfg(any(test, feature = "test"))]
+    const CONSENSUS_V2_HEIGHT: u32 = 10;
+    // TODO: (raychu86): Update this value based on the desired testnet height.
+    // The block height from which consensus V3 rules apply.
+    #[cfg(not(any(test, feature = "test")))]
+    const CONSENSUS_V3_HEIGHT: u32 = 4_800_000;
+    /// The block height from which consensus V3 rules apply.
+    #[cfg(any(test, feature = "test"))]
+    const CONSENSUS_V3_HEIGHT: u32 = 11;
     /// The network edition.
     const EDITION: u16 = 0;
     /// The genesis block coinbase target.
+    #[cfg(not(feature = "test_targets"))]
     const GENESIS_COINBASE_TARGET: u64 = (1u64 << 29).saturating_sub(1);
+    #[cfg(feature = "test_targets")]
+    const GENESIS_COINBASE_TARGET: u64 = (1u64 << 5).saturating_sub(1);
     /// The genesis block proof target.
+    #[cfg(not(feature = "test_targets"))]
     const GENESIS_PROOF_TARGET: u64 = 1u64 << 27;
+    #[cfg(feature = "test_targets")]
+    const GENESIS_PROOF_TARGET: u64 = 1u64 << 3;
     /// The fixed timestamp of the genesis block.
     const GENESIS_TIMESTAMP: i64 = 1715776496 /* 2024-05-15 12:34:56 UTC */;
     /// The network ID.
@@ -147,6 +166,8 @@ impl Network for TestnetV0 {
     const INCLUSION_FUNCTION_NAME: &'static str = MainnetV0::INCLUSION_FUNCTION_NAME;
     /// The maximum number of certificates in a batch.
     const MAX_CERTIFICATES: u16 = 100;
+    /// The maximum number of certificates in a batch before consensus V3 rules apply.
+    const MAX_CERTIFICATES_BEFORE_V3: u16 = 100;
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
 
