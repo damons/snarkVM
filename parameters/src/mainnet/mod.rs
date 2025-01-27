@@ -187,6 +187,7 @@ mod tests {
         InclusionVerifier::load_bytes().expect("Failed to load inclusion verifier");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_load_bytes() {
         Degree16::load_bytes().expect("Failed to load degree 16");
