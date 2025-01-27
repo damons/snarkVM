@@ -840,7 +840,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v1.0.0-rust-1.81.0-snarkvm-wasm-cache
+          cache_key: v1.0.0-rust-1.81.0-snarkvm-wasm-cache-270125
       - run:
           no_output_timeout: 30m
           command: |
@@ -849,7 +849,7 @@ jobs:
             cd wasm && wasm-pack test --node
             # cargo test --target wasm32-unknown-unknown
       - clear_environment:
-          cache_key: v1.0.0-rust-1.81.0-snarkvm-wasm-cache
+          cache_key: v1.0.0-rust-1.81.0-snarkvm-wasm-cache-270125
 
   check-fmt:
     docker:
