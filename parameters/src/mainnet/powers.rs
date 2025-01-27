@@ -43,12 +43,17 @@ const NUM_POWERS_22: usize = 1 << 22;
 const NUM_POWERS_23: usize = 1 << 23;
 const NUM_POWERS_24: usize = 1 << 24;
 const NUM_POWERS_25: usize = 1 << 25;
-const NUM_POWERS_26: usize = 1 << 26;
-const NUM_POWERS_27: usize = 1 << 27;
-const NUM_POWERS_28: usize = 1 << 28;
+// TODO (nkls): restore on CI.
+// The SRS is only used for proving and we don't currently support provers of
+// this size. When a users wants to create a proof, they load the appropriate
+// powers for the circuit in `batch_circuit_setup` which calls `max_degree`
+// based on the domain size.
+// const NUM_POWERS_26: usize = 1 << 26;
+// const NUM_POWERS_27: usize = 1 << 27;
+// const NUM_POWERS_28: usize = 1 << 28;
 
 /// The maximum degree supported by the SRS.
-const MAX_NUM_POWERS: usize = NUM_POWERS_28;
+const MAX_NUM_POWERS: usize = NUM_POWERS_25;
 
 lazy_static::lazy_static! {
     static ref POWERS_OF_BETA_G_15: Vec<u8> = Degree15::load_bytes().expect("Failed to load powers of beta in universal SRS");
@@ -413,9 +418,9 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
                 NUM_POWERS_23 => Degree23::load_bytes()?,
                 NUM_POWERS_24 => Degree24::load_bytes()?,
                 NUM_POWERS_25 => Degree25::load_bytes()?,
-                NUM_POWERS_26 => Degree26::load_bytes()?,
-                NUM_POWERS_27 => Degree27::load_bytes()?,
                 // TODO (nkls): restore on CI.
+                // NUM_POWERS_26 => Degree26::load_bytes()?,
+                // NUM_POWERS_27 => Degree27::load_bytes()?,
                 // NUM_POWERS_28 => Degree28::load_bytes()?,
                 _ => bail!("Cannot download an invalid degree of '{num_powers}'"),
             };
@@ -492,8 +497,8 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
                 NUM_POWERS_23 => ShiftedDegree23::load_bytes()?,
                 NUM_POWERS_24 => ShiftedDegree24::load_bytes()?,
                 NUM_POWERS_25 => ShiftedDegree25::load_bytes()?,
-                NUM_POWERS_26 => ShiftedDegree26::load_bytes()?,
                 // TODO (nkls): restore on CI.
+                // NUM_POWERS_26 => ShiftedDegree26::load_bytes()?,
                 // NUM_POWERS_27 => ShiftedDegree27::load_bytes()?,
                 _ => bail!("Cannot download an invalid degree of '{num_powers}'"),
             };
