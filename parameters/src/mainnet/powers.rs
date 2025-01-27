@@ -50,10 +50,10 @@ const NUM_POWERS_25: usize = 1 << 25;
 // based on the domain size.
 // const NUM_POWERS_26: usize = 1 << 26;
 // const NUM_POWERS_27: usize = 1 << 27;
-// const NUM_POWERS_28: usize = 1 << 28;
+const NUM_POWERS_28: usize = 1 << 28;
 
 /// The maximum degree supported by the SRS.
-const MAX_NUM_POWERS: usize = NUM_POWERS_25;
+const MAX_NUM_POWERS: usize = NUM_POWERS_28;
 
 lazy_static::lazy_static! {
     static ref POWERS_OF_BETA_G_15: Vec<u8> = Degree15::load_bytes().expect("Failed to load powers of beta in universal SRS");
