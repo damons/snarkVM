@@ -36,7 +36,7 @@ mod testnet_v0;
 pub use testnet_v0::*;
 
 pub mod prelude {
-    pub use crate::{Network, environment::prelude::*};
+    pub use crate::{Network, consensus_config_value, environment::prelude::*};
 }
 
 use crate::environment::prelude::*;
@@ -219,6 +219,18 @@ pub trait Network:
     type TransitionID: Bech32ID<Field<Self>>;
     /// The transmission checksum type.
     type TransmissionChecksum: IntegerType;
+    /// The consensus block height.
+    type ConsensusHeight: IntegerType;
+    /// The consensus version.
+    type ConsensusVersion: IntegerType;
+
+    /// The consensus versions.
+    /// V0: The initial genesis consensus version.
+    /// V1: Update to the block reward and execution cost algorithms.
+    /// V2: Update to the number of validators and finalize scope RNG seed.
+    const CONSENSUS_VERSIONS: [(Self::ConsensusHeight, Self::ConsensusVersion); 2];
+    /// A test config.
+    const MAX_CERTIFICATES_PER_ROUND: [(Self::ConsensusHeight, u16); 2];
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8];
@@ -409,4 +421,110 @@ pub trait Network:
         root: &Field<Self>,
         leaf: &Vec<Field<Self>>,
     ) -> bool;
+}
+
+/// Returns the consensus configuration value for the specified height.
+#[macro_export]
+macro_rules! consensus_config_value {
+    ($constant:expr, $seek_height:expr) => {
+        match $constant.binary_search_by(|(height, _)| height.cmp(&$seek_height)) {
+            // If the specified height was found, return the appropriate config value.
+            Ok(index) => Some($constant[index].1),
+            // If the specified height was not found, determine whether to return an appropriate value.
+            Err(index) => {
+                // This constant is not yet in effect at this height.
+                if index == 0 {
+                    None
+                // Return the appropriate value belonging to the height lower than the sought height.
+                } else {
+                    Some($constant[index - 1].1)
+                }
+            }
+        }
+    };
+}
+
+/// Returns the height at which a specified consensus version becomes active.
+pub fn height_consensus_v<N: Network>(version: usize) -> Option<N::ConsensusHeight> {
+    Some(N::CONSENSUS_VERSIONS.get(version)?.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Ensure that the consensus constants are defined and correct at genesis.
+    /// It is possible this invariant no longer holds in the future, e.g. due to pruning or novel types of constants.
+    fn consensus_constants_at_genesis<N: Network<ConsensusHeight = u32>>() {
+        let height = N::CONSENSUS_VERSIONS.first().unwrap().0;
+        assert_eq!(height, 0);
+        let height = N::MAX_CERTIFICATES_PER_ROUND.first().unwrap().0;
+        assert_eq!(height, 0);
+    }
+
+    /// Ensure that the consensus versions are unique, incrementing by 1 and start with 0.
+    fn consensus_versions<N: Network<ConsensusVersion = u16>>() {
+        let mut previous_version = N::CONSENSUS_VERSIONS.first().unwrap().1;
+        // Ensure that the consensus versions start with 0.
+        assert_eq!(previous_version, 0);
+        // Ensure that the consensus versions are unique and incrementing by 1.
+        for (height, version) in N::CONSENSUS_VERSIONS.iter().skip(1) {
+            assert_eq!(*version, previous_version + 1);
+            previous_version = *version;
+            // Ensure that height_consensus_v returns the expected value.
+            assert_eq!(height_consensus_v::<N>(*version as usize).unwrap(), *height);
+        }
+    }
+
+    /// Ensure that keys of all consensus-relevant constants are unique and incrementing.
+    fn consensus_constants_increasing_heights<N: Network<ConsensusVersion = u16>>() {
+        // Collect all constants that are relevant for consensus.
+        let constants = [N::CONSENSUS_VERSIONS, N::MAX_CERTIFICATES_PER_ROUND];
+        // Ensure that the heights are unique and incrementing.
+        for constant in constants {
+            let mut previous_height = constant.first().unwrap().0;
+            for (height, _) in constant.iter().skip(1) {
+                assert!(*height > previous_height);
+                previous_height = *height;
+            }
+        }
+    }
+
+    /// Ensure that keys of all consensus-relevant constants are present in the consensus version heights.
+    fn consensus_constants_valid_heights<N: Network>() {
+        // Collect all constants that are relevant for consensus, except for CONSENSUS_VERSIONS.
+        let constants = [N::MAX_CERTIFICATES_PER_ROUND];
+        for constant in constants {
+            for (height, value) in constant.iter().skip(1) {
+                // Ensure that the height at which an update occurs are present in CONSENSUS_VERSIONS.
+                assert!(consensus_config_value!(N::CONSENSUS_VERSIONS, *height).is_some());
+                // Double-check that the value is as expected.
+                assert_eq!(consensus_config_value!(constant, *height).unwrap(), *value);
+            }
+        }
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn test_consensus_constants() {
+        consensus_constants_at_genesis::<MainnetV0>();
+        consensus_constants_at_genesis::<TestnetV0>();
+        consensus_constants_at_genesis::<CanaryV0>();
+
+        consensus_versions::<MainnetV0>();
+        consensus_versions::<TestnetV0>();
+        consensus_versions::<CanaryV0>();
+
+        consensus_constants_increasing_heights::<MainnetV0>();
+        consensus_constants_increasing_heights::<TestnetV0>();
+        consensus_constants_increasing_heights::<CanaryV0>();
+
+        consensus_constants_valid_heights::<MainnetV0>();
+        consensus_constants_valid_heights::<TestnetV0>();
+        consensus_constants_valid_heights::<CanaryV0>();
+
+        // Test that the number of CONSENSUS_VERSIONS is the same across networks.
+        assert_eq!(MainnetV0::CONSENSUS_VERSIONS.len(), TestnetV0::CONSENSUS_VERSIONS.len());
+        assert_eq!(MainnetV0::CONSENSUS_VERSIONS.len(), CanaryV0::CONSENSUS_VERSIONS.len());
+    }
 }

@@ -122,6 +122,10 @@ impl Environment for CanaryV0 {
 impl Network for CanaryV0 {
     /// The block hash type.
     type BlockHash = AleoID<Field<Self>, { hrp2!("ab") }>;
+    /// The consensus block height.
+    type ConsensusHeight = u32;
+    /// The consensus block height.
+    type ConsensusVersion = u16;
     /// The ratification ID type.
     type RatificationID = AleoID<Field<Self>, { hrp2!("ar") }>;
     /// The state root type.
@@ -146,6 +150,9 @@ impl Network for CanaryV0 {
     /// The block height from which consensus V3 rules apply.
     #[cfg(any(test, feature = "test"))]
     const CONSENSUS_V3_HEIGHT: u32 = 11;
+    /// The block heights at which consensus versions are updated.
+    /// For a description of each upgrade, see the declaration of `CONSENSUS_VERSIONS` in the trait.
+    const CONSENSUS_VERSIONS: [(Self::ConsensusHeight, Self::ConsensusVersion); 2] = [(0, 0), (100, 1)];
     /// The network edition.
     const EDITION: u16 = 0;
     /// The genesis block coinbase target.
@@ -168,6 +175,9 @@ impl Network for CanaryV0 {
     const MAX_CERTIFICATES: u16 = 100;
     /// The maximum number of certificates in a batch before consensus V3 rules apply.
     const MAX_CERTIFICATES_BEFORE_V3: u16 = 100;
+    // The maximum number of certificates per round for each consensus version.
+    // This effectively limits the number of validators per round as well.
+    const MAX_CERTIFICATES_PER_ROUND: [(Self::ConsensusHeight, u16); 2] = [(0, 16), (1, 25)];
     /// The network name.
     const NAME: &'static str = "Aleo Canary (v0)";
 
