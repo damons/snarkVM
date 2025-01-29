@@ -134,11 +134,11 @@ impl Network for TestnetV0 {
     type TransmissionChecksum = u128;
 
     /// The block heights at which consensus versions are updated.
-    /// For a description of each upgrade, see the declaration of `CONSENSUS_VERSIONS` in the trait.
+    /// Documentation for what is changed at each version can be found in `Network::HEIGHT_V`.
     #[cfg(not(any(test, feature = "test")))]
     const CONSENSUS_VERSIONS: [(u32, u16); 3] = [(0, 1), (2_950_000, 2), (4_800_000, 3)];
     /// The block heights at which consensus versions are updated.
-    /// For a description of each upgrade, see the declaration of `CONSENSUS_VERSIONS` in the trait.
+    /// Documentation for what is changed at each version can be found in `Network::HEIGHT_V`.
     #[cfg(any(test, feature = "test"))]
     const CONSENSUS_VERSIONS: [(u32, u16); 3] = [(0, 1), (10, 2), (11, 3)];
     /// The network edition.
