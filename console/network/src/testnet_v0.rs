@@ -122,10 +122,6 @@ impl Environment for TestnetV0 {
 impl Network for TestnetV0 {
     /// The block hash type.
     type BlockHash = AleoID<Field<Self>, { hrp2!("ab") }>;
-    /// The consensus block height.
-    type ConsensusHeight = u32;
-    /// The consensus block height.
-    type ConsensusVersion = u16;
     /// The ratification ID type.
     type RatificationID = AleoID<Field<Self>, { hrp2!("ar") }>;
     /// The state root type.
@@ -137,22 +133,14 @@ impl Network for TestnetV0 {
     /// The transmission checksum type.
     type TransmissionChecksum = u128;
 
-    /// The block height from which consensus V2 rules apply.
-    #[cfg(not(any(test, feature = "test")))]
-    const CONSENSUS_V2_HEIGHT: u32 = 2_950_000;
-    /// The block height from which consensus V2 rules apply.
-    #[cfg(any(test, feature = "test"))]
-    const CONSENSUS_V2_HEIGHT: u32 = 10;
-    // TODO: (raychu86): Update this value based on the desired testnet height.
-    // The block height from which consensus V3 rules apply.
-    #[cfg(not(any(test, feature = "test")))]
-    const CONSENSUS_V3_HEIGHT: u32 = 4_800_000;
-    /// The block height from which consensus V3 rules apply.
-    #[cfg(any(test, feature = "test"))]
-    const CONSENSUS_V3_HEIGHT: u32 = 11;
     /// The block heights at which consensus versions are updated.
     /// For a description of each upgrade, see the declaration of `CONSENSUS_VERSIONS` in the trait.
-    const CONSENSUS_VERSIONS: [(Self::ConsensusHeight, Self::ConsensusVersion); 2] = [(0, 0), (100, 1)];
+    #[cfg(not(any(test, feature = "test")))]
+    const CONSENSUS_VERSIONS: [(u32, u16); 3] = [(0, 1), (2_950_000, 2), (4_800_000, 3)];
+    /// The block heights at which consensus versions are updated.
+    /// For a description of each upgrade, see the declaration of `CONSENSUS_VERSIONS` in the trait.
+    #[cfg(any(test, feature = "test"))]
+    const CONSENSUS_VERSIONS: [(u32, u16); 3] = [(0, 1), (10, 2), (11, 3)];
     /// The network edition.
     const EDITION: u16 = 0;
     /// The genesis block coinbase target.
@@ -172,14 +160,24 @@ impl Network for TestnetV0 {
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str = MainnetV0::INCLUSION_FUNCTION_NAME;
     /// The maximum number of certificates in a batch.
+    #[cfg(any(test, feature = "test"))] // TODO: or should we use the 'test-helpers' feature?
+    const MAX_CERTIFICATES: u16 = 25;
+    /// The maximum number of certificates in a batch.
+    #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
     const MAX_CERTIFICATES: u16 = 100;
-    /// The maximum number of certificates in a batch before consensus V3 rules apply.
-    const MAX_CERTIFICATES_BEFORE_V3: u16 = 100;
-    // The maximum number of certificates per round for each consensus version.
-    // This effectively limits the number of validators per round as well.
-    const MAX_CERTIFICATES_PER_ROUND: [(Self::ConsensusHeight, u16); 2] = [(0, 16), (1, 25)];
+    /// The maximum number of validators in a committee.
+    #[cfg(any(test, feature = "test"))] // TODO: or should we use the 'test-helpers' feature?
+    const MAX_COMMITTEE_SIZE: [(u32, u16); 2] = [(0, 16), (4_800_000, 25)];
+    /// The maximum number of validators in a committee.
+    #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
+    const MAX_COMMITTEE_SIZE: [(u32, u16); 2] = [(0, 100), (4_800_000, 100)];
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
+
+    /// Returns the height at which a specified consensus version becomes active.
+    fn HEIGHT_V(version: usize) -> Result<u32> {
+        Ok(Self::CONSENSUS_VERSIONS.get(version).ok_or(anyhow!("Invalid consensus version"))?.0)
+    }
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8] {

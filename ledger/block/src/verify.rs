@@ -415,7 +415,7 @@ impl<N: Network> Block<N> {
             time_since_last_block,
             expected_coinbase_reward,
             expected_transaction_fees,
-        );
+        )?;
         // Compute the expected puzzle reward.
         let expected_puzzle_reward = puzzle_reward(expected_coinbase_reward);
 

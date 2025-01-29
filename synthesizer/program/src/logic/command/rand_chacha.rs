@@ -89,10 +89,10 @@ impl<N: Network> RandChaCha<N> {
         let seeds: Vec<_> = self.operands.iter().map(|operand| registers.load(stack, operand)).try_collect()?;
 
         // Construct the random seed.
-        // If the height is greater than or equal to `CONSENSUS_V3_HEIGHT`, then use the new preimage definition.
+        // If the height is greater than or equal to consensus V3, then use the new preimage definition.
         // The difference is that a nonce is also included in the new definition.
-        let preimage = match registers.state().block_height() < N::CONSENSUS_V3_HEIGHT {
-            true => to_bits_le![
+        let preimage = match registers.state().block_height() {
+            height if height < N::HEIGHT_V(3)? => to_bits_le![
                 registers.state().random_seed(),
                 **registers.transition_id(),
                 stack.program_id(),
@@ -101,7 +101,7 @@ impl<N: Network> RandChaCha<N> {
                 self.destination_type.type_id(),
                 seeds
             ],
-            false => to_bits_le![
+            _ => to_bits_le![
                 registers.state().random_seed(),
                 **registers.transition_id(),
                 stack.program_id(),
