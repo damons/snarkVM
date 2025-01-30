@@ -515,12 +515,9 @@ mod tests {
 
     /// Ensure that version of all consensus-relevant constants are present in the consensus version heights.
     fn consensus_constants_valid_heights<N: Network>() {
-        for (consensus_version, value) in N::MAX_COMMITTEE_SIZE.iter() {
-            println!("Checking version {:?} value {}", *consensus_version, value);
+        for (version, value) in N::MAX_COMMITTEE_SIZE.iter() {
             // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
-            let height =
-                N::CONSENSUS_VERSION_HEIGHTS.iter().find(|(version, _)| *version == *consensus_version).unwrap().1;
-            println!("Found height {}", height);
+            let height = N::CONSENSUS_VERSION_HEIGHTS.iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
             // Double-check that consensus_config_value returns the correct value.
             assert_eq!(consensus_config_value!(N, MAX_COMMITTEE_SIZE, height).unwrap(), *value);
         }
