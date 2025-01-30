@@ -214,7 +214,7 @@ pub trait Network:
     /// The transmission checksum type.
     type TransmissionChecksum: IntegerType;
 
-    /// The consensus versions.
+    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3];
     /// The maximum number of certificates in a batch.
@@ -223,7 +223,7 @@ pub trait Network:
     //  declaration of migration based on round number rather than block height.
     //  Increasing this value will require a migration to prevent forking during network upgrades.
     const MAX_CERTIFICATES: u16;
-    /// The maximum number of validators in a committee.
+    /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: If value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
     //  declaration of migration based on round number rather than block height.

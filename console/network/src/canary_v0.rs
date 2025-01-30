@@ -133,12 +133,12 @@ impl Network for CanaryV0 {
     /// The transmission checksum type.
     type TransmissionChecksum = u128;
 
-    /// The block heights at which consensus versions are updated.
+    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     #[cfg(not(any(test, feature = "test")))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
         [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 2_900_000), (ConsensusVersion::V3, 4_560_000)];
-    /// The block heights at which consensus versions are updated.
+    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     #[cfg(any(test, feature = "test"))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
@@ -167,10 +167,10 @@ impl Network for CanaryV0 {
     /// The maximum number of certificates in a batch.
     #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
     const MAX_CERTIFICATES: u16 = 100;
-    /// The maximum number of validators in a committee.
+    /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     #[cfg(any(test, feature = "test"))] // TODO: or should we use the 'test-helpers' feature?
     const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25)];
-    /// The maximum number of validators in a committee.
+    /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
     const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100)];
     /// The network name.
