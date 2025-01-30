@@ -1001,7 +1001,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Compute the next committee size.
                 let next_committee_size = committee_members.len().saturating_add(num_new_validators);
                 // Determine the maximum committee size to use.
-                let max_committee_size = consensus_config_value!(N::MAX_COMMITTEE_SIZE, state.block_height())
+                let max_committee_size = consensus_config_value!(N, MAX_COMMITTEE_SIZE, state.block_height())
                     .ok_or(anyhow!("Failed to retrieve the maximum committee size"))?;
                 // Check that the number of new validators being bonded does not exceed the maximum number of validators.
                 match next_committee_size > max_committee_size as usize {
@@ -1053,7 +1053,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Ratify::Genesis(..) expected a genesis committee round of 0"
                     );
                     // Ensure that the number of members in the committee does not exceed the maximum.
-                    let max_committee_size = consensus_config_value!(N::MAX_COMMITTEE_SIZE, state.block_height())
+                    let max_committee_size = consensus_config_value!(N, MAX_COMMITTEE_SIZE, state.block_height())
                         .ok_or(anyhow!("Ratify::Genesis(..) failed to retrieve the maximum committee size"))?;
                     ensure!(
                         committee.members().len() <= max_committee_size as usize,
@@ -1820,7 +1820,7 @@ finalize transfer_public:
 
         // Initialize the validators with the maximum number of validators.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork::MAX_COMMITTEE_SIZE, 0).unwrap() as usize,
+            consensus_config_value!(CurrentNetwork, MAX_COMMITTEE_SIZE, 0).unwrap() as usize,
             rng,
         );
 
@@ -1921,7 +1921,7 @@ finalize transfer_public:
 
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork::MAX_COMMITTEE_SIZE, 0).unwrap() as usize + 1,
+            consensus_config_value!(CurrentNetwork, MAX_COMMITTEE_SIZE, 0).unwrap() as usize + 1,
             rng,
         );
 
@@ -1978,7 +1978,7 @@ finalize transfer_public:
 
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork::MAX_COMMITTEE_SIZE, 0).unwrap() as usize,
+            consensus_config_value!(CurrentNetwork, MAX_COMMITTEE_SIZE, 0).unwrap() as usize,
             rng,
         );
 
@@ -2078,7 +2078,7 @@ finalize transfer_public:
 
         // Check that the new committee size is greater than the maximum committee size before the migration.
         assert!(
-            consensus_config_value!(CurrentNetwork::MAX_COMMITTEE_SIZE, 0).unwrap()
+            consensus_config_value!(CurrentNetwork, MAX_COMMITTEE_SIZE, 0).unwrap()
                 < Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE
         );
 
@@ -2646,7 +2646,7 @@ finalize compute:
         // Reset the validators.
         // Note: We use a smaller committee size to ensure that there is enough supply to allocate to the validators and genesis block transactions.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork::MAX_COMMITTEE_SIZE, 0).unwrap() as usize,
+            consensus_config_value!(CurrentNetwork, MAX_COMMITTEE_SIZE, 0).unwrap() as usize,
             rng,
         );
 
@@ -2691,7 +2691,7 @@ finalize compute:
         // Construct the validators.
         // Note: We use a smaller committee size to ensure that there is enough supply to allocate to the validators and genesis block transactions.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork::MAX_COMMITTEE_SIZE, 0).unwrap() as usize / 4,
+            consensus_config_value!(CurrentNetwork, MAX_COMMITTEE_SIZE, 0).unwrap() as usize / 4,
             rng,
         );
 

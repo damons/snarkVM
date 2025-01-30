@@ -70,7 +70,7 @@ pub(crate) type VarunaProvingKey<N> = CircuitProvingKey<<N as Environment>::Pair
 pub(crate) type VarunaVerifyingKey<N> = CircuitVerifyingKey<<N as Environment>::PairingCurve>;
 
 /// The different consensus versions.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum ConsensusVersion {
     V1 = 0,
     V2 = 1,
@@ -216,7 +216,7 @@ pub trait Network:
 
     /// The consensus versions.
     /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
-    const CONSENSUS_VERSIONS: [(u32, ConsensusVersion); 3];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3];
     /// The maximum number of certificates in a batch.
     //  Note: This value must **not** be changed without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
@@ -228,7 +228,7 @@ pub trait Network:
     //  Decreasing this value will break backwards compatibility of serialization without explicit
     //  declaration of migration based on round number rather than block height.
     //  Increasing this value will require a migration to prevent forking during network upgrades.
-    const MAX_COMMITTEE_SIZE: [(u32, u16); 2];
+    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2];
 
     /// Returns the height at which a specified consensus version becomes active.
     ///
@@ -435,22 +435,34 @@ pub trait Network:
 /// Returns the consensus configuration value for the specified height.
 ///
 /// Arguments:
+/// - `$network`: The network to use the constant of.
 /// - `$constant`: The constant to search a value of.
 /// - `$seek_height`: The block height to search the value for.
 #[macro_export]
 macro_rules! consensus_config_value {
-    ($constant:expr, $seek_height:expr) => {
-        match $constant.binary_search_by(|(height, _)| height.cmp(&$seek_height)) {
-            // If the specified height was found, return the appropriate config value.
-            Ok(index) => Some($constant[index].1),
-            // If the specified height was not found, determine whether to return an appropriate value.
+    ($network:ident, $constant:ident, $seek_height:expr) => {
+        // Search the consensus version enacted at the specified height.
+        match $network::CONSENSUS_VERSION_HEIGHTS.binary_search_by(|(_, height)| height.cmp(&$seek_height)) {
+            // If a consensus version was found, return the corresponding consensus value.
+            Ok(index) => {
+                let consensus_version = $network::CONSENSUS_VERSION_HEIGHTS[index].0;
+                match $network::$constant.binary_search_by(|(version, _)| version.cmp(&consensus_version)) {
+                    Ok(index) => Some($network::$constant[index].1),
+                    Err(_) => None,
+                }
+            }
+            // If the specified height was not found, determine whether to return an appropriate version.
             Err(index) => {
                 // This constant is not yet in effect at this height.
                 if index == 0 {
                     None
-                // Return the appropriate value belonging to the height lower than the sought height.
+                // Return the appropriate value belonging to the height *lower* than the sought height.
                 } else {
-                    Some($constant[index - 1].1)
+                    let consensus_version = $network::CONSENSUS_VERSION_HEIGHTS[index - 1].0;
+                    match $network::$constant.binary_search_by(|(version, _)| version.cmp(&consensus_version)) {
+                        Ok(index) => Some($network::$constant[index].1),
+                        Err(_) => None,
+                    }
                 }
             }
         }
@@ -464,52 +476,58 @@ mod tests {
     /// Ensure that the consensus constants are defined and correct at genesis.
     /// It is possible this invariant no longer holds in the future, e.g. due to pruning or novel types of constants.
     fn consensus_constants_at_genesis<N: Network>() {
-        let height = N::CONSENSUS_VERSIONS.first().unwrap().0;
+        let height = N::CONSENSUS_VERSION_HEIGHTS.first().unwrap().1;
         assert_eq!(height, 0);
-        let height = N::MAX_COMMITTEE_SIZE.first().unwrap().0;
-        assert_eq!(height, 0);
+        let consensus_version = N::CONSENSUS_VERSION_HEIGHTS.first().unwrap().0;
+        assert_eq!(consensus_version as usize, 0);
+        let consensus_version = N::MAX_COMMITTEE_SIZE.first().unwrap().0;
+        assert_eq!(consensus_version as usize, 0);
     }
 
-    /// Ensure that the consensus versions are unique, incrementing by 1 and start with 0.
+    /// Ensure that the consensus *versions* are unique, incrementing and start with 0.
     fn consensus_versions<N: Network>() {
-        let mut previous_version = N::CONSENSUS_VERSIONS.first().unwrap().1;
+        let mut previous_version = N::CONSENSUS_VERSION_HEIGHTS.first().unwrap().0;
         // Ensure that the consensus versions start with 0.
         assert_eq!(previous_version as usize, 0);
         // Ensure that the consensus versions are unique and incrementing by 1.
-        for (height, version) in N::CONSENSUS_VERSIONS.iter().skip(1) {
+        for (version, _) in N::CONSENSUS_VERSION_HEIGHTS.iter().skip(1) {
             assert_eq!(*version as usize, previous_version as usize + 1);
             previous_version = *version;
+        }
+        // Ensure that the consensus versions are unique and incrementing.
+        let mut previous_version = N::MAX_COMMITTEE_SIZE.first().unwrap().0;
+        for (version, _) in N::MAX_COMMITTEE_SIZE.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
+    }
+
+    /// Ensure that consensus *heights* are unique and incrementing.
+    fn consensus_constants_increasing_heights<N: Network>() {
+        let mut previous_height = N::CONSENSUS_VERSION_HEIGHTS.first().unwrap().1;
+        for (version, height) in N::CONSENSUS_VERSION_HEIGHTS.iter().skip(1) {
+            assert!(*height > previous_height);
+            previous_height = *height;
             // Ensure that N::CONSENSUS_HEIGHT returns the expected value.
             assert_eq!(N::CONSENSUS_HEIGHT(*version).unwrap(), *height);
         }
     }
 
-    /// Ensure that keys of all consensus-relevant constants are unique and incrementing.
-    fn consensus_constants_increasing_heights<N: Network>() {
-        let mut previous_height = N::CONSENSUS_VERSIONS.first().unwrap().0;
-        for (height, _) in N::CONSENSUS_VERSIONS.iter().skip(1) {
-            assert!(*height > previous_height);
-            previous_height = *height;
-        }
-        let mut previous_height = N::MAX_COMMITTEE_SIZE.first().unwrap().0;
-        for (height, _) in N::MAX_COMMITTEE_SIZE.iter().skip(1) {
-            assert!(*height > previous_height);
-            previous_height = *height;
-        }
-    }
-
-    /// Ensure that keys of all consensus-relevant constants are present in the consensus version heights.
+    /// Ensure that version of all consensus-relevant constants are present in the consensus version heights.
     fn consensus_constants_valid_heights<N: Network>() {
-        for (height, value) in N::MAX_COMMITTEE_SIZE.iter().skip(1) {
-            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSIONS.
-            assert!(consensus_config_value!(N::CONSENSUS_VERSIONS, *height).is_some());
-            // Double-check that the value is as expected.
-            assert_eq!(consensus_config_value!(N::MAX_COMMITTEE_SIZE, *height).unwrap(), *value);
+        for (consensus_version, value) in N::MAX_COMMITTEE_SIZE.iter() {
+            println!("Checking version {:?} value {}", *consensus_version, value);
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height =
+                N::CONSENSUS_VERSION_HEIGHTS.iter().find(|(version, _)| *version == *consensus_version).unwrap().1;
+            println!("Found height {}", height);
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_COMMITTEE_SIZE, height).unwrap(), *value);
         }
     }
 
     /// Ensure that `MAX_COMMITTEE_SIZE` strictly increases and is correctly defined.
-    /// If this
+    /// See the constant declaration for an explanation why.
     fn max_certificates_increasing<N: Network>() {
         let mut previous_value = N::MAX_COMMITTEE_SIZE.first().unwrap().1;
         for (_, value) in N::MAX_COMMITTEE_SIZE.iter().skip(1) {
@@ -517,13 +535,14 @@ mod tests {
             previous_value = *value;
         }
         // Ensure that the last value is equal to `MAX_CERTIFICATES`.
+        // See the constant declaration for an explanation why.
         assert_eq!(N::MAX_CERTIFICATES, previous_value);
     }
 
     /// Ensure that the number of constant definitions is the same across networks.
     fn constants_equal_length<N1: Network, N2: Network, N3: Network>() {
         // If we can construct an array, that means the underlying types must be the same.
-        let _ = [N1::CONSENSUS_VERSIONS, N2::CONSENSUS_VERSIONS, N3::CONSENSUS_VERSIONS];
+        let _ = [N1::CONSENSUS_VERSION_HEIGHTS, N2::CONSENSUS_VERSION_HEIGHTS, N3::CONSENSUS_VERSION_HEIGHTS];
         let _ = [N1::MAX_COMMITTEE_SIZE, N2::MAX_COMMITTEE_SIZE, N3::MAX_COMMITTEE_SIZE];
     }
 

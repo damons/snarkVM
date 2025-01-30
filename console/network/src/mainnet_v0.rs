@@ -137,13 +137,13 @@ impl Network for MainnetV0 {
     /// The block heights at which consensus versions are updated.
     /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     #[cfg(not(any(test, feature = "test")))]
-    const CONSENSUS_VERSIONS: [(u32, ConsensusVersion); 3] =
-        [(0, ConsensusVersion::V1), (2_800_000, ConsensusVersion::V2), (4_900_000, ConsensusVersion::V3)];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
+        [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 2_800_000), (ConsensusVersion::V3, 4_900_000)];
     /// The block heights at which consensus versions are updated.
     /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     #[cfg(any(test, feature = "test"))]
-    const CONSENSUS_VERSIONS: [(u32, ConsensusVersion); 3] =
-        [(0, ConsensusVersion::V1), (10, ConsensusVersion::V2), (11, ConsensusVersion::V3)];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
+        [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 10), (ConsensusVersion::V3, 11)];
     /// The network edition.
     const EDITION: u16 = 0;
     /// The genesis block coinbase target.
@@ -174,19 +174,15 @@ impl Network for MainnetV0 {
     const MAX_CERTIFICATES: u16 = 100;
     /// The maximum number of validators in a committee.
     #[cfg(any(test, feature = "test"))] // TODO: or should we use the 'test-helpers' feature?
-    const MAX_COMMITTEE_SIZE: [(u32, u16); 2] = [(0, 16), (4_900_000, 25)];
+    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25)];
     /// The maximum number of validators in a committee.
     #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
-    const MAX_COMMITTEE_SIZE: [(u32, u16); 2] = [(0, 100), (4_900_000, 100)];
+    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100)];
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
 
-    /// Returns the height at which a specified consensus version becomes active.
-    // fn CONSENSUS_HEIGHT(version: usize) -> Result<u32> {
-    //     Ok(Self::CONSENSUS_VERSIONS.get(version).ok_or(anyhow!("Invalid consensus version"))?.0)
-    // }
     fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> Result<u32> {
-        Ok(Self::CONSENSUS_VERSIONS.get(version as usize).ok_or(anyhow!("Invalid consensus version"))?.0)
+        Ok(Self::CONSENSUS_VERSION_HEIGHTS.get(version as usize).ok_or(anyhow!("Invalid consensus version"))?.1)
     }
 
     /// Returns the genesis block bytes.
