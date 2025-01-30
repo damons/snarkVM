@@ -49,7 +49,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
                 let block_height = query.current_block_height()?;
                 let (minimum_execution_cost, (_, _)) = match block_height {
-                    height if height < N::HEIGHT_V(2)? => execution_cost_v1(&self.process().read(), &execution)?,
+                    height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V2)? => {
+                        execution_cost_v1(&self.process().read(), &execution)?
+                    }
                     _ => execution_cost_v2(&self.process().read(), &execution)?,
                 };
                 // Compute the execution ID.
@@ -390,7 +392,7 @@ mod tests {
         assert_eq!(51_060, *transaction.base_fee_amount().unwrap());
 
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        for _ in 0..CurrentNetwork::HEIGHT_V(2).unwrap() {
+        for _ in 0..CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap() {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
@@ -453,7 +455,7 @@ finalize test:
         assert_eq!(62_776, *transaction.base_fee_amount().unwrap());
 
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        for _ in 1..CurrentNetwork::HEIGHT_V(2).unwrap() {
+        for _ in 1..CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap() {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();

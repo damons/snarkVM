@@ -135,13 +135,15 @@ impl Network for MainnetV0 {
     type TransmissionChecksum = u128;
 
     /// The block heights at which consensus versions are updated.
-    /// Documentation for what is changed at each version can be found in `Network::HEIGHT_V`.
+    /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     #[cfg(not(any(test, feature = "test")))]
-    const CONSENSUS_VERSIONS: [(u32, u16); 3] = [(0, 1), (2_800_000, 2), (4_900_000, 3)];
+    const CONSENSUS_VERSIONS: [(u32, ConsensusVersion); 3] =
+        [(0, ConsensusVersion::V1), (2_800_000, ConsensusVersion::V2), (4_900_000, ConsensusVersion::V3)];
     /// The block heights at which consensus versions are updated.
-    /// Documentation for what is changed at each version can be found in `Network::HEIGHT_V`.
+    /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
     #[cfg(any(test, feature = "test"))]
-    const CONSENSUS_VERSIONS: [(u32, u16); 3] = [(0, 1), (10, 2), (11, 3)];
+    const CONSENSUS_VERSIONS: [(u32, ConsensusVersion); 3] =
+        [(0, ConsensusVersion::V1), (10, ConsensusVersion::V2), (11, ConsensusVersion::V3)];
     /// The network edition.
     const EDITION: u16 = 0;
     /// The genesis block coinbase target.
@@ -180,8 +182,11 @@ impl Network for MainnetV0 {
     const NAME: &'static str = "Aleo Mainnet (v0)";
 
     /// Returns the height at which a specified consensus version becomes active.
-    fn HEIGHT_V(version: usize) -> Result<u32> {
-        Ok(Self::CONSENSUS_VERSIONS.get(version).ok_or(anyhow!("Invalid consensus version"))?.0)
+    // fn CONSENSUS_HEIGHT(version: usize) -> Result<u32> {
+    //     Ok(Self::CONSENSUS_VERSIONS.get(version).ok_or(anyhow!("Invalid consensus version"))?.0)
+    // }
+    fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> Result<u32> {
+        Ok(Self::CONSENSUS_VERSIONS.get(version as usize).ok_or(anyhow!("Invalid consensus version"))?.0)
     }
 
     /// Returns the genesis block bytes.

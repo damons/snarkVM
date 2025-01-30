@@ -1911,7 +1911,7 @@ finalize transfer_public:
     #[test]
     fn test_genesis_num_validators_does_not_exceed_maximum_before_v3() {
         // This test will fail if the consensus v3 height is 0
-        assert_ne!(0, CurrentNetwork::HEIGHT_V(3).unwrap());
+        assert_ne!(0, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap());
 
         // Initialize an RNG.
         let rng = &mut TestRng::default();
@@ -1968,7 +1968,7 @@ finalize transfer_public:
     #[allow(clippy::assertions_on_constants)]
     fn test_migration_v3_maximum_validator_increase() {
         // This test will fail if the consensus v3 height is 0
-        assert_ne!(0, CurrentNetwork::HEIGHT_V(3).unwrap());
+        assert_ne!(0, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap());
 
         // Initialize an RNG.
         let rng = &mut TestRng::default();
@@ -2067,7 +2067,8 @@ finalize transfer_public:
         // Update the VM to the migration block height
         let private_key = test_helpers::sample_genesis_private_key(rng);
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        while vm.block_store().current_block_height() < CurrentNetwork::HEIGHT_V(3).unwrap() {
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap()
+        {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
@@ -2085,7 +2086,7 @@ finalize transfer_public:
         let transactions = [bond_validator_transaction.clone()];
         let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
             .atomic_speculate(
-                sample_finalize_state(CurrentNetwork::HEIGHT_V(3).unwrap()),
+                sample_finalize_state(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap()),
                 CurrentNetwork::BLOCK_TIME as i64,
                 None,
                 vec![],

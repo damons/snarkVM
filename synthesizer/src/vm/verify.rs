@@ -244,7 +244,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             .find_block_height_from_state_root(execution.global_state_root())?
                             .unwrap_or_default();
                         let (cost, (_, _)) = match block_height {
-                            height if height < N::HEIGHT_V(2)? => execution_cost_v1(&self.process().read(), execution)?,
+                            height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V2)? => {
+                                execution_cost_v1(&self.process().read(), execution)?
+                            }
                             _ => execution_cost_v2(&self.process().read(), execution)?,
                         };
                         // Ensure the fee is sufficient to cover the cost.
@@ -823,7 +825,7 @@ function compute:
         // Update the VM to the migration block height
         let private_key = test_helpers::sample_genesis_private_key(rng);
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        for _ in 0..CurrentNetwork::HEIGHT_V(2).unwrap() {
+        for _ in 0..CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap() {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();

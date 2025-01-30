@@ -36,7 +36,7 @@ mod testnet_v0;
 pub use testnet_v0::*;
 
 pub mod prelude {
-    pub use crate::{Network, consensus_config_value, environment::prelude::*};
+    pub use crate::{ConsensusVersion, Network, consensus_config_value, environment::prelude::*};
 }
 
 use crate::environment::prelude::*;
@@ -68,6 +68,14 @@ pub type FiatShamirParameters<N> = <FiatShamir<N> as AlgebraicSponge<Fq<N>, 2>>:
 /// Helper types for the Varuna proving and verifying key.
 pub(crate) type VarunaProvingKey<N> = CircuitProvingKey<<N as Environment>::PairingCurve, VarunaHidingMode>;
 pub(crate) type VarunaVerifyingKey<N> = CircuitVerifyingKey<<N as Environment>::PairingCurve>;
+
+/// The different consensus versions.
+#[derive(Debug, Copy, Clone)]
+pub enum ConsensusVersion {
+    V1 = 0,
+    V2 = 1,
+    V3 = 2,
+}
 
 pub trait Network:
     'static
@@ -207,8 +215,8 @@ pub trait Network:
     type TransmissionChecksum: IntegerType;
 
     /// The consensus versions.
-    /// Documentation for what is changed at each version can be found in `Network::HEIGHT_V`.
-    const CONSENSUS_VERSIONS: [(u32, u16); 3];
+    /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
+    const CONSENSUS_VERSIONS: [(u32, ConsensusVersion); 3];
     /// The maximum number of certificates in a batch.
     //  Note: This value must **not** be changed without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
@@ -221,6 +229,17 @@ pub trait Network:
     //  declaration of migration based on round number rather than block height.
     //  Increasing this value will require a migration to prevent forking during network upgrades.
     const MAX_COMMITTEE_SIZE: [(u32, u16); 2];
+
+    /// Returns the height at which a specified consensus version becomes active.
+    ///
+    /// V1: The initial genesis consensus version.
+    ///
+    /// V2: Update to the block reward and execution cost algorithms.
+    ///
+    /// V3: Update to the number of validators and finalize scope RNG seed.
+    ///
+    #[allow(non_snake_case)]
+    fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> anyhow::Result<u32>;
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8];
@@ -411,17 +430,6 @@ pub trait Network:
         root: &Field<Self>,
         leaf: &Vec<Field<Self>>,
     ) -> bool;
-
-    /// Returns the height at which a specified consensus version becomes active.
-    ///
-    /// V1: The initial genesis consensus version.
-    ///
-    /// V2: Update to the block reward and execution cost algorithms.
-    ///
-    /// V3: Update to the number of validators and finalize scope RNG seed.
-    ///
-    #[allow(non_snake_case)]
-    fn HEIGHT_V(version: usize) -> anyhow::Result<u32>;
 }
 
 /// Returns the consensus configuration value for the specified height.
@@ -465,14 +473,14 @@ mod tests {
     /// Ensure that the consensus versions are unique, incrementing by 1 and start with 0.
     fn consensus_versions<N: Network>() {
         let mut previous_version = N::CONSENSUS_VERSIONS.first().unwrap().1;
-        // Ensure that the consensus versions start with 1.
-        assert_eq!(previous_version, 1);
+        // Ensure that the consensus versions start with 0.
+        assert_eq!(previous_version as usize, 0);
         // Ensure that the consensus versions are unique and incrementing by 1.
         for (height, version) in N::CONSENSUS_VERSIONS.iter().skip(1) {
-            assert_eq!(*version, previous_version + 1);
+            assert_eq!(*version as usize, previous_version as usize + 1);
             previous_version = *version;
-            // Ensure that N::HEIGHT_V returns the expected value.
-            assert_eq!(N::HEIGHT_V(*version as usize).unwrap(), *height);
+            // Ensure that N::CONSENSUS_HEIGHT returns the expected value.
+            assert_eq!(N::CONSENSUS_HEIGHT(*version).unwrap(), *height);
         }
     }
 

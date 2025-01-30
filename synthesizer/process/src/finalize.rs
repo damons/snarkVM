@@ -106,7 +106,7 @@ impl<N: Network> Process<N> {
         // Construct the call graph.
         // If the height is greater than or equal to `CONSENSUS_V3_HEIGHT`, then provide an empty call graph, as it is no longer used during finalization.
         let call_graph = match state.block_height() {
-            height if height < N::HEIGHT_V(3)? => self.construct_call_graph(execution)?,
+            height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V3)? => self.construct_call_graph(execution)?,
             _ => HashMap::new(),
         };
 
@@ -166,7 +166,9 @@ fn finalize_fee_transition<N: Network, P: FinalizeStorage<N>>(
     // Construct the call graph.
     // If the height is greater than or equal to `CONSENSUS_V3_HEIGHT`, then provide an empty call graph, as it is no longer used during finalization.
     let call_graph = match state.block_height() {
-        height if height < N::HEIGHT_V(3)? => HashMap::from([(*fee.transition_id(), Vec::new())]),
+        height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V3)? => {
+            HashMap::from([(*fee.transition_id(), Vec::new())])
+        }
         _ => HashMap::new(),
     };
 
@@ -277,7 +279,7 @@ fn finalize_transition<N: Network, P: FinalizeStorage<N>>(
                     // If the block height is greater than or equal to `CONSENSUS_V3_HEIGHT`, then use the top-level transition ID.
                     // Otherwise, query the call graph for the child transition ID corresponding to the future that is being awaited.
                     let transition_id = match state.block_height() {
-                        height if height < N::HEIGHT_V(3)? => {
+                        height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V3)? => {
                             // Get the current transition ID.
                             let transition_id = registers.transition_id();
                             // Get the child transition ID.
