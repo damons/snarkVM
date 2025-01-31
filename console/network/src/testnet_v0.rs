@@ -162,16 +162,16 @@ impl Network for TestnetV0 {
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str = MainnetV0::INCLUSION_FUNCTION_NAME;
     /// The maximum number of certificates in a batch.
-    #[cfg(any(test, feature = "test"))] // TODO: or should we use the 'test-helpers' feature?
+    #[cfg(any(test, feature = "test"))]
     const MAX_CERTIFICATES: u16 = 25;
     /// The maximum number of certificates in a batch.
-    #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
+    #[cfg(not(any(test, feature = "test")))]
     const MAX_CERTIFICATES: u16 = 100;
     /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
-    #[cfg(any(test, feature = "test"))] // TODO: or should we use the 'test-helpers' feature?
+    #[cfg(any(test, feature = "test"))]
     const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25)];
     /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
-    #[cfg(not(any(test, feature = "test")))] // TODO: or should we use the 'test-helpers' feature?
+    #[cfg(not(any(test, feature = "test")))]
     const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100)];
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
