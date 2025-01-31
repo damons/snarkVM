@@ -72,8 +72,11 @@ pub(crate) type VarunaVerifyingKey<N> = CircuitVerifyingKey<<N as Environment>::
 /// The different consensus versions.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum ConsensusVersion {
+    /// V1: The initial genesis consensus version.
     V1 = 0,
+    /// V2: Update to the block reward and execution cost algorithms.
     V2 = 1,
+    /// V3: Update to the number of validators and finalize scope RNG seed.
     V3 = 2,
 }
 
@@ -215,7 +218,7 @@ pub trait Network:
     type TransmissionChecksum: IntegerType;
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
+    /// Documentation for what is changed at each version can be found in `enum ConsensusVersion`.
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3];
     /// The maximum number of certificates in a batch.
     //  Note: This value must **not** be changed without considering the impact on serialization.
@@ -231,13 +234,6 @@ pub trait Network:
     const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2];
 
     /// Returns the height at which a specified consensus version becomes active.
-    ///
-    /// V1: The initial genesis consensus version.
-    ///
-    /// V2: Update to the block reward and execution cost algorithms.
-    ///
-    /// V3: Update to the number of validators and finalize scope RNG seed.
-    ///
     #[allow(non_snake_case)]
     fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> anyhow::Result<u32>;
 

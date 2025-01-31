@@ -134,12 +134,12 @@ impl Network for TestnetV0 {
     type TransmissionChecksum = u128;
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
+    /// Documentation for what is changed at each version can be found in `enum ConsensusVersion`.
     #[cfg(not(any(test, feature = "test")))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
         [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 2_950_000), (ConsensusVersion::V3, 4_800_000)];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `Network::CONSENSUS_HEIGHT`.
+    /// Documentation for what is changed at each version can be found in `enum ConsensusVersion`.
     #[cfg(any(test, feature = "test"))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
         [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 10), (ConsensusVersion::V3, 11)];
