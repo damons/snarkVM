@@ -169,10 +169,12 @@ impl Network for TestnetV0 {
     const MAX_CERTIFICATES: u16 = 100;
     /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     #[cfg(any(test, feature = "test"))]
-    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25)];
+    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] =
+        [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, Self::MAX_CERTIFICATES)];
     /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     #[cfg(not(any(test, feature = "test")))]
-    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100)];
+    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] =
+        [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, Self::MAX_CERTIFICATES)];
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
 
