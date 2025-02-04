@@ -243,10 +243,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             .block_store()
                             .find_block_height_from_state_root(execution.global_state_root())?
                             .unwrap_or_default();
-                        let (cost, (_, _)) = match block_height {
-                            height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V2)? => {
-                                execution_cost_v1(&self.process().read(), execution)?
-                            }
+                        let (cost, (_, _)) = match N::CONSENSUS_VERSION(block_height)? as usize {
+                            1 => execution_cost_v1(&self.process().read(), execution)?,
                             _ => execution_cost_v2(&self.process().read(), execution)?,
                         };
                         // Ensure the fee is sufficient to cover the cost.

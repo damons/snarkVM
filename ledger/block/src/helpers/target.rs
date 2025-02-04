@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use console::prelude::{ConsensusVersion, Network, Result, ensure};
+use console::prelude::{Network, Result, ensure};
 
 /// A safety bound (sanity-check) for the coinbase reward.
 pub const MAX_COINBASE_REWARD: u64 = 190_258_739; // Coinbase reward at block 1.
@@ -38,10 +38,8 @@ pub fn block_reward<N: Network>(
     transaction_fees: u64,
 ) -> Result<u64> {
     // Determine which block reward version to use.
-    Ok(match block_height {
-        height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V2)? => {
-            block_reward_v1(total_supply, block_time, coinbase_reward, transaction_fees)
-        }
+    Ok(match N::CONSENSUS_VERSION(block_height)? as usize {
+        1 => block_reward_v1(total_supply, block_time, coinbase_reward, transaction_fees),
         _ => block_reward_v2(total_supply, time_since_last_block, coinbase_reward, transaction_fees),
     })
 }
@@ -110,8 +108,8 @@ pub fn coinbase_reward<N: Network>(
     coinbase_target: u64,
 ) -> Result<u64> {
     // Determine which coinbase reward version to use.
-    match block_height {
-        height if height < N::CONSENSUS_HEIGHT(ConsensusVersion::V2)? => coinbase_reward_v1(
+    match N::CONSENSUS_VERSION(block_height)? as usize {
+        1 => coinbase_reward_v1(
             block_height,
             starting_supply,
             anchor_height,

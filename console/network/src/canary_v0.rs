@@ -134,12 +134,12 @@ impl Network for CanaryV0 {
     type TransmissionChecksum = u128;
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `enum ConsensusVersion`.
+    /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
     #[cfg(not(any(test, feature = "test")))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
         [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 2_900_000), (ConsensusVersion::V3, 4_560_000)];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `enum ConsensusVersion`.
+    /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
     #[cfg(any(test, feature = "test"))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
         [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 10), (ConsensusVersion::V3, 11)];
@@ -178,9 +178,26 @@ impl Network for CanaryV0 {
     /// The network name.
     const NAME: &'static str = "Aleo Canary (v0)";
 
+    /// Returns the consensus version which is active at the given height.
+    fn CONSENSUS_VERSION(seek_height: u32) -> anyhow::Result<ConsensusVersion> {
+        match Self::CONSENSUS_VERSION_HEIGHTS.binary_search_by(|(_, height)| height.cmp(&seek_height)) {
+            // If a consensus version was found at this height, return it.
+            Ok(index) => Ok(Self::CONSENSUS_VERSION_HEIGHTS[index].0),
+            // If the specified height was not found, determine whether to return an appropriate version.
+            Err(index) => {
+                if index == 0 {
+                    Err(anyhow!("Expected consensus version 1 to exist at height 0."))
+                } else {
+                    // Return the appropriate version belonging to the height *lower* than the sought height.
+                    Ok(Self::CONSENSUS_VERSION_HEIGHTS[index - 1].0)
+                }
+            }
+        }
+    }
+
     /// Returns the height at which a specified consensus version becomes active.
     fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> Result<u32> {
-        Ok(Self::CONSENSUS_VERSION_HEIGHTS.get(version as usize).ok_or(anyhow!("Invalid consensus version"))?.1)
+        Ok(Self::CONSENSUS_VERSION_HEIGHTS.get(version as usize - 1).ok_or(anyhow!("Invalid consensus version"))?.1)
     }
 
     /// Returns the genesis block bytes.
