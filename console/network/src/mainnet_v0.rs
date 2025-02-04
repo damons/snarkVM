@@ -166,44 +166,14 @@ impl Network for MainnetV0 {
     const ID: u16 = 0;
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str = snarkvm_parameters::mainnet::NETWORK_INCLUSION_FUNCTION_NAME;
-    /// The maximum number of certificates in a batch.
+    /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
     #[cfg(any(test, feature = "test"))]
-    const MAX_CERTIFICATES: u16 = 25;
-    /// The maximum number of certificates in a batch.
+    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25)];
+    /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
     #[cfg(not(any(test, feature = "test")))]
-    const MAX_CERTIFICATES: u16 = 100;
-    /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
-    #[cfg(any(test, feature = "test"))]
-    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] =
-        [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, Self::MAX_CERTIFICATES)];
-    /// A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
-    #[cfg(not(any(test, feature = "test")))]
-    const MAX_COMMITTEE_SIZE: [(ConsensusVersion, u16); 2] =
-        [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, Self::MAX_CERTIFICATES)];
+    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100)];
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
-
-    /// Returns the consensus version which is active at the given height.
-    fn CONSENSUS_VERSION(seek_height: u32) -> anyhow::Result<ConsensusVersion> {
-        match Self::CONSENSUS_VERSION_HEIGHTS.binary_search_by(|(_, height)| height.cmp(&seek_height)) {
-            // If a consensus version was found at this height, return it.
-            Ok(index) => Ok(Self::CONSENSUS_VERSION_HEIGHTS[index].0),
-            // If the specified height was not found, determine whether to return an appropriate version.
-            Err(index) => {
-                if index == 0 {
-                    Err(anyhow!("Expected consensus version 1 to exist at height 0."))
-                } else {
-                    // Return the appropriate version belonging to the height *lower* than the sought height.
-                    Ok(Self::CONSENSUS_VERSION_HEIGHTS[index - 1].0)
-                }
-            }
-        }
-    }
-
-    /// Returns the height at which a specified consensus version becomes active.
-    fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> Result<u32> {
-        Ok(Self::CONSENSUS_VERSION_HEIGHTS.get(version as usize - 1).ok_or(anyhow!("Invalid consensus version"))?.1)
-    }
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8] {

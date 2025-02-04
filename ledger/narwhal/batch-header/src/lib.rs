@@ -56,8 +56,6 @@ pub struct BatchHeader<N: Network> {
 }
 
 impl<N: Network> BatchHeader<N> {
-    /// The maximum number of certificates in a batch.
-    pub const MAX_CERTIFICATES: u16 = N::MAX_CERTIFICATES;
     /// The maximum number of rounds to store before garbage collecting.
     pub const MAX_GC_ROUNDS: usize = 100;
     /// The maximum number of transmissions in a batch.
@@ -95,7 +93,7 @@ impl<N: Network> BatchHeader<N> {
         );
         // Ensure that the number of previous certificate IDs is within bounds.
         ensure!(
-            previous_certificate_ids.len() <= Self::MAX_CERTIFICATES as usize,
+            previous_certificate_ids.len() <= N::LAST_MAX_CERTIFICATES()? as usize,
             "Invalid number of previous certificate IDs ({})",
             previous_certificate_ids.len()
         );
@@ -153,7 +151,7 @@ impl<N: Network> BatchHeader<N> {
         );
         // Ensure that the number of previous certificate IDs is within bounds.
         ensure!(
-            previous_certificate_ids.len() <= Self::MAX_CERTIFICATES as usize,
+            previous_certificate_ids.len() <= N::LAST_MAX_CERTIFICATES()? as usize,
             "Invalid number of previous certificate IDs ({})",
             previous_certificate_ids.len()
         );
