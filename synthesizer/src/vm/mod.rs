@@ -2486,7 +2486,7 @@ finalize transfer_public_to_private:
         // Get the execution.
         let execution = transaction.get("execution").unwrap();
         // Get the `transfer_public_to_private` transition.
-        let transition = execution.get("transitions").unwrap().as_array().unwrap().get(0).unwrap();
+        let transition = execution.get("transitions").unwrap().as_array().unwrap().first().unwrap();
         // Check that the transition is as expected.
         assert_eq!(transition.get("program").unwrap(), "credits.aleo");
         assert_eq!(transition.get("function").unwrap(), "transfer_public_to_private");
@@ -2746,7 +2746,7 @@ function add_thrice:
         // Get the execution.
         let execution = transaction.get("execution").unwrap();
         // Get the `add_twice` transition.
-        let transition = execution.get("transitions").unwrap().as_array().unwrap().get(0).unwrap();
+        let transition = execution.get("transitions").unwrap().as_array().unwrap().first().unwrap();
         // Get the transition inputs.
         let inputs = transition.get("inputs").unwrap().as_array().unwrap();
         // For any input, modify it to an external record.
