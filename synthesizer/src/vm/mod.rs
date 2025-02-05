@@ -2554,7 +2554,7 @@ finalize transfer_public_to_private:
         let proof = Proof::<CurrentNetwork>::from_str(execution.get("proof").unwrap().as_str().unwrap()).unwrap();
         let new_execution = Execution::from(new_transitions.into_iter(), global_state_root, Some(proof)).unwrap();
         let authorization = vm
-            .authorize_fee_public(&caller_private_key, 26439, 0, new_execution.to_execution_id().unwrap(), rng)
+            .authorize_fee_public(&caller_private_key, 10_000_000, 0, new_execution.to_execution_id().unwrap(), rng)
             .unwrap();
         let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
         let new_transaction = Transaction::from_execution(new_execution, Some(fee)).unwrap();
@@ -2818,7 +2818,7 @@ function add_thrice:
         let proof = Proof::<CurrentNetwork>::from_str(execution.get("proof").unwrap().as_str().unwrap()).unwrap();
         let new_execution = Execution::from(new_transitions.into_iter(), global_state_root, Some(proof)).unwrap();
         let authorization = vm
-            .authorize_fee_public(&caller_private_key, 26439, 0, new_execution.to_execution_id().unwrap(), rng)
+            .authorize_fee_public(&caller_private_key, 10_000_000, 0, new_execution.to_execution_id().unwrap(), rng)
             .unwrap();
         let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
         let new_transaction = Transaction::from_execution(new_execution, Some(fee)).unwrap();
