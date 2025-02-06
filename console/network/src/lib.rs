@@ -255,7 +255,7 @@ pub trait Network:
     }
     /// Returns the last `MAX_CERTIFICATES` value.
     #[allow(non_snake_case)]
-    fn LAST_MAX_CERTIFICATES() -> Result<u16> {
+    fn LATEST_MAX_CERTIFICATES() -> Result<u16> {
         Self::MAX_CERTIFICATES.last().map_or(Err(anyhow!("No MAX_CERTIFICATES defined.")), |(_, value)| Ok(*value))
     }
 

@@ -64,7 +64,7 @@ impl<N: Network> Committee<N> {
 
     /// The maximum number of members that may be in a committee.
     pub fn max_committee_size() -> Result<u16> {
-        N::LAST_MAX_CERTIFICATES()
+        N::LATEST_MAX_CERTIFICATES()
     }
 
     /// Initializes a new `Committee` instance.

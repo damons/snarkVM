@@ -46,7 +46,7 @@ pub struct BatchCertificate<N: Network> {
 impl<N: Network> BatchCertificate<N> {
     /// The maximum number of signatures in a batch certificate.
     pub fn max_signatures() -> Result<u16> {
-        N::LAST_MAX_CERTIFICATES()
+        N::LATEST_MAX_CERTIFICATES()
     }
 }
 
@@ -54,7 +54,7 @@ impl<N: Network> BatchCertificate<N> {
     /// Initializes a new batch certificate.
     pub fn from(batch_header: BatchHeader<N>, signatures: IndexSet<Signature<N>>) -> Result<Self> {
         // Ensure that the number of signatures is within bounds.
-        ensure!(signatures.len() <= N::LAST_MAX_CERTIFICATES()? as usize, "Invalid number of signatures");
+        ensure!(signatures.len() <= N::LATEST_MAX_CERTIFICATES()? as usize, "Invalid number of signatures");
 
         // Ensure that the signature is from a unique signer and not from the author.
         let signature_authors = signatures.iter().map(|signature| signature.to_address()).collect::<HashSet<_>>();

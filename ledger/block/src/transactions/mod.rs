@@ -363,7 +363,7 @@ mod tests {
         // Determine the maximum number of transmissions in a block.
         let max_transmissions_per_block = BatchHeader::<CurrentNetwork>::MAX_TRANSMISSIONS_PER_BATCH
             * BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS
-            * CurrentNetwork::LAST_MAX_CERTIFICATES().unwrap() as usize;
+            * CurrentNetwork::LATEST_MAX_CERTIFICATES().unwrap() as usize;
 
         // Note: The maximum number of *transmissions* in a block cannot exceed the maximum number of *transactions* in a block.
         // If you intended to change the number of 'MAX_TRANSACTIONS', note that this will break the inclusion proof,
