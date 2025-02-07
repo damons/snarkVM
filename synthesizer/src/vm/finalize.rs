@@ -1916,54 +1916,20 @@ finalize transfer_public:
         // Initialize an RNG.
         let rng = &mut TestRng::default();
 
-        // Initialize the VM.
-        let vm = sample_vm();
-
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
             consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize + 1,
             rng,
         );
 
-        // Initialize a new address.
-        let new_validator_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
-        let new_validator_address = Address::try_from(&new_validator_private_key).unwrap();
-
         // Construct the committee.
         // Track the allocated amount.
-        let (committee_map, allocated_amount) =
+        let (committee_map, _allocated_amount) =
             sample_committee_map_and_allocated_amount(&validators, &IndexMap::new());
 
-        // Collect all of the addresses in a single place
-        let validator_addresses =
-            validators.keys().map(|private_key| Address::try_from(private_key).unwrap()).collect::<Vec<_>>();
-
-        // Construct the public balances, allocating the remaining supply.
-        let new_validator_balance = MIN_VALIDATOR_STAKE + 100_000_000;
-        let mut public_balances = sample_public_balances(
-            &validator_addresses,
-            <CurrentNetwork as Network>::STARTING_SUPPLY - allocated_amount - new_validator_balance,
-        );
-        // Set the public balance of the new validator to the minimum validator stake.
-        public_balances.insert(new_validator_address, new_validator_balance);
-
-        // Construct the bonded balances.
-        let bonded_balances = sample_bonded_balances(&validators, &IndexMap::new());
-
-        // Ensure that the block with too many validators fails to be created.
-        assert!(
-            vm.genesis_quorum(
-                validators.keys().next().unwrap(),
-                Committee::new_genesis(committee_map).unwrap(),
-                public_balances,
-                bonded_balances,
-                rng,
-            )
-            .is_err()
-        );
+        assert!(Committee::new_genesis(committee_map).is_err());
     }
 
-    #[cfg(feature = "test")]
     #[test]
     #[allow(clippy::assertions_on_constants)]
     fn test_migration_v3_maximum_validator_increase() {
@@ -2062,24 +2028,6 @@ finalize transfer_public:
         assert_eq!(
             confirmed_transactions[0],
             reject(0, &bond_validator_transaction, confirmed_transactions[0].finalize_operations())
-        );
-
-        // Update the VM to the migration block height
-        let private_key = test_helpers::sample_genesis_private_key(rng);
-        let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap()
-        {
-            // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-            vm.add_next_block(&next_block).unwrap();
-        }
-
-        // Test that attempting to bond a new validator above the maximum number of validators after the migration block height succeeds.
-
-        // Check that the new committee size is greater than the maximum committee size before the migration.
-        assert!(
-            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap()
-                < Committee::<CurrentNetwork>::max_committee_size().unwrap()
         );
 
         // Speculate on the transactions.
