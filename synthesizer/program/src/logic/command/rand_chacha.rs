@@ -92,7 +92,7 @@ impl<N: Network> RandChaCha<N> {
         // If the height is greater than or equal to consensus V3, then use the new preimage definition.
         // The difference is that a nonce is also included in the new definition.
         let preimage = match N::CONSENSUS_VERSION(registers.state().block_height())? as usize {
-            1..3 => to_bits_le![
+            1..=2 => to_bits_le![
                 registers.state().random_seed(),
                 **registers.transition_id(),
                 stack.program_id(),
