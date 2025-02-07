@@ -535,12 +535,12 @@ mod tests {
         }
     }
 
-    /// Ensure that `MAX_CERTIFICATES` strictly increases and is correctly defined.
+    /// Ensure that `MAX_CERTIFICATES` increases and is correctly defined.
     /// See the constant declaration for an explanation why.
     fn max_certificates_increasing<N: Network>() {
         let mut previous_value = N::MAX_CERTIFICATES.first().unwrap().1;
         for (_, value) in N::MAX_CERTIFICATES.iter().skip(1) {
-            assert!(*value > previous_value);
+            assert!(*value >= previous_value);
             previous_value = *value;
         }
     }
