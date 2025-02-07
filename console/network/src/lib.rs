@@ -494,10 +494,10 @@ mod tests {
         assert_eq!(consensus_version as usize, 1);
     }
 
-    /// Ensure that the consensus *versions* are unique, incrementing and start with 0.
+    /// Ensure that the consensus *versions* are unique, incrementing and start with 1.
     fn consensus_versions<N: Network>() {
         let mut previous_version = N::CONSENSUS_VERSION_HEIGHTS.first().unwrap().0;
-        // Ensure that the consensus versions start with 0.
+        // Ensure that the consensus versions start with 1.
         assert_eq!(previous_version as usize, 1);
         // Ensure that the consensus versions are unique and incrementing by 1.
         for (version, _) in N::CONSENSUS_VERSION_HEIGHTS.iter().skip(1) {
