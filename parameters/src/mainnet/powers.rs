@@ -48,8 +48,10 @@ const NUM_POWERS_25: usize = 1 << 25;
 // this size. When a users wants to create a proof, they load the appropriate
 // powers for the circuit in `batch_circuit_setup` which calls `max_degree`
 // based on the domain size.
-// const NUM_POWERS_26: usize = 1 << 26;
-// const NUM_POWERS_27: usize = 1 << 27;
+#[cfg(feature = "large_params")]
+const NUM_POWERS_26: usize = 1 << 26;
+#[cfg(feature = "large_params")]
+const NUM_POWERS_27: usize = 1 << 27;
 const NUM_POWERS_28: usize = 1 << 28;
 
 /// The maximum degree supported by the SRS.
@@ -419,9 +421,12 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
                 NUM_POWERS_24 => Degree24::load_bytes()?,
                 NUM_POWERS_25 => Degree25::load_bytes()?,
                 // TODO (nkls): restore on CI.
-                // NUM_POWERS_26 => Degree26::load_bytes()?,
-                // NUM_POWERS_27 => Degree27::load_bytes()?,
-                // NUM_POWERS_28 => Degree28::load_bytes()?,
+                #[cfg(feature = "large_params")]
+                NUM_POWERS_26 => Degree26::load_bytes()?,
+                #[cfg(feature = "large_params")]
+                NUM_POWERS_27 => Degree27::load_bytes()?,
+                #[cfg(feature = "large_params")]
+                NUM_POWERS_28 => Degree28::load_bytes()?,
                 _ => bail!("Cannot download an invalid degree of '{num_powers}'"),
             };
 
@@ -498,8 +503,10 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
                 NUM_POWERS_24 => ShiftedDegree24::load_bytes()?,
                 NUM_POWERS_25 => ShiftedDegree25::load_bytes()?,
                 // TODO (nkls): restore on CI.
-                // NUM_POWERS_26 => ShiftedDegree26::load_bytes()?,
-                // NUM_POWERS_27 => ShiftedDegree27::load_bytes()?,
+                #[cfg(feature = "large_params")]
+                NUM_POWERS_26 => ShiftedDegree26::load_bytes()?,
+                #[cfg(feature = "large_params")]
+                NUM_POWERS_27 => ShiftedDegree27::load_bytes()?,
                 _ => bail!("Cannot download an invalid degree of '{num_powers}'"),
             };
 
