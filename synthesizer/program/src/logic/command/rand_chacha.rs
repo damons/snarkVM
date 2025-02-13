@@ -91,8 +91,9 @@ impl<N: Network> RandChaCha<N> {
         // Construct the random seed.
         // If the height is greater than or equal to consensus V3, then use the new preimage definition.
         // The difference is that a nonce is also included in the new definition.
-        let preimage = match N::CONSENSUS_VERSION(registers.state().block_height())? as usize {
-            1..=2 => to_bits_le![
+        let consensus_version = N::CONSENSUS_VERSION(registers.state().block_height())?;
+        let preimage = if (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
+            to_bits_le![
                 registers.state().random_seed(),
                 **registers.transition_id(),
                 stack.program_id(),
@@ -100,8 +101,9 @@ impl<N: Network> RandChaCha<N> {
                 self.destination.locator(),
                 self.destination_type.type_id(),
                 seeds
-            ],
-            _ => to_bits_le![
+            ]
+        } else {
+            to_bits_le![
                 registers.state().random_seed(),
                 **registers.transition_id(),
                 stack.program_id(),
@@ -110,7 +112,7 @@ impl<N: Network> RandChaCha<N> {
                 self.destination.locator(),
                 self.destination_type.type_id(),
                 seeds
-            ],
+            ]
         };
 
         // Hash the preimage.

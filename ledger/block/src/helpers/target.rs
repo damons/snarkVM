@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use console::prelude::{Network, Result, ensure};
+use console::prelude::{ConsensusVersion, Network, Result, ensure};
 
 /// A safety bound (sanity-check) for the coinbase reward.
 pub const MAX_COINBASE_REWARD: u64 = 190_258_739; // Coinbase reward at block 1.
@@ -38,10 +38,12 @@ pub fn block_reward<N: Network>(
     transaction_fees: u64,
 ) -> Result<u64> {
     // Determine which block reward version to use.
-    Ok(match N::CONSENSUS_VERSION(block_height)? as usize {
-        1 => block_reward_v1(total_supply, block_time, coinbase_reward, transaction_fees),
-        _ => block_reward_v2(total_supply, time_since_last_block, coinbase_reward, transaction_fees),
-    })
+    let consensus_version = N::CONSENSUS_VERSION(block_height)?;
+    if consensus_version == ConsensusVersion::V1 {
+        Ok(block_reward_v1(total_supply, block_time, coinbase_reward, transaction_fees))
+    } else {
+        Ok(block_reward_v2(total_supply, time_since_last_block, coinbase_reward, transaction_fees))
+    }
 }
 
 /// Calculate the V1 block reward, given the total supply, block time, coinbase reward, and transaction fees.
@@ -108,8 +110,9 @@ pub fn coinbase_reward<N: Network>(
     coinbase_target: u64,
 ) -> Result<u64> {
     // Determine which coinbase reward version to use.
-    match N::CONSENSUS_VERSION(block_height)? as usize {
-        1 => coinbase_reward_v1(
+    let consensus_version = N::CONSENSUS_VERSION(block_height)?;
+    if consensus_version == ConsensusVersion::V1 {
+        coinbase_reward_v1(
             block_height,
             starting_supply,
             anchor_height,
@@ -117,8 +120,9 @@ pub fn coinbase_reward<N: Network>(
             combined_proof_target,
             cumulative_proof_target,
             coinbase_target,
-        ),
-        _ => coinbase_reward_v2(
+        )
+    } else {
+        coinbase_reward_v2(
             block_timestamp,
             genesis_timestamp,
             starting_supply,
@@ -126,7 +130,7 @@ pub fn coinbase_reward<N: Network>(
             combined_proof_target,
             cumulative_proof_target,
             coinbase_target,
-        ),
+        )
     }
 }
 
