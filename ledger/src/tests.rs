@@ -3194,7 +3194,7 @@ function burn:
     input r0 as data.record;
     ",
     )
-        .unwrap();
+    .unwrap();
 
     let program_1 = Program::from_str(
         r"
@@ -3221,7 +3221,7 @@ function create_and_consume:
     call child.aleo/burn r0;
     ",
     )
-        .unwrap();
+    .unwrap();
 
     // Deploy the programs.
     let deployment_0 = ledger.vm().deploy(&private_key, &program_0, None, 0, None, rng).unwrap();
