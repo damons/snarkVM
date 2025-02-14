@@ -114,7 +114,7 @@ impl Sanitizer {
     ///
     /// This parser accepts the multiline annotation (`\ LF`) to break the string on several lines.
     ///
-    /// The line may end with a newline, either `CR LF` or just `LF`; or it may end with the input.
+    /// The line may end with a newline (either `CR LF` or just `LF`), or it may end with the input.
     ///
     /// Return the body of the comment, i.e. what is between `//` and the end of line.
     /// If the line ends with `CR LF`, the `CR` is included in the returned body.
