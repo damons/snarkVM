@@ -243,9 +243,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             .block_store()
                             .find_block_height_from_state_root(execution.global_state_root())?
                             .unwrap_or_default();
-                        let (cost, (_, _)) = match block_height < N::CONSENSUS_V2_HEIGHT {
-                            true => execution_cost_v1(&self.process().read(), execution)?,
-                            false => execution_cost_v2(&self.process().read(), execution)?,
+                        let consensus_version = N::CONSENSUS_VERSION(block_height)?;
+                        let (cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
+                            execution_cost_v1(&self.process().read(), execution)?
+                        } else {
+                            execution_cost_v2(&self.process().read(), execution)?
                         };
                         // Ensure the fee is sufficient to cover the cost.
                         if *fee.base_amount()? < cost {
@@ -785,9 +787,6 @@ function compute:
     #[cfg(feature = "test")]
     #[test]
     fn test_fee_migration() {
-        // This test will fail if the consensus v2 height is 0
-        assert_ne!(0, CurrentNetwork::CONSENSUS_V2_HEIGHT);
-
         let minimum_credits_transfer_public_fee = 34_060;
         let old_minimum_credits_transfer_public_fee = 51_060;
 
@@ -826,7 +825,7 @@ function compute:
         // Update the VM to the migration block height
         let private_key = test_helpers::sample_genesis_private_key(rng);
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        for _ in 0..CurrentNetwork::CONSENSUS_V2_HEIGHT {
+        for _ in 0..CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap() {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
