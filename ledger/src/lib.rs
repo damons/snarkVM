@@ -390,7 +390,6 @@ pub(crate) mod test_helpers {
         network::MainnetV0,
         prelude::*,
     };
-    use ledger_block::Block;
     use ledger_store::ConsensusStore;
     use snarkvm_circuit::network::AleoV0;
     use synthesizer::vm::VM;
@@ -430,20 +429,16 @@ pub(crate) mod test_helpers {
         TestEnv { ledger, private_key, view_key, address }
     }
 
-    pub(crate) fn sample_genesis_block() -> Block<CurrentNetwork> {
-        Block::<CurrentNetwork>::from_bytes_le(CurrentNetwork::genesis_bytes()).unwrap()
-    }
-
     pub(crate) fn sample_ledger(
         private_key: PrivateKey<CurrentNetwork>,
         rng: &mut (impl Rng + CryptoRng),
     ) -> CurrentLedger {
         // Initialize the store.
-        let store = CurrentConsensusStore::open(None).unwrap();
+        let store = CurrentConsensusStore::open(StorageMode::new_test(None)).unwrap();
         // Create a genesis block.
         let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
         // Initialize the ledger with the genesis block.
-        let ledger = CurrentLedger::load(genesis.clone(), StorageMode::Production).unwrap();
+        let ledger = CurrentLedger::load(genesis.clone(), StorageMode::new_test(None)).unwrap();
         // Ensure the genesis block is correct.
         assert_eq!(genesis, ledger.get_block(0).unwrap());
         // Return the ledger.

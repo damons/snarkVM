@@ -39,6 +39,7 @@ use ledger_store::{
 use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program, StackProgram};
 use synthesizer_snark::UniversalSRS;
 
+use aleo_std::StorageMode;
 use indexmap::IndexMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -1242,9 +1243,9 @@ finalize compute:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
@@ -1355,9 +1356,9 @@ finalize compute:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
@@ -1482,9 +1483,9 @@ finalize mint_public:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
@@ -1611,9 +1612,9 @@ finalize mint_public:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program0, rng).unwrap();
@@ -1769,9 +1770,9 @@ finalize compute:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
@@ -1942,7 +1943,7 @@ function a:
     }
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
@@ -2129,7 +2130,7 @@ fn test_complex_execution_order() {
     }
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
@@ -2198,9 +2199,9 @@ finalize compute:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
@@ -2349,7 +2350,7 @@ function compute:
     assert_eq!(r4, candidate[2]);
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
@@ -2425,9 +2426,9 @@ function {function_name}:
     let mut process = Process::load().unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();

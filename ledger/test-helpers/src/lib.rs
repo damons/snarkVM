@@ -39,6 +39,7 @@ use ledger_store::{BlockStore, helpers::memory::BlockMemory};
 use synthesizer_process::Process;
 use synthesizer_program::Program;
 
+use aleo_std::StorageMode;
 use once_cell::sync::OnceCell;
 
 type CurrentNetwork = console::network::MainnetV0;
@@ -246,7 +247,7 @@ pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng
     let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Insert the block into the block store.
     // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
     block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
@@ -299,7 +300,7 @@ pub fn sample_fee_public(deployment_or_execution_id: Field<CurrentNetwork>, rng:
     let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Insert the block into the block store.
     // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
     block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
@@ -421,8 +422,10 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
 
             // Initialize a new block store.
             let block_store =
-                ledger_store::BlockStore::<CurrentNetwork, ledger_store::helpers::memory::BlockMemory<_>>::open(None)
-                    .unwrap();
+                ledger_store::BlockStore::<CurrentNetwork, ledger_store::helpers::memory::BlockMemory<_>>::open(
+                    StorageMode::new_test(None),
+                )
+                .unwrap();
 
             // Prepare the assignments.
             trace.prepare(ledger_query::Query::from(block_store)).unwrap();
@@ -518,7 +521,7 @@ fn sample_genesis_block_and_components_raw(
     let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Prepare the assignments.
     trace.prepare(Query::from(block_store)).unwrap();
