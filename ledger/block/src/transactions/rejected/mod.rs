@@ -25,7 +25,7 @@ use crate::{Deployment, Execution, Fee};
 #[derive(Clone, PartialEq, Eq)]
 pub enum Rejected<N: Network> {
     Deployment(ProgramOwner<N>, Box<Deployment<N>>),
-    Execution(Execution<N>),
+    Execution(Box<Execution<N>>),
 }
 
 impl<N: Network> Rejected<N> {
@@ -36,7 +36,7 @@ impl<N: Network> Rejected<N> {
 
     /// Initializes a rejected execution.
     pub fn new_execution(execution: Execution<N>) -> Self {
-        Self::Execution(execution)
+        Self::Execution(Box::new(execution))
     }
 
     /// Returns true if the rejected transaction is a deployment.
@@ -131,7 +131,7 @@ pub mod test_helpers {
             };
 
         // Return the rejected execution.
-        Rejected::new_execution(execution)
+        Rejected::new_execution(*execution)
     }
 
     /// Sample a list of randomly rejected transactions.

@@ -186,7 +186,7 @@ pub fn sample_execution(rng: &mut TestRng) -> Execution<CurrentNetwork> {
     // Retrieve a transaction.
     let transaction = block.transactions().iter().next().unwrap().deref().clone();
     // Retrieve the execution.
-    if let Transaction::Execute(_, _, execution, _) = transaction { execution } else { unreachable!() }
+    if let Transaction::Execute(_, _, execution, _) = transaction { *execution } else { unreachable!() }
 }
 
 /// Samples a rejected execution.
@@ -198,7 +198,7 @@ pub fn sample_rejected_execution(is_fee_private: bool, rng: &mut TestRng) -> Rej
     };
 
     // Return the rejected execution.
-    Rejected::new_execution(execution)
+    Rejected::new_execution(*execution)
 }
 
 /********************************************** Fee ***********************************************/
