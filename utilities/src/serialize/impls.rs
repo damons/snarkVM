@@ -326,7 +326,6 @@ impl<T: Valid + Sync + Send> Valid for Arc<T> {
     }
 
     #[inline]
-
     fn batch_check<'a>(batch: impl Iterator<Item = &'a Self> + Send) -> Result<(), SerializationError>
     where
         Self: 'a,

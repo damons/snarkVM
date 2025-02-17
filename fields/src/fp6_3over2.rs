@@ -519,7 +519,6 @@ impl<P: Fp6Parameters> CanonicalSerializeWithFlags for Fp6<P> {
 
 impl<P: Fp6Parameters> CanonicalSerialize for Fp6<P> {
     #[inline]
-
     fn serialize_with_mode<W: Write>(&self, writer: W, _compress: Compress) -> Result<(), SerializationError> {
         self.serialize_with_flags(writer, EmptyFlags)
     }
