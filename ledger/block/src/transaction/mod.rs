@@ -52,7 +52,7 @@ pub enum Transaction<N: Network> {
     /// The deploy transaction publishes an Aleo program to the network.
     Deploy(N::TransactionID, DeploymentID<N>, ProgramOwner<N>, Box<Deployment<N>>, Fee<N>),
     /// The execute transaction represents a call to an Aleo program.
-    Execute(N::TransactionID, ExecutionID<N>, Execution<N>, Option<Fee<N>>),
+    Execute(N::TransactionID, ExecutionID<N>, Box<Execution<N>>, Option<Fee<N>>),
     /// The fee transaction represents a fee paid to the network, used for rejected transactions.
     Fee(N::TransactionID, Fee<N>),
 }
@@ -91,7 +91,7 @@ impl<N: Network> Transaction<N> {
             None => execution_id,
         };
         // Construct the execution transaction.
-        Ok(Self::Execute(transaction_id.into(), execution_id, execution, fee))
+        Ok(Self::Execute(transaction_id.into(), execution_id, Box::new(execution), fee))
     }
 
     /// Initializes a new fee transaction.

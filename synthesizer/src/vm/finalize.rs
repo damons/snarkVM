@@ -410,7 +410,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     }) {
                                         Ok((fee_tx, finalize)) => {
                                             // Construct the rejected execution.
-                                            let rejected = Rejected::new_execution(execution.clone());
+                                            let rejected = Rejected::new_execution(*execution.clone());
                                             // Construct the rejected execute transaction.
                                             ConfirmedTransaction::rejected_execute(counter, fee_tx, rejected, finalize)
                                                 .map_err(|e| e.to_string())
@@ -1657,7 +1657,7 @@ finalize transfer_public:
             Transaction::Execute(_, _, execution, fee) => ConfirmedTransaction::RejectedExecute(
                 index,
                 Transaction::from_fee(fee.clone().unwrap()).unwrap(),
-                Rejected::new_execution(execution.clone()),
+                Rejected::new_execution(*execution.clone()),
                 finalize.to_vec(),
             ),
             _ => panic!("only reject execution transactions"),
@@ -2359,7 +2359,7 @@ function ped_hash:
                 let expected_confirmed_transaction = ConfirmedTransaction::RejectedExecute(
                     0,
                     fee_transaction,
-                    Rejected::new_execution(execution),
+                    Rejected::new_execution(*execution),
                     vec![],
                 );
 

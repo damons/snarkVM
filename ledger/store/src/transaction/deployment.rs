@@ -632,6 +632,8 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     }
 }
 
+type ProgramTriplet<N> = (ProgramID<N>, Identifier<N>, u16);
+
 impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     /// Returns an iterator over the deployment transaction IDs, for all deployments.
     pub fn deployment_transaction_ids(&self) -> impl '_ + Iterator<Item = Cow<'_, N::TransactionID>> {
@@ -655,16 +657,12 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     }
 
     /// Returns an iterator over the `((program ID, function name, edition), verifying key)`, for all deployments.
-    pub fn verifying_keys(
-        &self,
-    ) -> impl '_ + Iterator<Item = (Cow<'_, (ProgramID<N>, Identifier<N>, u16)>, Cow<'_, VerifyingKey<N>>)> {
+    pub fn verifying_keys(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramTriplet<N>>, Cow<'_, VerifyingKey<N>>)> {
         self.storage.verifying_key_map().iter_confirmed()
     }
 
     /// Returns an iterator over the `((program ID, function name, edition), certificate)`, for all deployments.
-    pub fn certificates(
-        &self,
-    ) -> impl '_ + Iterator<Item = (Cow<'_, (ProgramID<N>, Identifier<N>, u16)>, Cow<'_, Certificate<N>>)> {
+    pub fn certificates(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramTriplet<N>>, Cow<'_, Certificate<N>>)> {
         self.storage.certificate_map().iter_confirmed()
     }
 }
