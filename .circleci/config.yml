@@ -669,7 +669,7 @@ jobs:
   parameters-large:
     docker:
       - image: cimg/rust:1.81.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
-    resource_class: << pipeline.parameters.small >>
+    resource_class: << pipeline.parameters.medium >>
     steps:
       - run_serial:
           flags: --no-run --features large_params
