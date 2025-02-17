@@ -50,6 +50,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Returns the record ciphertexts that belong to the given view key.
+    #[allow(clippy::type_complexity)]
     pub fn find_record_ciphertexts<'a>(
         &'a self,
         view_key: &'a ViewKey<N>,
@@ -124,6 +125,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Returns the records that belong to the given view key.
+    #[allow(clippy::type_complexity)]
     pub fn find_records<'a>(
         &'a self,
         view_key: &'a ViewKey<N>,
