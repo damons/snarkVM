@@ -24,6 +24,7 @@ license = "Apache-2.0"
 edition = "2021"
 
 [features]
+large_params = [ ]
 default = [ "colored", "remote" ]
 no_std_out = [ ]
 remote = [ "curl" ]

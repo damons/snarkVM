@@ -666,6 +666,16 @@ jobs:
           workspace_member: parameters
           cache_key: v1.0.0-rust-1.81.0-snarkvm-parameters-cache
 
+  parameters-large:
+    docker:
+      - image: cimg/rust:1.81.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+    resource_class: << pipeline.parameters.large >>
+    steps:
+      - run_serial:
+          flags: --no-run --features large_params
+          workspace_member: parameters
+          cache_key: v1.0.0-rust-1.81.0-snarkvm-parameters-large-cache
+
   parameters-uncached:
     docker:
       - image: cimg/rust:1.81.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
@@ -982,6 +992,7 @@ workflows:
       - ledger-store
       - ledger-test-helpers
       - parameters
+      - parameters-large
       - parameters-uncached
       - synthesizer
       - synthesizer-mem-heavy
