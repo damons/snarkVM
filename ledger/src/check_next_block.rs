@@ -106,6 +106,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             ratified_finalize_operations,
         )?;
 
+        // Ensure the certificates in the block subdag have met quorum requirements.
+        self.check_block_subdag_quorum(block)?;
+
         // Determine if the block subdag is correctly constructed and is not a combination of multiple subdags.
         self.check_block_subdag_atomicity(block)?;
 
@@ -122,6 +125,41 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 bail!("Transaction ID '{existing_transaction_id}' does not exist in the ledger");
             }
         }
+
+        Ok(())
+    }
+
+    /// Check that the certificates in the block subdag have met quorum requirements.
+    fn check_block_subdag_quorum(&self, block: &Block<N>) -> Result<()> {
+        // Check if the block has a subdag.
+        let subdag = match block.authority() {
+            Authority::Quorum(subdag) => subdag,
+            _ => return Ok(()),
+        };
+
+        // Check that all certificates on each round have met quorum requirements.
+        cfg_iter!(subdag).try_for_each(|(round, certificates)| {
+            // Retrieve the committee lookback for the round.
+            let committee_lookback = self
+                .get_committee_lookback_for_round(*round)?
+                .ok_or_else(|| anyhow!("No committee lookback found for round {round}"))?;
+
+            // Check that each certificate for this round has met quorum requirements.
+            cfg_iter!(certificates).try_for_each(|certificate| {
+                // Collect the signature authors.
+                let authors = certificate.signatures().map(|signature| signature.to_address()).collect();
+                // Ensure that the signers of the certificate reach the quorum threshold.
+                ensure!(
+                    committee_lookback.is_quorum_threshold_reached(&authors),
+                    "Certificate '{}' for round {round} does not meet quorum requirements",
+                    certificate.id()
+                );
+
+                Ok::<_, Error>(())
+            })?;
+
+            Ok::<_, Error>(())
+        })?;
 
         Ok(())
     }
