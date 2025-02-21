@@ -145,6 +145,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 .ok_or_else(|| anyhow!("No committee lookback found for round {round}"))?;
 
             // Check that each certificate for this round has met quorum requirements.
+            // Note that we do not need to check the quorum requirement for the previous certificates
+            // because that is done during construction in `BatchCertificate::new`.
             cfg_iter!(certificates).try_for_each(|certificate| {
                 // Collect the signature authors.
                 let authors = certificate.signatures().map(|signature| signature.to_address()).collect();
