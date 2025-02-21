@@ -81,36 +81,17 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         )?;
 
         // Retrieve the committee lookback.
-        let committee_lookback = {
-            // Determine the round number for the previous committee. Note, we subtract 2 from odd rounds,
-            // because committees are updated in even rounds.
-            let previous_round = match block.round() % 2 == 0 {
-                true => block.round().saturating_sub(1),
-                false => block.round().saturating_sub(2),
-            };
-            // Determine the committee lookback round.
-            let committee_lookback_round = previous_round.saturating_sub(Committee::<N>::COMMITTEE_LOOKBACK_RANGE);
-            // Output the committee lookback.
-            self.get_committee_for_round(committee_lookback_round)?
-                .ok_or(anyhow!("Failed to fetch committee for round {committee_lookback_round}"))?
-        };
+        let committee_lookback = self
+            .get_committee_lookback_for_round(block.round())?
+            .ok_or(anyhow!("Failed to fetch committee lookback for round {}", block.round()))?;
 
         // Retrieve the previous committee lookback.
         let previous_committee_lookback = {
             // Calculate the penultimate round, which is the round before the anchor round.
             let penultimate_round = block.round().saturating_sub(1);
-            // Determine the round number for the previous committee. Note, we subtract 2 from odd rounds,
-            // because committees are updated in even rounds.
-            let previous_penultimate_round = match penultimate_round % 2 == 0 {
-                true => penultimate_round.saturating_sub(1),
-                false => penultimate_round.saturating_sub(2),
-            };
-            // Determine the previous committee lookback round.
-            let penultimate_committee_lookback_round =
-                previous_penultimate_round.saturating_sub(Committee::<N>::COMMITTEE_LOOKBACK_RANGE);
-            // Output the previous committee lookback.
-            self.get_committee_for_round(penultimate_committee_lookback_round)?
-                .ok_or(anyhow!("Failed to fetch committee for round {penultimate_committee_lookback_round}"))?
+            // Output the committee lookback for the penultimate round.
+            self.get_committee_lookback_for_round(penultimate_round)?
+                .ok_or(anyhow!("Failed to fetch committee lookback for round {penultimate_round}"))?
         };
 
         // Ensure the block is correct.
