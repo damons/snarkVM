@@ -136,9 +136,6 @@ pub trait Network:
     /// The maximum number of microcredits that can be spent by the transactions in a batch.
     /// This implies the block spend limit is bounded at `TRANSACTION_SPEND_LIMIT * N::NUM_MAX_CERTIFICATES`.
     const BATCH_SPEND_LIMIT: u64 = Self::TRANSACTION_SPEND_LIMIT;
-    /// The base cost in microcredits to verify an execution.
-    /// NOTE: this constant reflects the compute cost of an execution, but is not required to be paid by the user.
-    const EXECUTION_BASE_COST: u64 = 2_000_000; // 2 million microcredits.
 
     /// The anchor height, defined as the expected number of blocks to reach the coinbase target.
     const ANCHOR_HEIGHT: u32 = Self::ANCHOR_TIME as u32 / Self::BLOCK_TIME as u32;

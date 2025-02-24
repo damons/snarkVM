@@ -482,7 +482,7 @@ pub fn compute_cost<N: Network>(transaction: &Transaction<N>, stack: Option<Arc<
             // Retrieve the finalize cost for the root program.
             let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
 
-            Ok(finalize_cost.saturating_add(N::EXECUTION_BASE_COST))
+            Ok(finalize_cost)
         }
         // Fee transactions are internal to the VM, they do not have a compute cost.
         Transaction::Fee(..) => Ok(0),
