@@ -466,12 +466,13 @@ pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier
 }
 
 /// Returns the compute cost for a transaction in microcredits.
-/// This does NOT represent the full costs which a user has to pay.
+/// This is used to limit the amount of compute in the block generation hot
+/// path. This does NOT represent the full costs which a user has to pay.
 pub fn compute_cost<N: Network>(process: &Process<N>, transaction: &Transaction<N>) -> Result<u64> {
     match transaction {
         // Synthesis cost accounts for the majority of deployment transaction compute.
         Transaction::Deploy(_, _, _, deployment, _) => deployment_synthesis_cost(deployment),
-        // Base and finalize costs account for the majority of execute transaction compute.
+        // Finalize costs account for the majority of execute transaction compute.
         Transaction::Execute(_, _, execution, _) => {
             // Get the root transition for the program.
             let root_transition = execution.peek()?;

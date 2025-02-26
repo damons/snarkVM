@@ -239,7 +239,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         &self.restrictions
     }
 
-    // Returns the compute cost for a transaction.
+    /// Returns the compute cost for a transaction.
     pub fn compute_cost(&self, transaction: &Transaction<N>) -> Result<u64> {
         compute_cost(&self.process.read(), transaction)
     }
