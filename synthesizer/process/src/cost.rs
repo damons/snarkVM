@@ -466,10 +466,8 @@ pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier
 }
 
 /// Returns the compute cost for a transaction in microcredits.
-/// TODO(nkls): clarify context w.r.t. `PROPOSAL_SPEND_LIMIT`.
 /// This does NOT represent the full costs which a user has to pay.
-use std::sync::Arc;
-pub fn compute_cost<N: Network>(transaction: &Transaction<N>, stack: Option<Arc<Stack<N>>>) -> Result<u64> {
+pub fn compute_cost<N: Network>(process: &Process<N>, transaction: &Transaction<N>) -> Result<u64> {
     match transaction {
         // Synthesis cost accounts for the majority of deployment transaction compute.
         Transaction::Deploy(_, _, _, deployment, _) => deployment_synthesis_cost(deployment),
@@ -478,7 +476,7 @@ pub fn compute_cost<N: Network>(transaction: &Transaction<N>, stack: Option<Arc<
             // Get the root transition for the program.
             let root_transition = execution.peek()?;
             // Check a stack is present for the execution.
-            let stack = stack.ok_or(anyhow!("Expected a Stack containing the Execution's finalize cost."))?;
+            let stack = process.get_stack(root_transition.program_id())?;
             // Retrieve the finalize cost for the root program.
             let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
 

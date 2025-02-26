@@ -59,7 +59,15 @@ use ledger_store::{
     TransitionStore,
     atomic_finalize,
 };
-use synthesizer_process::{Authorization, Process, Trace, deployment_cost, execution_cost_v1, execution_cost_v2};
+use synthesizer_process::{
+    Authorization,
+    Process,
+    Trace,
+    compute_cost,
+    deployment_cost,
+    execution_cost_v1,
+    execution_cost_v2,
+};
 use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program};
 use utilities::try_vm_runtime;
 
@@ -229,6 +237,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     #[inline]
     pub const fn restrictions(&self) -> &Restrictions<N> {
         &self.restrictions
+    }
+
+    // Returns the compute cost for a transaction.
+    pub fn compute_cost(&self, transaction: &Transaction<N>) -> Result<u64> {
+        compute_cost(&self.process.read(), transaction)
     }
 }
 
