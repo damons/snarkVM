@@ -141,7 +141,7 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 2_800_000),
         (ConsensusVersion::V3, 4_900_000),
-        (ConsensusVersion::V4, 5_500_000),
+        (ConsensusVersion::V4, 7_100_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
