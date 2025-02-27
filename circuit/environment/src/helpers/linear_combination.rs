@@ -20,6 +20,7 @@ use core::{
     fmt,
     ops::{Add, AddAssign, Mul, Neg, Sub},
 };
+use singlevec::SingleVec;
 
 // Before high level program operations are converted into constraints, they are first tracked as linear combinations.
 // Each linear combination corresponds to a portion or all of a single row of an R1CS matrix, and consists of:
@@ -35,7 +36,7 @@ use core::{
 pub struct LinearCombination<F: PrimeField> {
     constant: F,
     /// The list of terms is kept sorted in order to speed up lookups.
-    terms: Vec<(Variable<F>, F)>,
+    terms: SingleVec<(Variable<F>, F)>,
     /// The value of this linear combination, defined as the sum of the `terms` and `constant`.
     value: F,
 }
