@@ -22,6 +22,20 @@ use console::{
 use ledger_block::{Deployment, Execution, Transaction};
 use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, StackProgram};
 
+/// Returns the compute cost for a transaction in microcredits.
+/// This is used to limit the amount of compute in the block generation hot
+/// path. This does NOT represent the full costs which a user has to pay.
+pub fn compute_cost<N: Network>(process: &Process<N>, transaction: &Transaction<N>) -> Result<u64> {
+    match transaction {
+        // Synthesis cost accounts for the majority of deployment transaction compute.
+        Transaction::Deploy(_, _, _, deployment, _) => deployment_synthesis_cost(deployment),
+        // Finalize costs account for the majority of execute transaction compute.
+        Transaction::Execute(_, _, execution, _) => execution_compute_cost(process, execution),
+        // Fee transactions are internal to the VM, they do not have a compute cost.
+        Transaction::Fee(..) => Ok(0),
+    }
+}
+
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost)).
 pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64))> {
     // Determine the number of bytes in the deployment.
@@ -63,16 +77,25 @@ pub fn deployment_synthesis_cost<N: Network>(deployment: &Deployment<N>) -> Resu
     Ok(synthesis_cost)
 }
 
+/// Returns the cost in microcredits to compute an execution.
+pub fn execution_compute_cost<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<u64> {
+    // Get the root transition for the program.
+    let root_transition = execution.peek()?;
+    // Check a stack is present for the execution.
+    let stack = process.get_stack(root_transition.program_id())?;
+    // Retrieve the finalize cost for the root program.
+    let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
+
+    Ok(finalize_cost)
+}
+
 /// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
 pub fn execution_cost_v2<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
     // Compute the storage cost in microcredits.
     let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
 
-    // Get the root transition.
-    let transition = execution.peek()?;
-
-    // Get the finalize cost for the root transition.
-    let finalize_cost = process.get_stack(transition.program_id())?.get_finalize_cost(transition.function_name())?;
+    // Compute the compute cost for the execution.
+    let finalize_cost = execution_compute_cost(process, execution)?;
 
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
@@ -463,29 +486,6 @@ pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier
         .try_fold(future_cost, |acc, res| {
             res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Finalize cost overflowed")))
         })
-}
-
-/// Returns the compute cost for a transaction in microcredits.
-/// This is used to limit the amount of compute in the block generation hot
-/// path. This does NOT represent the full costs which a user has to pay.
-pub fn compute_cost<N: Network>(process: &Process<N>, transaction: &Transaction<N>) -> Result<u64> {
-    match transaction {
-        // Synthesis cost accounts for the majority of deployment transaction compute.
-        Transaction::Deploy(_, _, _, deployment, _) => deployment_synthesis_cost(deployment),
-        // Finalize costs account for the majority of execute transaction compute.
-        Transaction::Execute(_, _, execution, _) => {
-            // Get the root transition for the program.
-            let root_transition = execution.peek()?;
-            // Check a stack is present for the execution.
-            let stack = process.get_stack(root_transition.program_id())?;
-            // Retrieve the finalize cost for the root program.
-            let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
-
-            Ok(finalize_cost)
-        }
-        // Fee transactions are internal to the VM, they do not have a compute cost.
-        Transaction::Fee(..) => Ok(0),
-    }
 }
 
 #[cfg(test)]
