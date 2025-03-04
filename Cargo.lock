@@ -3278,6 +3278,7 @@ dependencies = [
  "bincode",
  "criterion",
  "indexmap 2.7.1",
+ "lru",
  "parking_lot",
  "rand",
  "rayon",
