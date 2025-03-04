@@ -310,11 +310,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     pub fn latest_transactions(&self) -> Transactions<N> {
         self.current_block.read().transactions().clone()
     }
-
-    /// Returns a reference to the committee cache.
-    pub fn committee_cache(&self) -> &Arc<Mutex<LruCache<u64, Committee<N>>>> {
-        &self.committee_cache
-    }
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
