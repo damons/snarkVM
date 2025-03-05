@@ -99,6 +99,9 @@ pub struct Assignment<F: PrimeField> {
 impl<F: PrimeField> From<crate::R1CS<F>> for Assignment<F> {
     /// Converts an R1CS to an assignment.
     fn from(r1cs: crate::R1CS<F>) -> Self {
+        #[cfg(feature = "save_r1cs_hashes")]
+        r1cs.save_hash();
+
         Self {
             public: FromIterator::from_iter(
                 r1cs.to_public_variables().iter().map(|variable| (variable.index(), variable.value())),

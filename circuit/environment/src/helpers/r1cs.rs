@@ -20,10 +20,23 @@ use crate::{
 use snarkvm_fields::PrimeField;
 
 use std::rc::Rc;
+#[cfg(feature = "save_r1cs_hashes")]
+use std::{
+    hash::{Hash, Hasher},
+    sync::Mutex,
+};
 
 pub type Scope = String;
 
-#[derive(Debug)]
+/// A list of hashes of all the R1CS objects that have reached the
+/// coversion to Assignment stage. It's a vector in case there are
+/// any duplicates (which could indicate no change or redundant
+/// work) and since they need to eventually be sorted in order to
+/// have deterministic order, as they may be created in parallel.
+#[cfg(feature = "save_r1cs_hashes")]
+pub static R1CS_HASHES: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+
+#[derive(Debug, Hash)]
 pub struct R1CS<F: PrimeField> {
     constants: Vec<Variable<F>>,
     public: Vec<Variable<F>>,
@@ -208,6 +221,16 @@ impl<F: PrimeField> R1CS<F> {
     /// Returns the constraints in the constraint system.
     pub fn to_constraints(&self) -> &Vec<Rc<Constraint<F>>> {
         &self.constraints
+    }
+
+    /// Register the current hash of the entire R1CS and add
+    /// it to the R1CS_HASHES collection.
+    #[cfg(feature = "save_r1cs_hashes")]
+    pub(crate) fn save_hash(&self) {
+        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+        self.hash(&mut hasher);
+        let r1cs_hash = hasher.finish();
+        R1CS_HASHES.lock().unwrap().push(r1cs_hash);
     }
 }
 
