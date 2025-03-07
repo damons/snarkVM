@@ -39,7 +39,6 @@ pub use test_circuit::*;
 #[cfg(feature = "test-exports")]
 pub mod test_exports {
     /// Test circuit for Varuna (for testing purposes only).
-    #[cfg(feature = "test")]
     pub use crate::snark::varuna::TestCircuit;
 }
 
