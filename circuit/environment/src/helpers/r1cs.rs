@@ -19,12 +19,35 @@ use crate::{
 };
 use snarkvm_fields::PrimeField;
 
+#[cfg(feature = "save_r1cs_hashes")]
+use sha2::{Digest, Sha256};
 use std::rc::Rc;
 #[cfg(feature = "save_r1cs_hashes")]
 use std::{
     hash::{Hash, Hasher},
     sync::Mutex,
 };
+
+#[cfg(feature = "save_r1cs_hashes")]
+struct Sha256Hasher(Sha256);
+
+#[cfg(feature = "save_r1cs_hashes")]
+impl Hasher for Sha256Hasher {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+
+    fn finish(&self) -> u64 {
+        unimplemented!("Use Digest::finalize instead to get the full SHA-256 digest");
+    }
+}
+
+#[cfg(feature = "save_r1cs_hashes")]
+fn hash_to_sha256<T: Hash>(t: &T) -> [u8; 32] {
+    let mut hasher = Sha256Hasher(Sha256::new());
+    t.hash(&mut hasher);
+    hasher.0.finalize().into()
+}
 
 pub type Scope = String;
 
@@ -34,7 +57,7 @@ pub type Scope = String;
 /// work) and since they need to eventually be sorted in order to
 /// have deterministic order, as they may be created in parallel.
 #[cfg(feature = "save_r1cs_hashes")]
-pub static R1CS_HASHES: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+pub static R1CS_HASHES: Mutex<Vec<[u8; 32]>> = Mutex::new(Vec::new());
 
 #[derive(Debug, Hash)]
 pub struct R1CS<F: PrimeField> {
@@ -227,9 +250,7 @@ impl<F: PrimeField> R1CS<F> {
     /// it to the R1CS_HASHES collection.
     #[cfg(feature = "save_r1cs_hashes")]
     pub(crate) fn save_hash(&self) {
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        self.hash(&mut hasher);
-        let r1cs_hash = hasher.finish();
+        let r1cs_hash = hash_to_sha256(self);
         R1CS_HASHES.lock().unwrap().push(r1cs_hash);
     }
 }

@@ -59,9 +59,9 @@ version = "0.2"
 [dependencies.once_cell]
 version = "1.18.0"
 
-[dependencies.xxhash-rust]
-version = "0.8"
-features = ["xxh3"]
+[dependencies.sha2]
+version = "0.10"
+default-features = false
 optional = true
 
 [dev-dependencies.snarkvm-algorithms]
@@ -82,4 +82,4 @@ version = "2.0.0"
 
 [features]
 default = [ "snarkvm-curves/default" ]
-save_r1cs_hashes = [ "dep:xxhash-rust" ] # used in regression-checking
+save_r1cs_hashes = [ "dep:sha2" ] # used in regression-checking
