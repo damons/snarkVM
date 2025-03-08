@@ -16,7 +16,7 @@
 use crate::{prelude::*, *};
 use snarkvm_fields::PrimeField;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Constraint<F: PrimeField>(
     pub(crate) Scope,
     pub(crate) LinearCombination<F>,

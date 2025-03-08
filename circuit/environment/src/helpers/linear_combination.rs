@@ -31,7 +31,7 @@ use core::{
 // \end{itemize}
 // The constant and variable terms directly refer to how often the R1CS variables are invoked in a row.
 // A full R1CS row is "completed" when we introduce a multiplication between three non-const linear combinations (a*b=c).
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct LinearCombination<F: PrimeField> {
     constant: F,
     /// The list of terms is kept sorted in order to speed up lookups.

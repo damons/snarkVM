@@ -18,7 +18,7 @@ use snarkvm_fields::PrimeField;
 
 use std::{mem, rc::Rc};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Hash)]
 pub(crate) struct Counter<F: PrimeField> {
     scope: Scope,
     constraints: Vec<Rc<Constraint<F>>>,
