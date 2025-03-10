@@ -30,13 +30,13 @@ pub(super) mod proof;
 pub use proof::*;
 
 /// A test circuit.
-#[cfg(any(test, feature = "test", feature = "test-exports"))]
+#[cfg(any(test, feature = "test", feature = "test_exports"))]
 pub(super) mod test_circuit;
-#[cfg(any(test, feature = "test", feature = "test-exports"))]
+#[cfg(any(test, feature = "test", feature = "test_exports"))]
 pub use test_circuit::*;
 
 /// Test exports module that provides access to test utilities for external crates.
-#[cfg(feature = "test-exports")]
+#[cfg(feature = "test_exports")]
 pub mod test_exports {
     /// Test circuit for Varuna (for testing purposes only).
     pub use crate::snark::varuna::TestCircuit;

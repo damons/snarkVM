@@ -149,7 +149,7 @@ parameters = [ "snarkvm-parameters" ]
 synthesizer = [ "snarkvm-synthesizer" ]
 utilities = [ "snarkvm-utilities" ]
 wasm = [ "snarkvm-wasm" ]
-test-exports = [ "snarkvm-algorithms/test-exports" ]
+test_exports = [ "snarkvm-algorithms/test_exports" ]
 test_targets = [ "snarkvm-console/test_targets" ]
 
 [dependencies.snarkvm-algorithms]
