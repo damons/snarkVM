@@ -38,7 +38,7 @@ pub struct Assignment<F: PrimeField> {
 impl<F: PrimeField> From<crate::R1CS<F>> for Assignment<F> {
     /// Converts an R1CS to an assignment.
     fn from(r1cs: crate::R1CS<F>) -> Self {
-	#[cfg(feature = "save_r1cs_hashes")]
+        #[cfg(feature = "save_r1cs_hashes")]
         r1cs.save_hash();
 
         let R1CS { public, private, constraints, num_variables, .. } = r1cs;
