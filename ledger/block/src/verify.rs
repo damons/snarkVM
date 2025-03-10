@@ -251,7 +251,7 @@ impl<N: Network> Block<N> {
                 "Leader certificate has an incorrect committee ID"
             );
 
-            // Check that all all certificates on each round have the same committee ID.
+            // Check that all certificates on each round have the same committee ID.
             cfg_iter!(subdag).try_for_each(|(round, certificates)| {
                 // Check that every certificate for a given round shares the same committee ID.
                 let expected_committee_id = certificates
@@ -637,9 +637,9 @@ impl<N: Network> Block<N> {
         }
 
         // Ensure there are no more solutions in the block.
-        ensure!(solutions.next().is_none(), "There exists more solutions than expected.");
+        ensure!(solutions.next().is_none(), "There exist more solutions than expected.");
         // Ensure there are no more transactions in the block.
-        ensure!(unconfirmed_transactions.next().is_none(), "There exists more transactions than expected.");
+        ensure!(unconfirmed_transactions.next().is_none(), "There exist more transactions than expected.");
 
         // Ensure the aborted solution IDs match.
         for aborted_solution_id in aborted_solution_ids {

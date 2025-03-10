@@ -85,7 +85,7 @@ impl<N: Network> Transaction<N> {
         // Compute the transaction ID
         let transaction_id = match &fee {
             Some(fee) => {
-                // Compute the root of the transacton tree.
+                // Compute the root of the transaction tree.
                 *Self::transaction_tree(execution_tree, execution.len(), fee)?.root()
             }
             None => execution_id,

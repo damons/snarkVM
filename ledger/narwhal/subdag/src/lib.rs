@@ -118,7 +118,6 @@ pub struct Subdag<N: Network> {
 
 impl<N: Network> PartialEq for Subdag<N> {
     fn eq(&self, other: &Self) -> bool {
-        // Note: We do not check equality on `election_certificate_ids` as it would cause `Block::eq` to trigger false-positives.
         self.subdag == other.subdag
     }
 }
