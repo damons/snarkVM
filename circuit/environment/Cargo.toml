@@ -64,8 +64,8 @@ version = "0.10"
 default-features = false
 optional = true
 
-[dependencies.singlevec]
-version = "1.7"
+[dependencies.smallvec]
+version = "1.14"
 
 [dev-dependencies.snarkvm-algorithms]
 path = "../../algorithms"
