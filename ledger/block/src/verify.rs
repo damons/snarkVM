@@ -225,6 +225,9 @@ impl<N: Network> Block<N> {
                     subdag.leader_address()
                 );
                 // Ensure the transmission IDs from the subdag correspond to the block.
+                // This is redundant if the block has been created via `Block::from()`;
+                // however, we need to obtain the solution and transaction IDs here,
+                // so may want to remove the redundant check in `Block::from()` and leave it here.
                 Self::check_subdag_transmissions(
                     subdag,
                     &self.solutions,
