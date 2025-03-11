@@ -320,6 +320,23 @@ impl<N: Network> Block<N> {
         let height = self.height();
         let timestamp = self.timestamp();
 
+        // Ensure the number of solutions is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
+        ensure!(
+            self.solutions.len() <= N::MAX_SOLUTIONS,
+            "Block {height} contains too many prover solutions (found '{}', expected '{}')",
+            self.solutions.len(),
+            N::MAX_SOLUTIONS
+        );
+
+        // Ensure the number of aborted solution IDs is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
+        ensure!(
+            self.aborted_solution_ids.len() <= Solutions::<N>::max_aborted_solutions()?,
+            "Block {height} contains too many aborted solution IDs (found '{}')",
+            self.aborted_solution_ids.len(),
+        );
+
         // Ensure there are no duplicate solution IDs.
         if has_duplicates(
             self.solutions
@@ -419,6 +436,24 @@ impl<N: Network> Block<N> {
     /// Ensures the block transactions are correct.
     fn verify_transactions(&self) -> Result<()> {
         let height = self.height();
+
+        // Ensure the number of transactions is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
+        if self.transactions.len() > Transactions::<N>::MAX_TRANSACTIONS {
+            bail!(
+                "Cannot validate a block with more than {} confirmed transactions",
+                Transactions::<N>::MAX_TRANSACTIONS
+            );
+        }
+
+        // Ensure the number of aborted transaction IDs is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
+        if self.aborted_transaction_ids.len() > Transactions::<N>::max_aborted_transactions()? {
+            bail!(
+                "Cannot validate a block with more than {} aborted transaction IDs",
+                Transactions::<N>::max_aborted_transactions()?
+            );
+        }
 
         // Ensure there are no duplicate transaction IDs.
         if has_duplicates(self.transaction_ids().chain(self.aborted_transaction_ids.iter())) {
