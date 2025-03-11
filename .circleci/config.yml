@@ -506,7 +506,7 @@ jobs:
     resource_class: << pipeline.parameters.medium >>
     steps:
       - run_serial:
-          flags: --features=rocks -- --test-threads=2
+          flags: --release --features=rocks -- --test-threads=4
           workspace_member: ledger
           cache_key: v1.3.0-rust-1.83.0-snarkvm-ledger-with-rocksdb-cache
 
