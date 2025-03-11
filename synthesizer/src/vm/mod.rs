@@ -470,19 +470,15 @@ pub(crate) mod test_helpers {
         program::{Entry, Value},
         types::Field,
     };
-    use ledger_block::{Block, Header, Metadata, Transition};
-    use ledger_store::helpers::memory::ConsensusMemory;
-    #[cfg(feature = "rocks")]
-    use ledger_store::helpers::rocksdb::ConsensusDB;
+    use ledger_block::{Block, Header, Input, Metadata, Transition};
     use ledger_test_helpers::{large_transaction_program, small_transaction_program};
     use synthesizer_program::Program;
 
     use aleo_std::StorageMode;
     use indexmap::IndexMap;
     use once_cell::sync::OnceCell;
-    #[cfg(feature = "rocks")]
-    use std::path::Path;
-    use synthesizer_snark::VerifyingKey;
+    use serde_json::json;
+    use synthesizer_snark::{Proof, VerifyingKey};
 
     pub(crate) type CurrentNetwork = MainnetV0;
     #[cfg(not(feature = "rocks"))]

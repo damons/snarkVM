@@ -94,8 +94,7 @@ path = "../../utilities"
 version = "=1.3.0"
 
 [dependencies.aleo-std]
-git = "https://github.com/ljedrz/aleo-std"
-branch = "feat/test_storage_mode"
+version = "1.0"
 default-features = false
 
 [dependencies.colored]

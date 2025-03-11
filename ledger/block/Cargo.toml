@@ -99,8 +99,7 @@ version = "1.0"
 features = [ "preserve_order" ]
 
 [dev-dependencies.aleo-std]
-git = "https://github.com/ljedrz/aleo-std"
-branch = "feat/test_storage_mode"
+version = "1.0"
 features = [ "storage" ]
 
 [dev-dependencies.bincode]

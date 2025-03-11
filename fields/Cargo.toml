@@ -34,8 +34,7 @@ version = "=1.3.0"
 default-features = false
 
 [dependencies.aleo-std]
-git = "https://github.com/ljedrz/aleo-std"
-branch = "feat/test_storage_mode"
+version = "1.0"
 default-features = false
 
 [dependencies.anyhow]
