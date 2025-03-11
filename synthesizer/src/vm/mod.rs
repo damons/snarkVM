@@ -97,7 +97,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     #[inline]
     pub fn from(store: ConsensusStore<N, C>) -> Result<Self> {
         // Initialize a new process.
-        let mut process = Process::load()?;
+        let process = Arc::new(RwLock::new(Process::load()?));
 
         // Initialize the store for 'credits.aleo'.
         let credits = Program::<N>::credits()?;
@@ -111,10 +111,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // A helper function to retrieve all the deployments.
         fn load_deployment_and_imports<N: Network, T: TransactionStorage<N>>(
-            process: &Process<N>,
+            process: Arc<RwLock<Process<N>>>,
             transaction_store: &TransactionStore<N, T>,
             transaction_id: N::TransactionID,
-        ) -> Result<Vec<(ProgramID<N>, Deployment<N>)>> {
+        ) -> Result<()> {
             // Retrieve the deployment from the transaction ID.
             let deployment = match transaction_store.get_deployment(&transaction_id)? {
                 Some(deployment) => deployment,
@@ -126,17 +126,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let program_id = program.id();
 
             // Return early if the program is already loaded.
-            if process.contains_program(program_id) {
-                return Ok(vec![]);
+            if process.read().contains_program(program_id) {
+                return Ok(());
             }
-
-            // Prepare a vector for the deployments.
-            let mut deployments = vec![];
 
             // Iterate through the program imports.
             for import_program_id in program.imports().keys() {
                 // Add the imports to the process if does not exist yet.
-                if !process.contains_program(import_program_id) {
+                if !process.read().contains_program(import_program_id) {
                     // Fetch the deployment transaction ID.
                     let Some(transaction_id) =
                         transaction_store.deployment_store().find_transaction_id_from_program_id(import_program_id)?
@@ -145,18 +142,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     };
 
                     // Add the deployment and its imports found recursively.
-                    deployments.extend_from_slice(&load_deployment_and_imports(
-                        process,
-                        transaction_store,
-                        transaction_id,
-                    )?);
+                    load_deployment_and_imports(process.clone(), transaction_store, transaction_id)?;
                 }
             }
 
-            // Once all the imports have been included, add the parent deployment.
-            deployments.push((*program_id, deployment));
+            if !process.read().contains_program(program_id) {
+                process.write().load_deployment(&deployment)?;
+            }
 
-            Ok(deployments)
+            Ok(())
         }
 
         // Retrieve the transaction store.
@@ -171,24 +165,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 ((i + 1) * 256).min(deployment_ids.len()),
                 deployment_ids.len()
             );
-            let deployments = cfg_iter!(chunk)
+            cfg_iter!(chunk)
                 .map(|transaction_id| {
                     // Load the deployment and its imports.
-                    load_deployment_and_imports(&process, transaction_store, **transaction_id)
+                    load_deployment_and_imports(process.clone(), transaction_store, **transaction_id)
                 })
-                .collect::<Result<Vec<_>>>()?;
-
-            for (program_id, deployment) in deployments.iter().flatten() {
-                // Load the deployment if it does not exist in the process yet.
-                if !process.contains_program(program_id) {
-                    process.load_deployment(deployment)?;
-                }
-            }
+                .collect::<Result<()>>()?
         }
 
         // Return the new VM.
         Ok(Self {
-            process: Arc::new(RwLock::new(process)),
+            process,
             puzzle: Self::new_puzzle()?,
             store,
             partially_verified_transactions: Arc::new(RwLock::new(LruCache::new(
