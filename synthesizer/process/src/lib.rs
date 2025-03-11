@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -62,6 +62,7 @@ use synthesizer_program::{
     Program,
     RegistersLoad,
     RegistersStore,
+    StackKeys,
     StackProgram,
 };
 use synthesizer_snark::{ProvingKey, UniversalSRS, VerifyingKey};
@@ -77,7 +78,7 @@ use colored::Colorize;
 #[derive(Clone)]
 pub struct Process<N: Network> {
     /// The universal SRS.
-    universal_srs: Arc<UniversalSRS<N>>,
+    universal_srs: UniversalSRS<N>,
     /// The mapping of program IDs to stacks.
     stacks: IndexMap<ProgramID<N>, Arc<Stack<N>>>,
 }
@@ -89,7 +90,7 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process:setup");
 
         // Initialize the process.
-        let mut process = Self { universal_srs: Arc::new(UniversalSRS::load()?), stacks: IndexMap::new() };
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: IndexMap::new() };
         lap!(timer, "Initialize process");
 
         // Initialize the 'credits.aleo' program.
@@ -144,7 +145,7 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process::load");
 
         // Initialize the process.
-        let mut process = Self { universal_srs: Arc::new(UniversalSRS::load()?), stacks: IndexMap::new() };
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: IndexMap::new() };
         lap!(timer, "Initialize process");
 
         // Initialize the 'credits.aleo' program.
@@ -182,7 +183,7 @@ impl<N: Network> Process<N> {
     #[cfg(feature = "wasm")]
     pub fn load_web() -> Result<Self> {
         // Initialize the process.
-        let mut process = Self { universal_srs: Arc::new(UniversalSRS::load()?), stacks: IndexMap::new() };
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: IndexMap::new() };
 
         // Initialize the 'credits.aleo' program.
         let program = Program::credits()?;
@@ -199,7 +200,7 @@ impl<N: Network> Process<N> {
 
     /// Returns the universal SRS.
     #[inline]
-    pub const fn universal_srs(&self) -> &Arc<UniversalSRS<N>> {
+    pub const fn universal_srs(&self) -> &UniversalSRS<N> {
         &self.universal_srs
     }
 

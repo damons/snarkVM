@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@ use snarkvm_fields::PrimeField;
 
 use std::{mem, rc::Rc};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Hash)]
 pub(crate) struct Counter<F: PrimeField> {
     scope: Scope,
     constraints: Vec<Rc<Constraint<F>>>,

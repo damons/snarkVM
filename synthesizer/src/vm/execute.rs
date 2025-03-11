@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -288,8 +288,8 @@ mod tests {
         assert_eq!(2914, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(1463, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -329,8 +329,8 @@ mod tests {
         assert_eq!(2970, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(1519, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -529,8 +529,8 @@ finalize test:
         assert_eq!(2867, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(1416, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -568,8 +568,8 @@ finalize test:
         assert_eq!(3693, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(2242, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -602,8 +602,8 @@ finalize test:
         assert_eq!(2871, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(1420, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -636,8 +636,8 @@ finalize test:
         assert_eq!(2891, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(1440, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -671,8 +671,8 @@ finalize test:
         assert_eq!(3538, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(2087, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -709,8 +709,8 @@ finalize test:
         assert_eq!(2166, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
-        assert!(matches!(transaction, Transaction::Execute(_, _, _)));
-        if let Transaction::Execute(_, execution, _) = &transaction {
+        assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
+        if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
             assert_eq!(2131, execution_size_in_bytes, "Update me if serialization has changed");
         }
@@ -867,7 +867,7 @@ finalize test:
         vm.add_next_block(&next_block).unwrap();
 
         // Execute the parent program.
-        let Transaction::Execute(_, execution, _) = vm
+        let Transaction::Execute(_, _, execution, _) = vm
             .execute(&caller_private_key, ("parent.aleo", "test"), Vec::<Value<_>>::new().iter(), None, 0, None, rng)
             .unwrap()
         else {
@@ -996,7 +996,7 @@ finalize test:
         }
 
         // Execute the program.
-        let Transaction::Execute(_, execution, _) = vm
+        let Transaction::Execute(_, _, execution, _) = vm
             .execute(
                 &caller_private_key,
                 (format!("test_{}.aleo", Transaction::<CurrentNetwork>::MAX_TRANSITIONS - 1), "test"),

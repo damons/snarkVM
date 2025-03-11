@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -119,6 +119,7 @@ mod tests {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_load_bytes() {
         BondPublicVerifier::load_bytes().expect("Failed to load bond_public verifier");

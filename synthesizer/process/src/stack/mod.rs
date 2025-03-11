@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -182,7 +182,7 @@ pub struct Stack<N: Network> {
     /// The mapping of finalize names to their register types.
     finalize_types: IndexMap<Identifier<N>, FinalizeTypes<N>>,
     /// The universal SRS.
-    universal_srs: Arc<UniversalSRS<N>>,
+    universal_srs: UniversalSRS<N>,
     /// The mapping of function name to proving key.
     proving_keys: Arc<RwLock<IndexMap<Identifier<N>, ProvingKey<N>>>>,
     /// The mapping of function name to verifying key.
@@ -220,6 +220,82 @@ impl<N: Network> Stack<N> {
 
         // Return the stack.
         Stack::initialize(process, program)
+    }
+}
+
+impl<N: Network> StackKeys<N> for Stack<N> {
+    /// Returns `true` if the proving key for the given function name exists.
+    #[inline]
+    fn contains_proving_key(&self, function_name: &Identifier<N>) -> bool {
+        self.proving_keys.read().contains_key(function_name)
+    }
+
+    /// Returns the proving key for the given function name.
+    #[inline]
+    fn get_proving_key(&self, function_name: &Identifier<N>) -> Result<ProvingKey<N>> {
+        // If the program is 'credits.aleo', try to load the proving key, if it does not exist.
+        self.try_insert_credits_function_proving_key(function_name)?;
+        // Return the proving key, if it exists.
+        match self.proving_keys.read().get(function_name) {
+            Some(pk) => Ok(pk.clone()),
+            None => bail!("Proving key not found for: {}/{}", self.program.id(), function_name),
+        }
+    }
+
+    /// Inserts the given proving key for the given function name.
+    #[inline]
+    fn insert_proving_key(&self, function_name: &Identifier<N>, proving_key: ProvingKey<N>) -> Result<()> {
+        // Ensure the function name exists in the program.
+        ensure!(
+            self.program.contains_function(function_name),
+            "Function '{function_name}' does not exist in program '{}'.",
+            self.program.id()
+        );
+        // Insert the proving key.
+        self.proving_keys.write().insert(*function_name, proving_key);
+        Ok(())
+    }
+
+    /// Removes the proving key for the given function name.
+    #[inline]
+    fn remove_proving_key(&self, function_name: &Identifier<N>) {
+        self.proving_keys.write().shift_remove(function_name);
+    }
+
+    /// Returns `true` if the verifying key for the given function name exists.
+    #[inline]
+    fn contains_verifying_key(&self, function_name: &Identifier<N>) -> bool {
+        self.verifying_keys.read().contains_key(function_name)
+    }
+
+    /// Returns the verifying key for the given function name.
+    #[inline]
+    fn get_verifying_key(&self, function_name: &Identifier<N>) -> Result<VerifyingKey<N>> {
+        // Return the verifying key, if it exists.
+        match self.verifying_keys.read().get(function_name) {
+            Some(vk) => Ok(vk.clone()),
+            None => bail!("Verifying key not found for: {}/{}", self.program.id(), function_name),
+        }
+    }
+
+    /// Inserts the given verifying key for the given function name.
+    #[inline]
+    fn insert_verifying_key(&self, function_name: &Identifier<N>, verifying_key: VerifyingKey<N>) -> Result<()> {
+        // Ensure the function name exists in the program.
+        ensure!(
+            self.program.contains_function(function_name),
+            "Function '{function_name}' does not exist in program '{}'.",
+            self.program.id()
+        );
+        // Insert the verifying key.
+        self.verifying_keys.write().insert(*function_name, verifying_key);
+        Ok(())
+    }
+
+    /// Removes the verifying key for the given function name.
+    #[inline]
+    fn remove_verifying_key(&self, function_name: &Identifier<N>) {
+        self.verifying_keys.write().shift_remove(function_name);
     }
 }
 
@@ -355,6 +431,23 @@ impl<N: Network> StackProgram<N> for Stack<N> {
         // Return the record.
         Ok(record)
     }
+
+    /// Returns a record for the given record name, deriving the nonce from tvk and index.
+    fn sample_record_using_tvk<R: Rng + CryptoRng>(
+        &self,
+        burner_address: &Address<N>,
+        record_name: &Identifier<N>,
+        tvk: Field<N>,
+        index: Field<N>,
+        rng: &mut R,
+    ) -> Result<Record<N, Plaintext<N>>> {
+        // Compute the randomizer.
+        let randomizer = N::hash_to_scalar_psd2(&[tvk, index])?;
+        // Construct the record nonce from that randomizer.
+        let record_nonce = N::g_scalar_multiply(&randomizer);
+        // Sample the record with that nonce.
+        self.sample_record(burner_address, record_name, record_nonce, rng)
+    }
 }
 
 impl<N: Network> StackProgramTypes<N> for Stack<N> {
@@ -370,82 +463,6 @@ impl<N: Network> StackProgramTypes<N> for Stack<N> {
     fn get_finalize_types(&self, name: &Identifier<N>) -> Result<&FinalizeTypes<N>> {
         // Retrieve the finalize types.
         self.finalize_types.get(name).ok_or_else(|| anyhow!("Finalize types for '{name}' do not exist"))
-    }
-}
-
-impl<N: Network> Stack<N> {
-    /// Returns `true` if the proving key for the given function name exists.
-    #[inline]
-    pub fn contains_proving_key(&self, function_name: &Identifier<N>) -> bool {
-        self.proving_keys.read().contains_key(function_name)
-    }
-
-    /// Returns `true` if the verifying key for the given function name exists.
-    #[inline]
-    pub fn contains_verifying_key(&self, function_name: &Identifier<N>) -> bool {
-        self.verifying_keys.read().contains_key(function_name)
-    }
-
-    /// Returns the proving key for the given function name.
-    #[inline]
-    pub fn get_proving_key(&self, function_name: &Identifier<N>) -> Result<ProvingKey<N>> {
-        // If the program is 'credits.aleo', try to load the proving key, if it does not exist.
-        self.try_insert_credits_function_proving_key(function_name)?;
-        // Return the proving key, if it exists.
-        match self.proving_keys.read().get(function_name) {
-            Some(proving_key) => Ok(proving_key.clone()),
-            None => bail!("Proving key not found for: {}/{function_name}", self.program.id()),
-        }
-    }
-
-    /// Returns the verifying key for the given function name.
-    #[inline]
-    pub fn get_verifying_key(&self, function_name: &Identifier<N>) -> Result<VerifyingKey<N>> {
-        // Return the verifying key, if it exists.
-        match self.verifying_keys.read().get(function_name) {
-            Some(verifying_key) => Ok(verifying_key.clone()),
-            None => bail!("Verifying key not found for: {}/{function_name}", self.program.id()),
-        }
-    }
-
-    /// Inserts the given proving key for the given function name.
-    #[inline]
-    pub fn insert_proving_key(&self, function_name: &Identifier<N>, proving_key: ProvingKey<N>) -> Result<()> {
-        // Ensure the function name exists in the program.
-        ensure!(
-            self.program.contains_function(function_name),
-            "Function '{function_name}' does not exist in program '{}'.",
-            self.program.id()
-        );
-        // Insert the proving key.
-        self.proving_keys.write().insert(*function_name, proving_key);
-        Ok(())
-    }
-
-    /// Inserts the given verifying key for the given function name.
-    #[inline]
-    pub fn insert_verifying_key(&self, function_name: &Identifier<N>, verifying_key: VerifyingKey<N>) -> Result<()> {
-        // Ensure the function name exists in the program.
-        ensure!(
-            self.program.contains_function(function_name),
-            "Function '{function_name}' does not exist in program '{}'.",
-            self.program.id()
-        );
-        // Insert the verifying key.
-        self.verifying_keys.write().insert(*function_name, verifying_key);
-        Ok(())
-    }
-
-    /// Removes the proving key for the given function name.
-    #[inline]
-    pub fn remove_proving_key(&self, function_name: &Identifier<N>) {
-        self.proving_keys.write().shift_remove(function_name);
-    }
-
-    /// Removes the verifying key for the given function name.
-    #[inline]
-    pub fn remove_verifying_key(&self, function_name: &Identifier<N>) {
-        self.verifying_keys.write().shift_remove(function_name);
     }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -2366,7 +2366,7 @@ fn test_process_deploy_credits_program() {
 
     // Initialize an empty process without the `credits` program.
     let empty_process =
-        Process { universal_srs: Arc::new(UniversalSRS::<CurrentNetwork>::load().unwrap()), stacks: IndexMap::new() };
+        Process { universal_srs: UniversalSRS::<CurrentNetwork>::load().unwrap(), stacks: IndexMap::new() };
 
     // Construct the process.
     let process = Process::load().unwrap();

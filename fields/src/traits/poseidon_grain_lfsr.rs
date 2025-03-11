@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -191,7 +191,7 @@ pub struct LFSRIter<'a> {
     current_bit: usize,
 }
 
-impl<'a> Iterator for LFSRIter<'a> {
+impl Iterator for LFSRIter<'_> {
     type Item = bool;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -216,7 +216,7 @@ impl<'a> Iterator for LFSRIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for LFSRIter<'a> {
+impl ExactSizeIterator for LFSRIter<'_> {
     fn len(&self) -> usize {
         self.num_bits
     }

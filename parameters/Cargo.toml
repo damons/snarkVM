@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-parameters"
-version = "1.2.1"
+version = "1.3.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "Parameters for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -24,6 +24,7 @@ license = "Apache-2.0"
 edition = "2021"
 
 [features]
+large_params = [ ]
 default = [ "colored", "remote" ]
 no_std_out = [ ]
 remote = [ "curl" ]
@@ -32,12 +33,12 @@ wasm = [ "encoding", "js-sys", "web-sys" ]
 
 [dependencies.snarkvm-curves]
 path = "../curves"
-version = "=1.2.1"
+version = "=1.3.0"
 default-features = false
 
 [dependencies.snarkvm-utilities]
 path = "../utilities"
-version = "=1.2.1"
+version = "=1.3.0"
 
 [dependencies.aleo-std]
 git = "https://github.com/ljedrz/aleo-std"
@@ -96,7 +97,7 @@ version = "0.10"
 default-features = false
 
 [dependencies.thiserror]
-version = "1.0"
+version = "2.0.11"
 
 [dependencies.web-sys]
 version = "0.3.64"

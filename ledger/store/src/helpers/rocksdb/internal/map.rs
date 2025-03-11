@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -131,7 +131,8 @@ impl<
     ///
     fn atomic_checkpoint(&self) {
         // Push the current length of the atomic batch to the checkpoint stack.
-        self.checkpoints.lock().push(self.atomic_batch.lock().len());
+        let batch_len = self.atomic_batch.lock().len();
+        self.checkpoints.lock().push(batch_len);
     }
 
     ///

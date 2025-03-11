@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,6 +28,7 @@ use ledger_puzzle::Solution;
 #[derive(Clone, PartialEq, Eq)]
 pub enum Transmission<N: Network> {
     /// A ratification.
+    /// This is a placeholder: currently ratifications are not actually supported.
     Ratification,
     /// A prover solution.
     /// Attention: Observe that the solution is encapsulated in `Data`, and thus possibly unchecked.

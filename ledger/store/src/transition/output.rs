@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -545,6 +545,7 @@ impl<N: Network, I: OutputStorage<N>> OutputStore<N, I> {
     }
 
     /// Returns an iterator over the `(commitment, record)` pairs, for all transition outputs that are records.
+    #[allow(clippy::type_complexity)]
     pub fn records(&self) -> impl '_ + Iterator<Item = (Cow<'_, Field<N>>, Cow<'_, Record<N, Ciphertext<N>>>)> {
         self.record.iter_confirmed().flat_map(|(commitment, output)| match output {
             Cow::Borrowed((_, Some(record))) => Some((commitment, Cow::Borrowed(record))),

@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -99,6 +99,9 @@ pub struct Assignment<F: PrimeField> {
 impl<F: PrimeField> From<crate::R1CS<F>> for Assignment<F> {
     /// Converts an R1CS to an assignment.
     fn from(r1cs: crate::R1CS<F>) -> Self {
+        #[cfg(feature = "save_r1cs_hashes")]
+        r1cs.save_hash();
+
         Self {
             public: FromIterator::from_iter(
                 r1cs.to_public_variables().iter().map(|variable| (variable.index(), variable.value())),
