@@ -44,7 +44,7 @@ pub struct Header<N: Network> {
     ratifications_root: Field<N>,
     /// The solutions root of the puzzle.
     solutions_root: Field<N>,
-    /// The subdag root of the authority.
+    /// The subdag Merkle root of the authority.
     subdag_root: Field<N>,
     /// The metadata of the block.
     metadata: Metadata<N>,
