@@ -151,7 +151,7 @@ impl Sanitizer {
             }
         } else if string.chars().all(is_char_supported) {
             // There is no `LF`. We return all the characters up to the end of file.
-            Ok((string, ""))
+            Ok(("", string))
         } else {
             // `eoi` is used here because we are under the condition that there is no newline.
             // This will fail at the first unsafe character, which is known to exist because
