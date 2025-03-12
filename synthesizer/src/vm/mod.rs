@@ -97,7 +97,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     #[inline]
     pub fn from(store: ConsensusStore<N, C>) -> Result<Self> {
         // Initialize a new process.
-        let process = Arc::new(RwLock::new(Process::load()?));
+        let mut process = Process::load()?;
 
         // Initialize the store for 'credits.aleo'.
         let credits = Program::<N>::credits()?;
@@ -111,9 +111,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // A helper function to retrieve all the deployments.
         fn load_deployment_and_imports<N: Network, T: TransactionStorage<N>>(
-            process: Arc<RwLock<Process<N>>>,
+            process: &Process<N>,
             transaction_store: &TransactionStore<N, T>,
             transaction_id: N::TransactionID,
+            deployments: Arc<RwLock<IndexMap<ProgramID<N>, Deployment<N>>>>,
         ) -> Result<()> {
             // Retrieve the deployment from the transaction ID.
             let deployment = match transaction_store.get_deployment(&transaction_id)? {
@@ -126,14 +127,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let program_id = program.id();
 
             // Return early if the program is already loaded.
-            if process.read().contains_program(program_id) {
+            if process.contains_program(program_id) || deployments.read().contains_key(program_id) {
                 return Ok(());
             }
 
             // Iterate through the program imports.
             for import_program_id in program.imports().keys() {
                 // Add the imports to the process if does not exist yet.
-                if !process.read().contains_program(import_program_id) {
+                if !process.contains_program(import_program_id) && !deployments.read().contains_key(program_id) {
                     // Fetch the deployment transaction ID.
                     let Some(transaction_id) =
                         transaction_store.deployment_store().find_transaction_id_from_program_id(import_program_id)?
@@ -142,12 +143,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     };
 
                     // Add the deployment and its imports found recursively.
-                    load_deployment_and_imports(process.clone(), transaction_store, transaction_id)?;
+                    load_deployment_and_imports(process, transaction_store, transaction_id, deployments.clone())?;
                 }
             }
 
-            if !process.read().contains_program(program_id) {
-                process.write().load_deployment(&deployment)?;
+            // Once all the imports have been included, add the parent deployment.
+            if !deployments.read().contains_key(program_id) {
+                // Note: There may be re-insertions due to parallelism, but it is safe to
+                //  reinsert into the IndexMap because it should be the same object.
+                deployments.write().insert(*program_id, deployment);
             }
 
             Ok(())
@@ -157,6 +161,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let transaction_store = store.transaction_store();
         // Retrieve the list of deployment transaction IDs.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
+        // TODO (raychu86): Load them in order of block height to limit recursion.
         // Load the deployments from the store.
         for (i, chunk) in deployment_ids.chunks(256).enumerate() {
             debug!(
@@ -165,17 +170,26 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 ((i + 1) * 256).min(deployment_ids.len()),
                 deployment_ids.len()
             );
+            // Prepare a tracker for the deployments.
+            let deployments = Arc::new(RwLock::new(IndexMap::new()));
             cfg_iter!(chunk)
                 .map(|transaction_id| {
                     // Load the deployment and its imports.
-                    load_deployment_and_imports(process.clone(), transaction_store, **transaction_id)
+                    load_deployment_and_imports(&process, transaction_store, **transaction_id, deployments.clone())
                 })
-                .collect::<Result<()>>()?
+                .collect::<Result<()>>()?;
+
+            for (program_id, deployment) in deployments.read().iter() {
+                // Load the deployment if it does not exist in the process yet.
+                if !process.contains_program(program_id) {
+                    process.load_deployment(deployment)?;
+                }
+            }
         }
 
         // Return the new VM.
         Ok(Self {
-            process,
+            process: Arc::new(RwLock::new(process)),
             puzzle: Self::new_puzzle()?,
             store,
             partially_verified_transactions: Arc::new(RwLock::new(LruCache::new(
