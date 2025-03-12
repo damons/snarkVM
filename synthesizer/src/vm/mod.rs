@@ -151,7 +151,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             if !deployments.read().contains_key(program_id) {
                 // Note: There may be re-insertions due to parallelism, but it is safe to
                 //  reinsert into the IndexMap because it should be the same object.
-                deployments.write().insert(*program_id, deployment);
+                deployments.write().entry(*program_id).or_insert(deployment);
             }
 
             Ok(())
