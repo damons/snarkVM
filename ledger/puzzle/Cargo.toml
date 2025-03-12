@@ -47,7 +47,7 @@ path = "../../algorithms"
 version = "=1.3.0"
 
 [dependencies.aleo-std]
-version = "1.0"
+version = "1.0.1"
 default-features = false
 
 [dependencies.anyhow]

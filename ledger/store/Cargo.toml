@@ -80,7 +80,7 @@ path = "../../synthesizer/snark"
 version = "=1.3.0"
 
 [dependencies.aleo-std-storage]
-version = "1.0"
+version = "1.0.1"
 default-features = false
 
 [dependencies.anyhow]
@@ -128,7 +128,7 @@ version = "0.1"
 optional = true
 
 [dev-dependencies.aleo-std]
-version = "1.0"
+version = "1.0.1"
 
 [dev-dependencies.ledger-committee]
 package = "snarkvm-ledger-committee"
