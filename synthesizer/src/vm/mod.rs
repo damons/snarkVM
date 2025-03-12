@@ -161,7 +161,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let transaction_store = store.transaction_store();
         // Retrieve the list of deployment transaction IDs.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
-        // TODO (raychu86): Load them in order of block height to limit recursion.
+        // TODO (raychu86): Investigate loading them in order to limit recursion.
         // Load the deployments from the store.
         for (i, chunk) in deployment_ids.chunks(256).enumerate() {
             debug!(
