@@ -27,6 +27,7 @@ edition = "2021"
 default = [ "indexmap/rayon", "rayon" ]
 aleo-cli = [ ]
 async = [ "ledger-query/async" ]
+locktick = [ "dep:locktick" ]
 rocks = [ "ledger-store/rocks" ]
 serial = [
   "console/serial",
@@ -108,6 +109,11 @@ version = "2"
 [dependencies.indexmap]
 version = "2.0"
 features = [ "serde" ]
+
+[dependencies.locktick]
+version = "0.3"
+features = [ "parking_lot" ]
+optional = true
 
 [dependencies.once_cell]
 version = "1.18"
