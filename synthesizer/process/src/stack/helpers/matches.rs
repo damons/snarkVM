@@ -306,9 +306,9 @@ impl<N: Network> Stack<N> {
             false => Some(self.get_external_stack(locator.program_id())?),
         };
         // Retrieve the associated function.
-        let function = match external_stack {
-            Some(external_stack) => external_stack.get_function(locator.resource())?,
-            None => self.get_function(locator.resource())?,
+        let function = match &external_stack {
+            Some(external_stack) => external_stack.get_function_ref(locator.resource())?,
+            None => self.get_function_ref(locator.resource())?,
         };
         // Retrieve the finalize inputs.
         let inputs = match function.finalize_logic() {
