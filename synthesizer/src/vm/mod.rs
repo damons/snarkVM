@@ -2959,4 +2959,105 @@ function add_thrice:
         // It should still be possible to insert the 1st block afterwards.
         vm.add_next_block(&block1).unwrap();
     }
+
+    #[test]
+    fn test_dependent_deployments_in_same_block() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fund two accounts to pay for the deployment.
+        let private_key_1 = PrivateKey::new(rng).unwrap();
+        let private_key_2 = PrivateKey::new(rng).unwrap();
+        let address_1 = Address::try_from(&private_key_1).unwrap();
+        let address_2 = Address::try_from(&private_key_2).unwrap();
+
+        let tx_1 = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address_1}")).unwrap(), Value::from_str("100000000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        let tx_2 = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address_2}")).unwrap(), Value::from_str("100000000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 2);
+        vm.add_next_block(&block).unwrap();
+
+        // Deploy two programs that depend on each other.
+        let program_1 = Program::from_str(
+            r"
+program child_program.aleo;
+
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    add r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        let program_2 = Program::from_str(
+            r"
+import child_program.aleo;
+
+program parent_program.aleo;
+
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    call child_program.aleo/adder r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        // Initialize an "off-chain" VM to generate the deployments.
+        let off_chain_vm = sample_vm();
+        off_chain_vm.add_next_block(&genesis).unwrap();
+        off_chain_vm.add_next_block(&block).unwrap();
+        // Deploy the first program.
+        let deployment_1 = off_chain_vm.deploy(&private_key_1, &program_1, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment_1.fee_amount().unwrap(), 2483025);
+        // Add the first program to the off-chain VM.
+        off_chain_vm.process().write().add_program(&program_1).unwrap();
+        // Deploy the second program.
+        let deployment_2 = off_chain_vm.deploy(&private_key_2, &program_2, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment_2.fee_amount().unwrap(), 2659575);
+        // Drop the off-chain VM.
+        drop(off_chain_vm);
+
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment_1, deployment_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Check that only `child_program.aleo` is in the VM.
+        assert!(vm.process().read().contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
+    }
 }
