@@ -38,7 +38,12 @@ async = [
   "ledger-query/async",
   "synthesizer/async"
 ]
-locktick = [ "dep:locktick", "ledger-puzzle/locktick", "ledger-store/locktick" ]
+locktick = [
+  "dep:locktick",
+  "ledger-puzzle/locktick",
+  "ledger-store/locktick",
+  "synthesizer/locktick"
+]
 metrics = [ "ledger-committee/metrics" ]
 rocks = [ "ledger-store/rocks" ]
 serial = [

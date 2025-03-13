@@ -27,7 +27,7 @@ edition = "2021"
 default = [ "indexmap/rayon", "rayon" ]
 aleo-cli = [ ]
 async = [ "ledger-query/async" ]
-locktick = [ "dep:locktick" ]
+locktick = [ "dep:locktick", "ledger-store/locktick" ]
 rocks = [ "ledger-store/rocks" ]
 serial = [
   "console/serial",

@@ -26,7 +26,11 @@ edition = "2021"
 [features]
 default = [ "synthesis", "rayon" ]
 serial = [ "console/serial", "snarkvm-ledger-puzzle/serial" ]
-locktick = [ "dep:locktick" ]
+locktick = [
+  "dep:locktick",
+  "snarkvm-ledger-puzzle/locktick",
+  "snarkvm-synthesizer-process/locktick"
+]
 merkle = [ ]
 synthesis = [
   "aleo-std",

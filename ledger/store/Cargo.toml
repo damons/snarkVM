@@ -18,7 +18,7 @@ edition = "2021"
 
 [features]
 default = [ "indexmap/rayon", "rayon" ]
-locktick = [ "dep:locktick" ]
+locktick = [ "dep:locktick", "ledger-puzzle/locktick" ]
 rocks = [ "once_cell", "rocksdb", "smallvec", "tracing" ]
 serial = [
   "console/serial",
