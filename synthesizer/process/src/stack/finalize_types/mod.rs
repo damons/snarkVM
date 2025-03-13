@@ -181,14 +181,7 @@ impl<N: Network> FinalizeTypes<N> {
                     // Check that the index is in bounds.
                     match finalize_inputs.get_index(**index as usize) {
                         // Retrieve the input type and update `finalize_type` for the next iteration.
-                        Some(input) => {
-                            finalize_type = match input.finalize_type() {
-                                FinalizeType::Plaintext(plaintext_type) => {
-                                    FinalizeType::Plaintext(plaintext_type.clone())
-                                }
-                                FinalizeType::Future(locator) => FinalizeType::Future(*locator),
-                            }
-                        }
+                        Some(input) => finalize_type = input.finalize_type().clone(),
                         // Halts if the index is out of bounds.
                         None => bail!("Index out of bounds"),
                     }
