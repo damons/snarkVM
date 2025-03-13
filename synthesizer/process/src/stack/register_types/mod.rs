@@ -176,7 +176,10 @@ impl<N: Network> RegisterTypes<N> {
                 // Get the external stack.
                 let external_stack = stack.get_external_stack(locator.program_id())?;
                 // Get the external record.
-                let external_record = external_stack.program().get_record(locator.resource())?;
+                let external_record = external_stack
+                    .program()
+                    .get_record(locator.resource())
+                    .or_else(|_| bail!("External record '{locator}' does not exist"))?;
                 // Retrieve the first access.
                 // Note: this unwrap is safe since the path is checked to be non-empty above.
                 let access = path_iter.next().unwrap();
