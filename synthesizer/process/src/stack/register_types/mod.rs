@@ -233,6 +233,8 @@ impl<N: Network> RegisterTypes<N> {
                     // Retrieve the external stack, if needed.
                     let external_stack = match locator.program_id() == stack.program_id() {
                         true => None,
+                        // Attention - This method must fail here and early return if the external program is missing.
+                        // Otherwise, this method will proceed to look for the requested function in its own program.
                         false => Some(stack.get_external_stack(locator.program_id())?),
                     };
                     // Retrieve the associated function.

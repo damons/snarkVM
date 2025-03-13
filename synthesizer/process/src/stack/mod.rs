@@ -325,6 +325,9 @@ impl<N: Network> StackProgram<N> for Stack<N> {
     }
 
     /// Returns the external stack for the given program ID.
+    ///
+    /// Attention - this function is used to check the existence of the external program.
+    /// Developers should explicitly handle the error case so as to not default to the main program.
     #[inline]
     fn get_external_stack(&self, program_id: &ProgramID<N>) -> Result<Arc<Stack<N>>> {
         // Check that the program ID is not itself.
