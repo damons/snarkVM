@@ -42,9 +42,21 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoad<N> for Registers<N
             // If the operand is the network ID, throw an error.
             Operand::NetworkID => bail!("Cannot load the network ID in a non-finalize context"),
             // If the operand is the checksum, retrieve the checksum for the program.
-            Operand::Checksum(_) => todo!(),
+            Operand::Checksum(program_id) => {
+                let checksum = match program_id {
+                    Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
+                    None => *stack.program_checksum(),
+                };
+                return Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))));
+            }
             // If the operand is the edition, retrieve the edition for the program.
-            Operand::Edition(_) => todo!(),
+            Operand::Edition(program_id) => {
+                let edition = match program_id {
+                    Some(program_id) => *stack.get_external_stack(program_id)?.program_edition(),
+                    None => *stack.program_edition(),
+                };
+                return Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))));
+            }
         };
 
         // Retrieve the stack value.
@@ -131,9 +143,25 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoadCircuit<N, A> for R
             // If the operand is the network ID, throw an error.
             Operand::NetworkID => bail!("Cannot load the network ID in a non-finalize context"),
             // If the operand is the checksum, retrieve the checksum for the program.
-            Operand::Checksum(_) => todo!(),
+            Operand::Checksum(program_id) => {
+                let checksum = match program_id {
+                    Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
+                    None => *stack.program_checksum(),
+                };
+                return Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::constant(
+                    Literal::Field(checksum),
+                ))));
+            }
             // If the operand is the edition, retrieve the edition for the program.
-            Operand::Edition(_) => todo!(),
+            Operand::Edition(program_id) => {
+                let edition = match program_id {
+                    Some(program_id) => *stack.get_external_stack(program_id)?.program_edition(),
+                    None => *stack.program_edition(),
+                };
+                return Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::constant(
+                    Literal::U16(edition),
+                ))));
+            }
         };
 
         // Retrieve the circuit value.

@@ -94,9 +94,25 @@ impl<N: Network> RegisterTypes<N> {
                     "Struct member '{struct_name}.{member_name}' cannot be from a network ID in a non-finalize scope"
                 ),
                 // Ensure the checksum type (field) matches the member type.
-                Operand::Checksum(_) => todo!(),
+                Operand::Checksum(_) => {
+                    // Retrieve the operand type.
+                    let operand_type = PlaintextType::Literal(LiteralType::Field);
+                    // Ensure the operand type matches the member type.
+                    ensure!(
+                        &operand_type == member_type,
+                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{operand_type}' in the operand '{operand}'.",
+                    )
+                }
                 // Ensure the edition type (u16) matches the member type.
-                Operand::Edition(_) => todo!(),
+                Operand::Edition(_) => {
+                    // Retrieve the operand type.
+                    let operand_type = PlaintextType::Literal(LiteralType::U16);
+                    // Ensure the operand type matches the member type.
+                    ensure!(
+                        &operand_type == member_type,
+                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{operand_type}' in the operand '{operand}'.",
+                    )
+                }
             }
         }
         Ok(())
@@ -174,9 +190,27 @@ impl<N: Network> RegisterTypes<N> {
                 // If the operand is a network ID type, throw an error.
                 Operand::NetworkID => bail!("Array element cannot be from a network ID in a non-finalize scope"),
                 // Ensure the checksum type (field) matches the element type.
-                Operand::Checksum(_) => todo!(),
+                Operand::Checksum(_) => {
+                    // Retrieve the operand type.
+                    let operand_type = PlaintextType::Literal(LiteralType::Field);
+                    // Ensure the operand type matches the element type.
+                    ensure!(
+                        &operand_type == array_type.next_element_type(),
+                        "Array element expects {}, but found '{operand_type}' in the operand '{operand}'.",
+                        array_type.next_element_type()
+                    )
+                }
                 // Ensure the edition type (u16) matches the element type.
-                Operand::Edition(_) => todo!(),
+                Operand::Edition(_) => {
+                    // Retrieve the operand type.
+                    let operand_type = PlaintextType::Literal(LiteralType::U16);
+                    // Ensure the operand type matches the element type.
+                    ensure!(
+                        &operand_type == array_type.next_element_type(),
+                        "Array element expects {}, but found '{operand_type}' in the operand '{operand}'.",
+                        array_type.next_element_type()
+                    )
+                }
             }
         }
         Ok(())
@@ -310,9 +344,25 @@ impl<N: Network> RegisterTypes<N> {
                             )
                         }
                         // Ensure the checksum type (field) matches the entry type.
-                        Operand::Checksum(_) => todo!(),
+                        Operand::Checksum(_) => {
+                            // Retrieve the operand type.
+                            let operand_type = &PlaintextType::Literal(LiteralType::Field);
+                            // Ensure the operand type matches the entry type.
+                            ensure!(
+                                operand_type == plaintext_type,
+                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found '{operand_type}' in the operand '{operand}'.",
+                            )
+                        }
                         // Ensure the edition type (u16) matches the entry type.
-                        Operand::Edition(_) => todo!(),
+                        Operand::Edition(_) => {
+                            // Retrieve the operand type.
+                            let operand_type = &PlaintextType::Literal(LiteralType::U16);
+                            // Ensure the operand type matches the entry type.
+                            ensure!(
+                                operand_type == plaintext_type,
+                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found '{operand_type}' in the operand '{operand}'.",
+                            )
+                        }
                     }
                 }
             }

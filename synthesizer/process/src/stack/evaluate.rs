@@ -86,9 +86,21 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a closure scope."),
                     // If the operand is the program checksum, retrieve the checksum for the program.
-                    Operand::Checksum(_) => todo!(),
+                    Operand::Checksum(program_id) => {
+                        let checksum = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
+                            None => *self.program_checksum(),
+                        };
+                        Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))))
+                    }
                     // If the operand is the program edition, retrieve the edition for the program.
-                    Operand::Edition(_) => todo!(),
+                    Operand::Edition(program_id) => {
+                        let edition = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
+                            None => *self.program_edition(),
+                        };
+                        Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))))
+                    }
                 }
             })
             .collect();
@@ -223,9 +235,21 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a function scope."),
                     // If the operand is the program checksum, retrieve the checksum for the program.
-                    Operand::Checksum(_) => todo!(),
+                    Operand::Checksum(program_id) => {
+                        let checksum = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
+                            None => *self.program_checksum(),
+                        };
+                        Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))))
+                    }
                     // If the operand is the program edition, retrieve the edition for the program.
-                    Operand::Edition(_) => todo!(),
+                    Operand::Edition(program_id) => {
+                        let edition = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
+                            None => *self.program_edition(),
+                        };
+                        Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))))
+                    }
                 }
             })
             .collect::<Result<Vec<_>>>()?;

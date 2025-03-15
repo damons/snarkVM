@@ -108,9 +108,25 @@ impl<N: Network> FinalizeTypes<N> {
                     )
                 }
                 // Ensure the checksum type (field) matches the member type.
-                Operand::Checksum(_) => todo!(),
+                Operand::Checksum(_) => {
+                    // Retrieve the checksum type.
+                    let checksum_type = PlaintextType::Literal(LiteralType::Field);
+                    // Ensure the checksum type matches the member type.
+                    ensure!(
+                        &checksum_type == member_type,
+                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{checksum_type}' in the operand '{operand}'.",
+                    )
+                }
                 // Ensure the edition type (u16) matches the member type.
-                Operand::Edition(_) => todo!(),
+                Operand::Edition(_) => {
+                    // Retrieve the edition type.
+                    let edition_type = PlaintextType::Literal(LiteralType::U16);
+                    // Ensure the edition type matches the member type.
+                    ensure!(
+                        &edition_type == member_type,
+                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{edition_type}' in the operand '{operand}'.",
+                    )
+                }
             }
         }
         Ok(())
@@ -204,9 +220,27 @@ impl<N: Network> FinalizeTypes<N> {
                     )
                 }
                 // Ensure the checksum type (field) matches the member type.
-                Operand::Checksum(_) => todo!(),
+                Operand::Checksum(_) => {
+                    // Retrieve the checksum type.
+                    let checksum_type = PlaintextType::Literal(LiteralType::Field);
+                    // Ensure the checksum type matches the member type.
+                    ensure!(
+                        &checksum_type == array_type.next_element_type(),
+                        "Array element expects {}, but found '{checksum_type}' in the operand '{operand}'.",
+                        array_type.next_element_type()
+                    )
+                }
                 // Ensure the edition type (u16) matches the member type.
-                Operand::Edition(_) => todo!(),
+                Operand::Edition(_) => {
+                    // Retrieve the edition type.
+                    let edition_type = PlaintextType::Literal(LiteralType::U16);
+                    // Ensure the edition type matches the member type.
+                    ensure!(
+                        &edition_type == array_type.next_element_type(),
+                        "Array element expects {}, but found '{edition_type}' in the operand '{operand}'.",
+                        array_type.next_element_type()
+                    )
+                }
             }
         }
         Ok(())

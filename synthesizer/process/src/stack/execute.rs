@@ -121,9 +121,25 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                         bail!("Illegal operation: cannot retrieve the network id in a closure scope")
                     }
                     // If the operand is the checksum, retrieve the checksum for the program.
-                    Operand::Checksum(_) => todo!(),
+                    Operand::Checksum(program_id) => {
+                        let checksum = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
+                            None => *self.program_checksum(),
+                        };
+                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::Field(
+                            circuit::Field::new(circuit::Mode::Constant, checksum),
+                        ))))
+                    }
                     // If the operand is the edition, retrieve the edition for the program.
-                    Operand::Edition(_) => todo!(),
+                    Operand::Edition(program_id) => {
+                        let edition = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
+                            None => *self.program_edition(),
+                        };
+                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::U16(
+                            circuit::U16::new(circuit::Mode::Constant, edition),
+                        ))))
+                    }
                 }
             })
             .collect();
@@ -360,9 +376,25 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                         bail!("Illegal operation: cannot retrieve the network id in a function scope")
                     }
                     // If the operand is the checksum, retrieve the checksum for the program.
-                    Operand::Checksum(_) => todo!(),
+                    Operand::Checksum(program_id) => {
+                        let checksum = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
+                            None => *self.program_checksum(),
+                        };
+                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::Field(
+                            circuit::Field::new(circuit::Mode::Constant, checksum),
+                        ))))
+                    }
                     // If the operand is the edition, retrieve the edition for the program.
-                    Operand::Edition(_) => todo!(),
+                    Operand::Edition(program_id) => {
+                        let edition = match program_id {
+                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
+                            None => *self.program_edition(),
+                        };
+                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::U16(
+                            circuit::U16::new(circuit::Mode::Constant, edition),
+                        ))))
+                    }
                 }
             })
             .collect::<Result<Vec<_>>>()?;
