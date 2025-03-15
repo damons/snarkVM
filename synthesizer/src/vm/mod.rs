@@ -68,11 +68,7 @@ use itertools::Either;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock};
 use rand::{SeedableRng, rngs::StdRng};
-use std::{
-    collections::{HashMap, HashSet},
-    num::NonZeroUsize,
-    sync::Arc,
-};
+use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
@@ -116,67 +112,48 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let transaction_store = store.transaction_store();
         // Retrieve the block store.
         let block_store = store.block_store();
-        // Retrieve the list of deployment transaction IDs.
+
+        // Retrieve the list of deployment transaction IDs and their associated block heights.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
-        // Initialize storage for the deployments and block heights.
-        let mut deployments = HashMap::with_capacity(deployment_ids.len());
-        let mut heights = Vec::with_capacity(deployment_ids.len());
-        // Load the deployments and their block heights from the store.
-        for (i, chunk) in deployment_ids.chunks(256).enumerate() {
+        let mut deployment_ids = cfg_into_iter!(deployment_ids)
+            .map(|transaction_id| {
+                // Retrieve the height.
+                let height =
+                    match block_store.find_block_hash(&transaction_id)?.map(|hash| block_store.get_block_height(&hash))
+                    {
+                        Some(Ok(Some(height))) => height,
+                        _ => {
+                            bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
+                        }
+                    };
+                Ok((transaction_id, height))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        // Sort the deployment transaction IDs by their block heights.
+        deployment_ids.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
+
+        // Load the deployments in order of their block heights.
+        const PARALLELIZATION_FACTOR: usize = 256;
+        for (i, chunk) in deployment_ids.chunks(PARALLELIZATION_FACTOR).enumerate() {
             debug!(
                 "Loading deployments {}-{} (of {})...",
-                i * 256,
-                ((i + 1) * 256).min(deployment_ids.len()),
+                i * PARALLELIZATION_FACTOR,
+                ((i + 1) * PARALLELIZATION_FACTOR).min(deployment_ids.len()),
                 deployment_ids.len()
             );
-            // Load the deployments and their block heights.
-            let chunk_iter = cfg_iter!(chunk).map(|transaction_id| {
-                // Retrieve the deployment from the transaction ID.
-                let deployment = match transaction_store.get_deployment(transaction_id)? {
-                    Some(deployment) => deployment,
-                    None => bail!("Deployment transaction '{transaction_id}' is not found in storage."),
-                };
-                // Retrieve the height.
-                let height = match block_store
-                    .find_block_hash(transaction_id)?
-                    .map(|hash| block_store.get_block_height(&hash))
-                {
-                    Some(Ok(Some(height))) => height,
-                    _ => {
-                        bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
-                    }
-                };
-                // Return the deployment and height.
-                let transaction_id = transaction_id.clone();
-                let local_map = HashMap::from([(*transaction_id, deployment)]);
-                let local_vec = vec![(*transaction_id, height)];
-                Ok((local_map, local_vec))
-            });
-            // Aggregate the chunk.
-            let (local_deployments, local_heights) = cfg_reduce!(
-                chunk_iter,
-                || Ok((HashMap::new(), Vec::new())),
-                |acc: Result<_, anyhow::Error>, local| {
-                    let mut acc = acc?;
-                    let local = local?;
-                    acc.0.extend(local.0);
-                    acc.1.extend(local.1);
-                    Ok(acc)
-                }
-            )?;
-            // Extend the deployments and heights.
-            deployments.extend(local_deployments);
-            heights.extend(local_heights);
-        }
-
-        // Sort the deployments by their block heights.
-        heights.sort_by(|(_, a), (_, b)| a.cmp(b));
-        // Load the deployments according to their block heights.
-        for (transaction_id, _) in heights {
-            // Retrieve the deployment.
-            let deployment = deployments.get(&transaction_id).ok_or_else(|| anyhow!("Deployment not found"))?;
-            // Load the deployment.
-            process.load_deployment(deployment)?;
+            // Load the deployments.
+            let deployments = cfg_iter!(chunk)
+                .map(|(transaction_id, _)| {
+                    // Retrieve the deployment from the transaction ID.
+                    let deployment = match transaction_store.get_deployment(transaction_id)? {
+                        Some(deployment) => deployment,
+                        None => bail!("Deployment transaction '{transaction_id}' is not found in storage."),
+                    };
+                    Ok(deployment)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            // Add the deployments to the process.
+            deployments.iter().try_for_each(|deployment| process.load_deployment(deployment))?;
         }
 
         // Return the new VM.
