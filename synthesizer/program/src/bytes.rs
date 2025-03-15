@@ -56,6 +56,10 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Fro
                 3 => program.add_closure(ClosureCore::read_le(&mut reader)?).map_err(|e| error(e.to_string()))?,
                 // Read the function.
                 4 => program.add_function(FunctionCore::read_le(&mut reader)?).map_err(|e| error(e.to_string()))?,
+                // Read the constructor.
+                5 => {
+                    program.add_constructor(ConstructorCore::read_le(&mut reader)?).map_err(|e| error(e.to_string()))?
+                }
                 // Invalid variant.
                 _ => return Err(error(format!("Failed to parse program. Invalid component variant '{variant}'"))),
             }
@@ -82,8 +86,9 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ToB
             import.write_le(&mut writer)?;
         }
 
-        // Write the number of components.
-        u16::try_from(self.identifiers.len()).map_err(|e| error(e.to_string()))?.write_le(&mut writer)?;
+        // Write the number of components, accounting for the constructor.
+        let number_of_components = self.identifiers.len() + if self.constructor.is_some() { 1 } else { 0 };
+        u16::try_from(number_of_components).map_err(|e| error(e.to_string()))?.write_le(&mut writer)?;
         // Write the components.
         for (identifier, definition) in self.identifiers.iter() {
             match definition {
@@ -133,6 +138,14 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ToB
                     None => return Err(error(format!("Function '{identifier}' is not defined."))),
                 },
             }
+        }
+
+        // Write the constructor, if it exists.
+        if let Some(constructor) = &self.constructor {
+            // Write the variant.
+            5u8.write_le(&mut writer)?;
+            // Write the constructor.
+            constructor.write_le(&mut writer)?;
         }
 
         Ok(())

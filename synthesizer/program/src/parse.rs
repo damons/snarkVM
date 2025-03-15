@@ -28,6 +28,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
             R(RecordType<N>),
             C(ClosureCore<N, Instruction>),
             F(FunctionCore<N, Instruction, Command>),
+            Constructor(ConstructorCore<N, Command>),
         }
 
         // Parse the imports from the string.
@@ -61,6 +62,10 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
                 map(ClosureCore::parse, |closure| P::<N, Instruction, Command>::C(closure))(string)
             } else if string.starts_with(FunctionCore::<N, Instruction, Command>::type_name()) {
                 map(FunctionCore::parse, |function| P::<N, Instruction, Command>::F(function))(string)
+            } else if string.starts_with(ConstructorCore::<N, Command>::type_name()) {
+                map(ConstructorCore::parse, |constructor| P::<N, Instruction, Command>::Constructor(constructor))(
+                    string,
+                )
             } else {
                 Err(Err::Error(make_error(string, ErrorKind::Alt)))
             }
@@ -87,6 +92,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
                 P::R(record) => program.add_record(record),
                 P::C(closure) => program.add_closure(closure),
                 P::F(function) => program.add_function(function),
+                P::Constructor(constructor) => program.add_constructor(constructor),
             };
 
             match result {
@@ -160,6 +166,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Dis
 
         // Print the program name.
         write!(f, "{} {};\n\n", Self::type_name(), self.id)?;
+
+        // Write the constructor, if it exists.
+        if let Some(constructor) = &self.constructor {
+            writeln!(f, "{constructor}\n")?;
+        }
 
         let mut identifier_iter = self.identifiers.iter().peekable();
         while let Some((identifier, definition)) = identifier_iter.next() {

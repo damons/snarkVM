@@ -21,9 +21,13 @@ pub type Program<N> = crate::ProgramCore<N, Instruction<N>, Command<N>>;
 pub type Function<N> = crate::FunctionCore<N, Instruction<N>, Command<N>>;
 pub type Finalize<N> = crate::FinalizeCore<N, Command<N>>;
 pub type Closure<N> = crate::ClosureCore<N, Instruction<N>>;
+pub type Constructor<N> = crate::ConstructorCore<N, Command<N>>;
 
 mod closure;
 pub use closure::*;
+
+mod constructor;
+pub use constructor::*;
 
 pub mod finalize;
 pub use finalize::*;
@@ -124,6 +128,8 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     closures: IndexMap<Identifier<N>, ClosureCore<N, Instruction>>,
     /// A map of the declared functions for the program.
     functions: IndexMap<Identifier<N>, FunctionCore<N, Instruction, Command>>,
+    /// An optional constructor for the program.
+    constructor: Option<ConstructorCore<N, Command>>,
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
@@ -142,6 +148,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             records: IndexMap::new(),
             closures: IndexMap::new(),
             functions: IndexMap::new(),
+            constructor: None,
         })
     }
 
@@ -186,6 +193,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         &self.functions
     }
 
+    /// Returns the constructor for the program.
+    pub const fn constructor(&self) -> Option<&ConstructorCore<N, Command>> {
+        self.constructor.as_ref()
+    }
+
     /// Returns `true` if the program contains an import with the given program ID.
     pub fn contains_import(&self, id: &ProgramID<N>) -> bool {
         self.imports.contains_key(id)
@@ -214,6 +226,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns `true` if the program contains a function with the given name.
     pub fn contains_function(&self, name: &Identifier<N>) -> bool {
         self.functions.contains_key(name)
+    }
+
+    /// Returns `true` if the program contains a constructor.
+    pub const fn contains_constructor(&self) -> bool {
+        self.constructor.is_some()
     }
 
     /// Returns the mapping with the given name.
@@ -564,6 +581,20 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         }
         Ok(())
     }
+
+    /// Adds a constructor to the program.
+    ///
+    /// # Errors
+    /// This method will halt if a constructor was previously added.
+    fn add_constructor(&mut self, constructor: ConstructorCore<N, Command>) -> Result<()> {
+        // Ensure the program does not already have a constructor.
+        ensure!(self.constructor.is_none(), "Program already has a constructor.");
+        // Ensure the number of commands is within the allowed range.
+        ensure!(constructor.commands().len() <= N::MAX_COMMANDS, "Constructor exceeds maximum number of commands");
+        // Add the constructor to the program.
+        self.constructor = Some(constructor);
+        Ok(())
+    }
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
@@ -641,6 +672,9 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         "impl",
         "type",
         "future",
+        "constructor",
+        "edition",
+        "checksum"
     ];
 
     /// Returns `true` if the given name does not already exist in the program.
