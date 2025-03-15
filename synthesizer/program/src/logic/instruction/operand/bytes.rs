@@ -25,8 +25,8 @@ impl<N: Network> FromBytes for Operand<N> {
             4 => Ok(Self::Caller),
             5 => Ok(Self::BlockHeight),
             6 => Ok(Self::NetworkID),
-            7 => Ok(Self::Checksum(ProgramID::read_le(&mut reader)?)),
-            8 => Ok(Self::Edition(ProgramID::read_le(&mut reader)?)),
+            7 => Ok(Self::Checksum(FromBytes::read_le(&mut reader)?)),
+            8 => Ok(Self::Edition(FromBytes::read_le(&mut reader)?)),
             variant => Err(error(format!("Failed to deserialize operand variant {variant}"))),
         }
     }

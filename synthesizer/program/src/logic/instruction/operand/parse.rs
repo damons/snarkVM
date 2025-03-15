@@ -29,8 +29,12 @@ impl<N: Network> Parser for Operand<N> {
             map(tag("block.height"), |_| Self::BlockHeight),
             map(tag("network.id"), |_| Self::NetworkID),
             // Note that `Operand::Checksum` and `Operand::Edition` must be parsed before `Operand::ProgramID`s, since an edition or checksum is prefixed with a program ID.
-            map(pair(ProgramID::parse, tag("/checksum")), |(program_id, _)| Self::Checksum(program_id)),
-            map(pair(ProgramID::parse, tag("/edition")), |(program_id, _)| Self::Edition(program_id)),
+            map(pair(opt(terminated(ProgramID::parse, tag("/"))), tag("checksum")), |(program_id, _)| {
+                Self::Checksum(program_id)
+            }),
+            map(pair(opt(terminated(ProgramID::parse, tag("/"))), tag("edition")), |(program_id, _)| {
+                Self::Edition(program_id)
+            }),
             // Note that `Operand::ProgramID`s must be parsed before `Operand::Literal`s, since a program ID can be implicitly parsed as a literal address.
             // This ensures that the string representation of a program uses the `Operand::ProgramID` variant.
             map(ProgramID::parse, |program_id| Self::ProgramID(program_id)),
@@ -83,10 +87,16 @@ impl<N: Network> Display for Operand<N> {
             Self::BlockHeight => write!(f, "block.height"),
             // Prints the identifier for the network ID, i.e. network.id
             Self::NetworkID => write!(f, "network.id"),
-            // Prints the program ID with the checksum keyword, i.e. token.aleo/checksum
-            Self::Checksum(program_id) => write!(f, "{program_id}/checksum", program_id = program_id),
-            // Prints the program ID with the edition keyword, i.e. token.aleo/edition
-            Self::Edition(program_id) => write!(f, "{program_id}/edition", program_id = program_id),
+            // Prints the optional program ID with the checksum keyword, i.e. `checksum` or `token.aleo/checksum`
+            Self::Checksum(program_id) => match program_id {
+                Some(program_id) => write!(f, "{program_id}/checksum", program_id = program_id),
+                None => write!(f, "checksum"),
+            },
+            // Prints the optional program ID with the edition keyword, i.e. `edition` or  `token.aleo/edition`
+            Self::Edition(program_id) => match program_id {
+                Some(program_id) => write!(f, "{program_id}/edition", program_id = program_id),
+                None => write!(f, "edition"),
+            },
         }
     }
 }
@@ -127,11 +137,17 @@ mod tests {
         let operand = Operand::<CurrentNetwork>::parse("group::GEN").unwrap().1;
         assert_eq!(Operand::Literal(Literal::Group(Group::generator())), operand);
 
+        let operand = Operand::<CurrentNetwork>::parse("checksum").unwrap().1;
+        assert_eq!(Operand::Checksum(None), operand);
+
         let operand = Operand::<CurrentNetwork>::parse("token.aleo/checksum").unwrap().1;
-        assert_eq!(Operand::Checksum(ProgramID::from_str("token.aleo")?), operand);
+        assert_eq!(Operand::Checksum(Some(ProgramID::from_str("token.aleo")?)), operand);
+
+        let operand = Operand::<CurrentNetwork>::parse("edition").unwrap().1;
+        assert_eq!(Operand::Edition(None), operand);
 
         let operand = Operand::<CurrentNetwork>::parse("token.aleo/edition").unwrap().1;
-        assert_eq!(Operand::Edition(ProgramID::from_str("token.aleo")?), operand);
+        assert_eq!(Operand::Edition(Some(ProgramID::from_str("token.aleo")?)), operand);
 
         // Sanity check a failure case.
         let (remainder, operand) = Operand::<CurrentNetwork>::parse("1field.private").unwrap();
@@ -161,8 +177,14 @@ mod tests {
         let operand = Operand::<CurrentNetwork>::parse("self.caller").unwrap().1;
         assert_eq!(format!("{operand}"), "self.caller");
 
+        let operand = Operand::<CurrentNetwork>::parse("checksum").unwrap().1;
+        assert_eq!(format!("{operand}"), "checksum");
+
         let operand = Operand::<CurrentNetwork>::parse("foo.aleo/checksum").unwrap().1;
         assert_eq!(format!("{operand}"), "foo.aleo/checksum");
+
+        let operand = Operand::<CurrentNetwork>::parse("edition").unwrap().1;
+        assert_eq!(format!("{operand}"), "edition");
 
         let operand = Operand::<CurrentNetwork>::parse("foo.aleo/edition").unwrap().1;
         assert_eq!(format!("{operand}"), "foo.aleo/edition");

@@ -46,10 +46,10 @@ pub enum Operand<N: Network> {
     NetworkID,
     /// The operand is the program checksum.
     /// Note: This variant is only accessible in the `finalize` scope.
-    Checksum(ProgramID<N>),
+    Checksum(Option<ProgramID<N>>),
     /// The operand is the program edition.
     /// Note: This variant is only accessible in the `finalize` scope.
-    Edition(ProgramID<N>),
+    Edition(Option<ProgramID<N>>),
 }
 
 impl<N: Network> From<Literal<N>> for Operand<N> {

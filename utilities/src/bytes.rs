@@ -456,6 +456,33 @@ impl<'a, T: 'a + ToBytes> ToBytes for &'a T {
     }
 }
 
+impl<T: ToBytes> ToBytes for Option<T> {
+    #[inline]
+    fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()>
+    where
+        Self: Sized,
+    {
+        match self {
+            None => 0u8.write_le(&mut writer),
+            Some(value) => {
+                1u8.write_le(&mut writer)?;
+                value.write_le(&mut writer)
+            }
+        }
+    }
+}
+
+impl<T: FromBytes> FromBytes for Option<T> {
+    #[inline]
+    fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
+        match u8::read_le(&mut reader)? {
+            0 => Ok(None),
+            1 => Ok(Some(FromBytes::read_le(&mut reader)?)),
+            _ => Err(error("Failed to deserialize Option variant")),
+        }
+    }
+}
+
 #[inline]
 pub fn bits_from_bytes_le(bytes: &[u8]) -> impl DoubleEndedIterator<Item = bool> + '_ {
     bytes.iter().flat_map(|byte| (0..8).map(move |i| (*byte >> i) & 1 == 1))
