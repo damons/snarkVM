@@ -46,6 +46,10 @@ impl<N: Network> RegistersLoad<N> for FinalizeRegisters<N> {
             Operand::NetworkID => {
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(U16::new(N::ID)))));
             }
+            // If the operand is the checksum, retrieve the checksum for the program.
+            Operand::Checksum(_) => todo!(),
+            // If the operand is the edition, retrieve the edition for the program.
+            Operand::Edition(_) => todo!(),
         };
 
         // Retrieve the value.

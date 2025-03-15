@@ -104,6 +104,8 @@ impl<N: Network> FinalizeTypes<N> {
             Operand::Caller => bail!("'self.caller' is not a valid operand in a finalize context."),
             Operand::BlockHeight => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::U32)),
             Operand::NetworkID => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
+            Operand::Checksum(_) => todo!(),
+            Operand::Edition(_) => todo!(),
         })
     }
 

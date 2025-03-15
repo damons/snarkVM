@@ -41,6 +41,10 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoad<N> for Registers<N
             Operand::BlockHeight => bail!("Cannot load the block height in a non-finalize context"),
             // If the operand is the network ID, throw an error.
             Operand::NetworkID => bail!("Cannot load the network ID in a non-finalize context"),
+            // If the operand is the checksum, retrieve the checksum for the program.
+            Operand::Checksum(_) => todo!(),
+            // If the operand is the edition, retrieve the edition for the program.
+            Operand::Edition(_) => todo!(),
         };
 
         // Retrieve the stack value.
@@ -126,6 +130,10 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoadCircuit<N, A> for R
             Operand::BlockHeight => bail!("Cannot load the block height in a non-finalize context"),
             // If the operand is the network ID, throw an error.
             Operand::NetworkID => bail!("Cannot load the network ID in a non-finalize context"),
+            // If the operand is the checksum, retrieve the checksum for the program.
+            Operand::Checksum(_) => todo!(),
+            // If the operand is the edition, retrieve the edition for the program.
+            Operand::Edition(_) => todo!(),
         };
 
         // Retrieve the circuit value.

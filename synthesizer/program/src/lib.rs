@@ -94,6 +94,7 @@ use console::{
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
 };
 
+use console::{prelude::ToBits, types::Field};
 use indexmap::IndexMap;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -161,6 +162,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns the ID of the program.
     pub const fn id(&self) -> &ProgramID<N> {
         &self.id
+    }
+
+    /// Returns the checksum of the program.
+    pub fn checksum(&self) -> Result<Field<N>> {
+        N::hash_bhp1024(&self.to_bytes_le()?.to_bits_le())
     }
 
     /// Returns the imports in the program.

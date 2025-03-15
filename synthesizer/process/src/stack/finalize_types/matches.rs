@@ -107,6 +107,10 @@ impl<N: Network> FinalizeTypes<N> {
                         "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{network_id_type}' in the operand '{operand}'.",
                     )
                 }
+                // Ensure the checksum type (field) matches the member type.
+                Operand::Checksum(_) => todo!(),
+                // Ensure the edition type (u16) matches the member type.
+                Operand::Edition(_) => todo!(),
             }
         }
         Ok(())
@@ -199,6 +203,10 @@ impl<N: Network> FinalizeTypes<N> {
                         array_type.next_element_type()
                     )
                 }
+                // Ensure the checksum type (field) matches the member type.
+                Operand::Checksum(_) => todo!(),
+                // Ensure the edition type (u16) matches the member type.
+                Operand::Edition(_) => todo!(),
             }
         }
         Ok(())

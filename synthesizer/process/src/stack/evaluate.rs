@@ -85,6 +85,10 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a closure scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a closure scope."),
+                    // If the operand is the program checksum, retrieve the checksum for the program.
+                    Operand::Checksum(_) => todo!(),
+                    // If the operand is the program edition, retrieve the edition for the program.
+                    Operand::Edition(_) => todo!(),
                 }
             })
             .collect();
@@ -218,6 +222,10 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a function scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a function scope."),
+                    // If the operand is the program checksum, retrieve the checksum for the program.
+                    Operand::Checksum(_) => todo!(),
+                    // If the operand is the program edition, retrieve the edition for the program.
+                    Operand::Edition(_) => todo!(),
                 }
             })
             .collect::<Result<Vec<_>>>()?;

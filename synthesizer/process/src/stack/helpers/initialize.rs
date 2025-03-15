@@ -29,6 +29,17 @@ impl<N: Network> Stack<N> {
             proving_keys: Default::default(),
             verifying_keys: Default::default(),
             program_address: program.id().to_address()?,
+            program_checksum: program.checksum()?,
+            program_edition: {
+                // If the program exists in the process, get the edition and increment it.
+                // Otherwise, set the edition to 0.
+                U16::new(match process.get_stack(program.id()) {
+                    Ok(stack) => {
+                        stack.program_edition().checked_add(1).ok_or_else(|| anyhow!("Program edition overflow"))?
+                    }
+                    Err(_) => 0,
+                })
+            },
         };
 
         // Add all the imports into the stack.

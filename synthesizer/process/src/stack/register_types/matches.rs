@@ -93,6 +93,10 @@ impl<N: Network> RegisterTypes<N> {
                 Operand::NetworkID => bail!(
                     "Struct member '{struct_name}.{member_name}' cannot be from a network ID in a non-finalize scope"
                 ),
+                // Ensure the checksum type (field) matches the member type.
+                Operand::Checksum(_) => todo!(),
+                // Ensure the edition type (u16) matches the member type.
+                Operand::Edition(_) => todo!(),
             }
         }
         Ok(())
@@ -169,6 +173,10 @@ impl<N: Network> RegisterTypes<N> {
                 Operand::BlockHeight => bail!("Array element cannot be from a block height in a non-finalize scope"),
                 // If the operand is a network ID type, throw an error.
                 Operand::NetworkID => bail!("Array element cannot be from a network ID in a non-finalize scope"),
+                // Ensure the checksum type (field) matches the element type.
+                Operand::Checksum(_) => todo!(),
+                // Ensure the edition type (u16) matches the element type.
+                Operand::Edition(_) => todo!(),
             }
         }
         Ok(())
@@ -234,6 +242,12 @@ impl<N: Network> RegisterTypes<N> {
             Operand::NetworkID => {
                 bail!("Forbidden operation: Cannot cast a network ID as a record owner")
             }
+            Operand::Checksum(_) => {
+                bail!("Forbidden operation: Cannot cast a checksum as a record owner")
+            }
+            Operand::Edition(_) => {
+                bail!("Forbidden operation: Cannot cast an edition as a record owner")
+            }
         }
 
         // Ensure the operand types match the record entry types.
@@ -295,6 +309,10 @@ impl<N: Network> RegisterTypes<N> {
                                 "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found a network ID in the operand '{operand}'."
                             )
                         }
+                        // Ensure the checksum type (field) matches the entry type.
+                        Operand::Checksum(_) => todo!(),
+                        // Ensure the edition type (u16) matches the entry type.
+                        Operand::Edition(_) => todo!(),
                     }
                 }
             }

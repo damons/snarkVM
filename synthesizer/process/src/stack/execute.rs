@@ -120,6 +120,10 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                     Operand::NetworkID => {
                         bail!("Illegal operation: cannot retrieve the network id in a closure scope")
                     }
+                    // If the operand is the checksum, retrieve the checksum for the program.
+                    Operand::Checksum(_) => todo!(),
+                    // If the operand is the edition, retrieve the edition for the program.
+                    Operand::Edition(_) => todo!(),
                 }
             })
             .collect();
@@ -355,6 +359,10 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                     Operand::NetworkID => {
                         bail!("Illegal operation: cannot retrieve the network id in a function scope")
                     }
+                    // If the operand is the checksum, retrieve the checksum for the program.
+                    Operand::Checksum(_) => todo!(),
+                    // If the operand is the edition, retrieve the edition for the program.
+                    Operand::Edition(_) => todo!(),
                 }
             })
             .collect::<Result<Vec<_>>>()?;

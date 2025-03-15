@@ -73,6 +73,7 @@ use indexmap::IndexMap;
 use parking_lot::RwLock;
 use std::sync::{Arc, Weak};
 
+use console::types::U16;
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
 
@@ -198,6 +199,10 @@ pub struct Stack<N: Network> {
     verifying_keys: Arc<RwLock<IndexMap<Identifier<N>, VerifyingKey<N>>>>,
     /// The program address.
     program_address: Address<N>,
+    /// The program checksum.
+    program_checksum: Field<N>,
+    /// The program edition.
+    program_edition: U16<N>,
 }
 
 impl<N: Network> Stack<N> {
@@ -319,6 +324,18 @@ impl<N: Network> StackProgram<N> for Stack<N> {
     #[inline]
     fn program_address(&self) -> &Address<N> {
         &self.program_address
+    }
+
+    /// Returns the program checksum.
+    #[inline]
+    fn program_checksum(&self) -> &Field<N> {
+        &self.program_checksum
+    }
+
+    /// Returns the program edition.
+    #[inline]
+    fn program_edition(&self) -> &U16<N> {
+        &self.program_edition
     }
 
     /// Returns the external stack for the given program ID.

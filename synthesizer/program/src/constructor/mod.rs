@@ -57,6 +57,13 @@ impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
     }
 }
 
+impl<N: Network, Command: CommandTrait<N>> Default for ConstructorCore<N, Command> {
+    /// Initializes a new default constructor.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
     /// Adds the given command to constructor.
     ///

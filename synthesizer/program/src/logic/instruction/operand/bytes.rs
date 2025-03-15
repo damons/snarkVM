@@ -25,6 +25,8 @@ impl<N: Network> FromBytes for Operand<N> {
             4 => Ok(Self::Caller),
             5 => Ok(Self::BlockHeight),
             6 => Ok(Self::NetworkID),
+            7 => Ok(Self::Checksum(ProgramID::read_le(&mut reader)?)),
+            8 => Ok(Self::Edition(ProgramID::read_le(&mut reader)?)),
             variant => Err(error(format!("Failed to deserialize operand variant {variant}"))),
         }
     }
@@ -49,6 +51,14 @@ impl<N: Network> ToBytes for Operand<N> {
             Self::Caller => 4u8.write_le(&mut writer),
             Self::BlockHeight => 5u8.write_le(&mut writer),
             Self::NetworkID => 6u8.write_le(&mut writer),
+            Self::Checksum(program_id) => {
+                7u8.write_le(&mut writer)?;
+                program_id.write_le(&mut writer)
+            }
+            Self::Edition(program_id) => {
+                8u8.write_le(&mut writer)?;
+                program_id.write_le(&mut writer)
+            }
         }
     }
 }
