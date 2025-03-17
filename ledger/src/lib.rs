@@ -73,7 +73,7 @@ use indexmap::IndexMap;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock};
 use rand::{prelude::IteratorRandom, rngs::OsRng};
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashSet, sync::Arc};
 use time::OffsetDateTime;
 
 #[cfg(not(feature = "serial"))]
