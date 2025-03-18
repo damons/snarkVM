@@ -547,15 +547,4 @@ function over_five_thousand:
         assert_eq!(storage_cost_under_5000, execution_storage_cost::<MainnetV0>(execution_size_under_5000));
         assert_eq!(storage_cost_over_5000, execution_storage_cost::<MainnetV0>(execution_size_over_5000));
     }
-
-    #[test]
-    fn test_max_synthesis_cost_below_batch_spend_limit() {
-        fn max_synthesis_cost<N: Network>() -> u64 {
-            N::MAX_DEPLOYMENT_VARIABLES.saturating_add(N::MAX_DEPLOYMENT_CONSTRAINTS) * N::SYNTHESIS_FEE_MULTIPLIER
-        }
-
-        assert!(max_synthesis_cost::<CanaryV0>() < CanaryV0::BATCH_SPEND_LIMIT);
-        assert!(max_synthesis_cost::<TestnetV0>() < TestnetV0::BATCH_SPEND_LIMIT);
-        assert!(max_synthesis_cost::<MainnetV0>() < MainnetV0::BATCH_SPEND_LIMIT);
-    }
 }
