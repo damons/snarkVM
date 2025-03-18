@@ -6,8 +6,8 @@ Thank you for your interest in contributing to snarkVM! Below you can find some 
 
 Please follow the instructions below when filing a pull request:
 
-- Ensure that your branch is forked from the current [master](https://github.com/ProvableHQ/snarkVM/tree/master) branch.
-- Use the git commit hook, which ensures `cargo fmt` and `cargo clippy` are run. [`.rustfmt.toml`](https://github.com/ProvableHQ/snarkVM/blob/master/.rustfmt.toml) specifies some of the formatting conventions.
+- Ensure that your branch is forked from the current [staging](https://github.com/ProvableHQ/snarkVM/tree/staging) branch.
+- Use the git commit hook, which ensures `cargo fmt` and `cargo clippy` are run with appropriate parameters. [`.rustfmt.toml`](https://github.com/ProvableHQ/snarkVM/blob/staging/.rustfmt.toml) specifies some of the formatting conventions.
 - Do not rebase your PR after substantial reviews have taken place. The only exception is when there has been a substantial architectural overhaul which requires new reviews.
 - When you fix someone's comment, reply with the relevant commit hash.
 
