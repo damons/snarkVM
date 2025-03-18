@@ -209,17 +209,16 @@ fn finalize_constructor<N: Network, P: FinalizeStorage<N>>(
     // Currently, this nonce is set to zero for every constructor.
     let nonce = 0;
 
+    // Get the constructor logic. If the program does not have a constructor, return early.
+    let Some(constructor) = stack.program().constructor() else {
+        return Ok(finalize_operations);
+    };
+
     // Get the constructor types.
-    // Note that this function is only called on V2 programs which are guaranteed to have constructor types.
-    // This is because if no explicit constructor is defined, a default constructor is used.
     let constructor_types = stack.get_constructor_types()?.clone();
 
     // Initialize the finalize registers.
     let mut registers = FinalizeRegisters::new(state, transition_id, *program_id.name(), constructor_types, nonce);
-    // Get the constructor logic.
-    let Some(constructor) = stack.program().constructor() else {
-        return Ok(finalize_operations);
-    };
 
     // Initialize a counter for the commands.
     let mut counter = 0;
