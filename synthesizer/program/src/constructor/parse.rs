@@ -88,7 +88,7 @@ mod tests {
     fn test_constructor_parse() {
         let constructor = Constructor::<CurrentNetwork>::parse(
             r"
-_init:
+constructor:
     add r0 r1 into r2;",
         )
         .unwrap()
@@ -98,7 +98,7 @@ _init:
         // Constructor with 0 inputs.
         let constructor = Constructor::<CurrentNetwork>::parse(
             r"
-_init:
+constructor:
     add 1u32 2u32 into r0;",
         )
         .unwrap()
@@ -110,7 +110,7 @@ _init:
     fn test_constructor_parse_cast() {
         let constructor = Constructor::<CurrentNetwork>::parse(
             r"
-_init:
+constructor:
     cast 1u8 2u8 into r1 as token;",
         )
         .unwrap()
@@ -120,7 +120,7 @@ _init:
 
     #[test]
     fn test_constructor_display() {
-        let expected = r"_init:
+        let expected = r"constructor:
     add r0 r1 into r2;";
         let constructor = Constructor::<CurrentNetwork>::parse(expected).unwrap().1;
         assert_eq!(expected, format!("{constructor}"),);
