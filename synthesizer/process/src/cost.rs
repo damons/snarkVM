@@ -21,10 +21,10 @@ use console::{
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
 use ledger_block::{Deployment, Execution, Transaction};
-use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, StackProgram};
+use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, Program, StackProgram};
 
-/// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost)).
-pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64))> {
+/// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost, constructor cost)).
+pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64, u64))> {
     // Determine the number of bytes in the deployment.
     let size_in_bytes = deployment.size_in_bytes()?;
     // Retrieve the program ID.
@@ -44,19 +44,23 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
     // Compute the synthesis cost in microcredits.
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
 
-    // Compute the namespace cost in credits: 10^(10 - num_characters).
+    // Compute the namespace cost in microcredits: 10^(10 - num_characters) * cost_per_credit
     let namespace_cost = 10u64
         .checked_pow(10u32.saturating_sub(num_characters))
         .ok_or(anyhow!("The namespace cost computation overflowed for a deployment"))?
         .saturating_mul(1_000_000); // 1 microcredit = 1e-6 credits.
 
+    // Compute the constructor cost in microcredits.
+    let constructor_cost = constructor_cost_in_microcredits(deployment.program())?;
+
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
         .checked_add(synthesis_cost)
         .and_then(|x| x.checked_add(namespace_cost))
+        .and_then(|x| x.checked_add(constructor_cost))
         .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
 
-    Ok((total_cost, (storage_cost, synthesis_cost, namespace_cost)))
+    Ok((total_cost, (storage_cost, synthesis_cost, namespace_cost, constructor_cost)))
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
@@ -402,6 +406,20 @@ pub fn cost_per_command<N: Network>(
         }
         Command::BranchEq(_) | Command::BranchNeq(_) => Ok(500),
         Command::Position(_) => Ok(100),
+    }
+}
+
+/// Returns the minimum number of microcredits required to run the constructor in the given program.
+/// Each command in a constructor costs 100_000 microcredits.
+/// If a constructor does not exist, no cost is incurred.
+pub fn constructor_cost_in_microcredits<N: Network>(program: &Program<N>) -> Result<u64> {
+    match program.constructor() {
+        Some(constructor) => {
+            let num_commands = constructor.commands().len() as u64;
+            let cost = num_commands.checked_mul(100_000).ok_or(anyhow!("Constructor cost overflowed"))?;
+            Ok(cost)
+        }
+        None => Ok(0),
     }
 }
 

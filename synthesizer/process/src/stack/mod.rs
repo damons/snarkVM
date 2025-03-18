@@ -65,7 +65,7 @@ use console::{
     types::{Field, Group},
 };
 use ledger_block::{Deployment, Transaction, Transition};
-use synthesizer_program::{CallOperator, Closure, Function, Instruction, Operand, Program, traits::*};
+use synthesizer_program::{CallOperator, Closure, Constructor, Function, Instruction, Operand, Program, traits::*};
 use synthesizer_snark::{Certificate, ProvingKey, UniversalSRS, VerifyingKey};
 
 use aleo_std::prelude::{finish, lap, timer};
@@ -187,6 +187,8 @@ pub struct Stack<N: Network> {
     program: Program<N>,
     /// A reference to the global stack map.
     stacks: Weak<RwLock<IndexMap<ProgramID<N>, Arc<Stack<N>>>>>,
+    /// The register types for the program constructor, if it exists.
+    constructor_types: Option<FinalizeTypes<N>>,
     /// The mapping of closure and function names to their register types.
     register_types: IndexMap<Identifier<N>, RegisterTypes<N>>,
     /// The mapping of finalize names to their register types.
@@ -475,6 +477,12 @@ impl<N: Network> StackProgram<N> for Stack<N> {
 }
 
 impl<N: Network> StackProgramTypes<N> for Stack<N> {
+    /// Returns the constructor types for the program.
+    #[inline]
+    fn get_constructor_types(&self) -> Result<&FinalizeTypes<N>> {
+        self.constructor_types.as_ref().ok_or_else(|| anyhow!("Constructor types do not exist"))
+    }
+
     /// Returns the register types for the given closure or function name.
     #[inline]
     fn get_register_types(&self, name: &Identifier<N>) -> Result<&RegisterTypes<N>> {

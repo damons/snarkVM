@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use super::*;
+use crate::constructor_cost_in_microcredits;
 
 impl<N: Network> Stack<N> {
     /// Initializes a new stack, given the process and program.
@@ -23,6 +24,7 @@ impl<N: Network> Stack<N> {
         let mut stack = Self {
             program: program.clone(),
             stacks: Arc::downgrade(&process.stacks),
+            constructor_types: Default::default(),
             register_types: Default::default(),
             finalize_types: Default::default(),
             universal_srs: process.universal_srs().clone(),
@@ -67,12 +69,40 @@ impl<N: Network> Stack<N> {
             );
         }
 
+        // Add the constructor to the stack if it exists.
+        if let Some(constructor) = program.constructor() {
+            // Get the constructor cost.
+            let constructor_cost = constructor_cost_in_microcredits(program)?;
+            // Check that the constructor cost does not exceed the maximum.
+            ensure!(
+                constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
+                "Constructor has a cost '{constructor_cost}' which exceeds the transaction spend limit '{}'",
+                N::TRANSACTION_SPEND_LIMIT
+            );
+            // Add the constructor to the stack.
+            stack.insert_constructor(constructor)?;
+        }
+
         // Return the stack.
         Ok(stack)
     }
 }
 
 impl<N: Network> Stack<N> {
+    /// Adds the constructor to the stack.
+    #[inline]
+    fn insert_constructor(&mut self, constructor: &Constructor<N>) -> Result<()> {
+        // Ensure that the constsuctor is not already added.
+        ensure!(self.constructor_types.is_none(), "Constructor already exists");
+
+        // Compute the constructor types.
+        let constructor_types = FinalizeTypes::from_constructor(self, constructor)?;
+        // Add the constructor types to the stack.
+        self.constructor_types = Some(constructor_types);
+        // Return success.
+        Ok(())
+    }
+
     /// Inserts the given closure to the stack.
     #[inline]
     fn insert_closure(&mut self, closure: &Closure<N>) -> Result<()> {
@@ -80,7 +110,6 @@ impl<N: Network> Stack<N> {
         let name = closure.name();
         // Ensure the closure name is not already added.
         ensure!(!self.register_types.contains_key(name), "Closure '{name}' already exists");
-
         // Compute the register types.
         let register_types = RegisterTypes::from_closure(self, closure)?;
         // Add the closure name and register types to the stack.
