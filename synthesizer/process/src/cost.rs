@@ -19,22 +19,8 @@ use console::{
     prelude::*,
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
-use ledger_block::{Deployment, Execution, Transaction};
+use ledger_block::{Deployment, Execution};
 use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, StackProgram};
-
-/// Returns the compute cost for a transaction in microcredits.
-/// This is used to limit the amount of compute in the block generation hot
-/// path. This does NOT represent the full costs which a user has to pay.
-pub fn compute_cost<N: Network>(process: &Process<N>, transaction: &Transaction<N>) -> Result<u64> {
-    match transaction {
-        // Synthesis cost accounts for the majority of deployment transaction compute.
-        Transaction::Deploy(_, _, _, deployment, _) => deployment_synthesis_cost(deployment),
-        // Finalize costs account for the majority of execute transaction compute.
-        Transaction::Execute(_, _, execution, _) => execution_compute_cost(process, execution),
-        // Fee transactions are internal to the VM, they do not have a compute cost.
-        Transaction::Fee(..) => Ok(0),
-    }
-}
 
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost)).
 pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64))> {
@@ -44,6 +30,10 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
     let program_id = deployment.program_id();
     // Determine the number of characters in the program ID.
     let num_characters = u32::try_from(program_id.name().to_string().len())?;
+    // Compute the number of combined variables in the program.
+    let num_combined_variables = deployment.num_combined_variables()?;
+    // Compute the number of combined constraints in the program.
+    let num_combined_constraints = deployment.num_combined_constraints()?;
 
     // Compute the storage cost in microcredits.
     let storage_cost = size_in_bytes
@@ -51,7 +41,7 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
         .ok_or(anyhow!("The storage cost computation overflowed for a deployment"))?;
 
     // Compute the synthesis cost in microcredits.
-    let synthesis_cost = deployment_synthesis_cost(deployment)?;
+    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
 
     // Compute the namespace cost in credits: 10^(10 - num_characters).
     let namespace_cost = 10u64
@@ -68,34 +58,16 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
     Ok((total_cost, (storage_cost, synthesis_cost, namespace_cost)))
 }
 
-/// Returns the cost in microcredits to synthesize a deployment.
-pub fn deployment_synthesis_cost<N: Network>(deployment: &Deployment<N>) -> Result<u64> {
-    let num_combined_variables = deployment.num_combined_variables()?;
-    let num_combined_constraints = deployment.num_combined_constraints()?;
-    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
-
-    Ok(synthesis_cost)
-}
-
-/// Returns the cost in microcredits to compute an execution.
-pub fn execution_compute_cost<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<u64> {
-    // Get the root transition for the program.
-    let root_transition = execution.peek()?;
-    // Check a stack is present for the execution.
-    let stack = process.get_stack(root_transition.program_id())?;
-    // Retrieve the finalize cost for the root program.
-    let finalize_cost = stack.get_finalize_cost(root_transition.function_name())?;
-
-    Ok(finalize_cost)
-}
-
 /// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
 pub fn execution_cost_v2<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
     // Compute the storage cost in microcredits.
     let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
 
-    // Compute the compute cost for the execution.
-    let finalize_cost = execution_compute_cost(process, execution)?;
+    // Get the root transition.
+    let transition = execution.peek()?;
+
+    // Get the finalize cost for the root transition.
+    let finalize_cost = process.get_stack(transition.program_id())?.get_finalize_cost(transition.function_name())?;
 
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
@@ -115,7 +87,7 @@ pub fn execution_cost_v1<N: Network>(process: &Process<N>, execution: &Execution
 
     // Get the finalize cost for the root transition.
     let stack = process.get_stack(transition.program_id())?;
-    let finalize_cost = finalize_cost_v1(&stack, transition.function_name())?;
+    let finalize_cost = cost_in_microcredits_v1(&stack, transition.function_name())?;
 
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
@@ -431,7 +403,7 @@ pub fn cost_per_command<N: Network>(
 }
 
 /// Returns the minimum number of microcredits required to run the finalize.
-pub fn finalize_cost_v2<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
+pub fn cost_in_microcredits_v2<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
     // Retrieve the finalize logic.
     let Some(finalize) = stack.get_function_ref(function_name)?.finalize_logic() else {
         // Return a finalize cost of 0, if the function does not have a finalize scope.
@@ -460,7 +432,7 @@ pub fn finalize_cost_v2<N: Network>(stack: &Stack<N>, function_name: &Identifier
 }
 
 /// Returns the minimum number of microcredits required to run the finalize (depcrated).
-pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
+pub fn cost_in_microcredits_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
     // Retrieve the finalize logic.
     let Some(finalize) = stack.get_function_ref(function_name)?.finalize_logic() else {
         // Return a finalize cost of 0, if the function does not have a finalize scope.
@@ -474,7 +446,7 @@ pub fn finalize_cost_v1<N: Network>(stack: &Stack<N>, function_name: &Identifier
             let stack = stack.get_external_stack(future.program_id())?;
             // Accumulate the finalize cost of the future.
             future_cost = future_cost
-                .checked_add(finalize_cost_v1(&stack, future.resource())?)
+                .checked_add(cost_in_microcredits_v1(&stack, future.resource())?)
                 .ok_or(anyhow!("Finalize cost overflowed"))?;
         }
     }
@@ -576,12 +548,12 @@ function over_five_thousand:
         assert_eq!(storage_cost_over_5000, execution_storage_cost::<MainnetV0>(execution_size_over_5000));
     }
 
-    fn max_synthesis_cost<N: Network>() -> u64 {
-        N::MAX_DEPLOYMENT_VARIABLES.saturating_add(N::MAX_DEPLOYMENT_CONSTRAINTS) * N::SYNTHESIS_FEE_MULTIPLIER
-    }
-
     #[test]
     fn test_max_synthesis_cost_below_batch_spend_limit() {
+        fn max_synthesis_cost<N: Network>() -> u64 {
+            N::MAX_DEPLOYMENT_VARIABLES.saturating_add(N::MAX_DEPLOYMENT_CONSTRAINTS) * N::SYNTHESIS_FEE_MULTIPLIER
+        }
+
         assert!(max_synthesis_cost::<CanaryV0>() < CanaryV0::BATCH_SPEND_LIMIT);
         assert!(max_synthesis_cost::<TestnetV0>() < TestnetV0::BATCH_SPEND_LIMIT);
         assert!(max_synthesis_cost::<MainnetV0>() < MainnetV0::BATCH_SPEND_LIMIT);
