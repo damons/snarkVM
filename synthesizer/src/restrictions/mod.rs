@@ -91,7 +91,7 @@ use indexmap::IndexMap;
 /// # Example: Restricting an address
 ///
 /// ## In the import section of the tests of `synthesizer/src/restrictions/mod.rs`:
-/// Make sure to import `use console::types::Address`, e.g., by replacing `use console::types::I8;` with `use console::types::{Address, I8};`.
+/// Make sure to import `console::types::Address`, e.g., by replacing `use console::types::I8;` with `use console::types::{Address, I8};`.
 ///
 ///
 /// ## In the `test_restrictions_list_comparison function` of `synthesizer/src/restrictions/mod.rs`:
