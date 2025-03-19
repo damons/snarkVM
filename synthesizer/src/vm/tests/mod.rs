@@ -13,10 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod test_vm_update;
+
 use super::*;
 
-mod check_update;
-mod initialize;
-mod matches;
-mod sample;
-mod synthesize;
+use crate::vm::test_helpers::*;
+
+use console::{account::ViewKey, program::Value};
+use synthesizer_program::{Program, StackProgram};
+
+use std::panic::AssertUnwindSafe;

@@ -212,10 +212,12 @@ impl<N: Network> Stack<N> {
     pub fn new(process: &Process<N>, program: &Program<N>) -> Result<Self> {
         // Retrieve the program ID.
         let program_id = program.id();
-        // Ensure the program does not already exist in the process.
-        ensure!(!process.contains_program(program_id), "Program '{program_id}' already exists");
         // Ensure the program contains functions.
         ensure!(!program.functions().is_empty(), "No functions present in the deployment for program '{program_id}'");
+        // If the program exists in the process, check that the update is valid.
+        if process.contains_program(program_id) {
+            Self::check_update_is_valid(process, program)?;
+        }
 
         // Serialize the program into bytes.
         let program_bytes = program.to_bytes_le()?;

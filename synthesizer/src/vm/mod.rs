@@ -22,6 +22,9 @@ mod execute;
 mod finalize;
 mod verify;
 
+#[cfg(test)]
+mod tests;
+
 use crate::{Restrictions, cast_mut_ref, cast_ref, convert, process};
 use console::{
     account::{Address, PrivateKey},
@@ -59,7 +62,7 @@ use ledger_store::{
     atomic_finalize,
 };
 use synthesizer_process::{Authorization, Process, Trace, deployment_cost, execution_cost_v1, execution_cost_v2};
-use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program};
+use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program, StackProgram};
 use utilities::try_vm_runtime;
 
 use aleo_std::prelude::{finish, lap, timer};

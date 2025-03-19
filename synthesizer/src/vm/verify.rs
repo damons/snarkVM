@@ -149,17 +149,52 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
-                // Ensure the edition is correct.
-                if deployment.edition() != N::EDITION {
-                    bail!("Invalid deployment transaction '{id}' - expected edition {}", N::EDITION)
-                }
-                // Ensure the program ID does not already exist in the store.
-                if self.transaction_store().contains_program_id(deployment.program_id())? {
-                    bail!("Program ID '{}' is already deployed", deployment.program_id())
-                }
-                // Ensure the program does not already exist in the process.
-                if self.contains_program(deployment.program_id()) {
-                    bail!("Program ID '{}' already exists", deployment.program_id());
+
+                // If the edition is zero, then check that:
+                //  - The program does not exist in the store or process.
+                // Otherwise, check that:
+                //  - The program exists in the store and process.
+                //  - The existing program is updatable, meaning that it has a constructor.
+                //  - The new edition increments the old edition.
+                let store_contains_program = self.transaction_store().contains_program_id(deployment.program_id())?;
+                let process_contains_program = self.contains_program(deployment.program_id());
+                match deployment.edition() {
+                    0 => {
+                        // Ensure the program ID does not already exist in the store.
+                        ensure!(
+                            !store_contains_program,
+                            "Program ID '{}' is already deployed",
+                            deployment.program_id()
+                        );
+                        // Ensure the program does not already exist in the process.
+                        ensure!(!process_contains_program, "Program ID '{}' already exists", deployment.program_id());
+                    }
+                    new_edition => {
+                        // Check that the program exists.
+                        ensure!(
+                            store_contains_program,
+                            "Invalid deployment transaction '{id}' - program does not exist in the store"
+                        );
+                        ensure!(
+                            process_contains_program,
+                            "Invalid deployment transaction '{id}' - program does not exist in the process"
+                        );
+                        // Get the existing program and retrieve t
+                        // It should be the case that the stored program matches the process program.
+                        let stack = self.process().read().get_stack(deployment.program_id())?;
+                        let contains_constructor = stack.program().contains_constructor();
+                        let old_edition = **stack.program_edition();
+                        // Check that the program is updatable, meaning that it has a constructor.
+                        ensure!(
+                            contains_constructor,
+                            "Invalid deployment transaction '{id}' - program is not updatable because it does not contain a constructor"
+                        );
+                        // Check that the new edition increments the old edition.
+                        ensure!(
+                            old_edition < new_edition && old_edition.saturating_add(1) == new_edition,
+                            "Invalid deployment transaction '{id}' - new edition does not increment old edition"
+                        );
+                    }
                 }
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {
@@ -242,11 +277,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             N::TRANSACTION_SPEND_LIMIT
                         );
                         // Ensure the fee is sufficient to cover the cost.
-                        if *fee.base_amount()? < cost {
-                            bail!(
-                                "Transaction '{id}' has an insufficient base fee (execution) - requires {cost} microcredits"
-                            )
-                        }
+                        ensure!(
+                            cost <= *fee.base_amount()?,
+                            "Transaction '{id}' has an insufficient base fee (execution) - requires {cost} microcredits"
+                        );
                     } else {
                         // Ensure the base fee amount is zero.
                         ensure!(*fee.base_amount()? == 0, "Transaction '{id}' has a non-zero base fee (execution)");

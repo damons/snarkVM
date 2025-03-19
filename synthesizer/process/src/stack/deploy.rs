@@ -51,7 +51,7 @@ impl<N: Network> Stack<N> {
         finish!(timer);
 
         // Return the deployment.
-        Deployment::new(N::EDITION, self.program.clone(), verifying_keys)
+        Deployment::new(*self.program_edition, self.program.clone(), verifying_keys)
     }
 
     /// Checks each function in the program on the given verifying key and certificate.
@@ -69,6 +69,11 @@ impl<N: Network> Stack<N> {
         deployment.check_is_ordered()?;
         // Ensure the program in the stack and deployment matches.
         ensure!(&self.program == deployment.program(), "The stack program does not match the deployment program");
+        // Ensure that edition in the stack and deployment matches.
+        ensure!(
+            *self.program_edition == deployment.edition(),
+            "The stack edition does not match the deployment edition"
+        );
 
         // Check Verifying Keys //
 
