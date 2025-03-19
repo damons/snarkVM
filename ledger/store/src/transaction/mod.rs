@@ -195,17 +195,26 @@ pub trait TransactionStorage<N: Network>: Clone + Send + Sync {
         })
     }
 
+    /// Returns the transaction ID that contains the given `program ID`.
+    fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
+        self.deployment_store().find_transaction_id_from_program_id(program_id)
+    }
+
+    /// Returns the transaction ID that contains the given `program ID` and `edition`.
+    fn find_transaction_id_from_program_id_and_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        edition: u16,
+    ) -> Result<Option<N::TransactionID>> {
+        self.deployment_store().find_transaction_id_from_program_id_and_edition(program_id, edition)
+    }
+
     /// Returns the transaction ID that contains the given `transition ID`.
     fn find_transaction_id_from_transition_id(
         &self,
         transition_id: &N::TransitionID,
     ) -> Result<Option<N::TransactionID>> {
         self.execution_store().find_transaction_id_from_transition_id(transition_id)
-    }
-
-    /// Returns the transaction ID that contains the given `program ID`.
-    fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
-        self.deployment_store().find_transaction_id_from_program_id(program_id)
     }
 
     /// Returns the transaction for the given `transaction ID`.
@@ -406,6 +415,15 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     /// Returns the transaction ID that contains the given `program ID`.
     pub fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
         self.storage.deployment_store().find_transaction_id_from_program_id(program_id)
+    }
+
+    /// Returns the transaction ID that contains the given `program ID` and `edition`.
+    pub fn find_transaction_id_from_program_id_and_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        edition: u16,
+    ) -> Result<Option<N::TransactionID>> {
+        self.storage.deployment_store().find_transaction_id_from_program_id_and_edition(program_id, edition)
     }
 
     /// Returns the transaction ID that contains the given `transition ID`.

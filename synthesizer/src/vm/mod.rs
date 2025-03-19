@@ -1461,7 +1461,7 @@ function do:
 
         // Create a new deployment transaction with the overreported verifying keys.
         let adjusted_deployment =
-            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_overreport).unwrap();
+            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_overreport, None).unwrap();
         let adjusted_transaction = Transaction::from_deployment(program_owner, adjusted_deployment, fee).unwrap();
 
         // Verify the deployment transaction. It should error when certificate checking for constraint count mismatch.
@@ -1516,7 +1516,7 @@ function do:
 
         // Create a new deployment transaction with the underreported verifying keys.
         let adjusted_deployment =
-            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport).unwrap();
+            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport, None).unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
         let adjusted_transaction =
             Transaction::Deploy(txid, deployment_id, program_owner, Box::new(adjusted_deployment), fee);
@@ -1591,7 +1591,7 @@ function do:
 
         // Create a new deployment transaction with the underreported verifying keys.
         let adjusted_deployment =
-            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport).unwrap();
+            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport, None).unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
         let adjusted_transaction =
             Transaction::Deploy(txid, deployment_id, program_owner, Box::new(adjusted_deployment), fee);

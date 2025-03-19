@@ -119,6 +119,7 @@ impl<N: Network> Transaction<N> {
         // Prepare the header for the hash.
         let header = match deployment.program_checksum().is_some() {
             false => deployment.program().id().to_bits_le(),
+            // Note that the checksum must be recomputed since the one stored in the deployment may have been modified.
             true => deployment.program().checksum()?.to_bits_le(),
         };
         // Prepare the leaves.

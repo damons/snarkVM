@@ -306,6 +306,25 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
+    /// Returns the transaction ID that contains the given `program ID` and `edition`.
+    fn find_transaction_id_from_program_id_and_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        edition: u16,
+    ) -> Result<Option<N::TransactionID>> {
+        // Check if the program ID is for 'credits.aleo'.
+        // This case is handled separately, as it is a default program of the VM.
+        // TODO (howardwu): After we update 'fee' rules and 'Ratify' in genesis, we can remove this.
+        if program_id == &ProgramID::from_str("credits.aleo")? {
+            return Ok(None);
+        }
+        // Retrieve the transaction ID.
+        match self.reverse_id_map().get_confirmed(&(*program_id, edition))? {
+            Some(transaction_id) => Ok(Some(cow_to_copied!(transaction_id))),
+            None => Ok(None),
+        }
+    }
+
     /// Returns the transaction ID that contains the given `transition ID`.
     fn find_transaction_id_from_transition_id(
         &self,
@@ -463,7 +482,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Return the deployment.
-        Ok(Some(Deployment::new(edition, program, verifying_keys)?))
+        Ok(Some(Deployment::new(edition, program, verifying_keys, None)?))
     }
 
     /// Returns the fee for the given `transaction ID`.
@@ -658,6 +677,15 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.find_transaction_id_from_program_id(program_id)
     }
 
+    /// Returns the transaction `ID` that deployed the given `program ID` and `edition`.
+    pub fn find_transaction_id_from_program_id_and_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        edition: u16,
+    ) -> Result<Option<N::TransactionID>> {
+        self.storage.find_transaction_id_from_program_id_and_edition(program_id, edition)
+    }
+
     /// Returns the transaction ID that deployed the given `transition ID`.
     pub fn find_transaction_id_from_transition_id(
         &self,
@@ -671,6 +699,11 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     /// Returns `true` if the given program ID exists.
     pub fn contains_program_id(&self, program_id: &ProgramID<N>) -> Result<bool> {
         self.storage.edition_map().contains_key_confirmed(program_id)
+    }
+
+    /// Returns `true` if the given program ID and edition exists.
+    pub fn contains_program_id_and_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<bool> {
+        self.storage.reverse_id_map().contains_key_confirmed(&(*program_id, edition))
     }
 }
 

@@ -21,8 +21,9 @@ impl<N: Network> FromBytes for Deployment<N> {
         // Read the version.
         let version = u8::read_le(&mut reader)?;
         // Ensure the version is valid.
-        if version != 1 {
-            return Err(error("Invalid deployment version"));
+        match version {
+            1 | 2 => {} // Do nothing.
+            0 | 3..=u8::MAX => return Err(error("Invalid deployment version")),
         }
 
         // Read the edition.
@@ -45,8 +46,14 @@ impl<N: Network> FromBytes for Deployment<N> {
             verifying_keys.push((identifier, (verifying_key, certificate)));
         }
 
+        // If the version is 2, read the program checksum.
+        let program_checksum = match version {
+            0 | 1 | 3..=u8::MAX => None,
+            2 => Some(Field::<N>::read_le(&mut reader)?),
+        };
+
         // Return the deployment.
-        Self::new(edition, program, verifying_keys).map_err(|err| error(format!("{err}")))
+        Self::new(edition, program, verifying_keys, program_checksum).map_err(|err| error(format!("{err}")))
     }
 }
 
@@ -54,7 +61,10 @@ impl<N: Network> ToBytes for Deployment<N> {
     /// Writes the deployment to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Write the version.
-        1u8.write_le(&mut writer)?;
+        match self.program_checksum.is_some() {
+            false => 1u8.write_le(&mut writer)?,
+            true => 2u8.write_le(&mut writer)?,
+        };
         // Write the edition.
         self.edition.write_le(&mut writer)?;
         // Write the program.
@@ -69,6 +79,10 @@ impl<N: Network> ToBytes for Deployment<N> {
             verifying_key.write_le(&mut writer)?;
             // Write the certificate.
             certificate.write_le(&mut writer)?;
+        }
+        // Write the checksum, if it exists.
+        if let Some(program_checksum) = &self.program_checksum {
+            program_checksum.write_le(&mut writer)?;
         }
         Ok(())
     }

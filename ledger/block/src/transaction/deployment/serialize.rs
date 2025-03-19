@@ -20,10 +20,14 @@ impl<N: Network> Serialize for Deployment<N> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match serializer.is_human_readable() {
             true => {
-                let mut deployment = serializer.serialize_struct("Deployment", 3)?;
+                let len = if self.program_checksum.is_some() { 4 } else { 3 };
+                let mut deployment = serializer.serialize_struct("Deployment", len)?;
                 deployment.serialize_field("edition", &self.edition)?;
                 deployment.serialize_field("program", &self.program)?;
                 deployment.serialize_field("verifying_keys", &self.verifying_keys)?;
+                if let Some(program_checksum) = &self.program_checksum {
+                    deployment.serialize_field("program_checksum", program_checksum)?;
+                }
                 deployment.end()
             }
             false => ToBytesSerializer::serialize_with_size_encoding(self, serializer),
@@ -47,6 +51,8 @@ impl<'de, N: Network> Deserialize<'de> for Deployment<N> {
                     DeserializeExt::take_from_value::<D>(&mut deployment, "program")?,
                     // Retrieve the verifying keys.
                     DeserializeExt::take_from_value::<D>(&mut deployment, "verifying_keys")?,
+                    // Retrieve the program checksum, if it exists.
+                    DeserializeExt::take_from_value::<D>(&mut deployment, "program_checksum").ok(),
                 )
                 .map_err(de::Error::custom)?;
 

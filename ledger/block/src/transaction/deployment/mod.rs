@@ -50,9 +50,8 @@ impl<N: Network> Deployment<N> {
         edition: u16,
         program: Program<N>,
         verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
+        program_checksum: Option<Field<N>>,
     ) -> Result<Self> {
-        // Get the program checksum.
-        let program_checksum = Some(program.checksum()?);
         // Construct the deployment.
         let deployment = Self { edition, program, verifying_keys, program_checksum };
         // Ensure the deployment is ordered.
