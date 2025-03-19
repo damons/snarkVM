@@ -120,7 +120,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                     Operand::NetworkID => {
                         bail!("Illegal operation: cannot retrieve the network id in a closure scope")
                     }
-                    // If the operand is the checksum, retrieve the checksum for the program.
+                    // If the operand is the checksum, retrieve the checksum from the stack.
                     Operand::Checksum(program_id) => {
                         let checksum = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
@@ -130,7 +130,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                             circuit::Field::new(circuit::Mode::Constant, checksum),
                         ))))
                     }
-                    // If the operand is the edition, retrieve the edition for the program.
+                    // If the operand is the edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {
                         let edition = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
@@ -375,7 +375,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                     Operand::NetworkID => {
                         bail!("Illegal operation: cannot retrieve the network id in a function scope")
                     }
-                    // If the operand is the checksum, retrieve the checksum for the program.
+                    // If the operand is the checksum, retrieve the checksum from the stack.
                     Operand::Checksum(program_id) => {
                         let checksum = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
@@ -385,7 +385,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                             circuit::Field::new(circuit::Mode::Constant, checksum),
                         ))))
                     }
-                    // If the operand is the edition, retrieve the edition for the program.
+                    // If the operand is the edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {
                         let edition = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),

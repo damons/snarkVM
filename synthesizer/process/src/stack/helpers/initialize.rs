@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use super::*;
-use crate::constructor_cost_in_microcredits;
 
 impl<N: Network> Stack<N> {
     /// Initializes a new stack, given the process and program.

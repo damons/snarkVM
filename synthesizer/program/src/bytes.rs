@@ -87,7 +87,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ToB
         }
 
         // Write the number of components, accounting for the constructor.
-        let number_of_components = self.identifiers.len() + if self.constructor.is_some() { 1 } else { 0 };
+        let number_of_components = self.identifiers.len() + self.constructor.is_some() as usize;
         u16::try_from(number_of_components).map_err(|e| error(e.to_string()))?.write_le(&mut writer)?;
         // Write the components.
         for (identifier, definition) in self.identifiers.iter() {

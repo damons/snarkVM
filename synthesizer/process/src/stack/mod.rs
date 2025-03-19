@@ -37,7 +37,7 @@ mod evaluate;
 mod execute;
 mod helpers;
 
-use crate::{CallMetrics, Process, Trace, cost_in_microcredits_v2, traits::*};
+use crate::{CallMetrics, Process, Trace, constructor_cost_in_microcredits, cost_in_microcredits_v2, traits::*};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
@@ -62,7 +62,7 @@ use console::{
         Value,
         ValueType,
     },
-    types::{Field, Group},
+    types::{Field, Group, U16},
 };
 use ledger_block::{Deployment, Transaction, Transition};
 use synthesizer_program::{CallOperator, Closure, Constructor, Function, Instruction, Operand, Program, traits::*};
@@ -73,7 +73,6 @@ use indexmap::IndexMap;
 use parking_lot::RwLock;
 use std::sync::{Arc, Weak};
 
-use console::types::U16;
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
 

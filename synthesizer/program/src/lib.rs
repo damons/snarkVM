@@ -91,10 +91,11 @@ use console::{
         tag,
         take,
     },
+    prelude::ToBits,
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
+    types::Field,
 };
 
-use console::{prelude::ToBits, types::Field};
 use indexmap::IndexMap;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

@@ -28,7 +28,7 @@ impl<N: Network> Parser for Operand<N> {
             map(tag("self.caller"), |_| Self::Caller),
             map(tag("block.height"), |_| Self::BlockHeight),
             map(tag("network.id"), |_| Self::NetworkID),
-            // Note that `Operand::Checksum` and `Operand::Edition` must be parsed before `Operand::ProgramID`s, since an edition or checksum is prefixed with a program ID.
+            // Note that `Operand::Checksum` and `Operand::Edition` must be parsed before `Operand::ProgramID`s, since an edition or checksum may be prefixed with a program ID.
             map(pair(opt(terminated(ProgramID::parse, tag("/"))), tag("checksum")), |(program_id, _)| {
                 Self::Checksum(program_id)
             }),

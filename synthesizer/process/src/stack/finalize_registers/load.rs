@@ -46,7 +46,7 @@ impl<N: Network> RegistersLoad<N> for FinalizeRegisters<N> {
             Operand::NetworkID => {
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(U16::new(N::ID)))));
             }
-            // If the operand is the checksum, retrieve the checksum for the program.
+            // If the operand is the checksum, load the checksum.
             Operand::Checksum(program_id) => {
                 let checksum = match program_id {
                     Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
@@ -54,7 +54,7 @@ impl<N: Network> RegistersLoad<N> for FinalizeRegisters<N> {
                 };
                 return Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))));
             }
-            // If the operand is the edition, retrieve the edition for the program.
+            // If the operand is the edition, load the edition.
             Operand::Edition(program_id) => {
                 let edition = match program_id {
                     Some(program_id) => *stack.get_external_stack(program_id)?.program_edition(),

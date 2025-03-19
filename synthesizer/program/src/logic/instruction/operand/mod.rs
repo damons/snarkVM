@@ -45,10 +45,8 @@ pub enum Operand<N: Network> {
     /// Note: This variant is only accessible in the `finalize` scope.
     NetworkID,
     /// The operand is the program checksum.
-    /// Note: This variant is only accessible in the `finalize` scope.
     Checksum(Option<ProgramID<N>>),
     /// The operand is the program edition.
-    /// Note: This variant is only accessible in the `finalize` scope.
     Edition(Option<ProgramID<N>>),
 }
 

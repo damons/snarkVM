@@ -85,7 +85,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a closure scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a closure scope."),
-                    // If the operand is the program checksum, retrieve the checksum for the program.
+                    // If the operand is the program checksum, retrieve the checksum from the stack.
                     Operand::Checksum(program_id) => {
                         let checksum = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
@@ -93,7 +93,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                         };
                         Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))))
                     }
-                    // If the operand is the program edition, retrieve the edition for the program.
+                    // If the operand is the program edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {
                         let edition = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
@@ -234,7 +234,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a function scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a function scope."),
-                    // If the operand is the program checksum, retrieve the checksum for the program.
+                    // If the operand is the program checksum, retrieve the checksum from the stack.
                     Operand::Checksum(program_id) => {
                         let checksum = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
@@ -242,7 +242,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                         };
                         Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))))
                     }
-                    // If the operand is the program edition, retrieve the edition for the program.
+                    // If the operand is the program edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {
                         let edition = match program_id {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),

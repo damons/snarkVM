@@ -80,6 +80,7 @@ impl<N: Network> ConfirmedTransaction<N> {
                 )
             }
             // Ensure the number of fee finalize operations lower bounds the number of 'UpdateKeyValue' finalize operations.
+            // The lower bound is due to the fact that constructors can issue 'UpdateKeyValue' operations as part of the deployment.
             if num_update_key_values < fee.num_finalize_operations() {
                 bail!(
                     "Transaction '{}' (deploy) must contain at least {} 'UpdateKeyValue' operations (found '{num_update_key_values}')",
