@@ -35,6 +35,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let deployment = self.deploy_raw(program, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
+        // TODO (@d0cd). Set the checksum in the deployment. Use similar logic to how the correct execution cost is computed in VM::execute
         // Compute the deployment ID.
         let deployment_id = deployment.to_deployment_id()?;
         // Construct the owner.

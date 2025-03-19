@@ -38,8 +38,8 @@ pub struct Deployment<N: Network> {
     verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
     /// An optional checksum for the program.
     /// This purpose of this field is to create an implicit versioning mechanism for deployments.
-    /// Existing (V0) deployments do not have a checksum, while new deployments will have a checksum.
-    /// Before a (TODO @d0cd) given migration height, the checksum will **not** be allowed.
+    /// Existing deployments do not have a checksum, while new deployments will have a checksum.
+    /// Before a given migration height, the checksum will **not** be allowed.
     /// After the migration height, the checksum will be required.
     program_checksum: Option<Field<N>>,
 }

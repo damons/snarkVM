@@ -149,7 +149,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
-
+                // Verify the program checksum, if it exists.
+                // TODO (@d0cd): Add requirement for the program checksum after migration height. Use similar logic to how the execution fee is checked.
+                if let Some(given_checksum) = deployment.program_checksum() {
+                    let expected_checksum = deployment.program().checksum()?;
+                    ensure!(
+                        given_checksum == &expected_checksum,
+                        "Invalid deployment transaction '{id}' - the given checksum '{given_checksum}' does not match the expected checksum '{expected_checksum}'"
+                    );
+                }
                 // If the edition is zero, then check that:
                 //  - The program does not exist in the store or process.
                 // Otherwise, check that:
