@@ -18,13 +18,12 @@ use super::*;
 impl<N: Network> FromBytes for Deployment<N> {
     /// Reads the deployment from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
-        // Read the version.
-        let version = u8::read_le(&mut reader)?;
-        // Ensure the version is valid.
-        match version {
-            1 | 2 => {} // Do nothing.
-            0 | 3..=u8::MAX => return Err(error("Invalid deployment version")),
-        }
+        // Read the version and ensure the version is valid.
+        let version = match u8::read_le(&mut reader)? {
+            1 => DeploymentVersion::V1,
+            2 => DeploymentVersion::V2,
+            version => return Err(error(format!("Invalid deployment version: {}", version))),
+        };
 
         // Read the edition.
         let edition = u16::read_le(&mut reader)?;
@@ -46,10 +45,10 @@ impl<N: Network> FromBytes for Deployment<N> {
             verifying_keys.push((identifier, (verifying_key, certificate)));
         }
 
-        // If the version is 2, read the program checksum.
+        // If the deployment version is 2, read the program checksum.
         let program_checksum = match version {
-            0 | 1 | 3..=u8::MAX => None,
-            2 => Some(Field::<N>::read_le(&mut reader)?),
+            DeploymentVersion::V1 => None,
+            DeploymentVersion::V2 => Some(Field::<N>::read_le(&mut reader)?),
         };
 
         // Return the deployment.
@@ -61,10 +60,7 @@ impl<N: Network> ToBytes for Deployment<N> {
     /// Writes the deployment to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Write the version.
-        match self.program_checksum.is_some() {
-            false => 1u8.write_le(&mut writer)?,
-            true => 2u8.write_le(&mut writer)?,
-        };
+        (self.version() as u8).write_le(&mut writer)?;
         // Write the edition.
         self.edition.write_le(&mut writer)?;
         // Write the program.
@@ -96,12 +92,20 @@ mod tests {
     fn test_bytes() -> Result<()> {
         let rng = &mut TestRng::default();
 
-        // Construct a new deployment.
-        let expected = test_helpers::sample_deployment(rng);
+        // Construct the deployments.
+        for expected in [test_helpers::sample_deployment(rng), test_helpers::sample_deployment_with_checksum(rng)] {
+            // Check the byte representation.
+            let expected_bytes = expected.to_bytes_le()?;
+            assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);
 
-        // Check the byte representation.
-        let expected_bytes = expected.to_bytes_le()?;
-        assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);
+            // Construct a new deployment with a checksum.
+            let expected = test_helpers::sample_deployment_with_checksum(rng);
+
+            // Check the byte representation.
+            let expected_bytes = expected.to_bytes_le()?;
+            assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);
+        }
+
         Ok(())
     }
 }

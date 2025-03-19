@@ -20,7 +20,10 @@ impl<N: Network> Serialize for Deployment<N> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match serializer.is_human_readable() {
             true => {
-                let len = if self.program_checksum.is_some() { 4 } else { 3 };
+                let len = match self.version() {
+                    DeploymentVersion::V1 => 3,
+                    DeploymentVersion::V2 => 4,
+                };
                 let mut deployment = serializer.serialize_struct("Deployment", len)?;
                 deployment.serialize_field("edition", &self.edition)?;
                 deployment.serialize_field("program", &self.program)?;
@@ -71,17 +74,17 @@ mod tests {
     fn test_serde_json() -> Result<()> {
         let rng = &mut TestRng::default();
 
-        // Sample the deployment.
-        let expected = test_helpers::sample_deployment(rng);
+        // Sample the deployments.
+        for expected in [test_helpers::sample_deployment(rng), test_helpers::sample_deployment_with_checksum(rng)] {
+            // Serialize
+            let expected_string = &expected.to_string();
+            let candidate_string = serde_json::to_string(&expected)?;
+            assert_eq!(expected, serde_json::from_str(&candidate_string)?);
 
-        // Serialize
-        let expected_string = &expected.to_string();
-        let candidate_string = serde_json::to_string(&expected)?;
-        assert_eq!(expected, serde_json::from_str(&candidate_string)?);
-
-        // Deserialize
-        assert_eq!(expected, Deployment::from_str(expected_string)?);
-        assert_eq!(expected, serde_json::from_str(&candidate_string)?);
+            // Deserialize
+            assert_eq!(expected, Deployment::from_str(expected_string)?);
+            assert_eq!(expected, serde_json::from_str(&candidate_string)?);
+        }
 
         Ok(())
     }
@@ -90,17 +93,17 @@ mod tests {
     fn test_bincode() -> Result<()> {
         let rng = &mut TestRng::default();
 
-        // Sample the deployment.
-        let expected = test_helpers::sample_deployment(rng);
+        // Sample the deployments
+        for expected in [test_helpers::sample_deployment(rng), test_helpers::sample_deployment_with_checksum(rng)] {
+            // Serialize
+            let expected_bytes = expected.to_bytes_le()?;
+            let expected_bytes_with_size_encoding = bincode::serialize(&expected)?;
+            assert_eq!(&expected_bytes[..], &expected_bytes_with_size_encoding[8..]);
 
-        // Serialize
-        let expected_bytes = expected.to_bytes_le()?;
-        let expected_bytes_with_size_encoding = bincode::serialize(&expected)?;
-        assert_eq!(&expected_bytes[..], &expected_bytes_with_size_encoding[8..]);
-
-        // Deserialize
-        assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);
-        assert_eq!(expected, bincode::deserialize(&expected_bytes_with_size_encoding[..])?);
+            // Deserialize
+            assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);
+            assert_eq!(expected, bincode::deserialize(&expected_bytes_with_size_encoding[..])?);
+        }
 
         Ok(())
     }

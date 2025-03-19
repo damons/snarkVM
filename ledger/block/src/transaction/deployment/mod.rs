@@ -37,8 +37,7 @@ pub struct Deployment<N: Network> {
     /// The mapping of function names to their verifying key and certificate.
     verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
     /// An optional checksum for the program.
-    /// This purpose of this field is to create an implicit versioning mechanism for deployments.
-    /// Existing deployments do not have a checksum, while new deployments will have a checksum.
+    /// This purpose of this field is to create an implicit, backwards-compatible versioning mechanism for deployments.
     /// Before a given migration height, the checksum will **not** be allowed.
     /// After the migration height, the checksum will be required.
     program_checksum: Option<Field<N>>,
@@ -178,6 +177,25 @@ impl<N: Network> Deployment<N> {
     pub fn to_deployment_id(&self) -> Result<Field<N>> {
         Ok(*Transaction::deployment_tree(self)?.root())
     }
+
+    /// Sets the program checksum.
+    pub fn set_program_checksum(&mut self, program_checksum: Option<Field<N>>) {
+        self.program_checksum = program_checksum;
+    }
+
+    // An internal function to return the implicit deployment version.
+    fn version(&self) -> DeploymentVersion {
+        match self.program_checksum {
+            None => DeploymentVersion::V1,
+            Some(_) => DeploymentVersion::V2,
+        }
+    }
+}
+
+// An internal enum to represent the deployment version.
+enum DeploymentVersion {
+    V1 = 1,
+    V2 = 2,
 }
 
 #[cfg(test)]
@@ -221,5 +239,16 @@ function compute:
                 Deployment::from_str(&deployment.to_string()).unwrap()
             })
             .clone()
+    }
+
+    pub(crate) fn sample_deployment_with_checksum(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+        // Get the deployment.
+        let mut deployment = sample_deployment(rng);
+        // Add a checksum.
+        let program_checksum = deployment.program.checksum().unwrap();
+        // Set the checksum.
+        deployment.set_program_checksum(Some(program_checksum));
+        // Return the deployment.
+        deployment
     }
 }
