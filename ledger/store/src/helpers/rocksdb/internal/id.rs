@@ -106,6 +106,7 @@ pub enum CommitteeMap {
 #[repr(u16)]
 pub enum DeploymentMap {
     ID = DataID::DeploymentIDMap as u16,
+    IDEdition = DataID::IDEditionMap as u16,
     Edition = DataID::DeploymentEditionMap as u16,
     ReverseID = DataID::DeploymentReverseIDMap as u16,
     Owner = DataID::DeploymentOwnerMap as u16,
@@ -293,6 +294,8 @@ enum DataID {
     // Program
     ProgramIDMap,
     KeyValueMap,
+    // Nonzero editions
+    IDEditionMap,
 
     // Testing
     #[cfg(test)]

@@ -36,6 +36,12 @@ pub struct Deployment<N: Network> {
     program: Program<N>,
     /// The mapping of function names to their verifying key and certificate.
     verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
+    /// An optional checksum for the program.
+    /// This purpose of this field is to create an implicit versioning mechanism for deployments.
+    /// Existing (V0) deployments do not have a checksum, while new deployments will have a checksum.
+    /// Before a (TODO @d0cd) given migration height, the checksum will **not** be allowed.
+    /// After the migration height, the checksum will be required.
+    program_checksum: Option<Field<N>>,
 }
 
 impl<N: Network> Deployment<N> {
@@ -45,8 +51,10 @@ impl<N: Network> Deployment<N> {
         program: Program<N>,
         verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
     ) -> Result<Self> {
+        // Get the program checksum.
+        let program_checksum = Some(program.checksum()?);
         // Construct the deployment.
-        let deployment = Self { edition, program, verifying_keys };
+        let deployment = Self { edition, program, verifying_keys, program_checksum };
         // Ensure the deployment is ordered.
         deployment.check_is_ordered()?;
         // Return the deployment.
@@ -116,6 +124,11 @@ impl<N: Network> Deployment<N> {
     /// Returns the program.
     pub const fn program(&self) -> &Program<N> {
         &self.program
+    }
+
+    /// Returns the program checksum, if it was stored.
+    pub const fn program_checksum(&self) -> Option<&Field<N>> {
+        self.program_checksum.as_ref()
     }
 
     /// Returns the program.

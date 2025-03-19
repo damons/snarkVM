@@ -116,10 +116,14 @@ impl<N: Network> Transaction<N> {
     pub fn deployment_tree(deployment: &Deployment<N>) -> Result<DeploymentTree<N>> {
         // Ensure the number of leaves is within the Merkle tree size.
         Self::check_deployment_size(deployment)?;
-        // Retrieve the program.
-        let program = deployment.program();
+        // Prepare the header for the hash.
+        let header = match deployment.program_checksum().is_some() {
+            false => deployment.program().id().to_bits_le(),
+            true => deployment.program().checksum()?.to_bits_le(),
+        };
         // Prepare the leaves.
-        let leaves = program
+        let leaves = deployment
+            .program()
             .functions()
             .values()
             .enumerate()
@@ -127,7 +131,7 @@ impl<N: Network> Transaction<N> {
                 // Construct the transaction leaf.
                 Ok(TransactionLeaf::new_deployment(
                     u16::try_from(index)?,
-                    N::hash_bhp1024(&to_bits_le![program.id(), function.to_bytes_le()?])?,
+                    N::hash_bhp1024(&to_bits_le![header, function.to_bytes_le()?])?,
                 )
                 .to_bits_le())
             })

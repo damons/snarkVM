@@ -38,6 +38,9 @@ use std::borrow::Cow;
 pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// The mapping of `transaction ID` to `program ID`.
     type IDMap: for<'a> Map<'a, N::TransactionID, ProgramID<N>>;
+    /// The mapping of `transaction ID` to `edition`.
+    /// Note: The `IDEditionMap` stores the non-zero editions for deployment transactions.
+    type IDEditionMap: for<'a> Map<'a, N::TransactionID, u16>;
     /// The mapping of `program ID` to `edition`.
     type EditionMap: for<'a> Map<'a, ProgramID<N>, u16>;
     /// The mapping of `(program ID, edition)` to `transaction ID`.
@@ -58,6 +61,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
 
     /// Returns the ID map.
     fn id_map(&self) -> &Self::IDMap;
+    /// Returns the ID edition map.
+    fn id_edition_map(&self) -> &Self::IDEditionMap;
     /// Returns the edition map.
     fn edition_map(&self) -> &Self::EditionMap;
     /// Returns the reverse ID map.
@@ -81,6 +86,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Starts an atomic batch write operation.
     fn start_atomic(&self) {
         self.id_map().start_atomic();
+        self.id_edition_map().start_atomic();
         self.edition_map().start_atomic();
         self.reverse_id_map().start_atomic();
         self.owner_map().start_atomic();
@@ -93,6 +99,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Checks if an atomic batch is in progress.
     fn is_atomic_in_progress(&self) -> bool {
         self.id_map().is_atomic_in_progress()
+            || self.id_edition_map().is_atomic_in_progress()
             || self.edition_map().is_atomic_in_progress()
             || self.reverse_id_map().is_atomic_in_progress()
             || self.owner_map().is_atomic_in_progress()
@@ -105,6 +112,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Checkpoints the atomic batch.
     fn atomic_checkpoint(&self) {
         self.id_map().atomic_checkpoint();
+        self.id_edition_map().atomic_checkpoint();
         self.edition_map().atomic_checkpoint();
         self.reverse_id_map().atomic_checkpoint();
         self.owner_map().atomic_checkpoint();
@@ -117,6 +125,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Clears the latest atomic batch checkpoint.
     fn clear_latest_checkpoint(&self) {
         self.id_map().clear_latest_checkpoint();
+        self.id_edition_map().clear_latest_checkpoint();
         self.edition_map().clear_latest_checkpoint();
         self.reverse_id_map().clear_latest_checkpoint();
         self.owner_map().clear_latest_checkpoint();
@@ -129,6 +138,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Rewinds the atomic batch to the previous checkpoint.
     fn atomic_rewind(&self) {
         self.id_map().atomic_rewind();
+        self.id_edition_map().atomic_rewind();
         self.edition_map().atomic_rewind();
         self.reverse_id_map().atomic_rewind();
         self.owner_map().atomic_rewind();
@@ -141,6 +151,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Aborts an atomic batch write operation.
     fn abort_atomic(&self) {
         self.id_map().abort_atomic();
+        self.id_edition_map().abort_atomic();
         self.edition_map().abort_atomic();
         self.reverse_id_map().abort_atomic();
         self.owner_map().abort_atomic();
@@ -153,6 +164,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Finishes an atomic batch write operation.
     fn finish_atomic(&self) -> Result<()> {
         self.id_map().finish_atomic()?;
+        self.id_edition_map().finish_atomic()?;
         self.edition_map().finish_atomic()?;
         self.reverse_id_map().finish_atomic()?;
         self.owner_map().finish_atomic()?;
@@ -186,7 +198,9 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         atomic_batch_scope!(self, {
             // Store the program ID.
             self.id_map().insert(*transaction_id, program_id)?;
-            // Store the edition.
+            // Store the edition for the transaction ID.
+            self.id_edition_map().insert(*transaction_id, edition)?;
+            // Store the edition for the program ID.
             self.edition_map().insert(program_id, edition)?;
 
             // Store the reverse program ID.
@@ -214,15 +228,18 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// Removes the deployment transaction for the given `transaction ID`.
     fn remove(&self, transaction_id: &N::TransactionID) -> Result<()> {
         // Retrieve the program ID.
-        let program_id = match self.get_program_id(transaction_id)? {
-            Some(edition) => edition,
-            None => bail!("Failed to get the program ID for transaction '{transaction_id}'"),
+        let Some(program_id) = self.get_program_id(transaction_id)? else {
+            bail!("Failed to get the program ID for transaction '{transaction_id}'");
         };
-        // Retrieve the edition.
-        let edition = match self.get_edition(&program_id)? {
-            Some(edition) => edition,
-            None => bail!("Failed to locate the edition for program '{program_id}'"),
+        // Retrieve the edition for the transaction.
+        let Some(edition) = self.get_edition_for_transaction(transaction_id)? else {
+            bail!("Failed to locate the edition for transaction '{transaction_id}'");
         };
+        // Retrieve the latest edition for the program.
+        let Some(latest_edition) = self.get_edition_for_program(&program_id)? else {
+            bail!("Failed to locate the latest edition for program '{program_id}'");
+        };
+
         // Retrieve the program.
         let program = match self.program_map().get_confirmed(&(program_id, edition))? {
             Some(program) => cow_to_cloned!(program),
@@ -232,8 +249,19 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         atomic_batch_scope!(self, {
             // Remove the program ID.
             self.id_map().remove(transaction_id)?;
-            // Remove the edition.
-            self.edition_map().remove(&program_id)?;
+            // Remove the edition for the transaction ID.
+            self.id_edition_map().remove(transaction_id)?;
+            // Update the latest edition.
+            match (edition, latest_edition) {
+                // If the removed edition is 0, remove the program ID from the latest edition map.
+                (0, _) => self.edition_map().remove(&program_id)?,
+                // If the removed edition is the latest one, update the latest edition map by decrementing the edition.
+                (edition, latest_edition) if edition == latest_edition => {
+                    self.edition_map().insert(program_id, edition.saturating_sub(1))?
+                }
+                // Otherwise, do nothing.
+                _ => {}
+            }
 
             // Remove the reverse program ID.
             self.reverse_id_map().remove(&(program_id, edition))?;
@@ -257,7 +285,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         })
     }
 
-    /// Returns the transaction ID that contains the given `program ID`.
+    /// Returns the latest transaction ID that contains the given `program ID`.
     fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
         // Check if the program ID is for 'credits.aleo'.
         // This case is handled separately, as it is a default program of the VM.
@@ -267,7 +295,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
-        let edition = match self.get_edition(program_id)? {
+        let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
         };
@@ -295,8 +323,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
-    /// Returns the edition for the given `program ID`.
-    fn get_edition(&self, program_id: &ProgramID<N>) -> Result<Option<u16>> {
+    /// Returns the latest edition for the given `program ID`.
+    fn get_edition_for_program(&self, program_id: &ProgramID<N>) -> Result<Option<u16>> {
         // Check if the program ID is for 'credits.aleo'.
         // This case is handled separately, as it is a default program of the VM.
         // TODO (howardwu): After we update 'fee' rules and 'Ratify' in genesis, we can remove this.
@@ -310,7 +338,16 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
-    /// Returns the program for the given `program ID`.
+    /// Returns the edition for the given `transaction ID`.
+    fn get_edition_for_transaction(&self, transaction_id: &N::TransactionID) -> Result<Option<u16>> {
+        // Retrieve the edition.
+        match self.id_edition_map().get_confirmed(transaction_id)? {
+            Some(edition) => Ok(Some(cow_to_copied!(edition))),
+            None => Ok(None),
+        }
+    }
+
+    /// Returns the latest program for the given `program ID`.
     fn get_program(&self, program_id: &ProgramID<N>) -> Result<Option<Program<N>>> {
         // Check if the program ID is for 'credits.aleo'.
         // This case is handled separately, as it is a default program of the VM.
@@ -320,7 +357,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
-        let edition = match self.get_edition(program_id)? {
+        let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
         };
@@ -331,7 +368,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
-    /// Returns the verifying key for the given `program ID` and `function name`.
+    /// Returns the latest verifying key for the given `program ID` and `function name`.
     fn get_verifying_key(
         &self,
         program_id: &ProgramID<N>,
@@ -352,7 +389,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
-        let edition = match self.get_edition(program_id)? {
+        let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
         };
@@ -363,7 +400,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
-    /// Returns the certificate for the given `program ID` and `function name`.
+    /// Returns the latest certificate for the given `program ID` and `function name`.
     fn get_certificate(
         &self,
         program_id: &ProgramID<N>,
@@ -377,7 +414,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
-        let edition = match self.get_edition(program_id)? {
+        let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
         };
@@ -396,7 +433,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             None => return Ok(None),
         };
         // Retrieve the edition.
-        let edition = match self.get_edition(&program_id)? {
+        let edition = match self.get_edition_for_transaction(transaction_id)? {
             Some(edition) => edition,
             None => bail!("Failed to get the edition for program '{program_id}'"),
         };
@@ -434,7 +471,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.fee_store().get_fee(transaction_id)
     }
 
-    /// Returns the owner for the given `program ID`.
+    /// Returns the latest owner for the given `program ID`.
     fn get_owner(&self, program_id: &ProgramID<N>) -> Result<Option<ProgramOwner<N>>> {
         // Check if the program ID is for 'credits.aleo'.
         // This case is handled separately, as it is a default program of the VM.
@@ -445,7 +482,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
 
         // TODO (raychu86): Consider program upgrades and edition changes.
         // Retrieve the edition.
-        let edition = match self.get_edition(program_id)? {
+        let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
         };
@@ -571,9 +608,14 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.get_deployment(transaction_id)
     }
 
-    /// Returns the edition for the given `program ID`.
-    pub fn get_edition(&self, program_id: &ProgramID<N>) -> Result<Option<u16>> {
-        self.storage.get_edition(program_id)
+    /// Returns the latest edition for the given `program ID`.
+    pub fn get_edition_for_program(&self, program_id: &ProgramID<N>) -> Result<Option<u16>> {
+        self.storage.get_edition_for_program(program_id)
+    }
+
+    /// Returns the edition for the given `transaction ID`.
+    pub fn get_edition_for_transaction(&self, transaction_id: &N::TransactionID) -> Result<Option<u16>> {
+        self.storage.get_edition_for_transaction(transaction_id)
     }
 
     /// Returns the program ID for the given `transaction ID`.
@@ -581,12 +623,12 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.get_program_id(transaction_id)
     }
 
-    /// Returns the program for the given `program ID`.
+    /// Returns the latest program for the given `program ID`.
     pub fn get_program(&self, program_id: &ProgramID<N>) -> Result<Option<Program<N>>> {
         self.storage.get_program(program_id)
     }
 
-    /// Returns the verifying key for the given `(program ID, function name)`.
+    /// Returns the latest verifying key for the given `(program ID, function name)`.
     pub fn get_verifying_key(
         &self,
         program_id: &ProgramID<N>,
@@ -595,7 +637,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.get_verifying_key(program_id, function_name)
     }
 
-    /// Returns the certificate for the given `(program ID, function name)`.
+    /// Returns the latest certificate for the given `(program ID, function name)`.
     pub fn get_certificate(
         &self,
         program_id: &ProgramID<N>,
@@ -611,7 +653,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
 }
 
 impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
-    /// Returns the transaction ID that deployed the given `program ID`.
+    /// Returns the latest transaction ID that deployed or updated the given `program ID`.
     pub fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
         self.storage.find_transaction_id_from_program_id(program_id)
     }
@@ -641,6 +683,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     }
 
     /// Returns an iterator over the program IDs, for all deployments.
+    /// Note that this can have duplicates if a program has been updated.
     pub fn program_ids(&self) -> impl '_ + Iterator<Item = Cow<'_, ProgramID<N>>> {
         self.storage.id_map().values_confirmed().map(|id| match id {
             Cow::Borrowed(id) => Cow::Borrowed(id),
@@ -649,6 +692,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     }
 
     /// Returns an iterator over the programs, for all deployments.
+    /// If a program has been updated, multiple versions of the program will be returned.
     pub fn programs(&self) -> impl '_ + Iterator<Item = Cow<'_, Program<N>>> {
         self.storage.program_map().values_confirmed().map(|program| match program {
             Cow::Borrowed(program) => Cow::Borrowed(program),
