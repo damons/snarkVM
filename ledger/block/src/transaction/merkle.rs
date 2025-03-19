@@ -119,7 +119,7 @@ impl<N: Network> Transaction<N> {
         // Prepare the header for the hash.
         let header = match deployment.program_checksum() {
             None => deployment.program().id().to_bits_le(),
-            // Note that the checksum must be recomputed since the one stored in the deployment may have been modified.
+            // Note that the checksum is verified in `VM::check_transaction`.
             Some(program_checksum) => program_checksum.to_bits_le(),
         };
         // Prepare the leaves.

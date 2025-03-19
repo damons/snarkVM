@@ -74,13 +74,13 @@ impl<N: Network> ConfirmedTransaction<N> {
                 );
             }
             // Ensure the number of program mappings upper bounds the number of 'InitializeMapping' finalize operations.
-            if num_initialize_mappings > program.mappings().len() {
-                bail!(
-                    "Transaction '{}' (deploy) must contain at most '{}' 'InitializeMapping' operations (found '{num_initialize_mappings}')",
-                    transaction.id(),
-                    program.mappings().len(),
-                )
-            }
+            // The upper bound is due to the fact that some mappings may have been initialized in earlier deployments or updates.
+            ensure!(
+                num_initialize_mappings <= program.mappings().len(),
+                "Transaction '{}' (deploy) must contain at most '{}' 'InitializeMapping' operations (found '{num_initialize_mappings}')",
+                transaction.id(),
+                program.mappings().len(),
+            );
             // Ensure the number of fee finalize operations lower bounds the number of '*KeyValue' finalize operations.
             // The lower bound is due to the fact that constructors can issue '*KeyValue' operations as part of the deployment.
             ensure!(

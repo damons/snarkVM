@@ -51,6 +51,7 @@ impl<N: Network> Stack<N> {
         finish!(timer);
 
         // Return the deployment.
+        // Note that the checksum is **intentionally** left as `None`. It should be added in `VM::deploy`.
         Deployment::new(*self.program_edition, self.program.clone(), verifying_keys, None)
     }
 
@@ -74,6 +75,13 @@ impl<N: Network> Stack<N> {
             *self.program_edition == deployment.edition(),
             "The stack edition does not match the deployment edition"
         );
+        // If the deployment contains a checksum, ensure it matches the one computed by the stack.
+        if let Some(program_checksum) = deployment.program_checksum() {
+            ensure!(
+                *program_checksum == self.program_checksum,
+                "The deployment checksum does not match the stack checksum"
+            );
+        }
 
         // Check Verifying Keys //
 
