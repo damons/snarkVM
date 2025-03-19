@@ -58,7 +58,8 @@ pub struct BatchHeader<N: Network> {
 impl<N: Network> BatchHeader<N> {
     /// The maximum number of microcredits that can be spent on compute by the transactions in a batch.
     /// This implies the block spend limit is bounded at `TRANSACTION_SPEND_LIMIT * N::NUM_MAX_CERTIFICATES`.
-    pub const BATCH_SPEND_LIMIT: u64 = N::TRANSACTION_SPEND_LIMIT * Self::MAX_TRANSMISSIONS_PER_BATCH as u64;
+    // TODO: div by 20 is temporary until we can dial in what the limit should be.
+    pub const BATCH_SPEND_LIMIT: u64 = N::TRANSACTION_SPEND_LIMIT * Self::MAX_TRANSMISSIONS_PER_BATCH as u64 / 20;
     /// The maximum number of rounds to store before garbage collecting.
     pub const MAX_GC_ROUNDS: usize = 100;
     /// The maximum number of transmissions in a batch.
