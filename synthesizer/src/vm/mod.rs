@@ -145,14 +145,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let deployments = cfg_iter!(chunk)
                 .map(|(transaction_id, _)| {
                     // Retrieve the deployment from the transaction ID.
-                    let deployment = match transaction_store.get_deployment(transaction_id)? {
-                        Some(deployment) => deployment,
+                    match transaction_store.get_deployment(transaction_id)? {
+                        Some(deployment) => Ok(deployment),
                         None => bail!("Deployment transaction '{transaction_id}' is not found in storage."),
-                    };
-                    Ok(deployment)
+                    }
                 })
                 .collect::<Result<Vec<_>>>()?;
             // Add the deployments to the process.
+            // Note: This iterator must be serial, to ensure deployments are loaded in the order of their dependencies.
             deployments.iter().try_for_each(|deployment| process.load_deployment(deployment))?;
         }
 
