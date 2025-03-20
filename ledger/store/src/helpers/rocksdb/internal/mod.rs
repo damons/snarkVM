@@ -51,7 +51,11 @@ pub const PREFIX_LEN: usize = 4; // N::ID (u16) + DataID (u16)
 // A static map of database paths to their objects; it's needed in order to facilitate concurrent
 // tests involving persistent storage, but it only ever has a single member outside of them.
 // TODO: remove the static in favor of improved `open` methods.
-static DATABASES: Mutex<Lazy<HashMap<PathBuf, RocksDB>>> = Mutex::new(Lazy::new(HashMap::new));
+// note: this object can't utilize locktick for lock accounting, but it is only ever accessed
+//       when first creating the database(s), so this is acceptable; this will also no longer
+//       be an issue once the above TODO is complete.
+static DATABASES: parking_lot::Mutex<Lazy<HashMap<PathBuf, RocksDB>>> =
+    parking_lot::Mutex::new(Lazy::new(HashMap::new));
 
 pub trait Database {
     /// Opens the database.
