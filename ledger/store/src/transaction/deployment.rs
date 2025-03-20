@@ -24,6 +24,7 @@ use crate::{
 use console::{
     network::prelude::*,
     program::{Identifier, ProgramID, ProgramOwner},
+    types::Field,
 };
 use ledger_block::{Deployment, Fee, Transaction};
 use synthesizer_program::Program;
@@ -48,6 +49,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     type OwnerMap: for<'a> Map<'a, (ProgramID<N>, u16), ProgramOwner<N>>;
     /// The mapping of `(program ID, edition)` to `program`.
     type ProgramMap: for<'a> Map<'a, (ProgramID<N>, u16), Program<N>>;
+    /// The mapping of `(program ID, edition)` to `checksum`.
+    type ChecksumMap: for<'a> Map<'a, (ProgramID<N>, u16), Field<N>>;
     /// The mapping of `(program ID, function name, edition)` to `verifying key`.
     type VerifyingKeyMap: for<'a> Map<'a, (ProgramID<N>, Identifier<N>, u16), VerifyingKey<N>>;
     /// The mapping of `(program ID, function name, edition)` to `certificate`.
@@ -70,6 +73,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     fn owner_map(&self) -> &Self::OwnerMap;
     /// Returns the program map.
     fn program_map(&self) -> &Self::ProgramMap;
+    /// Returns the checksum map.
+    fn checksum_map(&self) -> &Self::ChecksumMap;
     /// Returns the verifying key map.
     fn verifying_key_map(&self) -> &Self::VerifyingKeyMap;
     /// Returns the certificate map.
@@ -90,6 +95,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.reverse_id_map().start_atomic();
         self.owner_map().start_atomic();
         self.program_map().start_atomic();
+        self.checksum_map().start_atomic();
         self.verifying_key_map().start_atomic();
         self.certificate_map().start_atomic();
         self.fee_store().start_atomic();
@@ -103,6 +109,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             || self.reverse_id_map().is_atomic_in_progress()
             || self.owner_map().is_atomic_in_progress()
             || self.program_map().is_atomic_in_progress()
+            || self.checksum_map().is_atomic_in_progress()
             || self.verifying_key_map().is_atomic_in_progress()
             || self.certificate_map().is_atomic_in_progress()
             || self.fee_store().is_atomic_in_progress()
@@ -116,6 +123,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.reverse_id_map().atomic_checkpoint();
         self.owner_map().atomic_checkpoint();
         self.program_map().atomic_checkpoint();
+        self.checksum_map().atomic_checkpoint();
         self.verifying_key_map().atomic_checkpoint();
         self.certificate_map().atomic_checkpoint();
         self.fee_store().atomic_checkpoint();
@@ -129,6 +137,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.reverse_id_map().clear_latest_checkpoint();
         self.owner_map().clear_latest_checkpoint();
         self.program_map().clear_latest_checkpoint();
+        self.checksum_map().clear_latest_checkpoint();
         self.verifying_key_map().clear_latest_checkpoint();
         self.certificate_map().clear_latest_checkpoint();
         self.fee_store().clear_latest_checkpoint();
@@ -142,6 +151,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.reverse_id_map().atomic_rewind();
         self.owner_map().atomic_rewind();
         self.program_map().atomic_rewind();
+        self.checksum_map().atomic_rewind();
         self.verifying_key_map().atomic_rewind();
         self.certificate_map().atomic_rewind();
         self.fee_store().atomic_rewind();
@@ -155,6 +165,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.reverse_id_map().abort_atomic();
         self.owner_map().abort_atomic();
         self.program_map().abort_atomic();
+        self.checksum_map().abort_atomic();
         self.verifying_key_map().abort_atomic();
         self.certificate_map().abort_atomic();
         self.fee_store().abort_atomic();
@@ -168,6 +179,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         self.reverse_id_map().finish_atomic()?;
         self.owner_map().finish_atomic()?;
         self.program_map().finish_atomic()?;
+        self.checksum_map().finish_atomic()?;
         self.verifying_key_map().finish_atomic()?;
         self.certificate_map().finish_atomic()?;
         self.fee_store().finish_atomic()
@@ -193,6 +205,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         let program = deployment.program();
         // Retrieve the program ID.
         let program_id = *program.id();
+        // Retrieve the checksum.
+        let checksum = deployment.program_checksum();
 
         atomic_batch_scope!(self, {
             // Store the program ID.
@@ -208,6 +222,10 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.owner_map().insert((program_id, edition), *owner)?;
             // Store the program.
             self.program_map().insert((program_id, edition), program.clone())?;
+            // Store the checksum, if it exists.
+            if let Some(checksum) = checksum {
+                self.checksum_map().insert((program_id, edition), *checksum)?;
+            }
 
             // Store the verifying keys and certificates.
             for (function_name, (verifying_key, certificate)) in deployment.verifying_keys() {
@@ -267,6 +285,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.owner_map().remove(&(program_id, edition))?;
             // Remove the program.
             self.program_map().remove(&(program_id, edition))?;
+            // Remove the checksum.
+            self.checksum_map().remove(&(program_id, edition))?;
 
             // Remove the verifying keys and certificates.
             for function_name in program.functions().keys() {
@@ -524,9 +544,9 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             Some(program) => cow_to_cloned!(program),
             None => bail!("Failed to get the deployed program '{program_id}' (edition {edition})"),
         };
-
-        // Compute the program checksum.
-        let program_checksum = program.checksum().ok();
+        // Retrieve the checksum.
+        let program_checksum =
+            self.checksum_map().get_confirmed(&(program_id, edition))?.map(|checksum| cow_to_copied!(checksum));
 
         // Initialize a vector for the verifying keys and certificates.
         let mut verifying_keys = Vec::with_capacity(program.functions().len());

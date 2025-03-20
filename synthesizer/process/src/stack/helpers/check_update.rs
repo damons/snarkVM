@@ -16,7 +16,23 @@
 use super::*;
 
 impl<N: Network> Stack<N> {
-    /// Checks that the new program definition is a valid update.
+    /// Checks that the new program is a valid update.
+    /// At a high-level, an update must preserve the existing interfaces of the original program.
+    /// An update may add new components, except for constructors, and modify logic **only** in functions and finalize scopes.
+    ///
+    /// An detailed overview of what an update can and cannot do is given below:
+    ///  | Program Component | Delete |    Modify    |  Add  |
+    ///  |-------------------|--------|--------------|-------|
+    ///  | import            |   ❌   |      ❌      |  ✅   |
+    ///  | struct            |   ❌   |      ❌      |  ✅   |
+    ///  | record            |   ❌   |      ❌      |  ✅   |
+    ///  | mapping           |   ❌   |      ❌      |  ✅   |
+    ///  | closure           |   ❌   |      ❌      |  ✅   |
+    ///  | function          |   ❌   | ✅ (logic)   |  ✅   |
+    ///  | finalize          |   ❌   | ✅ (logic)   |  ✅   |
+    ///  | constructor       |   ❌   |      ❌      |  ❌   |
+    ///  |-------------------|--------|--------------|-------|
+    ///
     #[inline]
     pub(crate) fn check_update_is_valid(process: &Process<N>, new_program: &Program<N>) -> Result<()> {
         // Get the new program ID.
