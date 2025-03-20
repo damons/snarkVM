@@ -51,11 +51,13 @@ impl<N: Network> ConfirmedTransaction<N> {
             }
         };
 
-        // Count the number of `InitializeMapping` and `UpdateKeyValue` finalize operations.
-        let (num_initialize_mappings, num_update_key_values) =
-            finalize_operations.iter().try_fold((0, 0), |(init, update), operation| match operation {
-                FinalizeOperation::InitializeMapping(..) => Ok((init + 1, update)),
-                FinalizeOperation::UpdateKeyValue(..) => Ok((init, update + 1)),
+        // Count the number of `InitializeMapping` and `*KeyValue` finalize operations.
+        let (num_initialize_mappings, num_key_values) =
+            finalize_operations.iter().try_fold((0, 0), |(init, key_value), operation| match operation {
+                FinalizeOperation::InitializeMapping(..) => Ok((init + 1, key_value)),
+                FinalizeOperation::InsertKeyValue(..) // At the time of writing, `InsertKeyValue` is only used in tests. However, it is added for completeness, as it is a valid operation.
+                | FinalizeOperation::RemoveKeyValue(..)
+                | FinalizeOperation::UpdateKeyValue(..) => Ok((init, key_value + 1)),
                 op => {
                     bail!("Transaction '{}' (deploy) contains an invalid finalize operation ({op})", transaction.id())
                 }
@@ -63,8 +65,8 @@ impl<N: Network> ConfirmedTransaction<N> {
 
         // Perform safety checks on the finalize operations.
         {
-            // Ensure the number of finalize operations matches the number of 'InitializeMapping' and 'UpdateKeyValue' finalize operations.
-            if num_initialize_mappings + num_update_key_values != finalize_operations.len() {
+            // Ensure the number of finalize operations matches the number of 'InitializeMapping' and '*KeyValue' finalize operations.
+            if num_initialize_mappings + num_key_values != finalize_operations.len() {
                 bail!(
                     "Transaction '{}' (deploy) must contain '{}' operations",
                     transaction.id(),
@@ -79,15 +81,14 @@ impl<N: Network> ConfirmedTransaction<N> {
                     program.mappings().len(),
                 )
             }
-            // Ensure the number of fee finalize operations lower bounds the number of 'UpdateKeyValue' finalize operations.
-            // The lower bound is due to the fact that constructors can issue 'UpdateKeyValue' operations as part of the deployment.
-            if num_update_key_values < fee.num_finalize_operations() {
-                bail!(
-                    "Transaction '{}' (deploy) must contain at least {} 'UpdateKeyValue' operations (found '{num_update_key_values}')",
-                    transaction.id(),
-                    fee.num_finalize_operations()
-                );
-            }
+            // Ensure the number of fee finalize operations lower bounds the number of '*KeyValue' finalize operations.
+            // The lower bound is due to the fact that constructors can issue '*KeyValue' operations as part of the deployment.
+            ensure!(
+                fee.num_finalize_operations() <= num_key_values,
+                "Transaction '{}' (deploy) must contain at least {} 'UpdateKeyValue' operations (found '{num_key_values}')",
+                transaction.id(),
+                fee.num_finalize_operations()
+            );
         }
 
         // Return the accepted deploy transaction.
