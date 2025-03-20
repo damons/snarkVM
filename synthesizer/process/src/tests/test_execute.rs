@@ -39,6 +39,9 @@ use ledger_store::{
 use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program, StackProgram};
 use synthesizer_snark::UniversalSRS;
 
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::RwLock;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
 use std::sync::Arc;
 

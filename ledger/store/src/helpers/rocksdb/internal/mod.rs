@@ -27,7 +27,10 @@ mod tests;
 
 use aleo_std_storage::StorageMode;
 use anyhow::{Result, bail, ensure};
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::Mutex;
 use once_cell::sync::OnceCell;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::Mutex;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
