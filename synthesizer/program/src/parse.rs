@@ -23,12 +23,12 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
     fn parse(string: &str) -> ParserResult<Self> {
         // A helper to parse a program.
         enum P<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
+            Constructor(ConstructorCore<N, Command>),
             M(Mapping<N>),
             I(StructType<N>),
             R(RecordType<N>),
             C(ClosureCore<N, Instruction>),
             F(FunctionCore<N, Instruction, Command>),
-            Constructor(ConstructorCore<N, Command>),
         }
 
         // Parse the imports from the string.
@@ -52,7 +52,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
             // Parse the whitespace and comments from the string.
             let (string, _) = Sanitizer::parse(string)?;
 
-            if string.starts_with(Mapping::<N>::type_name()) {
+            if string.starts_with(ConstructorCore::<N, Command>::type_name()) {
+                map(ConstructorCore::parse, |constructor| P::<N, Instruction, Command>::Constructor(constructor))(
+                    string,
+                )
+            } else if string.starts_with(Mapping::<N>::type_name()) {
                 map(Mapping::parse, |mapping| P::<N, Instruction, Command>::M(mapping))(string)
             } else if string.starts_with(StructType::<N>::type_name()) {
                 map(StructType::parse, |struct_| P::<N, Instruction, Command>::I(struct_))(string)
@@ -62,10 +66,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
                 map(ClosureCore::parse, |closure| P::<N, Instruction, Command>::C(closure))(string)
             } else if string.starts_with(FunctionCore::<N, Instruction, Command>::type_name()) {
                 map(FunctionCore::parse, |function| P::<N, Instruction, Command>::F(function))(string)
-            } else if string.starts_with(ConstructorCore::<N, Command>::type_name()) {
-                map(ConstructorCore::parse, |constructor| P::<N, Instruction, Command>::Constructor(constructor))(
-                    string,
-                )
             } else {
                 Err(Err::Error(make_error(string, ErrorKind::Alt)))
             }
@@ -87,12 +87,12 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
         // Construct the program with the parsed components.
         for component in components {
             let result = match component {
+                P::Constructor(constructor) => program.add_constructor(constructor),
                 P::M(mapping) => program.add_mapping(mapping),
                 P::I(struct_) => program.add_struct(struct_),
                 P::R(record) => program.add_record(record),
                 P::C(closure) => program.add_closure(closure),
                 P::F(function) => program.add_function(function),
-                P::Constructor(constructor) => program.add_constructor(constructor),
             };
 
             match result {
