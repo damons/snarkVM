@@ -410,7 +410,10 @@ pub fn cost_per_command<N: Network>(
 }
 
 /// Returns the minimum number of microcredits required to run the constructor in the given program.
-/// Each command in a constructor costs 100_000 microcredits.
+///
+/// Each command in a constructor costs 100_000 microcredits. This ensures that a constructor
+/// cannot exceed 1_000 commands in its scope, as per the limit set by `N::TRANSACTION_SPEND_LIMIT`.
+///
 /// If a constructor does not exist, no cost is incurred.
 pub fn constructor_cost_in_microcredits<N: Network>(program: &Program<N>) -> Result<u64> {
     match program.constructor() {
