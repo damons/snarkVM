@@ -66,7 +66,10 @@ use utilities::try_vm_runtime;
 use aleo_std::prelude::{finish, lap, timer};
 use indexmap::{IndexMap, IndexSet};
 use itertools::Either;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::{Mutex, RwLock};
 use lru::LruCache;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::{Mutex, RwLock};
 use rand::{SeedableRng, rngs::StdRng};
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};

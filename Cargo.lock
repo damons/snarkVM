@@ -1645,6 +1645,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "locktick"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "307f02aff720d58003290879abe635b818b2176488c5ba2855ab9c11b4e0c04e"
+dependencies = [
+ "backtrace",
+ "parking_lot",
+ "simple_moving_average",
+]
+
+[[package]]
 name = "log"
 version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2711,6 +2722,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
+name = "simple_moving_average"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a4b144ad185430cd033299e2c93e465d5a7e65fbb858593dc57181fa13cd310"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "sketches-ddsketch"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2751,6 +2771,7 @@ dependencies = [
  "colored",
  "dotenvy",
  "indexmap 2.7.1",
+ "locktick",
  "num-format",
  "once_cell",
  "parking_lot",
@@ -2794,6 +2815,7 @@ dependencies = [
  "indexmap 2.7.1",
  "itertools 0.11.0",
  "lazy_static",
+ "locktick",
  "num-traits",
  "parking_lot",
  "rand",
@@ -3280,6 +3302,7 @@ dependencies = [
  "bincode",
  "criterion",
  "indexmap 2.7.1",
+ "locktick",
  "lru",
  "parking_lot",
  "rand",
@@ -3461,6 +3484,7 @@ dependencies = [
  "bincode",
  "criterion",
  "indexmap 2.7.1",
+ "locktick",
  "lru",
  "once_cell",
  "parking_lot",
@@ -3481,6 +3505,7 @@ dependencies = [
  "anyhow",
  "colored",
  "indexmap 2.7.1",
+ "locktick",
  "lru",
  "parking_lot",
  "rand",
@@ -3513,6 +3538,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "indexmap 2.7.1",
+ "locktick",
  "once_cell",
  "parking_lot",
  "rayon",
@@ -3573,6 +3599,7 @@ dependencies = [
  "itertools 0.11.0",
  "js-sys",
  "lazy_static",
+ "locktick",
  "parking_lot",
  "paste",
  "rand",
@@ -3601,6 +3628,7 @@ dependencies = [
  "criterion",
  "indexmap 2.7.1",
  "itertools 0.11.0",
+ "locktick",
  "lru",
  "once_cell",
  "parking_lot",
@@ -3639,6 +3667,7 @@ dependencies = [
  "colored",
  "criterion",
  "indexmap 2.7.1",
+ "locktick",
  "once_cell",
  "parking_lot",
  "rand",

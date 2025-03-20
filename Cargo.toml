@@ -134,6 +134,13 @@ cuda = [ "snarkvm-algorithms/cuda" ]
 save_r1cs_hashes = [ "snarkvm-circuit/save_r1cs_hashes" ]
 history = [ "snarkvm-synthesizer/history" ]
 parameters_no_std_out = [ "snarkvm-parameters/no_std_out" ]
+locktick = [
+  "dep:locktick",
+  "snarkvm-algorithms?/locktick",
+  "snarkvm-ledger?/locktick",
+  "snarkvm-parameters?/locktick",
+  "snarkvm-synthesizer?/locktick"
+]
 noconfig = [ ]
 rocks = [ "snarkvm-ledger/rocks", "snarkvm-synthesizer/rocks" ]
 test = [ "snarkvm-ledger/test" ]
@@ -232,6 +239,11 @@ optional = true
 [dependencies.indexmap]
 version = "2.0"
 features = [ "rayon" ]
+
+[dependencies.locktick]
+version = "0.3"
+features = [ "parking_lot" ]
+optional = true
 
 [dependencies.num-format]
 version = "0.4.4"
