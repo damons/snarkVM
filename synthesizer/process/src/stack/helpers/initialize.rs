@@ -70,16 +70,17 @@ impl<N: Network> Stack<N> {
 
         // Add the constructor to the stack if it exists.
         if let Some(constructor) = program.constructor() {
+            // Add the constructor to the stack.
+            stack.insert_constructor(constructor)?;
+
             // Get the constructor cost.
-            let constructor_cost = constructor_cost_in_microcredits(program)?;
+            let constructor_cost = constructor_cost_in_microcredits(&stack)?;
             // Check that the constructor cost does not exceed the maximum.
             ensure!(
                 constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
                 "Constructor has a cost '{constructor_cost}' which exceeds the transaction spend limit '{}'",
                 N::TRANSACTION_SPEND_LIMIT
             );
-            // Add the constructor to the stack.
-            stack.insert_constructor(constructor)?;
         }
 
         // Return the stack.

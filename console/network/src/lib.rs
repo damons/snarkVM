@@ -118,6 +118,8 @@ pub trait Network:
     const STARTING_SUPPLY: u64 = 1_500_000_000_000_000; // 1.5B credits
     /// The cost in microcredits per byte for the deployment transaction.
     const DEPLOYMENT_FEE_MULTIPLIER: u64 = 1_000; // 1 millicredit per byte
+    /// The multiplier in microcredits for each command in the constructor.
+    const CONSTRUCTOR_FEE_MULTIPLIER: u64 = 100; // 100x per command
     /// The constant that divides the storage polynomial.
     const EXECUTION_STORAGE_FEE_SCALING_FACTOR: u64 = 5000;
     /// The maximum size execution transactions can be before a quadratic storage penalty applies.
