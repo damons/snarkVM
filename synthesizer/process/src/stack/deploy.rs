@@ -51,7 +51,6 @@ impl<N: Network> Stack<N> {
         finish!(timer);
 
         // Return the deployment.
-        // Note that the checksum is **intentionally** left as `None`. It should be added in `VM::deploy`.
         Deployment::new(*self.program_edition, self.program.clone(), verifying_keys, Some(self.program_checksum))
     }
 

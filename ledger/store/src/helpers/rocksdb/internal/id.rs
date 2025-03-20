@@ -295,7 +295,7 @@ enum DataID {
     // Program
     ProgramIDMap,
     KeyValueMap,
-    // Track edition based transaction ID
+    // Track edition based on transaction ID
     IDEditionMap,
     // Track deployments that contain an optional checksum
     DeploymentChecksumMap,
