@@ -66,15 +66,17 @@ impl<N: Network> Process<N> {
                 // Initialize the mapping.
                 finalize_operations.push(store.initialize_mapping(*program_id, *mapping.name())?);
             }
-            finish!(timer, "Initialize the program mappings");
+            lap!(timer, "Initialize the program mappings");
 
             // If the program has a constructor, execute it and extend the finalize operations.
             // This must happen after the mappings are initialized as the constructor may depend on them.
             if deployment.program().contains_constructor() {
                 let operations = finalize_constructor(state, store, &stack, *fee.transition_id())?;
                 finalize_operations.extend(operations);
+                lap!(timer, "Execute the constructor");
             }
 
+            finish!(timer, "Finished finalizing the deployment");
             // Return the stack and finalize operations.
             Ok((stack, finalize_operations))
         })
