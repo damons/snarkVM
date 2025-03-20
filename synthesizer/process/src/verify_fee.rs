@@ -125,11 +125,12 @@ impl<N: Network> Process<N> {
         // Compute the x- and y-coordinate of `tpk`.
         let (tpk_x, tpk_y) = fee.tpk().to_xy_coordinates();
 
-        // Retrieve the adress belonging to the program ID.
-        let program_adress = self.get_stack(fee.program_id())?.program_address();
+        // Retrieve the address belonging to the program ID.
+        let stack = self.get_stack(fee.program_id())?;
+        let program_address = stack.program_address();
 
         // Compute the x- and y-coordinate of `parent`.
-        let (parent_x, parent_y) = program_adress.to_xy_coordinates();
+        let (parent_x, parent_y) = program_address.to_xy_coordinates();
 
         // Construct the public inputs to verify the proof.
         let mut inputs = vec![N::Field::one(), *tpk_x, *tpk_y, **fee.tcm(), **fee.scm()];
@@ -145,7 +146,7 @@ impl<N: Network> Process<N> {
         println!("Fee public inputs ({} elements): {:#?}", inputs.len(), inputs);
 
         // Retrieve the verifying key.
-        let verifying_key = self.get_verifying_key(fee.program_id(), fee.function_name())?;
+        let verifying_key = stack.get_verifying_key(fee.function_name())?;
 
         // Ensure the fee proof is valid.
         Trace::verify_fee_proof((verifying_key, vec![inputs]), fee)?;
@@ -197,11 +198,12 @@ impl<N: Network> Process<N> {
         // Compute the x- and y-coordinate of `tpk`.
         let (tpk_x, tpk_y) = fee.tpk().to_xy_coordinates();
 
-        // Retrieve the adress belonging to the program ID.
-        let program_adress = self.get_stack(fee.program_id())?.program_address();
+        // Retrieve the address belonging to the program ID.
+        let stack = self.get_stack(fee.program_id())?;
+        let program_address = stack.program_address();
 
         // Compute the x- and y-coordinate of `parent`.
-        let (parent_x, parent_y) = program_adress.to_xy_coordinates();
+        let (parent_x, parent_y) = program_address.to_xy_coordinates();
 
         // Construct the public inputs to verify the proof.
         let mut inputs = vec![N::Field::one(), *tpk_x, *tpk_y, **fee.tcm(), **fee.scm()];
@@ -217,7 +219,7 @@ impl<N: Network> Process<N> {
         println!("Fee public inputs ({} elements): {:#?}", inputs.len(), inputs);
 
         // Retrieve the verifying key.
-        let verifying_key = self.get_verifying_key(fee.program_id(), fee.function_name())?;
+        let verifying_key = stack.get_verifying_key(fee.function_name())?;
 
         // Ensure the fee proof is valid.
         Trace::verify_fee_proof((verifying_key, vec![inputs]), fee)?;
