@@ -66,7 +66,10 @@ use utilities::try_vm_runtime;
 use aleo_std::prelude::{finish, lap, timer};
 use indexmap::{IndexMap, IndexSet};
 use itertools::Either;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::{Mutex, RwLock};
 use lru::LruCache;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::{Mutex, RwLock};
 use rand::{SeedableRng, rngs::StdRng};
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};
@@ -114,7 +117,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             process: &Process<N>,
             transaction_store: &TransactionStore<N, T>,
             transaction_id: N::TransactionID,
-        ) -> Result<Vec<(ProgramID<N>, Deployment<N>)>> {
+            deployments: Arc<RwLock<IndexMap<ProgramID<N>, Deployment<N>>>>,
+        ) -> Result<()> {
             // Retrieve the deployment from the transaction ID.
             let deployment = match transaction_store.get_deployment(&transaction_id)? {
                 Some(deployment) => deployment,
@@ -126,17 +130,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let program_id = program.id();
 
             // Return early if the program is already loaded.
-            if process.contains_program(program_id) {
-                return Ok(vec![]);
+            if process.contains_program(program_id) || deployments.read().contains_key(program_id) {
+                return Ok(());
             }
-
-            // Prepare a vector for the deployments.
-            let mut deployments = vec![];
 
             // Iterate through the program imports.
             for import_program_id in program.imports().keys() {
                 // Add the imports to the process if does not exist yet.
-                if !process.contains_program(import_program_id) {
+                if !process.contains_program(import_program_id) && !deployments.read().contains_key(program_id) {
                     // Fetch the deployment transaction ID.
                     let Some(transaction_id) =
                         transaction_store.deployment_store().find_transaction_id_from_program_id(import_program_id)?
@@ -145,24 +146,25 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     };
 
                     // Add the deployment and its imports found recursively.
-                    deployments.extend_from_slice(&load_deployment_and_imports(
-                        process,
-                        transaction_store,
-                        transaction_id,
-                    )?);
+                    load_deployment_and_imports(process, transaction_store, transaction_id, deployments.clone())?;
                 }
             }
 
             // Once all the imports have been included, add the parent deployment.
-            deployments.push((*program_id, deployment));
+            if !deployments.read().contains_key(program_id) {
+                // Note: There may be re-insertions due to parallelism, but it is safe to
+                //  reinsert into the IndexMap because it should be the same object.
+                deployments.write().entry(*program_id).or_insert(deployment);
+            }
 
-            Ok(deployments)
+            Ok(())
         }
 
         // Retrieve the transaction store.
         let transaction_store = store.transaction_store();
         // Retrieve the list of deployment transaction IDs.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
+        // TODO (raychu86): Investigate loading them in order to limit recursion.
         // Load the deployments from the store.
         for (i, chunk) in deployment_ids.chunks(256).enumerate() {
             debug!(
@@ -171,14 +173,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 ((i + 1) * 256).min(deployment_ids.len()),
                 deployment_ids.len()
             );
-            let deployments = cfg_iter!(chunk)
+            // Prepare a tracker for the deployments.
+            let deployments = Arc::new(RwLock::new(IndexMap::new()));
+            cfg_iter!(chunk)
                 .map(|transaction_id| {
                     // Load the deployment and its imports.
-                    load_deployment_and_imports(&process, transaction_store, **transaction_id)
+                    load_deployment_and_imports(&process, transaction_store, **transaction_id, deployments.clone())
                 })
-                .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<()>>()?;
 
-            for (program_id, deployment) in deployments.iter().flatten() {
+            for (program_id, deployment) in deployments.read().iter() {
                 // Load the deployment if it does not exist in the process yet.
                 if !process.contains_program(program_id) {
                     process.load_deployment(deployment)?;

@@ -188,8 +188,9 @@ impl<N: Network> Process<N> {
             None => (Field::one(), *transition.program_id()),
         };
 
-        // Retrieve the adress belonging to the parent.
-        let parent_address = self.get_stack(parent)?.program_address();
+        // Retrieve the address belonging to the parent.
+        let stack = self.get_stack(parent)?;
+        let parent_address = stack.program_address();
 
         // Compute the x- and y-coordinate of `parent`.
         let (parent_x, parent_y) = parent_address.to_xy_coordinates();

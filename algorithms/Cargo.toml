@@ -110,6 +110,11 @@ version = "0.11.0"
 version = "1.4"
 optional = true
 
+[dependencies.locktick]
+version = "0.3"
+features = [ "parking_lot" ]
+optional = true
+
 [dependencies.parking_lot]
 version = "0.12"
 
@@ -200,6 +205,7 @@ cuda = [ "snarkvm-algorithms-cuda" ]
 profiler = [ "aleo-std/profiler" ]
 crypto_hash = [ ]
 fft = [ ]
+locktick = [ "dep:locktick", "snarkvm-parameters?/locktick" ]
 msm = [ ]
 test = [ ]
 polycommit = [ "crypto_hash", "fft", "msm", "rand_core" ]

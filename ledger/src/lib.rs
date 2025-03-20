@@ -70,7 +70,10 @@ use aleo_std::{
 use anyhow::Result;
 use core::ops::Range;
 use indexmap::IndexMap;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::{Mutex, RwLock};
 use lru::LruCache;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::{Mutex, RwLock};
 use rand::{prelude::IteratorRandom, rngs::OsRng};
 use std::{borrow::Cow, sync::Arc};
