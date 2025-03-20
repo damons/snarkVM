@@ -39,9 +39,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// The mapping of `transaction ID` to `program ID`.
     type IDMap: for<'a> Map<'a, N::TransactionID, ProgramID<N>>;
     /// The mapping of `transaction ID` to `edition`.
-    /// Note: The `IDEditionMap` stores the non-zero editions for deployment transactions.
     type IDEditionMap: for<'a> Map<'a, N::TransactionID, u16>;
-    /// The mapping of `program ID` to `edition`.
+    /// The mapping of `program ID` to the **latest** `edition`.
     type EditionMap: for<'a> Map<'a, ProgramID<N>, u16>;
     /// The mapping of `(program ID, edition)` to `transaction ID`.
     type ReverseIDMap: for<'a> Map<'a, (ProgramID<N>, u16), N::TransactionID>;
@@ -200,7 +199,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.id_map().insert(*transaction_id, program_id)?;
             // Store the edition for the transaction ID.
             self.id_edition_map().insert(*transaction_id, edition)?;
-            // Store the edition for the program ID.
+            // Store the latest edition for the program ID.
             self.edition_map().insert(program_id, edition)?;
 
             // Store the reverse program ID.
@@ -227,19 +226,18 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
 
     /// Removes the deployment transaction for the given `transaction ID`.
     fn remove(&self, transaction_id: &N::TransactionID) -> Result<()> {
-        // Retrieve the program ID.
+        // Retrieve the program ID for the transaction ID.
         let Some(program_id) = self.get_program_id(transaction_id)? else {
             bail!("Failed to get the program ID for transaction '{transaction_id}'");
         };
-        // Retrieve the edition for the transaction.
+        // Retrieve the edition for the transaction ID.
         let Some(edition) = self.get_edition_for_transaction(transaction_id)? else {
             bail!("Failed to locate the edition for transaction '{transaction_id}'");
         };
-        // Retrieve the latest edition for the program.
+        // Retrieve the latest edition for the program ID.
         let Some(latest_edition) = self.get_edition_for_program(&program_id)? else {
             bail!("Failed to locate the latest edition for program '{program_id}'");
         };
-
         // Retrieve the program.
         let program = match self.program_map().get_confirmed(&(program_id, edition))? {
             Some(program) => cow_to_cloned!(program),
@@ -253,8 +251,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.id_edition_map().remove(transaction_id)?;
             // Update the latest edition.
             match (edition, latest_edition) {
-                // If the removed edition is 0, remove the program ID from the latest edition map.
-                (0, _) => self.edition_map().remove(&program_id)?,
+                // If the removed and latest edition are 0, remove the program ID from the latest edition map.
+                (0, 0) => self.edition_map().remove(&program_id)?,
                 // If the removed edition is the latest one, update the latest edition map by decrementing the edition.
                 (edition, latest_edition) if edition == latest_edition => {
                     self.edition_map().insert(program_id, edition.saturating_sub(1))?
@@ -387,6 +385,22 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
+    /// Returns the program for the given `program ID` and `edition`.
+    fn get_program_with_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
+        // Check if the program ID is for 'credits.aleo'.
+        // This case is handled separately, as it is a default program of the VM.
+        // TODO (howardwu): After we update 'fee' rules and 'Ratify' in genesis, we can remove this.
+        if program_id == &ProgramID::from_str("credits.aleo")? {
+            return Ok(Some(Program::credits()?));
+        }
+
+        // Retrieve the program.
+        match self.program_map().get_confirmed(&(*program_id, edition))? {
+            Some(program) => Ok(Some(cow_to_cloned!(program))),
+            None => bail!("Failed to get program '{program_id}' (edition {edition})"),
+        }
+    }
+
     /// Returns the latest verifying key for the given `program ID` and `function name`.
     fn get_verifying_key(
         &self,
@@ -419,6 +433,34 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
     }
 
+    /// Returns the verifying key for the given `program ID`, `function name` and `edition`.
+    fn get_verifying_key_with_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        function_name: &Identifier<N>,
+        edition: u16,
+    ) -> Result<Option<VerifyingKey<N>>> {
+        // Check if the program ID is for 'credits.aleo'.
+        // This case is handled separately, as it is a default program of the VM.
+        // TODO (howardwu): After we update 'fee' rules and 'Ratify' in genesis, we can remove this.
+        if program_id == &ProgramID::from_str("credits.aleo")? {
+            // Load the verifying key.
+            let verifying_key = N::get_credits_verifying_key(function_name.to_string())?;
+            // Retrieve the number of public and private variables.
+            // Note: This number does *NOT* include the number of constants. This is safe because
+            // this program is never deployed, as it is a first-class citizen of the protocol.
+            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
+            // Return the verifying key.
+            return Ok(Some(VerifyingKey::new(verifying_key.clone(), num_variables)));
+        }
+
+        // Retrieve the verifying key.
+        match self.verifying_key_map().get_confirmed(&(*program_id, *function_name, edition))? {
+            Some(verifying_key) => Ok(Some(cow_to_cloned!(verifying_key))),
+            None => bail!("Failed to get the verifying key for '{program_id}/{function_name}' (edition {edition})"),
+        }
+    }
+
     /// Returns the latest certificate for the given `program ID` and `function name`.
     fn get_certificate(
         &self,
@@ -437,6 +479,27 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             Some(edition) => edition,
             None => return Ok(None),
         };
+        // Retrieve the certificate.
+        match self.certificate_map().get_confirmed(&(*program_id, *function_name, edition))? {
+            Some(certificate) => Ok(Some(cow_to_cloned!(certificate))),
+            None => bail!("Failed to get the certificate for '{program_id}/{function_name}' (edition {edition})"),
+        }
+    }
+
+    /// Returns the certificate for the given `program ID`, `function name`, and `edition`.
+    fn get_certificate_with_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        function_name: &Identifier<N>,
+        edition: u16,
+    ) -> Result<Option<Certificate<N>>> {
+        // Check if the program ID is for 'credits.aleo'.
+        // This case is handled separately, as it is a default program of the VM.
+        // TODO (howardwu): After we update 'fee' rules and 'Ratify' in genesis, we can remove this.
+        if program_id == &ProgramID::from_str("credits.aleo")? {
+            return Ok(None);
+        }
+
         // Retrieve the certificate.
         match self.certificate_map().get_confirmed(&(*program_id, *function_name, edition))? {
             Some(certificate) => Ok(Some(cow_to_cloned!(certificate))),
@@ -505,6 +568,22 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             Some(edition) => edition,
             None => return Ok(None),
         };
+
+        // Retrieve the owner.
+        match self.owner_map().get_confirmed(&(*program_id, edition))? {
+            Some(owner) => Ok(Some(cow_to_copied!(owner))),
+            None => bail!("Failed to find the Owner for program '{program_id}' (edition {edition})"),
+        }
+    }
+
+    /// Returns the owner for the given `program ID` and `edition`.
+    fn get_owner_with_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<ProgramOwner<N>>> {
+        // Check if the program ID is for 'credits.aleo'.
+        // This case is handled separately, as it is a default program of the VM.
+        // TODO (howardwu): After we update 'fee' rules and 'Ratify' in genesis, we can remove this.
+        if program_id == &ProgramID::from_str("credits.aleo")? {
+            return Ok(None);
+        }
 
         // Retrieve the owner.
         match self.owner_map().get_confirmed(&(*program_id, edition))? {
@@ -647,6 +726,11 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.get_program(program_id)
     }
 
+    /// Returns the program for the given `program ID` and `edition`.
+    pub fn get_program_with_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
+        self.storage.get_program_with_edition(program_id, edition)
+    }
+
     /// Returns the latest verifying key for the given `(program ID, function name)`.
     pub fn get_verifying_key(
         &self,
@@ -656,6 +740,16 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.get_verifying_key(program_id, function_name)
     }
 
+    /// Returns the verifying key for the given `(program ID, function name, edition)`.
+    pub fn get_verifying_key_with_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        function_name: &Identifier<N>,
+        edition: u16,
+    ) -> Result<Option<VerifyingKey<N>>> {
+        self.storage.get_verifying_key_with_edition(program_id, function_name, edition)
+    }
+
     /// Returns the latest certificate for the given `(program ID, function name)`.
     pub fn get_certificate(
         &self,
@@ -663,6 +757,16 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         function_name: &Identifier<N>,
     ) -> Result<Option<Certificate<N>>> {
         self.storage.get_certificate(program_id, function_name)
+    }
+
+    /// Returns the certificate for the given `(program ID, function name, edition)`.
+    pub fn get_certificate_with_edition(
+        &self,
+        program_id: &ProgramID<N>,
+        function_name: &Identifier<N>,
+        edition: u16,
+    ) -> Result<Option<Certificate<N>>> {
+        self.storage.get_certificate_with_edition(program_id, function_name, edition)
     }
 
     /// Returns the fee for the given `transaction ID`.
@@ -707,6 +811,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     }
 }
 
+type ProgramIDEdition<N> = (ProgramID<N>, u16);
 type ProgramTriplet<N> = (ProgramID<N>, Identifier<N>, u16);
 
 impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
@@ -724,6 +829,11 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         })
     }
 
+    /// Returns an iterator over the program IDs and latest editions.
+    pub fn program_ids_and_editions(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramID<N>>, Cow<'_, u16>)> {
+        self.storage.edition_map().iter_confirmed()
+    }
+
     /// Returns an iterator over the programs, for all deployments.
     /// If a program has been updated, multiple versions of the program will be returned.
     pub fn programs(&self) -> impl '_ + Iterator<Item = Cow<'_, Program<N>>> {
@@ -731,6 +841,13 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
             Cow::Borrowed(program) => Cow::Borrowed(program),
             Cow::Owned(program) => Cow::Owned(program),
         })
+    }
+
+    /// Returns an iterator over the programs and editions, for all deployments.
+    pub fn programs_and_editions(
+        &self,
+    ) -> impl '_ + Iterator<Item = (Cow<'_, ProgramIDEdition<N>>, Cow<'_, Program<N>>)> {
+        self.storage.program_map().iter_confirmed()
     }
 
     /// Returns an iterator over the `((program ID, function name, edition), verifying key)`, for all deployments.
