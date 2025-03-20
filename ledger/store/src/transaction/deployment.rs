@@ -525,6 +525,9 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             None => bail!("Failed to get the deployed program '{program_id}' (edition {edition})"),
         };
 
+        // Compute the program checksum.
+        let program_checksum = program.checksum().ok();
+
         // Initialize a vector for the verifying keys and certificates.
         let mut verifying_keys = Vec::with_capacity(program.functions().len());
 
@@ -545,7 +548,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Return the deployment.
-        Ok(Some(Deployment::new(edition, program, verifying_keys, None)?))
+        Ok(Some(Deployment::new(edition, program, verifying_keys, program_checksum)?))
     }
 
     /// Returns the fee for the given `transaction ID`.

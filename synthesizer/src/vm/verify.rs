@@ -151,6 +151,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
                 // Verify the program checksum, if it exists.
                 // TODO (@d0cd): Add requirement for the program checksum after migration height. Use similar logic to how the execution fee is checked.
+                //   Before the migration, the checksum should be `None`.
                 if let Some(given_checksum) = deployment.program_checksum() {
                     let expected_checksum = deployment.program().checksum()?;
                     ensure!(

@@ -1074,7 +1074,7 @@ function a:
             // Note: `deployment_transaction_ids` is sorted lexicographically by transaction ID, so the order may change if we update internal methods.
             assert_eq!(
                 deployment_transaction_ids,
-                vec![deployment_4.id(), deployment_3.id(), deployment_2.id(), deployment_1.id()],
+                vec![deployment_3.id(), deployment_1.id(), deployment_4.id(), deployment_2.id()],
                 "Update me if serialization has changed"
             );
         }
@@ -1460,8 +1460,13 @@ function do:
         let fee = vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
 
         // Create a new deployment transaction with the overreported verifying keys.
-        let adjusted_deployment =
-            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_overreport, None).unwrap();
+        let adjusted_deployment = Deployment::new(
+            deployment.edition(),
+            deployment.program().clone(),
+            vks_with_overreport,
+            deployment.program_checksum().cloned(),
+        )
+        .unwrap();
         let adjusted_transaction = Transaction::from_deployment(program_owner, adjusted_deployment, fee).unwrap();
 
         // Verify the deployment transaction. It should error when certificate checking for constraint count mismatch.
@@ -1515,8 +1520,13 @@ function do:
         }
 
         // Create a new deployment transaction with the underreported verifying keys.
-        let adjusted_deployment =
-            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport, None).unwrap();
+        let adjusted_deployment = Deployment::new(
+            deployment.edition(),
+            deployment.program().clone(),
+            vks_with_underreport,
+            deployment.program_checksum().cloned(),
+        )
+        .unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
         let adjusted_transaction =
             Transaction::Deploy(txid, deployment_id, program_owner, Box::new(adjusted_deployment), fee);
@@ -1590,8 +1600,13 @@ function do:
         }
 
         // Create a new deployment transaction with the underreported verifying keys.
-        let adjusted_deployment =
-            Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport, None).unwrap();
+        let adjusted_deployment = Deployment::new(
+            deployment.edition(),
+            deployment.program().clone(),
+            vks_with_underreport,
+            deployment.program_checksum().cloned(),
+        )
+        .unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
         let adjusted_transaction =
             Transaction::Deploy(txid, deployment_id, program_owner, Box::new(adjusted_deployment), fee);
