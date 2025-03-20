@@ -25,7 +25,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
         enum P<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
             Constructor(ConstructorCore<N, Command>),
             M(Mapping<N>),
-            I(StructType<N>),
+            S(StructType<N>),
             R(RecordType<N>),
             C(ClosureCore<N, Instruction>),
             F(FunctionCore<N, Instruction, Command>),
@@ -59,7 +59,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
             } else if string.starts_with(Mapping::<N>::type_name()) {
                 map(Mapping::parse, |mapping| P::<N, Instruction, Command>::M(mapping))(string)
             } else if string.starts_with(StructType::<N>::type_name()) {
-                map(StructType::parse, |struct_| P::<N, Instruction, Command>::I(struct_))(string)
+                map(StructType::parse, |struct_| P::<N, Instruction, Command>::S(struct_))(string)
             } else if string.starts_with(RecordType::<N>::type_name()) {
                 map(RecordType::parse, |record| P::<N, Instruction, Command>::R(record))(string)
             } else if string.starts_with(ClosureCore::<N, Instruction>::type_name()) {
@@ -89,7 +89,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
             let result = match component {
                 P::Constructor(constructor) => program.add_constructor(constructor),
                 P::M(mapping) => program.add_mapping(mapping),
-                P::I(struct_) => program.add_struct(struct_),
+                P::S(struct_) => program.add_struct(struct_),
                 P::R(record) => program.add_record(record),
                 P::C(closure) => program.add_closure(closure),
                 P::F(function) => program.add_function(function),
