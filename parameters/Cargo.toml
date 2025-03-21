@@ -26,6 +26,7 @@ edition = "2021"
 [features]
 large_params = [ ]
 default = [ "colored", "remote" ]
+locktick = [ "dep:locktick" ]
 no_std_out = [ ]
 remote = [ "curl" ]
 wasm = [ "encoding", "js-sys", "web-sys" ]
@@ -76,6 +77,11 @@ optional = true
 
 [dependencies.lazy_static]
 version = "1.4"
+
+[dependencies.locktick]
+version = "0.3"
+features = [ "parking_lot" ]
+optional = true
 
 [dependencies.parking_lot]
 version = "0.12"

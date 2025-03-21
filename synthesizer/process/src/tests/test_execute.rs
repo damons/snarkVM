@@ -39,7 +39,9 @@ use ledger_store::{
 use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program, StackProgram};
 use synthesizer_snark::UniversalSRS;
 
-use indexmap::IndexMap;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::RwLock;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -2365,7 +2367,7 @@ fn test_process_deploy_credits_program() {
 
     // Initialize an empty process without the `credits` program.
     let empty_process =
-        Process { universal_srs: UniversalSRS::<CurrentNetwork>::load().unwrap(), stacks: IndexMap::new() };
+        Process { universal_srs: UniversalSRS::<CurrentNetwork>::load().unwrap(), stacks: Default::default() };
 
     // Construct the process.
     let process = Process::load().unwrap();
