@@ -24,13 +24,13 @@ impl<N: Network> Stack<N> {
     ///  | Program Component | Delete |    Modify    |  Add  |
     ///  |-------------------|--------|--------------|-------|
     ///  | import            |   ❌   |      ❌      |  ✅   |
+    ///  | constructor       |   ❌   |      ❌      |  ❌   |
+    ///  | mapping           |   ❌   |      ❌      |  ✅   |
     ///  | struct            |   ❌   |      ❌      |  ✅   |
     ///  | record            |   ❌   |      ❌      |  ✅   |
-    ///  | mapping           |   ❌   |      ❌      |  ✅   |
     ///  | closure           |   ❌   |      ❌      |  ✅   |
     ///  | function          |   ❌   | ✅ (logic)   |  ✅   |
     ///  | finalize          |   ❌   | ✅ (logic)   |  ✅   |
-    ///  | constructor       |   ❌   |      ❌      |  ❌   |
     ///  |-------------------|--------|--------------|-------|
     ///
     #[inline]
@@ -47,6 +47,25 @@ impl<N: Network> Stack<N> {
         );
         // Ensure the program ID matches.
         ensure!(old_program.id() == new_program.id(), "Cannot update '{program_id}' with different program ID");
+        // Ensure that all of the imports in the old program exist in the new program.
+        for old_import in old_program.imports().keys() {
+            if !new_program.contains_import(old_import) {
+                bail!("Cannot update '{program_id}' because it is missing the original import '{old_import}'");
+            }
+        }
+        // Ensure that the constructors in both programs are exactly the same.
+        ensure!(
+            old_program.constructor() == new_program.constructor(),
+            "Cannot update '{program_id}' because the constructor does not match"
+        );
+        // Ensure that all of the mappings in the old program exist in the new program.
+        for (old_mapping_id, old_mapping_type) in old_program.mappings() {
+            let new_mapping_type = new_program.get_mapping(old_mapping_id)?;
+            ensure!(
+                *old_mapping_type == new_mapping_type,
+                "Cannot update '{program_id}' because the mapping '{old_mapping_id}' does not match"
+            );
+        }
         // Ensure that all of the structs in the old program exist in the new program.
         for (old_struct_id, old_struct_type) in old_program.structs() {
             let new_struct_type = new_program.get_struct(old_struct_id)?;
@@ -63,25 +82,6 @@ impl<N: Network> Stack<N> {
                 "Cannot update '{program_id}' because the record '{old_record_id}' does not match"
             );
         }
-        // Ensure that all of the mappings in the old program exist in the new program.
-        for (old_mapping_id, old_mapping_type) in old_program.mappings() {
-            let new_mapping_type = new_program.get_mapping(old_mapping_id)?;
-            ensure!(
-                *old_mapping_type == new_mapping_type,
-                "Cannot update '{program_id}' because the mapping '{old_mapping_id}' does not match"
-            );
-        }
-        // Ensure that all of the imports in the old program exist in the new program.
-        for old_import in old_program.imports().keys() {
-            if !new_program.contains_import(old_import) {
-                bail!("Cannot update '{program_id}' because it is missing the original import '{old_import}'");
-            }
-        }
-        // Ensure that the constructors in both programs are exactly the same.
-        ensure!(
-            old_program.constructor() == new_program.constructor(),
-            "Cannot update '{program_id}' because the constructor does not match"
-        );
         // Ensure that the old program closures exist in the new program, with the exact same definition
         for old_closure in old_program.closures().values() {
             let old_closure_name = old_closure.name();
