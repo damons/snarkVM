@@ -28,7 +28,7 @@ use console::{
 use synthesizer_program::Program;
 use synthesizer_snark::{Certificate, VerifyingKey};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Deployment<N: Network> {
     /// The edition.
     edition: u16,
@@ -42,6 +42,14 @@ pub struct Deployment<N: Network> {
     /// After the migration height where this feature is enabled, the checksum will be required.
     program_checksum: Option<Field<N>>,
 }
+
+impl<N: Network> PartialEq for Deployment<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.edition == other.edition && self.verifying_keys == other.verifying_keys && self.program == other.program
+    }
+}
+
+impl<N: Network> Eq for Deployment<N> {}
 
 impl<N: Network> Deployment<N> {
     /// Initializes a new deployment.

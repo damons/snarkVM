@@ -55,7 +55,10 @@ impl<'de, N: Network> Deserialize<'de> for Deployment<N> {
                     // Retrieve the verifying keys.
                     DeserializeExt::take_from_value::<D>(&mut deployment, "verifying_keys")?,
                     // Retrieve the program checksum, if it exists.
-                    DeserializeExt::take_from_value::<D>(&mut deployment, "program_checksum").ok(),
+                    serde_json::from_value(
+                        deployment.get_mut("program_checksum").unwrap_or(&mut serde_json::Value::Null).take(),
+                    )
+                    .map_err(de::Error::custom)?,
                 )
                 .map_err(de::Error::custom)?;
 
