@@ -25,6 +25,21 @@ impl<N: Network> Process<N> {
     ) -> Result<()> {
         let timer = timer!("Process::verify_deployment");
 
+        // Retrieve the program ID.
+        let program_id = deployment.program().id();
+        // If the edition is zero, then verify that the program does not exist.
+        // Otherwise, verify that the program exists.
+        match deployment.edition().is_zero() {
+            true => ensure!(
+                !self.contains_program(program_id),
+                "Program '{program_id}' already exists, but the deployment edition is zero"
+            ),
+            false => ensure!(
+                self.contains_program(program_id),
+                "Program '{program_id}' does not exist, but the deployment edition is non-zero"
+            ),
+        }
+
         // Ensure the program is well-formed, by computing the stack.
         let stack = Stack::new(self, deployment.program())?;
         lap!(timer, "Compute the stack");
