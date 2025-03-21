@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Process, Stack, StackProgramTypes};
+use crate::{FinalizeTypes, Process, Stack, StackProgramTypes};
 
 use crate::stack::StackRef;
 use console::{
@@ -21,10 +21,13 @@ use console::{
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
 use ledger_block::{Deployment, Execution, Transaction};
-use synthesizer_program::{CastType, Command, Finalize, Instruction, Operand, Program, StackProgram};
+use synthesizer_program::{CastType, Command, Instruction, Operand, StackProgram};
 
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
-pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (u64, u64, u64, u64))> {
+pub fn deployment_cost<N: Network>(
+    process: &Process<N>,
+    deployment: &Deployment<N>,
+) -> Result<(u64, (u64, u64, u64, u64))> {
     // Determine the number of bytes in the deployment.
     let size_in_bytes = deployment.size_in_bytes()?;
     // Retrieve the program ID.
@@ -45,7 +48,7 @@ pub fn deployment_cost<N: Network>(deployment: &Deployment<N>) -> Result<(u64, (
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
 
     // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits(deployment.program())?;
+    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -173,27 +176,24 @@ fn plaintext_size_in_bytes<N: Network>(stack: &Stack<N>, plaintext_type: &Plaint
 /// A helper function to compute the following: base_cost + (byte_multiplier * size_of_operands).
 fn cost_in_size<'a, N: Network>(
     stack: &Stack<N>,
-    finalize: &Finalize<N>,
+    finalize_types: &FinalizeTypes<N>,
     operands: impl IntoIterator<Item = &'a Operand<N>>,
     byte_multiplier: u64,
     base_cost: u64,
 ) -> Result<u64> {
-    // Retrieve the finalize types.
-    let finalize_types = stack.get_finalize_types(finalize.name())?;
     // Compute the size of the operands.
     let size_of_operands = operands.into_iter().try_fold(0u64, |acc, operand| {
         // Determine the size of the operand.
         let operand_size = match finalize_types.get_type_from_operand(stack, operand)? {
             FinalizeType::Plaintext(plaintext_type) => plaintext_size_in_bytes(stack, &plaintext_type)?,
             FinalizeType::Future(future) => {
-                bail!("Future '{future}' is not a valid operand in the finalize scope");
+                bail!("Future '{future}' is not a valid operand");
             }
         };
         // Safely add the size to the accumulator.
         acc.checked_add(operand_size).ok_or(anyhow!(
-            "Overflowed while computing the size of the operand '{operand}' in '{}/{}' (finalize)",
+            "Overflowed while computing the size of the operand '{operand}' in '{}'",
             stack.program_id(),
-            finalize.name()
         ))
     })?;
     // Return the cost.
@@ -203,7 +203,7 @@ fn cost_in_size<'a, N: Network>(
 /// Returns the the cost of a command in a finalize scope.
 pub fn cost_per_command<N: Network>(
     stack: &Stack<N>,
-    finalize: &Finalize<N>,
+    finalize_types: &FinalizeTypes<N>,
     command: &Command<N>,
     consensus_fee_version: ConsensusFeeVersion,
 ) -> Result<u64> {
@@ -243,28 +243,26 @@ pub fn cost_per_command<N: Network>(
             | CastType::ExternalRecord(_) => Ok(500),
         },
         Command::Instruction(Instruction::CommitBHP256(commit)) => {
-            cost_in_size(stack, finalize, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::CommitBHP512(commit)) => {
-            cost_in_size(stack, finalize, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::CommitBHP768(commit)) => {
-            cost_in_size(stack, finalize, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::CommitBHP1024(commit)) => {
-            cost_in_size(stack, finalize, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, commit.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::CommitPED64(commit)) => {
-            cost_in_size(stack, finalize, commit.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, commit.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::CommitPED128(commit)) => {
-            cost_in_size(stack, finalize, commit.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, commit.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::Div(div)) => {
             // Ensure `div` has exactly two operands.
             ensure!(div.operands().len() == 2, "'div' must contain exactly 2 operands");
-            // Retrieve the finalize types.
-            let finalize_types = stack.get_finalize_types(finalize.name())?;
             // Retrieve the price by the operand type.
             match finalize_types.get_type_from_operand(stack, &div.operands()[0])? {
                 FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::Field)) => Ok(1_500),
@@ -279,49 +277,49 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::GreaterThan(_)) => Ok(500),
         Command::Instruction(Instruction::GreaterThanOrEqual(_)) => Ok(500),
         Command::Instruction(Instruction::HashBHP256(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::HashBHP512(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::HashBHP768(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::HashBHP1024(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::HashKeccak256(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashKeccak384(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashKeccak512(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashPED64(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashPED128(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashPSD2(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
         Command::Instruction(Instruction::HashPSD4(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
         Command::Instruction(Instruction::HashPSD8(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
         Command::Instruction(Instruction::HashSha3_256(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashSha3_384(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashSha3_512(hash)) => {
-            cost_in_size(stack, finalize, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashManyPSD2(_)) => {
             bail!("`hash_many.psd2` is not supported in finalize")
@@ -341,8 +339,6 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::Mul(mul)) => {
             // Ensure `mul` has exactly two operands.
             ensure!(mul.operands().len() == 2, "'mul' must contain exactly 2 operands");
-            // Retrieve the finalize types.
-            let finalize_types = stack.get_finalize_types(finalize.name())?;
             // Retrieve the price by operand type.
             match finalize_types.get_type_from_operand(stack, &mul.operands()[0])? {
                 FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::Group)) => Ok(10_000),
@@ -362,8 +358,6 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::Pow(pow)) => {
             // Ensure `pow` has at least one operand.
             ensure!(!pow.operands().is_empty(), "'pow' must contain at least 1 operand");
-            // Retrieve the finalize types.
-            let finalize_types = stack.get_finalize_types(finalize.name())?;
             // Retrieve the price by operand type.
             match finalize_types.get_type_from_operand(stack, &pow.operands()[0])? {
                 FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::Field)) => Ok(1_500),
@@ -377,7 +371,7 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::Rem(_)) => Ok(500),
         Command::Instruction(Instruction::RemWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::SignVerify(sign)) => {
-            cost_in_size(stack, finalize, sign.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+            cost_in_size(stack, finalize_types, sign.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
         Command::Instruction(Instruction::Shl(_)) => Ok(500),
         Command::Instruction(Instruction::ShlWrapped(_)) => Ok(500),
@@ -391,36 +385,41 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::Xor(_)) => Ok(500),
         Command::Await(_) => Ok(500),
         Command::Contains(command) => {
-            cost_in_size(stack, finalize, [command.key()], MAPPING_PER_BYTE_COST, mapping_base_cost)
+            cost_in_size(stack, finalize_types, [command.key()], MAPPING_PER_BYTE_COST, mapping_base_cost)
         }
         Command::Get(command) => {
-            cost_in_size(stack, finalize, [command.key()], MAPPING_PER_BYTE_COST, mapping_base_cost)
+            cost_in_size(stack, finalize_types, [command.key()], MAPPING_PER_BYTE_COST, mapping_base_cost)
         }
         Command::GetOrUse(command) => {
-            cost_in_size(stack, finalize, [command.key()], MAPPING_PER_BYTE_COST, mapping_base_cost)
+            cost_in_size(stack, finalize_types, [command.key()], MAPPING_PER_BYTE_COST, mapping_base_cost)
         }
         Command::RandChaCha(_) => Ok(25_000),
         Command::Remove(_) => Ok(SET_BASE_COST),
         Command::Set(command) => {
-            cost_in_size(stack, finalize, [command.key(), command.value()], SET_PER_BYTE_COST, SET_BASE_COST)
+            cost_in_size(stack, finalize_types, [command.key(), command.value()], SET_PER_BYTE_COST, SET_BASE_COST)
         }
         Command::BranchEq(_) | Command::BranchNeq(_) => Ok(500),
         Command::Position(_) => Ok(100),
     }
 }
 
-/// Returns the minimum number of microcredits required to run the constructor in the given program.
-///
-/// Each command in a constructor costs 100_000 microcredits. This ensures that a constructor
-/// cannot exceed 1_000 commands in its scope, as per the limit set by `N::TRANSACTION_SPEND_LIMIT`.
-///
+/// Returns the minimum number of microcredits required to run the constructor in the given stack.
 /// If a constructor does not exist, no cost is incurred.
-pub fn constructor_cost_in_microcredits<N: Network>(program: &Program<N>) -> Result<u64> {
-    match program.constructor() {
+pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<u64> {
+    match stack.program().constructor() {
         Some(constructor) => {
-            let num_commands = constructor.commands().len() as u64;
-            let cost = num_commands.checked_mul(100_000).ok_or(anyhow!("Constructor cost overflowed"))?;
-            Ok(cost)
+            // Get the base cost of the constructor.
+            let base_cost = constructor
+                .commands()
+                .iter()
+                .map(|command| {
+                    cost_per_command(stack, stack.get_constructor_types()?, command, ConsensusFeeVersion::V2)
+                })
+                .try_fold(0u64, |acc, res| {
+                    res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Constructor cost overflowed")))
+                })?;
+            // Scale by the multiplier.
+            base_cost.checked_mul(N::CONSTRUCTOR_FEE_MULTIPLIER).ok_or(anyhow!("Constructor cost overflowed"))
         }
         None => Ok(0),
     }
@@ -474,7 +473,12 @@ fn cost_in_microcredits<N: Network>(
             for command in finalize.commands() {
                 // Sum the cost of all commands in the current future into the total running cost.
                 finalize_cost = finalize_cost
-                    .checked_add(cost_per_command(&stack_ref, finalize, command, consensus_fee_version)?)
+                    .checked_add(cost_per_command(
+                        &stack_ref,
+                        stack.get_finalize_types(finalize.name())?,
+                        command,
+                        consensus_fee_version,
+                    )?)
                     .ok_or(anyhow!("Finalize cost overflowed"))?;
             }
         }

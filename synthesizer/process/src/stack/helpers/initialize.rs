@@ -49,7 +49,7 @@ impl<N: Network> Stack<N> {
             // Add the constructor to the stack.
             stack.insert_constructor(constructor)?;
             // Get the constructor cost.
-            let constructor_cost = constructor_cost_in_microcredits(program)?;
+            let constructor_cost = constructor_cost_in_microcredits(&stack)?;
             // Check that the constructor cost does not exceed the maximum.
             ensure!(
                 constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
