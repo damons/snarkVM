@@ -75,7 +75,7 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Sample the deployments.
-        for expected in [test_helpers::sample_deployment(rng), test_helpers::sample_deployment_with_checksum(rng)] {
+        for expected in [test_helpers::sample_deployment_v1(rng), test_helpers::sample_deployment_v2(rng)] {
             // Serialize
             let expected_string = &expected.to_string();
             let candidate_string = serde_json::to_string(&expected)?;
@@ -94,7 +94,7 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Sample the deployments
-        for expected in [test_helpers::sample_deployment(rng), test_helpers::sample_deployment_with_checksum(rng)] {
+        for expected in [test_helpers::sample_deployment_v1(rng), test_helpers::sample_deployment_v2(rng)] {
             // Serialize
             let expected_bytes = expected.to_bytes_le()?;
             let expected_bytes_with_size_encoding = bincode::serialize(&expected)?;

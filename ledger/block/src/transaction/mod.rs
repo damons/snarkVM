@@ -442,7 +442,7 @@ pub mod test_helpers {
         // Sample a private key.
         let private_key = PrivateKey::new(rng).unwrap();
         // Sample a deployment.
-        let deployment = crate::transaction::deployment::test_helpers::sample_deployment(rng);
+        let deployment = crate::transaction::deployment::test_helpers::sample_deployment_v2(rng);
 
         // Compute the deployment ID.
         let deployment_id = deployment.to_deployment_id().unwrap();

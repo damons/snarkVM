@@ -93,13 +93,13 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Construct the deployments.
-        for expected in [test_helpers::sample_deployment(rng), test_helpers::sample_deployment_with_checksum(rng)] {
+        for expected in [test_helpers::sample_deployment_v1(rng), test_helpers::sample_deployment_v2(rng)] {
             // Check the byte representation.
             let expected_bytes = expected.to_bytes_le()?;
             assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);
 
             // Construct a new deployment with a checksum.
-            let expected = test_helpers::sample_deployment_with_checksum(rng);
+            let expected = test_helpers::sample_deployment_v1(rng);
 
             // Check the byte representation.
             let expected_bytes = expected.to_bytes_le()?;

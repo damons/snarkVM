@@ -37,9 +37,9 @@ pub struct Deployment<N: Network> {
     /// The mapping of function names to their verifying key and certificate.
     verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
     /// An optional checksum for the program.
-    /// This purpose of this field is to create an implicit, backwards-compatible versioning mechanism for deployments.
-    /// Before a given migration height, the checksum will **not** be allowed.
-    /// After the migration height, the checksum will be required.
+    /// This field creates a backwards-compatible implicit versioning mechanism for deployments.
+    /// Before the migration height where this feature is enabled, the checksum will **not** be allowed.
+    /// After the migration height where this feature is enabled, the checksum will be required.
     program_checksum: Option<Field<N>>,
 }
 
@@ -177,13 +177,17 @@ impl<N: Network> Deployment<N> {
     pub fn to_deployment_id(&self) -> Result<Field<N>> {
         Ok(*Transaction::deployment_tree(self)?.root())
     }
+}
 
+impl<N: Network> Deployment<N> {
     /// Sets the program checksum.
-    pub fn set_program_checksum(&mut self, program_checksum: Option<Field<N>>) {
+    /// Note: This method is intended to be used by the synthesizer **only**, and should not be called by the user.
+    #[doc(hidden)]
+    pub fn set_program_checksum_raw(&mut self, program_checksum: Option<Field<N>>) {
         self.program_checksum = program_checksum;
     }
 
-    // An internal function to return the implicit deployment version.
+    /// An internal function to return the implicit deployment version.
     fn version(&self) -> DeploymentVersion {
         match self.program_checksum {
             None => DeploymentVersion::V1,
@@ -209,7 +213,7 @@ pub mod test_helpers {
     type CurrentNetwork = MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
 
-    pub(crate) fn sample_deployment(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+    pub(crate) fn sample_deployment_v2(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
         INSTANCE
             .get_or_init(|| {
@@ -234,6 +238,8 @@ function compute:
                 let process = Process::load().unwrap();
                 // Compute the deployment.
                 let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+                // Assert that the deployment has a checksum.
+                assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()
@@ -241,13 +247,11 @@ function compute:
             .clone()
     }
 
-    pub(crate) fn sample_deployment_with_checksum(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+    pub(crate) fn sample_deployment_v1(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         // Get the deployment.
-        let mut deployment = sample_deployment(rng);
-        // Add a checksum.
-        let program_checksum = deployment.program.checksum().unwrap();
-        // Set the checksum.
-        deployment.set_program_checksum(Some(program_checksum));
+        let mut deployment = sample_deployment_v2(rng);
+        // Remove the checksum.
+        deployment.set_program_checksum_raw(None);
         // Return the deployment.
         deployment
     }
