@@ -886,6 +886,8 @@ finalize test:
             let function_name = transition.function_name();
             // Get the stack.
             let stack = vm.process().read().get_stack(program_id).unwrap().clone();
+            // Get the finalize types.
+            let finalize_types = stack.get_finalize_types(function_name).unwrap();
             // Get the finalize block of the transition and sum the cost of each command.
             let cost = match stack.get_function(function_name).unwrap().finalize_logic() {
                 None => 0,
@@ -894,14 +896,7 @@ finalize test:
                     finalize_logic
                         .commands()
                         .iter()
-                        .map(|command| {
-                            cost_per_command(
-                                &stack,
-                                stack.get_finalize_types(finalize_logic.name())?,
-                                command,
-                                ConsensusFeeVersion::V2,
-                            )
-                        })
+                        .map(|command| cost_per_command(&stack, finalize_types, command, ConsensusFeeVersion::V2))
                         .try_fold(0u64, |acc, res| {
                             res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Finalize cost overflowed")))
                         })
@@ -1029,6 +1024,8 @@ finalize test:
             let function_name = transition.function_name();
             // Get the stack.
             let stack = vm.process().read().get_stack(program_id).unwrap().clone();
+            // Get the finalize types.
+            let finalize_types = stack.get_finalize_types(function_name).unwrap();
             // Get the finalize block of the transition and sum the cost of each command.
             let cost = match stack.get_function(function_name).unwrap().finalize_logic() {
                 None => 0,
@@ -1037,14 +1034,7 @@ finalize test:
                     finalize_logic
                         .commands()
                         .iter()
-                        .map(|command| {
-                            cost_per_command(
-                                &stack,
-                                stack.get_finalize_types(finalize_logic.name())?,
-                                command,
-                                ConsensusFeeVersion::V2,
-                            )
-                        })
+                        .map(|command| cost_per_command(&stack, finalize_types, command, ConsensusFeeVersion::V2))
                         .try_fold(0u64, |acc, res| {
                             res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Finalize cost overflowed")))
                         })
