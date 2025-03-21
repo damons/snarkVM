@@ -118,6 +118,8 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     id: ProgramID<N>,
     /// A map of the declared imports for the program.
     imports: IndexMap<ProgramID<N>, Import<N>>,
+    /// An optional constructor for the program.
+    constructor: Option<ConstructorCore<N, Command>>,
     /// A map of identifiers to their program declaration.
     identifiers: IndexMap<Identifier<N>, ProgramDefinition>,
     /// A map of the declared mappings for the program.
@@ -130,8 +132,6 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     closures: IndexMap<Identifier<N>, ClosureCore<N, Instruction>>,
     /// A map of the declared functions for the program.
     functions: IndexMap<Identifier<N>, FunctionCore<N, Instruction, Command>>,
-    /// An optional constructor for the program.
-    constructor: Option<ConstructorCore<N, Command>>,
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
@@ -144,13 +144,13 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         Ok(Self {
             id,
             imports: IndexMap::new(),
+            constructor: None,
             identifiers: IndexMap::new(),
             mappings: IndexMap::new(),
             structs: IndexMap::new(),
             records: IndexMap::new(),
             closures: IndexMap::new(),
             functions: IndexMap::new(),
-            constructor: None,
         })
     }
 
@@ -173,6 +173,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns the imports in the program.
     pub const fn imports(&self) -> &IndexMap<ProgramID<N>, Import<N>> {
         &self.imports
+    }
+
+    /// Returns the constructor for the program.
+    pub const fn constructor(&self) -> Option<&ConstructorCore<N, Command>> {
+        self.constructor.as_ref()
     }
 
     /// Returns the mappings in the program.
@@ -200,14 +205,14 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         &self.functions
     }
 
-    /// Returns the constructor for the program.
-    pub const fn constructor(&self) -> Option<&ConstructorCore<N, Command>> {
-        self.constructor.as_ref()
-    }
-
     /// Returns `true` if the program contains an import with the given program ID.
     pub fn contains_import(&self, id: &ProgramID<N>) -> bool {
         self.imports.contains_key(id)
+    }
+
+    /// Returns `true` if the program contains a constructor.
+    pub const fn contains_constructor(&self) -> bool {
+        self.constructor.is_some()
     }
 
     /// Returns `true` if the program contains a mapping with the given name.
@@ -233,11 +238,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns `true` if the program contains a function with the given name.
     pub fn contains_function(&self, name: &Identifier<N>) -> bool {
         self.functions.contains_key(name)
-    }
-
-    /// Returns `true` if the program contains a constructor.
-    pub const fn contains_constructor(&self) -> bool {
-        self.constructor.is_some()
     }
 
     /// Returns the mapping with the given name.
@@ -343,6 +343,21 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         if self.imports.insert(*import.program_id(), import.clone()).is_some() {
             bail!("'{}' already exists in the program.", import.program_id())
         }
+        Ok(())
+    }
+
+    /// Adds a constructor to the program.
+    ///
+    /// # Errors
+    /// This method will halt if a constructor was previously added.
+    /// This method will halt if a constructor exceeds the maximum number of commands.
+    fn add_constructor(&mut self, constructor: ConstructorCore<N, Command>) -> Result<()> {
+        // Ensure the program does not already have a constructor.
+        ensure!(self.constructor.is_none(), "Program already has a constructor.");
+        // Ensure the number of commands is within the allowed range.
+        ensure!(constructor.commands().len() <= N::MAX_COMMANDS, "Constructor exceeds maximum number of commands");
+        // Add the constructor to the program.
+        self.constructor = Some(constructor);
         Ok(())
     }
 
@@ -586,20 +601,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         if self.functions.insert(function_name, function).is_some() {
             bail!("'{function_name}' already exists in the program.")
         }
-        Ok(())
-    }
-
-    /// Adds a constructor to the program.
-    ///
-    /// # Errors
-    /// This method will halt if a constructor was previously added.
-    fn add_constructor(&mut self, constructor: ConstructorCore<N, Command>) -> Result<()> {
-        // Ensure the program does not already have a constructor.
-        ensure!(self.constructor.is_none(), "Program already has a constructor.");
-        // Ensure the number of commands is within the allowed range.
-        ensure!(constructor.commands().len() <= N::MAX_COMMANDS, "Constructor exceeds maximum number of commands");
-        // Add the constructor to the program.
-        self.constructor = Some(constructor);
         Ok(())
     }
 }
