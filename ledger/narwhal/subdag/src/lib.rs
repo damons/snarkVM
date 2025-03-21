@@ -163,6 +163,11 @@ impl<N: Network> Subdag<N> {
         self.values().flatten().map(BatchCertificate::id)
     }
 
+    /// Returns certificates in this subdag (from earliest round to latest round).
+    pub fn certificates(&self) -> impl Iterator<Item = &BatchCertificate<N>> {
+        self.values().flatten()
+    }
+
     /// Returns the leader certificate.
     pub fn leader_certificate(&self) -> &BatchCertificate<N> {
         // Retrieve entry for the anchor round.

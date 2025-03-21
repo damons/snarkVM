@@ -112,6 +112,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Determine if the block subdag is correctly constructed and is not a combination of multiple subdags.
         self.check_block_subdag_atomicity(block)?;
 
+        // Ensure that all leafs of the subdag point to valid batches in other subdags/blocks.
+        self.check_block_subdag_leaves(block)?;
+
         // Ensure that each existing solution ID from the block exists in the ledger.
         for existing_solution_id in expected_existing_solution_ids {
             if !self.contains_solution_id(&existing_solution_id)? {
@@ -124,6 +127,31 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             if !self.contains_transaction_id(&existing_transaction_id)? {
                 bail!("Transaction ID '{existing_transaction_id}' does not exist in the ledger");
             }
+        }
+
+        Ok(())
+    }
+
+    /// Check that leaves in the subdag point to batches in other blocks that are valid.
+    fn check_block_subdag_leaves(&self, block: &Block<N>) -> Result<()> {
+        // Check if the block has a subdag.
+        let Authority::Quorum(subdag) = block.authority() else {
+            return Ok(());
+        };
+
+        // Store the IDs of all certificates in this subDAG.
+        // This allows determining which edges point to other subDAGs/blocks.
+        let subdag_certs: HashSet<_> = subdag.certificate_ids().collect();
+        let leaf_edges: HashSet<_> = subdag
+            .certificates()
+            .flat_map(|cert| cert.previous_certificate_ids().iter().map(|id| (cert.round() - 1, id)))
+            .filter(|(_, id)| !subdag_certs.contains(id))
+            .collect();
+
+        for (_round, _cert_id) in leaf_edges {
+            // Find the block for this round.
+
+            // Check that the block's subDAG contains the certificate.
         }
 
         Ok(())
