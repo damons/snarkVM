@@ -118,6 +118,8 @@ pub trait Network:
     const STARTING_SUPPLY: u64 = 1_500_000_000_000_000; // 1.5B credits
     /// The cost in microcredits per byte for the deployment transaction.
     const DEPLOYMENT_FEE_MULTIPLIER: u64 = 1_000; // 1 millicredit per byte
+    /// The multiplier in microcredits for each command in the constructor.
+    const CONSTRUCTOR_FEE_MULTIPLIER: u64 = 100; // 100x per command
     /// The constant that divides the storage polynomial.
     const EXECUTION_STORAGE_FEE_SCALING_FACTOR: u64 = 5000;
     /// The maximum size execution transactions can be before a quadratic storage penalty applies.
@@ -130,7 +132,7 @@ pub trait Network:
     const MAX_DEPLOYMENT_CONSTRAINTS: u64 = 1 << 20; // 1,048,576 constraints
     /// The maximum number of microcredits that can be spent as a fee.
     const MAX_FEE: u64 = 1_000_000_000_000_000;
-    /// The maximum number of microcredits that can be spent on a finalize block.
+    /// The maximum number of microcredits that can be spent on a constructor or finalize scope.
     const TRANSACTION_SPEND_LIMIT: u64 = 100_000_000;
 
     /// The anchor height, defined as the expected number of blocks to reach the coinbase target.

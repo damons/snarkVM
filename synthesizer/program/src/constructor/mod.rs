@@ -80,7 +80,7 @@ impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
         ensure!(!command.is_call(), "Forbidden operation: Constructor cannot invoke a 'call'");
         // Ensure the command is not a cast to record instruction.
         ensure!(!command.is_cast_to_record(), "Forbidden operation: Constructor cannot cast to a record");
-        // Ensure the command is not an await instruction.
+        // Ensure the command is not an await command.
         ensure!(!command.is_await(), "Forbidden operation: Constructor cannot 'await'");
 
         // Check the destination registers.

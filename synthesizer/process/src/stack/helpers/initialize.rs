@@ -55,6 +55,21 @@ impl<N: Network> Stack<N> {
                 bail!("Cannot add program '{}' because its import '{import}' must be added first", program.id())
             }
         }
+
+        // Add the constructor to the stack if it exists.
+        if let Some(constructor) = program.constructor() {
+            // Add the constructor to the stack.
+            stack.insert_constructor(constructor)?;
+            // Get the constructor cost.
+            let constructor_cost = constructor_cost_in_microcredits(&stack)?;
+            // Check that the constructor cost does not exceed the maximum.
+            ensure!(
+                constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
+                "Constructor has a cost '{constructor_cost}' which exceeds the transaction spend limit '{}'",
+                N::TRANSACTION_SPEND_LIMIT
+            );
+        }
+
         // Add the program closures to the stack.
         for closure in program.closures().values() {
             // Add the closure to the stack.
@@ -78,20 +93,6 @@ impl<N: Network> Stack<N> {
                 function.name(),
                 N::TRANSACTION_SPEND_LIMIT
             );
-        }
-
-        // Add the constructor to the stack if it exists.
-        if let Some(constructor) = program.constructor() {
-            // Get the constructor cost.
-            let constructor_cost = constructor_cost_in_microcredits(program)?;
-            // Check that the constructor cost does not exceed the maximum.
-            ensure!(
-                constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
-                "Constructor has a cost '{constructor_cost}' which exceeds the transaction spend limit '{}'",
-                N::TRANSACTION_SPEND_LIMIT
-            );
-            // Add the constructor to the stack.
-            stack.insert_constructor(constructor)?;
         }
 
         // Return the stack.

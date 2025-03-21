@@ -89,12 +89,12 @@ impl<N: Network> Display for Operand<N> {
             Self::NetworkID => write!(f, "network.id"),
             // Prints the optional program ID with the checksum keyword, i.e. `checksum` or `token.aleo/checksum`
             Self::Checksum(program_id) => match program_id {
-                Some(program_id) => write!(f, "{program_id}/checksum", program_id = program_id),
+                Some(program_id) => write!(f, "{program_id}/checksum"),
                 None => write!(f, "checksum"),
             },
             // Prints the optional program ID with the edition keyword, i.e. `edition` or  `token.aleo/edition`
             Self::Edition(program_id) => match program_id {
-                Some(program_id) => write!(f, "{program_id}/edition", program_id = program_id),
+                Some(program_id) => write!(f, "{program_id}/edition"),
                 None => write!(f, "edition"),
             },
         }

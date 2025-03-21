@@ -144,7 +144,7 @@ impl<N: Network> CommandTrait<N> for Command<N> {
         matches!(self, Command::Set(_) | Command::Remove(_))
     }
 
-    /// Returns `true` if the command is an await instruction.
+    /// Returns `true` if the command is an await command.
     #[inline]
     fn is_await(&self) -> bool {
         matches!(self, Command::Await(_))
