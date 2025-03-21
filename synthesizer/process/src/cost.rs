@@ -23,7 +23,7 @@ use console::{
 use ledger_block::{Deployment, Execution, Transaction};
 use synthesizer_program::{CastType, Command, Instruction, Operand, StackProgram};
 
-/// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, namespace cost, constructor cost)).
+/// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
 pub fn deployment_cost<N: Network>(
     process: &Process<N>,
     deployment: &Deployment<N>,
@@ -47,23 +47,23 @@ pub fn deployment_cost<N: Network>(
     // Compute the synthesis cost in microcredits.
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
 
-    // Compute the namespace cost in microcredits: 10^(10 - num_characters) * cost_per_credit
+    // Compute the constructor cost in microcredits.
+    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?;
+
+    // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
         .checked_pow(10u32.saturating_sub(num_characters))
         .ok_or(anyhow!("The namespace cost computation overflowed for a deployment"))?
         .saturating_mul(1_000_000); // 1 microcredit = 1e-6 credits.
 
-    // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?;
-
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
         .checked_add(synthesis_cost)
-        .and_then(|x| x.checked_add(namespace_cost))
         .and_then(|x| x.checked_add(constructor_cost))
+        .and_then(|x| x.checked_add(namespace_cost))
         .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
 
-    Ok((total_cost, (storage_cost, synthesis_cost, namespace_cost, constructor_cost)))
+    Ok((total_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).

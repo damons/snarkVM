@@ -38,6 +38,7 @@ use synthesizer_program::{
     CallOperator,
     CastType,
     Command,
+    CommandTrait,
     Constructor,
     Contains,
     Finalize,
