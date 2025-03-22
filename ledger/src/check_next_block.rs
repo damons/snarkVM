@@ -148,10 +148,19 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             .filter(|(_, id)| !subdag_certs.contains(id))
             .collect();
 
-        for (_round, _cert_id) in leaf_edges {
-            // Find the block for this round.
-
-            // Check that the block's subDAG contains the certificate.
+        for (round, cert_id) in leaf_edges {
+            // Find the block for this certificate.
+            // We might check the same block multiple times, but, so far, the check
+            // simply ensures that the block is a valid ancestor.
+            match self.vm.block_store().get_block_for_certificate(cert_id, Some(round))? {
+                Some(prev_block) => {
+                    ensure!(
+                        prev_block.height() < block.height(),
+                        "Leaf is pointing to a block that is not an ancestor"
+                    );
+                }
+                None => bail!("Leaf is pointing to certificate that is not associated with a previous block"),
+            }
         }
 
         Ok(())
