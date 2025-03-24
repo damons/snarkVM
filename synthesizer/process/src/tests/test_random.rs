@@ -19,7 +19,7 @@ use console::{
     network::{MainnetV0, prelude::*},
 };
 use ledger_committee::{MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE, MIN_VALIDATOR_STAKE};
-use ledger_store::{FinalizeMode, FinalizeStorage, FinalizeStore, atomic_finalize, helpers::memory::FinalizeMemory};
+use ledger_store::{FinalizeMode, FinalizeStorage, FinalizeStore, atomic_finalize};
 use rand::seq::IteratorRandom;
 
 use indexmap::{IndexMap, IndexSet};
