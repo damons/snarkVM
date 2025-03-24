@@ -40,8 +40,6 @@ type CurrentAleo = AleoV0;
 const NUM_BLOCKS_TO_UNLOCK: u32 = 360;
 const TEST_COMMISSION: u8 = 5;
 
-use super::test_utils::*;
-
 /// Samples a new finalize store.
 macro_rules! sample_finalize_store {
     () => {{
