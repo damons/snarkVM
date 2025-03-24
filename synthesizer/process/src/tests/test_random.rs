@@ -484,16 +484,16 @@ impl State {
                 // The resulting stake is less than the minimum stake, *or* the
                 // unbond operation is initiated by the validator.
                 *self.unbonding_amounts.entry(*staker.address()).or_default() +=
-                    self.bonded_amounts.remove(staker.address()).unwrap();
-                self.bonded_to.remove(staker.address());
+                    self.bonded_amounts.swap_remove(staker.address()).unwrap();
+                self.bonded_to.swap_remove(staker.address());
             }
             if validator_in_committee && self.delegated_amount(validator.address()) < MIN_VALIDATOR_STAKE {
                 // The validator is in the committee *and* the total delegated
                 // stake falls below the minimum validator stake.
                 *self.unbonding_amounts.entry(*validator.address()).or_default() +=
-                    self.bonded_amounts.remove(validator.address()).unwrap();
-                self.bonded_to.remove(validator.address());
-                self.commissions.remove(validator.address());
+                    self.bonded_amounts.swap_remove(validator.address()).unwrap();
+                self.bonded_to.swap_remove(validator.address());
+                self.commissions.swap_remove(validator.address());
             }
         } else {
             // # Unbonding a validator (staker == validator)
@@ -506,9 +506,9 @@ impl State {
                 || self.delegated_amount(&staker.address()) < MIN_VALIDATOR_STAKE
             {
                 *self.unbonding_amounts.entry(*staker.address()).or_default() +=
-                    self.bonded_amounts.remove(staker.address()).unwrap();
-                self.bonded_to.remove(staker.address());
-                self.commissions.remove(staker.address());
+                    self.bonded_amounts.swap_remove(staker.address()).unwrap();
+                self.bonded_to.swap_remove(staker.address());
+                self.commissions.swap_remove(staker.address());
             }
         }
     }
