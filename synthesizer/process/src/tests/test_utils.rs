@@ -30,11 +30,6 @@ use indexmap::IndexMap;
 pub type CurrentNetwork = MainnetV0;
 pub type CurrentAleo = AleoV0;
 
-#[allow(dead_code)]
-pub const NUM_BLOCKS_TO_UNLOCK: u32 = 360;
-#[allow(dead_code)]
-pub const TEST_COMMISSION: u8 = 5;
-
 /// Samples a new finalize store.
 macro_rules! sample_finalize_store {
     () => {{
@@ -100,42 +95,6 @@ pub fn account_balance<N: Network, F: FinalizeStorage<N>>(
         Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => Ok(*balance),
         _ => bail!("Missing or malformed account balance for {address}"),
     }
-}
-
-/// Get the current committee state from the `committee` mapping for the given validator address.
-/// Returns the `committee_state` as a tuple of `(microcredits, is_open, commission)`.
-#[allow(dead_code)]
-pub fn committee_state<N: Network, F: FinalizeStorage<N>>(
-    store: &FinalizeStore<N, F>,
-    address: &Address<N>,
-) -> Result<Option<(u64, bool, u8)>> {
-    // Retrieve the committee state from the finalize store.
-    let committee_state = match get_mapping_value(store, "credits.aleo", "committee", Literal::Address(*address))? {
-        Some(Value::Plaintext(Plaintext::Struct(state, _))) => state,
-        None => return Ok(None),
-        _ => bail!("Malformed committee state for {address}"),
-    };
-
-    // Retrieve the delegated microcredits from the finalize store.
-    let staked_microcredits = match get_mapping_value(store, "credits.aleo", "delegated", Literal::Address(*address))? {
-        Some(Value::Plaintext(Plaintext::Literal(Literal::U64(microcredits), _))) => microcredits,
-        None => return Ok(None),
-        _ => bail!("Malformed delegate state for {address}"),
-    };
-
-    // Retrieve `commission` from the committee state.
-    let commission = match committee_state.get(&Identifier::from_str("commission")?) {
-        Some(Plaintext::Literal(Literal::U8(commission), _)) => **commission,
-        _ => bail!("`commission` not found for: {address}"),
-    };
-
-    // Retrieve `is_open` from the committee state.
-    let is_open = match committee_state.get(&Identifier::from_str("is_open")?) {
-        Some(Plaintext::Literal(Literal::Boolean(is_open), _)) => **is_open,
-        _ => bail!("`is_open` not found for: {address}"),
-    };
-
-    Ok(Some((*staked_microcredits, is_open, commission)))
 }
 
 /// Get the current delegated state from the `delegated` mapping for the given validator address.
