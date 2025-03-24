@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// From https://github.com/Geal/nom/blob/main/examples/string.rs
+/// From <https://github.com/Geal/nom/blob/main/examples/string.rs>
 pub mod string_parser {
     /// This example shows an example of how to parse an escaped string. The
     /// rules for the string are similar to JSON and rust. A string is:

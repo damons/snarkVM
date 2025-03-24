@@ -106,7 +106,7 @@ pub trait ConstraintSystem<F: Field>: Sized {
     fn is_in_setup_mode(&self) -> bool;
 }
 
-/// Convenience implementation of ConstraintSystem<F> for mutable references to
+/// Convenience implementation of `ConstraintSystem<F>` for mutable references to
 /// constraint systems.
 impl<F: Field, CS: ConstraintSystem<F>> ConstraintSystem<F> for &mut CS {
     type Root = CS::Root;
