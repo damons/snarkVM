@@ -21,6 +21,7 @@ use console::{
     program::{Identifier, Literal, Plaintext, ProgramID, Value},
     types::U64,
 };
+use indexmap::IndexMap;
 use ledger_committee::{MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE, MIN_VALIDATOR_STAKE};
 use ledger_query::Query;
 use ledger_store::{
@@ -33,13 +34,13 @@ use ledger_store::{
 };
 use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program};
 
-use indexmap::IndexMap;
-
 type CurrentNetwork = MainnetV0;
 type CurrentAleo = AleoV0;
 
 const NUM_BLOCKS_TO_UNLOCK: u32 = 360;
 const TEST_COMMISSION: u8 = 5;
+
+use super::test_utils::*;
 
 /// Samples a new finalize store.
 macro_rules! sample_finalize_store {
