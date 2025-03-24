@@ -384,7 +384,7 @@ impl State {
             ensure!(amount >= MIN_DELEGATOR_STAKE);
             // The withdrawal address is not updated.
             ensure!(
-                self.withdrawal_address(delegator.address()) == None
+                self.withdrawal_address(delegator.address()).is_none()
                     || self.withdrawal_address(delegator.address()) == Some(*withdrawal_address)
             );
         }
@@ -440,10 +440,10 @@ impl State {
         amount: u64,
     ) {
         let delegator = self.staker_with_private_key(private_key).unwrap();
-        self.bonded_to.insert(*delegator.address(), validator_address.clone());
+        self.bonded_to.insert(*delegator.address(), *validator_address);
         *self.bonded_amounts.entry(*delegator.address()).or_default() += amount;
         self.account_balances[delegator.address()] -= amount;
-        self.withdrawal_addresses.insert(*delegator.address(), withdrawal_address.clone());
+        self.withdrawal_addresses.insert(*delegator.address(), *withdrawal_address);
         self.has_delegated_state.insert(*validator_address);
     }
 
@@ -559,13 +559,13 @@ fn execute_operation<F: FinalizeStorage<MainnetV0>>(
 fn validate_state<F: FinalizeStorage<MainnetV0>>(state: &State, store: &FinalizeStore<MainnetV0, F>) -> Result<()> {
     for staker in state.stakers() {
         // Account balances match.
-        ensure!(account_balance(&store, staker.address()).unwrap() == state.account_balance(staker.address()));
+        ensure!(account_balance(store, staker.address()).unwrap() == state.account_balance(staker.address()));
         // Bonded amounts and corresponding validator addresses match.
-        ensure!(bond_state(&store, staker.address()).unwrap() == state.bond_state(staker.address()));
+        ensure!(bond_state(store, staker.address()).unwrap() == state.bond_state(staker.address()));
         // Unbonding amounts match.
-        ensure!(unbond_state(&store, staker.address()).unwrap() == state.unbond_state(staker.address()));
+        ensure!(unbond_state(store, staker.address()).unwrap() == state.unbond_state(staker.address()));
         // Delegated amounts match.
-        ensure!(delegated_state(&store, staker.address()).unwrap() == state.delegated_state(staker.address()));
+        ensure!(delegated_state(store, staker.address()).unwrap() == state.delegated_state(staker.address()));
     }
     Ok(())
 }
