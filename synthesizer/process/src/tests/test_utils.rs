@@ -210,53 +210,6 @@ pub fn unbond_state<N: Network, F: FinalizeStorage<N>>(
     Ok(Some((microcredits, height)))
 }
 
-/// Get the current withdrawal address from the `withdraw` mapping for the given staker address.
-#[allow(dead_code)]
-pub fn withdraw_state<N: Network, F: FinalizeStorage<N>>(
-    store: &FinalizeStore<N, F>,
-    address: &Address<N>,
-) -> Result<Option<Address<N>>> {
-    // Retrieve the withdraw state from the finalize store.
-    let withdrawal_address = match get_mapping_value(store, "credits.aleo", "withdraw", Literal::Address(*address))? {
-        Some(Value::Plaintext(Plaintext::Literal(Literal::Address(withdrawal_address), _))) => withdrawal_address,
-        None => return Ok(None),
-        _ => bail!("Malformed withdraw state for {address}"),
-    };
-
-    Ok(Some(withdrawal_address))
-}
-
-/// Initialize an account with a given balance
-#[allow(dead_code)]
-pub fn initialize_account<N: Network, F: FinalizeStorage<N>>(
-    finalize_store: &FinalizeStore<N, F>,
-    address: &Address<N>,
-    balance: u64,
-) -> Result<()> {
-    // Initialize the store for 'credits.aleo'.
-    let program = Program::<N>::credits()?;
-    for mapping in program.mappings().values() {
-        // Ensure that all mappings are initialized.
-        if !finalize_store.contains_mapping_confirmed(program.id(), mapping.name())? {
-            // Initialize the mappings for 'credits.aleo'.
-            finalize_store.initialize_mapping(*program.id(), *mapping.name())?;
-        }
-    }
-
-    // Initialize the account with the given balance.
-    let key = Plaintext::from(Literal::Address(*address));
-    let value = Value::from(Literal::U64(U64::new(balance)));
-    finalize_store.insert_key_value(
-        ProgramID::from_str("credits.aleo")?,
-        Identifier::from_str("account")?,
-        key,
-        value,
-    )?;
-    assert_eq!(balance, account_balance(finalize_store, address).unwrap());
-
-    Ok(())
-}
-
 /// Initializes the validator and delegator balances in the finalize store.
 /// Returns the private keys, balances, withdrawal private keys and withdrawal addresses for the validators and delegators.
 pub fn initialize_stakers<N: Network, F: FinalizeStorage<N>>(
@@ -404,47 +357,6 @@ pub fn unbond_public<F: FinalizeStorage<CurrentNetwork>>(
         caller_private_key,
         "unbond_public",
         &[address.to_string(), format!("{amount}_u64")],
-        Some(block_height),
-        rng,
-    )
-}
-
-/// Perform a `set_validator_state`.
-#[allow(dead_code)]
-pub fn set_validator_state<F: FinalizeStorage<CurrentNetwork>>(
-    process: &Process<CurrentNetwork>,
-    finalize_store: &FinalizeStore<CurrentNetwork, F>,
-    caller_private_key: &PrivateKey<CurrentNetwork>,
-    is_open: bool,
-    rng: &mut TestRng,
-) -> Result<()> {
-    execute_function(
-        process,
-        finalize_store,
-        caller_private_key,
-        "set_validator_state",
-        &[format!("{is_open}")],
-        None,
-        rng,
-    )
-}
-
-/// Perform a `claim_unbond_public`.
-#[allow(dead_code)]
-pub fn claim_unbond_public<F: FinalizeStorage<CurrentNetwork>>(
-    process: &Process<CurrentNetwork>,
-    finalize_store: &FinalizeStore<CurrentNetwork, F>,
-    caller_private_key: &PrivateKey<CurrentNetwork>,
-    address: &Address<CurrentNetwork>,
-    block_height: u32,
-    rng: &mut TestRng,
-) -> Result<()> {
-    execute_function(
-        process,
-        finalize_store,
-        caller_private_key,
-        "claim_unbond_public",
-        &[address.to_string()],
         Some(block_height),
         rng,
     )
