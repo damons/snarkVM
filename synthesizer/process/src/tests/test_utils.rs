@@ -30,7 +30,9 @@ use indexmap::IndexMap;
 pub type CurrentNetwork = MainnetV0;
 pub type CurrentAleo = AleoV0;
 
+#[allow(dead_code)]
 pub const NUM_BLOCKS_TO_UNLOCK: u32 = 360;
+#[allow(dead_code)]
 pub const TEST_COMMISSION: u8 = 5;
 
 /// Samples a new finalize store.
@@ -102,6 +104,7 @@ pub fn account_balance<N: Network, F: FinalizeStorage<N>>(
 
 /// Get the current committee state from the `committee` mapping for the given validator address.
 /// Returns the `committee_state` as a tuple of `(microcredits, is_open, commission)`.
+#[allow(dead_code)]
 pub fn committee_state<N: Network, F: FinalizeStorage<N>>(
     store: &FinalizeStore<N, F>,
     address: &Address<N>,
@@ -208,6 +211,7 @@ pub fn unbond_state<N: Network, F: FinalizeStorage<N>>(
 }
 
 /// Get the current withdrawal address from the `withdraw` mapping for the given staker address.
+#[allow(dead_code)]
 pub fn withdraw_state<N: Network, F: FinalizeStorage<N>>(
     store: &FinalizeStore<N, F>,
     address: &Address<N>,
@@ -223,6 +227,7 @@ pub fn withdraw_state<N: Network, F: FinalizeStorage<N>>(
 }
 
 /// Initialize an account with a given balance
+#[allow(dead_code)]
 pub fn initialize_account<N: Network, F: FinalizeStorage<N>>(
     finalize_store: &FinalizeStore<N, F>,
     address: &Address<N>,
@@ -405,6 +410,7 @@ pub fn unbond_public<F: FinalizeStorage<CurrentNetwork>>(
 }
 
 /// Perform a `set_validator_state`.
+#[allow(dead_code)]
 pub fn set_validator_state<F: FinalizeStorage<CurrentNetwork>>(
     process: &Process<CurrentNetwork>,
     finalize_store: &FinalizeStore<CurrentNetwork, F>,
@@ -424,6 +430,7 @@ pub fn set_validator_state<F: FinalizeStorage<CurrentNetwork>>(
 }
 
 /// Perform a `claim_unbond_public`.
+#[allow(dead_code)]
 pub fn claim_unbond_public<F: FinalizeStorage<CurrentNetwork>>(
     process: &Process<CurrentNetwork>,
     finalize_store: &FinalizeStore<CurrentNetwork, F>,
