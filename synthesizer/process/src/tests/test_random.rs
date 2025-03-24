@@ -19,7 +19,7 @@ use console::{
     network::{MainnetV0, prelude::*},
 };
 use ledger_committee::{MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE, MIN_VALIDATOR_STAKE};
-use ledger_store::{FinalizeMode, FinalizeStorage, FinalizeStore, atomic_finalize, helpers::memory::FinalizeMemory};
+use ledger_store::{FinalizeMode, FinalizeStorage, FinalizeStore, atomic_finalize};
 use rand::seq::IteratorRandom;
 
 use indexmap::{IndexMap, IndexSet};
@@ -33,7 +33,7 @@ fn random_below_with_blowup(value: u64, rng: &mut impl Rng) -> u64 {
     let upper_bound = value + value / BLOWUP;
 
     match rng.gen_range(0..100) {
-        0..=79 => rng.gen_range(0..=upper_bound).into(),
+        0..=79 => rng.gen_range(0..=upper_bound),
         _ => value,
     }
 }
@@ -207,15 +207,14 @@ impl State {
         store: &FinalizeStore<MainnetV0, F>,
         rng: &mut TestRng,
     ) -> Self {
-        let (validators, _) = initialize_stakers(&store, num_stakers, 0, rng).unwrap();
+        let (validators, _) = initialize_stakers(store, num_stakers, 0, rng).unwrap();
         let stakers: IndexMap<Address<MainnetV0>, Staker> = validators
             .into_iter()
             .map(|(private_key, (address, initial_balance, withdrawal_private_key, withdrawal_address))| {
                 (address, Staker(private_key, address, withdrawal_private_key, withdrawal_address, initial_balance))
             })
             .collect();
-        let account_balances =
-            stakers.iter().map(|(address, staker)| (address.clone(), staker.initial_balance())).collect();
+        let account_balances = stakers.iter().map(|(address, staker)| (*address, staker.initial_balance())).collect();
         Self { stakers, account_balances, ..Default::default() }
     }
 
@@ -348,7 +347,7 @@ impl State {
             ensure!(!self.is_unbonding(validator.address()));
             // The withdrawal address is not updated.
             ensure!(
-                self.withdrawal_address(validator.address()) == None
+                self.withdrawal_address(validator.address()).is_none()
                     || self.withdrawal_address(validator.address()) == Some(*withdrawal_address)
             );
         }
@@ -425,8 +424,8 @@ impl State {
     ) {
         let validator = self.staker_with_private_key(private_key).unwrap();
         self.commissions.insert(*validator.address(), commission);
-        self.withdrawal_addresses.insert(*validator.address(), withdrawal_address.clone());
-        self.bonded_to.insert(*validator.address(), validator.address().clone());
+        self.withdrawal_addresses.insert(*validator.address(), *withdrawal_address);
+        self.bonded_to.insert(*validator.address(), *validator.address());
         *self.bonded_amounts.entry(*validator.address()).or_default() += amount;
         self.account_balances[validator.address()] -= amount;
         self.has_delegated_state.insert(*validator.address());
@@ -503,7 +502,7 @@ impl State {
             // - If the total delegated stake falls below the minim validator
             //   stake, the validators entire stake is unbonded.
             if self.bonded_amount(staker.address()) < MIN_VALIDATOR_SELF_STAKE
-                || self.delegated_amount(&staker.address()) < MIN_VALIDATOR_STAKE
+                || self.delegated_amount(staker.address()) < MIN_VALIDATOR_STAKE
             {
                 *self.unbonding_amounts.entry(*staker.address()).or_default() +=
                     self.bonded_amounts.swap_remove(staker.address()).unwrap();
