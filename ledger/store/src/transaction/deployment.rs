@@ -685,7 +685,7 @@ mod tests {
             let transaction_id = transaction.id();
 
             // Initialize a new transition store.
-            let transition_store = TransitionStore::open(None).unwrap();
+            let transition_store = TransitionStore::open(StorageMode::Test(None)).unwrap();
             // Initialize a new fee store.
             let fee_store = FeeStore::open(transition_store).unwrap();
             // Initialize a new deployment store.
@@ -728,7 +728,7 @@ mod tests {
             };
 
             // Initialize a new transition store.
-            let transition_store = TransitionStore::open(None).unwrap();
+            let transition_store = TransitionStore::open(StorageMode::Test(None)).unwrap();
             // Initialize a new fee store.
             let fee_store = FeeStore::open(transition_store).unwrap();
             // Initialize a new deployment store.
