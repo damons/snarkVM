@@ -76,6 +76,8 @@ pub enum ConsensusVersion {
     V1 = 1,
     V2 = 2,
     V3 = 3,
+    V4 = 4,
+    V5 = 5,
 }
 
 pub trait Network:
@@ -195,6 +197,8 @@ pub trait Network:
     /// The maximum number of outputs per transition.
     const MAX_OUTPUTS: usize = 16;
 
+    /// The maximum program depth.
+    const MAX_PROGRAM_DEPTH: usize = 64;
     /// The maximum number of imports.
     const MAX_IMPORTS: usize = 64;
 
@@ -217,7 +221,7 @@ pub trait Network:
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5];
     ///  A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: This value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit

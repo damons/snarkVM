@@ -137,13 +137,23 @@ impl Network for MainnetV0 {
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
     #[cfg(not(any(test, feature = "test")))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
-        [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 2_800_000), (ConsensusVersion::V3, 4_900_000)];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5] = [
+        (ConsensusVersion::V1, 0),
+        (ConsensusVersion::V2, 2_800_000),
+        (ConsensusVersion::V3, 4_900_000),
+        (ConsensusVersion::V4, 7_100_000),
+        (ConsensusVersion::V5, 999_999_999),
+    ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
     #[cfg(any(test, feature = "test"))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 3] =
-        [(ConsensusVersion::V1, 0), (ConsensusVersion::V2, 10), (ConsensusVersion::V3, 11)];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5] = [
+        (ConsensusVersion::V1, 0),
+        (ConsensusVersion::V2, 10),
+        (ConsensusVersion::V3, 11),
+        (ConsensusVersion::V4, 12),
+        (ConsensusVersion::V5, 40),
+    ];
     /// The network edition.
     const EDITION: u16 = 0;
     /// The genesis block coinbase target.

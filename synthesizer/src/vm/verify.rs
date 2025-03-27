@@ -149,14 +149,32 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
-                // Verify the program checksum, if it exists.
-                // TODO (@d0cd): Add requirement for the program checksum after migration height. Use similar logic to how the execution fee is checked.
-                //   Before the migration, the checksum should be `None`.
+                // If the `CONSENSUS_VERSION` is `V5` or greater, then verify that the program checksum is present.
+                // Otherwise, verify that the program checksum is **not** present and that no constructors are present.
+                let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+                match consensus_version >= ConsensusVersion::V5 {
+                    true => ensure!(
+                        deployment.program_checksum().is_some(),
+                        "Invalid deployment transaction '{id}' - missing program checksum"
+                    ),
+                    false => {
+                        ensure!(
+                            deployment.program_checksum().is_none(),
+                            "Invalid deployment transaction '{id}' - should not contain program checksum"
+                        );
+                        ensure!(
+                            !deployment.program().contains_constructor(),
+                            "Invalid deployment transaction '{id}' - should not contain a constructor"
+                        );
+                    }
+                }
+                // If the program checksum exists, then verify that it is correct.
                 if let Some(given_checksum) = deployment.program_checksum() {
+                    // Compute the expected checksum.
                     let expected_checksum = deployment.program().checksum()?;
                     ensure!(
                         given_checksum == &expected_checksum,
-                        "Invalid deployment transaction '{id}' - the given checksum '{given_checksum}' does not match the expected checksum '{expected_checksum}'"
+                        "The checksum given in the deployment '{given_checksum}' did not match the expected checksum '{expected_checksum}'"
                     );
                 }
                 // If the edition is zero, then check that:

@@ -32,11 +32,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the deployment.
-        let deployment = self.deploy_raw(program, rng)?;
+        let mut deployment = self.deploy_raw(program, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
-        // TODO (@d0cd). Unset the checksum in the deployment if the block height is less than the migration height.
-        //   Use similar logic to how the correct execution cost is computed in VM::execute
+        // Get the current block height, or default to u32::MAX
+        let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
+        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Unset the checksum if the `CONSENSUS_VERSION` is less than `V5`.
+        if consensus_version < ConsensusVersion::V5 {
+            deployment.set_program_checksum(None)
+        }
         // Compute the deployment ID.
         let deployment_id = deployment.to_deployment_id()?;
         // Construct the owner.
@@ -63,7 +68,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             )?,
         };
         // Compute the fee.
-        let fee = self.execute_fee_authorization(fee_authorization, query, rng)?;
+        let fee = self.execute_fee_authorization(fee_authorization, Some(query), rng)?;
 
         // Return the deploy transaction.
         Transaction::from_deployment(owner, deployment, fee)
