@@ -29,7 +29,7 @@ impl<N: Network, Command: CommandTrait<N>> Parser for ConstructorCore<N, Command
         let (string, _) = tag(":")(string)?;
 
         // Parse the commands from the string.
-        let (string, commands) = many0(Command::parse)(string)?;
+        let (string, commands) = many1(Command::parse)(string)?;
 
         map_res(take(0usize), move |_| {
             // Initialize a new constructor.
@@ -124,5 +124,14 @@ constructor:
     add r0 r1 into r2;";
         let constructor = Constructor::<CurrentNetwork>::parse(expected).unwrap().1;
         assert_eq!(expected, format!("{constructor}"),);
+    }
+
+    #[test]
+    fn test_empty_constructor() {
+        // Test that parsing an empty constructor fails.
+        assert!(Constructor::<CurrentNetwork>::parse("constructor:").is_err());
+        // Test that attempting to serialize an empty constructor fails.
+        let constructor = Constructor::<CurrentNetwork>::new();
+        assert!(constructor.write_le(Vec::new()).is_err());
     }
 }
