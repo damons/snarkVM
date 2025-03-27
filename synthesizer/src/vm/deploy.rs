@@ -40,7 +40,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
         // Unset the checksum if the `CONSENSUS_VERSION` is less than `V5`.
         if consensus_version < ConsensusVersion::V5 {
-            deployment.set_program_checksum(None)
+            deployment.set_program_checksum_raw(None)
         }
         // Compute the deployment ID.
         let deployment_id = deployment.to_deployment_id()?;
