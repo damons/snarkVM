@@ -233,6 +233,8 @@ pub trait Network:
     /// V2: Update to the block reward and execution cost algorithms.
     ///
     /// V3: Update to the number of validators and finalize scope RNG seed.
+    ///
+    /// V4: Update to the number of validators and enable batch proposal spend limits.
     #[allow(non_snake_case)]
     fn CONSENSUS_VERSION(seek_height: u32) -> anyhow::Result<ConsensusVersion> {
         match Self::CONSENSUS_VERSION_HEIGHTS.binary_search_by(|(_, height)| height.cmp(&seek_height)) {
