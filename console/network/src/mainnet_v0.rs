@@ -152,7 +152,7 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V2, 10),
         (ConsensusVersion::V3, 11),
         (ConsensusVersion::V4, 12),
-        (ConsensusVersion::V5, 40),
+        (ConsensusVersion::V5, 13),
     ];
     /// The network edition.
     const EDITION: u16 = 0;

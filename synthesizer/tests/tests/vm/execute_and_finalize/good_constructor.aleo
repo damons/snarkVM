@@ -1,5 +1,6 @@
 /*
 randomness: 45791624
+start_height: 13
 cases:
   - program: good_constructor.aleo
     function: check

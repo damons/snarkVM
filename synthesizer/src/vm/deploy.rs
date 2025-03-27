@@ -35,10 +35,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let mut deployment = self.deploy_raw(program, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
-        // Get the current block height, or default to u32::MAX
+        // Unset the checksum if the `CONSENSUS_VERSION` is less than `V5`.
         let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        // Unset the checksum if the `CONSENSUS_VERSION` is less than `V5`.
         if consensus_version < ConsensusVersion::V5 {
             deployment.set_program_checksum_raw(None)
         }

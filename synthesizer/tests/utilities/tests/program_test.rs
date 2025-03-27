@@ -46,6 +46,8 @@ pub struct ProgramTest {
     randomness: Option<u64>,
     /// Additional keys for the test.
     keys: Vec<PrivateKey<CurrentNetwork>>,
+    /// The start height for the test.
+    start_height: u32,
 }
 
 impl ProgramTest {
@@ -67,6 +69,11 @@ impl ProgramTest {
     /// Returns the additional keys for the test.
     pub fn keys(&self) -> &[PrivateKey<CurrentNetwork>] {
         &self.keys
+    }
+
+    /// Returns the start height for the test.
+    pub fn start_height(&self) -> u32 {
+        self.start_height
     }
 }
 
@@ -91,6 +98,13 @@ impl ExpectedTest for ProgramTest {
 
         // If the `randomness` field is present in the config, parse it as a `u64`.
         let randomness = test_config.get("randomness").map(|value| value.as_u64().expect("`randomness` must be a u64"));
+
+        // If the `start_height` field is present in the config, parse it as a `u32`.
+        // Otherwise use the default value of 0.
+        let start_height = test_config
+            .get("start_height")
+            .map(|value| value.as_u64().expect("`start_height` must be a u32"))
+            .unwrap_or(0) as u32;
 
         // If the `keys` field is present in the config, parse it as a sequence of `PrivateKey`s.
         let keys = match test_config.get("keys") {
@@ -131,7 +145,7 @@ impl ExpectedTest for ProgramTest {
             }
         };
 
-        Self { programs, cases, expected, path, rewrite, randomness, keys }
+        Self { programs, cases, expected, path, rewrite, randomness, keys, start_height }
     }
 
     fn check(&self, output: &Self::Output) -> Result<()> {

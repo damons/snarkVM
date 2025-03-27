@@ -469,6 +469,23 @@ pub(crate) mod test_helpers {
         VM::from(ConsensusStore::open(None).unwrap()).unwrap()
     }
 
+    pub(crate) fn sample_vm_at_height(
+        height: u32,
+        rng: &mut TestRng,
+    ) -> VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>> {
+        // Initialize the VM with a genesis block.
+        let vm = sample_vm_with_genesis_block(rng);
+        // Get the genesis private key.
+        let genesis_private_key = sample_genesis_private_key(rng);
+        // Advance the VM to the given height.
+        for _ in 0..height {
+            let block = sample_next_block(&vm, &genesis_private_key, &[], rng).unwrap();
+            vm.add_next_block(&block).unwrap();
+        }
+        // Return the VM.
+        vm
+    }
+
     #[cfg(feature = "rocks")]
     pub(crate) fn sample_vm_rocks(path: &Path) -> VM<CurrentNetwork, ConsensusDB<CurrentNetwork>> {
         // Initialize a new VM.

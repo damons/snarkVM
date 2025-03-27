@@ -25,12 +25,8 @@ fn test_simple_update() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -50,6 +46,7 @@ constructor:
 
     // Deploy the program.
     let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 100_001_569_625);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -70,6 +67,7 @@ constructor:
         rng,
     )?;
     assert!(vm.check_transaction(&original_execution, None, rng).is_ok());
+    assert_eq!(*original_execution.fee_amount()?, 1_259);
 
     // Check that the output is correct.
     let output = match original_execution.transitions().next().unwrap().outputs().last().unwrap() {
@@ -96,6 +94,7 @@ constructor:
 
     // Deploy the updated program.
     let transaction = vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 100_001_569_675);
     assert_eq!(transaction.deployment().unwrap().edition(), 1);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
@@ -120,6 +119,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*new_execution.fee_amount()?, 1_259);
     assert!(vm.check_transaction(&new_execution, None, rng).is_ok());
 
     // Check that the output is correct.
@@ -139,12 +139,8 @@ fn test_program_without_constructor_is_not_updatable() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -165,7 +161,9 @@ function bar:
 
     // Deploy the program.
     let transaction_0 = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    assert_eq!(*transaction_0.fee_amount()?, 100_001_357_500);
     let transaction_1 = vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng)?;
+    assert_eq!(*transaction_1.fee_amount()?, 100_002_663_000);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_0], rng)?;
     vm.add_next_block(&block)?;
 
@@ -216,14 +214,9 @@ fn test_editions_are_sequential() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize two VMs.
-    let off_chain_vm = sample_vm();
-    let on_chain_vm = sample_vm();
-    off_chain_vm.add_next_block(&genesis)?;
-    on_chain_vm.add_next_block(&genesis)?;
+    let off_chain_vm = sample_vm_at_height(13, rng);
+    let on_chain_vm = sample_vm_at_height(13, rng);
 
     // Define the three versions of the program.
     let program_v0 = Program::from_str(
@@ -266,13 +259,19 @@ constructor:
 
     // Using the off-chain VM, generate a sequence of deployments.
     let deployment_v0_pass = off_chain_vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    assert_eq!(*deployment_v0_pass.fee_amount()?, 100_001_421_500);
     off_chain_vm.process().write().add_program(&program_v0)?;
     let deployment_v1_fail = off_chain_vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*deployment_v1_fail.fee_amount()?, 100_002_727_000);
     let deployment_v1_pass = off_chain_vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*deployment_v1_pass.fee_amount()?, 100_002_727_000);
     let deployment_v2_as_v1_fail = off_chain_vm.deploy(&caller_private_key, &program_v2_as_v1, None, 0, None, rng)?;
+    assert_eq!(*deployment_v2_as_v1_fail.fee_amount()?, 100_004_032_500);
     off_chain_vm.process().write().add_program(&program_v1)?;
     let deployment_v2_fail = off_chain_vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
+    assert_eq!(*deployment_v2_fail.fee_amount()?, 100_004_032_500);
     let deployment_v2_pass = off_chain_vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
+    assert_eq!(*deployment_v2_pass.fee_amount()?, 100_004_032_500);
 
     // Deploy the programs to the on-chain VM individually in the following sequence:
     // - deployment_v1_fail
@@ -335,12 +334,8 @@ fn test_update_with_records() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
     let caller_view_key = ViewKey::try_from(&caller_private_key)?;
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -394,6 +389,7 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 3_178_975);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -408,6 +404,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*mint_execution_0.fee_amount()?, 1_329);
     let mint_execution_1 = vm.execute(
         &caller_private_key,
         ("record_test.aleo", "mint"),
@@ -417,6 +414,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*mint_execution_1.fee_amount()?, 1_329);
     let block = sample_next_block(&vm, &caller_private_key, &[mint_execution_0, mint_execution_1], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     let mut v1_records = block
@@ -428,6 +426,7 @@ constructor:
 
     // Update the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 8_205_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -457,6 +456,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*convert_execution.fee_amount()?, 1_847);
     let block = sample_next_block(&vm, &caller_private_key, &[convert_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     let mut v2_records = block
@@ -477,6 +477,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*burn_execution.fee_amount()?, 1698);
     let block = sample_next_block(&vm, &caller_private_key, &[burn_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -510,12 +511,8 @@ fn test_update_with_mappings() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -590,6 +587,7 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 2_700_525);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -604,6 +602,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*store_data_v1_execution.fee_amount()?, 11_512);
     let block = sample_next_block(&vm, &caller_private_key, &[store_data_v1_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -621,6 +620,7 @@ constructor:
 
     // Update the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 5_876_450);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -635,6 +635,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*transaction.fee_amount()?, 1_812);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_rejected(), 1);
     vm.add_next_block(&block)?;
@@ -649,6 +650,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*migrate_data_v1_to_v2_execution.fee_amount()?, 22_993);
     let block = sample_next_block(&vm, &caller_private_key, &[migrate_data_v1_to_v2_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -685,6 +687,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*store_data_v2_execution.fee_amount()?, 11_512);
     let block = sample_next_block(&vm, &caller_private_key, &[store_data_v2_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -715,12 +718,8 @@ fn test_update_with_dependents() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the two versions of the dependency program.
     let dependency_v0 = Program::from_str(
@@ -860,12 +859,14 @@ constructor:
 
     // Deploy the v0 dependency.
     let transaction = vm.deploy(&caller_private_key, &dependency_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 4_138_425);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the v0 dependent.
     let transaction = vm.deploy(&caller_private_key, &dependent_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 15_231_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -880,6 +881,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_1.fee_amount()?, 2_563);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum_and_check"),
@@ -889,6 +891,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_2.fee_amount()?, 3_192);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
@@ -917,10 +920,12 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*sum_unchecked.fee_amount()?, 2_019);
     assert!(vm.check_transaction(&sum_unchecked, None, rng).is_ok());
 
     // Update the dependency to v1.
     let transaction = vm.deploy(&caller_private_key, &dependency_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 4_138_525);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -942,6 +947,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_1.fee_amount()?, 2_563);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum_and_check"),
@@ -951,12 +957,14 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_2.fee_amount()?, 3_192);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_rejected(), 2);
     vm.add_next_block(&block)?;
 
     // Update the dependent to v1.
     let transaction = vm.deploy(&caller_private_key, &dependent_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 15_231_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -971,6 +979,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_1.fee_amount()?, 2_563);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum"),
@@ -980,6 +989,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_2.fee_amount()?, 2_563);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
@@ -998,12 +1008,8 @@ fn test_update_with_cycles() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the programs.
     let first_v0 = Program::from_str(
@@ -1068,11 +1074,13 @@ constructor:
 
     // Deploy the first version of the programs.
     let transaction = vm.deploy(&caller_private_key, &first_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 100_001_507_575);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     let transaction = vm.deploy(&caller_private_key, &second_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 10_001_642_425);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1087,6 +1095,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_1.fee_amount()?, 1_214);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("second.aleo", "foo"),
@@ -1096,12 +1105,14 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_2.fee_amount()?, 1_925);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
 
     // Update the first program to create a cycle in the dependency graph.
     let transaction = vm.deploy(&caller_private_key, &first_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 100_001_519_575);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1116,6 +1127,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_1.fee_amount()?, 1_214);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("second.aleo", "foo"),
@@ -1125,12 +1137,14 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*tx_2.fee_amount()?, 1_925);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
 
     // Update the first program to create mutual recursion.
     let transaction = vm.deploy(&caller_private_key, &first_v2, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 100_001_643_225);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1160,12 +1174,8 @@ fn test_failing_init_block() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the programs.
     let passing_program = Program::from_str(
@@ -1196,12 +1206,14 @@ constructor:
 
     // Deploy the passing program.
     let transaction = vm.deploy(&caller_private_key, &passing_program, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 10_001_509_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the failing program.
     let transaction = vm.deploy(&caller_private_key, &failing_program, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 10_001_509_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1218,15 +1230,38 @@ fn test_anyone_can_update() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize unrelated callers.
-    let unrelated_caller_private_key_0 = sample_genesis_private_key(rng);
-    let unrelated_caller_private_key_1 = sample_genesis_private_key(rng);
-
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
+    let unrelated_caller_private_key_0 = PrivateKey::new(rng)?;
+    let unrelated_caller_address_0 = Address::try_from(&unrelated_caller_private_key_0)?;
+    let unrelated_caller_private_key_1 = PrivateKey::new(rng)?;
+    let unrelated_caller_address_1 = Address::try_from(&unrelated_caller_private_key_1)?;
 
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
+
+    // Fund the unrelated callers.
+    let transfer_1 = vm.execute(
+        &caller_private_key,
+        ("credits.aleo", "transfer_public"),
+        vec![Value::from_str(&format!("{}", unrelated_caller_address_0))?, Value::from_str("1_000_000_000_000u64")?]
+            .into_iter(),
+        None,
+        0,
+        None,
+        rng,
+    )?;
+    let transfer_2 = vm.execute(
+        &caller_private_key,
+        ("credits.aleo", "transfer_public"),
+        vec![Value::from_str(&format!("{}", unrelated_caller_address_1))?, Value::from_str("1_000_000_000_000u64")?]
+            .into_iter(),
+        None,
+        0,
+        None,
+        rng,
+    )?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transfer_1, transfer_2], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 2);
+    vm.add_next_block(&block)?;
 
     // Define the programs.
     let program_v0 = Program::from_str(
@@ -1261,18 +1296,21 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 11_429_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the second version of the program.
     let transaction = vm.deploy(&unrelated_caller_private_key_0, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 12_738_600);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the third version of the program.
     let transaction = vm.deploy(&unrelated_caller_private_key_1, &program_v2, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 14_047_900);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1290,12 +1328,8 @@ fn test_non_updatable_programs() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the programs.
     let program_0_v0 = Program::from_str(
@@ -1315,6 +1349,7 @@ function bar:
 
     // Deploy the programs and then attempt to update. The update should fail.
     let transaction = vm.deploy(&caller_private_key, &program_0_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 2_377_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1341,11 +1376,13 @@ constructor:
 
     // Deploy the program and then update. The update should fail to be finalized.
     let transaction = vm.deploy(&caller_private_key, &program_1_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 2_440_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     let transaction = vm.deploy(&caller_private_key, &program_1_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 3_755_600);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1361,12 +1398,8 @@ fn test_downgrade_updatable_program() -> Result<()> {
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(
@@ -1428,12 +1461,14 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 13_030_850);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the second version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 14_340_150);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1448,12 +1483,14 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*transaction.fee_amount()?, 11_406);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Attempt to deploy the third version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 15_649_450);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1471,12 +1508,8 @@ fn test_lock_update_to_checksum() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
     let caller_address = Address::try_from(&caller_private_key)?;
 
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-
     // Initialize the VM.
-    let vm = sample_vm();
-    vm.add_next_block(&genesis)?;
+    let vm = sample_vm_at_height(13, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(&format!(
@@ -1573,6 +1606,7 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 4_478_875);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1591,6 +1625,7 @@ constructor:
 
     // Attempt to update without setting the expected checksum.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 5_792_275);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1607,6 +1642,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*transaction.fee_amount()?, 16_677);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1633,6 +1669,7 @@ constructor:
         None,
         rng,
     )?;
+    assert_eq!(*transaction.fee_amount()?, 16_677);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1651,12 +1688,14 @@ constructor:
 
     // Attempt to update with a mismatched program.
     let transaction = vm.deploy(&caller_private_key, &program_v1_mismatch, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 5_792_275);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
 
     // Update with the expected checksum set.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    assert_eq!(*transaction.fee_amount()?, 5_792_275);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
