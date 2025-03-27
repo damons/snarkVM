@@ -3037,4 +3037,89 @@ function adder:
         // Check that only `child_program.aleo` is in the VM.
         assert!(vm.process().read().contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
     }
+
+    #[test]
+    fn test_deploy_and_execute_in_same_block() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fund an account to pay for the deployment.
+        let private_key = PrivateKey::new(rng).unwrap();
+        let address = Address::try_from(&private_key).unwrap();
+
+        let tx = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("100000000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        let block = sample_next_block(&vm, &caller_private_key, &[tx], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Deploy and execute a program in the same block.
+        let program = Program::from_str(
+            r"
+program adder_program.aleo;
+
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    add r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        // Initialize an "off-chain" VM to generate the deployment and execution.
+        let off_chain_vm = sample_vm();
+        off_chain_vm.add_next_block(&genesis).unwrap();
+        off_chain_vm.add_next_block(&block).unwrap();
+        // Deploy the program.
+        let deployment = off_chain_vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment.fee_amount().unwrap(), 2483025);
+        // Add the program to the off-chain VM.
+        off_chain_vm.process().write().add_program(&program).unwrap();
+        // Execute the program.
+        let transaction = off_chain_vm
+            .execute(
+                &private_key,
+                ("adder_program.aleo", "adder"),
+                [Value::from_str("1u64").unwrap(), Value::from_str("2u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        // Verify the transaction.
+        off_chain_vm.check_transaction(&transaction, None, rng).unwrap();
+        // Check that the account has enough to pay for the execution.
+        assert_eq!(*transaction.fee_amount().unwrap(), 1283);
+        // Drop the off-chain VM.
+        drop(off_chain_vm);
+
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment, transaction], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Check that the program was deployed.
+        assert!(vm.process().read().contains_program(&ProgramID::from_str("adder_program.aleo").unwrap()));
+    }
 }

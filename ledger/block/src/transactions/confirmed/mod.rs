@@ -27,12 +27,16 @@ pub type NumFinalizeSize = u16;
 #[derive(Clone, PartialEq, Eq)]
 pub enum ConfirmedTransaction<N: Network> {
     /// The accepted deploy transaction is composed of `(index, deploy_transaction, finalize_operations)`.
+    /// The finalize operations may contain operations from the executing the constructor and fee transition.
     AcceptedDeploy(u32, Transaction<N>, Vec<FinalizeOperation<N>>),
     /// The accepted execute transaction is composed of `(index, execute_transaction, finalize_operations)`.
+    /// The finalize operations can contain operations from the executing the finalize scope and fee transition.
     AcceptedExecute(u32, Transaction<N>, Vec<FinalizeOperation<N>>),
     /// The rejected deploy transaction is composed of `(index, fee_transaction, rejected_deployment, finalize_operations)`.
+    /// The finalize operations can contain operations from the fee transition.
     RejectedDeploy(u32, Transaction<N>, Rejected<N>, Vec<FinalizeOperation<N>>),
     /// The rejected execute transaction is composed of `(index, fee_transaction, rejected_execution, finalize_operations)`.
+    /// The finalize operations can contain operations from the fee transition.
     RejectedExecute(u32, Transaction<N>, Rejected<N>, Vec<FinalizeOperation<N>>),
 }
 
@@ -85,9 +89,18 @@ impl<N: Network> ConfirmedTransaction<N> {
             // The lower bound is due to the fact that constructors can issue '*KeyValue' operations as part of the deployment.
             ensure!(
                 fee.num_finalize_operations() <= num_key_values,
-                "Transaction '{}' (deploy) must contain at least {} 'UpdateKeyValue' operations (found '{num_key_values}')",
+                "Transaction '{}' (deploy) must contain at least {} '*KeyValue' operations (found '{num_key_values}')",
                 transaction.id(),
                 fee.num_finalize_operations()
+            );
+            // Ensure the number of fee finalize operations and the number of "write" operations in the constructor upper bounds the number of '*KeyValue' finalize operations.
+            // This is an upper bound because a constructor may contain `branch.*` commands so that a subset of writes are executed.
+            let num_constructor_writes = program.constructor().map(|c| c.num_writes()).unwrap_or(0) as usize;
+            ensure!(
+                fee.num_finalize_operations().saturating_add(num_constructor_writes) >= num_key_values,
+                "Transaction '{}' (deploy) must contain at most {} '*KeyValue' operations (found '{num_key_values}')",
+                transaction.id(),
+                fee.num_finalize_operations().saturating_add(num_constructor_writes)
             );
         }
 

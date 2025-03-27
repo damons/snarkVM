@@ -487,6 +487,7 @@ fn cost_in_microcredits<N: Network>(
 mod tests {
     use super::*;
     use crate::test_helpers::get_execution;
+    use circuit::{Aleo, AleoCanaryV0, AleoTestnetV0, AleoV0};
 
     use console::network::{CanaryV0, MainnetV0, TestnetV0};
     use synthesizer_program::Program;
@@ -569,5 +570,96 @@ function over_five_thousand:
         // Ensure storage costs compute correctly.
         assert_eq!(storage_cost_under_5000, execution_storage_cost::<MainnetV0>(execution_size_under_5000));
         assert_eq!(storage_cost_over_5000, execution_storage_cost::<MainnetV0>(execution_size_over_5000));
+    }
+
+    #[test]
+    fn test_deployment_cost_with_constructors() {
+        // A helper to run the test.
+        fn run_test<N: Network, A: Aleo<Network = N>>() {
+            let process = Process::<N>::load().unwrap();
+            let rng = &mut TestRng::default();
+
+            // Define the programs.
+            let program_0 = Program::from_str(
+                r"
+program program_with_constructor.aleo;
+
+constructor:
+    assert.eq true true;
+
+mapping foo:
+    key as field.public;
+    value as field.public;
+
+function dummy:",
+            )
+            .unwrap();
+
+            let program_1 = Program::from_str(
+                r"
+program program_with_constructor.aleo;
+
+constructor:
+    assert.eq edition 0u16;
+
+mapping foo:
+    key as field.public;
+    value as field.public;
+
+function dummy:",
+            )
+            .unwrap();
+
+            let program_2 = Program::from_str(
+                r"
+program program_with_constructor.aleo;
+
+constructor:
+    get foo[0field] into r0;
+
+mapping foo:
+    key as field.public;
+    value as field.public;
+
+function dummy:",
+            )
+            .unwrap();
+
+            let program_3 = Program::from_str(
+                r"
+program program_with_constructor.aleo;
+
+constructor:
+    set 0field into foo[0field];
+
+mapping foo:
+    key as field.public;
+    value as field.public;
+
+function dummy:",
+            )
+            .unwrap();
+
+            // Verify the deployment costs.
+            let deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
+            assert_eq!(deployment_cost(&process, &deployment_0).unwrap(), (2442725, (815000, 577725, 50000, 1000000)));
+
+            let deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
+            assert_eq!(deployment_cost(&process, &deployment_1).unwrap(), (2441725, (814000, 577725, 50000, 1000000)));
+
+            let deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
+            assert_eq!(deployment_cost(&process, &deployment_2).unwrap(), (2606725, (847000, 577725, 182000, 1000000)));
+
+            let deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
+            assert_eq!(
+                deployment_cost(&process, &deployment_3).unwrap(),
+                (4096725, (879000, 577725, 1640000, 1000000))
+            );
+        }
+
+        // Run the tests for all networks.
+        run_test::<CanaryV0, AleoCanaryV0>();
+        run_test::<MainnetV0, AleoV0>();
+        run_test::<TestnetV0, AleoTestnetV0>();
     }
 }
