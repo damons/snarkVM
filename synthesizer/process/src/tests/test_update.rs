@@ -31,6 +31,7 @@ fn sample_process() -> Result<Process<CurrentNetwork>, Error> {
 program test.aleo;
 function foo:
 constructor:
+    assert.eq true true;
     ",
     )?;
     process.add_program(&default_program)?;
@@ -92,6 +93,7 @@ fn test_update_with_constructor() -> Result<()> {
         r"
 program test.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -110,6 +112,7 @@ fn test_add_import() -> Result<()> {
 import credits.aleo;
 program test.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -130,6 +133,7 @@ fn test_add_struct() -> Result<()> {
         r"
 program test.aleo;
 constructor:
+    assert.eq true true;
 struct bar:
     data as u8;
 function foo:
@@ -152,6 +156,7 @@ fn test_add_record() -> Result<()> {
         r"
 program test.aleo;
 constructor:
+    assert.eq true true;
 record bar:
     owner as address.private;
     data as u8.private;
@@ -175,6 +180,7 @@ fn test_add_mapping() -> Result<()> {
         r"
 program test.aleo;
 constructor:
+    assert.eq true true;
 mapping onchain:
     key as u8.public;
     value as u16.public;
@@ -198,6 +204,7 @@ fn test_add_closure() -> Result<()> {
         r"
 program test.aleo;
 constructor:
+    assert.eq true true;
 closure sum:
     input r0 as u8;
     input r1 as u8;
@@ -223,6 +230,7 @@ fn test_add_function() -> Result<()> {
         r"
 program test.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -248,6 +256,7 @@ fn test_modify_function_logic() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -261,6 +270,7 @@ function adder:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -285,6 +295,7 @@ fn test_modify_function_signature() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -298,6 +309,7 @@ function adder:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u16.private;
     input r1 as u16.private;
@@ -319,6 +331,7 @@ fn test_modify_finalize_logic() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function assert_on_chain:
     input r0 as u8.public;
     input r1 as u8.public;
@@ -336,6 +349,7 @@ finalize assert_on_chain:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function assert_on_chain:
     input r0 as u8.public;
     input r1 as u8.public;
@@ -364,6 +378,7 @@ fn test_modify_finalize_signature() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function assert_on_chain:
     input r0 as u8.public;
     input r1 as u8.public;
@@ -381,6 +396,7 @@ finalize assert_on_chain:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function assert_on_chain:
     input r0 as u8.public;
     input r1 as u8.public;
@@ -406,6 +422,7 @@ fn test_modify_struct() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 struct bar:
     data as u8;
 function foo:
@@ -417,6 +434,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 struct bar:
     data as u16;
 function foo:
@@ -436,6 +454,7 @@ fn test_modify_record() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 record bar:
     owner as address.private;
     data as u8.private;
@@ -448,6 +467,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 record bar:
     owner as address.private;
     data as u16.private;
@@ -468,6 +488,7 @@ fn test_modify_mapping() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 mapping onchain:
     key as u8.public;
     value as u16.public;
@@ -480,6 +501,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 mapping onchain:
     key as u8.public;
     value as u8.public;
@@ -500,6 +522,7 @@ fn test_modify_closure_logic() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 closure sum:
     input r0 as u8;
     input r1 as u8;
@@ -514,6 +537,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 closure sum:
     input r0 as u8;
     input r1 as u8;
@@ -536,6 +560,7 @@ fn test_modify_closure_signature() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 closure sum:
     input r0 as u8;
     input r1 as u8;
@@ -550,6 +575,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 closure sum:
     input r0 as u16;
     input r1 as u16;
@@ -573,6 +599,7 @@ fn test_remove_import() -> Result<()> {
 import credits.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -582,6 +609,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -599,6 +627,7 @@ fn test_remove_struct() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 struct bar:
     data as u8;
 function foo:
@@ -610,6 +639,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -627,6 +657,7 @@ fn test_remove_record() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 record bar:
     owner as address.private;
     data as u8.private;
@@ -639,6 +670,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -656,6 +688,7 @@ fn test_remove_mapping() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 mapping onchain:
     key as u8.public;
     value as u16.public;
@@ -668,6 +701,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -685,6 +719,7 @@ fn test_remove_closure() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 closure sum:
     input r0 as u8;
     input r1 as u8;
@@ -699,6 +734,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -716,6 +752,7 @@ fn test_remove_function() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -730,6 +767,7 @@ function foo:
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     ",
     )?;
@@ -747,6 +785,7 @@ fn test_add_call_to_non_async_transition() -> Result<()> {
         r"
 program non_async.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -760,6 +799,7 @@ function foo:
 import non_async.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -774,6 +814,7 @@ function adder:
 import non_async.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -798,6 +839,7 @@ fn test_add_call_to_async_transition() -> Result<()> {
         r"
 program async_example.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -817,6 +859,7 @@ finalize foo:
 import async_example.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -831,6 +874,7 @@ function adder:
 import async_example.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -857,6 +901,7 @@ fn test_add_import_cycle() -> Result<()> {
         r"
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -872,6 +917,7 @@ function adder:
 import basic.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -887,6 +933,7 @@ function adder:
 import basic.aleo;
 program dependent.aleo;
 constructor:
+    assert.eq true true;
 function foo:
     input r0 as u8.private;
     input r1 as u8.private;
@@ -906,6 +953,7 @@ function foo:
 import dependent.aleo;
 program basic.aleo;
 constructor:
+    assert.eq true true;
 function adder:
     input r0 as u8.private;
     input r1 as u8.private;

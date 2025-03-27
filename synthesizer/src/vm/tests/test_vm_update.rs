@@ -44,6 +44,7 @@ function binary_add:
     output r2 as u8.public;
 
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -89,6 +90,7 @@ function binary_add:
     output r2 as u8.public;
 
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -180,6 +182,7 @@ program basic.aleo;
 function foo:
 function bar:
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -193,6 +196,7 @@ program basic.aleo;
 function foo:
 function bar:
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -227,6 +231,7 @@ fn test_editions_are_sequential() -> Result<()> {
 program basic.aleo;
 function foo:
 constructor:
+    assert.eq true true;
     ",
     )?;
     let program_v1 = Program::from_str(
@@ -235,6 +240,7 @@ program basic.aleo;
 function foo:
 function bar:
 constructor:
+    assert.eq true true;
     ",
     )?;
     let program_v2_as_v1 = Program::from_str(
@@ -244,6 +250,7 @@ function foo:
 function bar:
 function baz:
 constructor:
+    assert.eq true true;
     ",
     )?;
     let program_v2 = Program::from_str(
@@ -253,6 +260,7 @@ function foo:
 function bar:
 function baz:
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -349,7 +357,7 @@ function mint:
     output r1 as data_v1.record;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -380,7 +388,7 @@ function burn:
     input r0 as data_v2.record;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -529,7 +537,7 @@ finalize store_data_v1:
     set r1 into data_v1[r0];
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -576,7 +584,7 @@ finalize store_data_v2:
     set r1 into data_v2[r0];
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -736,7 +744,7 @@ finalize sum_and_check:
     assert.eq true true;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -761,7 +769,7 @@ finalize sum_and_check:
     assert.eq true false;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -800,7 +808,7 @@ finalize sum_and_check:
     await r0;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -838,7 +846,7 @@ finalize sum_and_check:
     await r0;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -1007,7 +1015,7 @@ function foo:
     output r0 as u8.public;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -1023,7 +1031,7 @@ function foo:
     output r1 as u8.public;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -1038,7 +1046,7 @@ function foo:
     output r0 as u8.public;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -1054,7 +1062,7 @@ function foo:
     output r1 as u8.public;
 
 constructor:
-
+    assert.eq true true;
     ",
     )?;
 
@@ -1170,7 +1178,6 @@ function foo:
 
 constructor:
     assert.eq true true;
-
     ",
     )?;
 
@@ -1184,7 +1191,6 @@ function foo:
 
 constructor:
     assert.eq true false;
-
     ",
     )?;
 
@@ -1228,6 +1234,7 @@ fn test_anyone_can_update() -> Result<()> {
 program updatable.aleo;
 function foo:
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -1237,6 +1244,7 @@ program updatable.aleo;
 function foo:
 function bar:
 constructor:
+    assert.eq true true;
     ",
     )?;
 
@@ -1247,6 +1255,7 @@ function foo:
 function bar:
 function baz:
 constructor:
+    assert.eq true true;
     ",
     )?;
 
