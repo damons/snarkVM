@@ -3068,7 +3068,7 @@ program upgradable.aleo;
 function foo:
 constructor:
     branch.eq edition 0u16 to end;
-    gte block.height 15u32 into r0;
+    gt block.height 15u32 into r0;
     assert.eq r0 true;
     position end;
     ",
@@ -3081,7 +3081,7 @@ function foo:
 function bar:
 constructor:
     branch.eq edition 0u16 to end;
-    gte block.height 15u32 into r0;
+    gt block.height 15u32 into r0;
     assert.eq r0 true;
     position end;
     ",
