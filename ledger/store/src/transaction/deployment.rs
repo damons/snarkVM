@@ -922,7 +922,7 @@ mod tests {
         for transaction in transactions {
             let transaction_id = transaction.id();
             let program_id = *transaction.deployment().unwrap().program_id();
-            let checksum = transaction.deployment().unwrap().program_checksum().clone();
+            let checksum = transaction.deployment().unwrap().program_checksum();
 
             // Initialize a new transition store.
             let transition_store = TransitionStore::open(None).unwrap();
