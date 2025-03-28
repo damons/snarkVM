@@ -46,10 +46,9 @@ function dummy:
     )?;
 
     // Attempt to deploy the program.
-    assert!(vm.deploy(&caller_private_key, &program, None, 0, None, rng).is_err());
-
-    // Advance the VM to the V5 consensus height.
-    let block = sample_next_block(&vm, &caller_private_key, &[], rng)?;
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that the program can now be deployed.
