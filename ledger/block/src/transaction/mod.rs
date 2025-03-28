@@ -67,7 +67,7 @@ impl<N: Network> Transaction<N> {
         // Compute the deployment ID.
         let deployment_id = *deployment_tree.root();
         // Compute the transaction ID
-        let transaction_id = *Self::transaction_tree(deployment_tree, deployment.len(), &fee)?.root();
+        let transaction_id = *Self::transaction_tree(deployment_tree, deployment.num_functions(), &fee)?.root();
         // Ensure the owner signed the correct transaction ID.
         ensure!(owner.verify(deployment_id), "Attempted to create a deployment transaction with an invalid owner");
         // Construct the deployment transaction.

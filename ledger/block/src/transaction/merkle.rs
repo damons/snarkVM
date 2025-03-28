@@ -94,7 +94,7 @@ impl<N: Network> Transaction<N> {
             // Compute the deployment tree.
             Transaction::Deploy(_, _, _, deployment, fee) => {
                 let deployment_tree = Self::deployment_tree(deployment)?;
-                Self::transaction_tree(deployment_tree, deployment.len(), fee)
+                Self::transaction_tree(deployment_tree, deployment.num_functions(), fee)
             }
             // Compute the execution tree.
             Transaction::Execute(_, _, execution, fee) => {

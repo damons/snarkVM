@@ -86,7 +86,7 @@ impl<N: Network> Rejected<N> {
     /// changing the original transaction ID.
     pub fn to_unconfirmed_id(&self, fee: &Option<Fee<N>>) -> Result<Field<N>> {
         let (tree, fee_index) = match self {
-            Self::Deployment(_, deployment) => (Transaction::deployment_tree(deployment)?, deployment.len()),
+            Self::Deployment(_, deployment) => (Transaction::deployment_tree(deployment)?, deployment.num_functions()),
             Self::Execution(execution) => (Transaction::execution_tree(execution)?, execution.len()),
         };
         if let Some(fee) = fee {

@@ -19,7 +19,7 @@ impl<N: Network> Serialize for Transaction<N> {
     /// Serializes the transaction to a JSON-string or buffer.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match serializer.is_human_readable() {
-            // We don't write the deployment or execution id, which are recomputed when creating the Transaction.
+            // We do not write out the deployment or execution ID, which are recomputed when creating the Transaction.
             true => match self {
                 Self::Deploy(id, _, owner, deployment, fee) => {
                     let mut transaction = serializer.serialize_struct("Transaction", 5)?;
