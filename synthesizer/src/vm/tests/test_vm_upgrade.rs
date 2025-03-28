@@ -49,12 +49,16 @@ function dummy:
     let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
     // Verify that the program can now be deployed.
     let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
 
     Ok(())
 }
@@ -92,6 +96,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the program is deployed.
@@ -139,6 +145,8 @@ constructor:
     assert_eq!(transaction.deployment().unwrap().edition(), 1);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the program is upgraded.
@@ -208,6 +216,8 @@ function bar:
     // Attempt to deploy the upgraded program.
     assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_1], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
@@ -316,24 +326,32 @@ constructor:
 
     // This deployment should fail because the it is not the zero-th edition.
     let block = sample_next_block(&on_chain_vm, &caller_private_key, &[deployment_v1_fail], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 1);
     on_chain_vm.add_next_block(&block)?;
 
     // This deployment should pass.
     let block = sample_next_block(&on_chain_vm, &caller_private_key, &[deployment_v0_pass], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     on_chain_vm.add_next_block(&block)?;
     let stack = on_chain_vm.process().read().get_stack("basic.aleo")?;
     assert_eq!(**stack.program_edition(), 0);
 
     // This deployment should fail because it does not increment the edition.
     let block = sample_next_block(&on_chain_vm, &caller_private_key, &[deployment_v2_fail], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 1);
     on_chain_vm.add_next_block(&block)?;
 
     // This deployment should pass.
     let block = sample_next_block(&on_chain_vm, &caller_private_key, &[deployment_v1_pass], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     on_chain_vm.add_next_block(&block)?;
     let stack = on_chain_vm.process().read().get_stack("basic.aleo")?;
     assert_eq!(**stack.program_edition(), 1);
@@ -341,11 +359,15 @@ constructor:
     // This deployment should fail because it attempt to redeploy at the same edition.
     let block = sample_next_block(&on_chain_vm, &caller_private_key, &[deployment_v2_as_v1_fail], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
     on_chain_vm.add_next_block(&block)?;
 
     // This deployment should pass.
     let block = sample_next_block(&on_chain_vm, &caller_private_key, &[deployment_v2_pass], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     on_chain_vm.add_next_block(&block)?;
     let stack = on_chain_vm.process().read().get_stack("basic.aleo")?;
     assert_eq!(**stack.program_edition(), 2);
@@ -423,6 +445,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Execute the mint function twice.
@@ -446,6 +470,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[mint_execution_0, mint_execution_1], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     let mut v1_records = block
         .records()
         .map(|(_, record)| record.decrypt(&caller_view_key))
@@ -457,6 +483,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Attempt to execute the mint function.
@@ -486,6 +514,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[convert_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     let mut v2_records = block
         .records()
         .map(|(_, record)| record.decrypt(&caller_view_key))
@@ -506,6 +536,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[burn_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Attempt to execute the burn function with the remaining v1 record.
@@ -615,6 +647,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Execute the store_data_v1 function.
@@ -629,6 +663,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[store_data_v1_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the value was stored correctly.
@@ -646,6 +682,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Attempt to execute the store_data_v1 function.
@@ -659,7 +697,9 @@ constructor:
         rng,
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
     assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Execute the migrate_data_v1_to_v2 function.
@@ -674,6 +714,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[migrate_data_v1_to_v2_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the value was migrated correctly.
@@ -710,6 +752,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[store_data_v2_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the value was stored correctly.
@@ -881,12 +925,16 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &dependency_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Deploy the v0 dependent.
     let transaction = vm.deploy(&caller_private_key, &dependent_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Execute the functions.
@@ -910,6 +958,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that the sum function fails on overflow.
@@ -942,12 +992,16 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &dependency_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that the original sum transaction fails after the dependency upgrade.
     vm.partially_verified_transactions().write().clear();
     assert!(vm.check_transaction(&sum_unchecked, None, rng).is_err());
     let block = sample_next_block(&vm, &caller_private_key, &[sum_unchecked], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
@@ -971,13 +1025,17 @@ constructor:
         rng,
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
     assert_eq!(block.transactions().num_rejected(), 2);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Update the dependent to v1.
     let transaction = vm.deploy(&caller_private_key, &dependent_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that the sum function passes.
@@ -1001,6 +1059,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     Ok(())
@@ -1085,11 +1145,15 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &first_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     let transaction = vm.deploy(&caller_private_key, &second_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that both can be executed correctly.
@@ -1113,12 +1177,16 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Update the first program to create a cycle in the dependency graph.
     let transaction = vm.deploy(&caller_private_key, &first_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that both programs can be executed correctly.
@@ -1142,12 +1210,16 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Update the first program to create mutual recursion.
     let transaction = vm.deploy(&caller_private_key, &first_v2, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Verify that the first program is no longer executable.
@@ -1209,12 +1281,16 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &passing_program, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Deploy the failing program.
     let transaction = vm.deploy(&caller_private_key, &failing_program, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     Ok(())
@@ -1260,6 +1336,8 @@ fn test_anyone_can_upgrade() -> Result<()> {
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[transfer_1, transfer_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Define the programs.
@@ -1297,18 +1375,24 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Deploy the second version of the program.
     let transaction = vm.deploy(&unrelated_caller_private_key_0, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Deploy the third version of the program.
     let transaction = vm.deploy(&unrelated_caller_private_key_1, &program_v2, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     Ok(())
@@ -1347,6 +1431,8 @@ function bar:
     let transaction = vm.deploy(&caller_private_key, &program_0_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
     assert!(vm.deploy(&caller_private_key, &program_0_v1, None, 0, None, rng).is_err());
 
@@ -1373,11 +1459,15 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_1_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     let transaction = vm.deploy(&caller_private_key, &program_1_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     Ok(())
@@ -1456,12 +1546,16 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Deploy the second version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Set the lock.
@@ -1476,12 +1570,16 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Attempt to deploy the third version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     Ok(())
@@ -1597,6 +1695,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the caller is the admin.
@@ -1615,6 +1715,8 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Attempt to set the expected checksum with the wrong admin.
@@ -1631,6 +1733,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
     // Check that there is no expected checksum set.
@@ -1645,7 +1749,7 @@ constructor:
     );
 
     // Set the expected checksum.
-    let checksum = program_v1.checksum()?;
+    let checksum = program_v1.to_checksum()?;
     let transaction = vm.execute(
         &caller_private_key,
         ("locked_upgrade.aleo", "set_expected"),
@@ -1657,6 +1761,8 @@ constructor:
     )?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Check that the expected checksum is set.
@@ -1675,13 +1781,116 @@ constructor:
     let transaction = vm.deploy(&caller_private_key, &program_v1_mismatch, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
     // Update with the expected checksum set.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_upgrade_without_changing_contents_fails() -> Result<()> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+
+    // Define the program.
+    let program_v0 = Program::from_str(
+        r"
+program upgradable.aleo;
+constructor:
+    assert.eq true true;
+function dummy:",
+    )?;
+
+    // Define a variant of the program that contains an extra mapping.
+    let program_v1 = Program::from_str(
+        r"
+program upgradable.aleo;
+constructor:
+    assert.eq true true;
+mapping foo:
+    key as boolean.public;
+    value as boolean.public;
+function dummy:",
+    )?;
+
+    // Construct the first deployment.
+    let transaction_first = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    let transaction_id_first = transaction_first.id();
+    let deployment_id_first = transaction_first.deployment().unwrap().to_deployment_id()?;
+
+    // Construct the second deployment.
+    let Transaction::Deploy(_, _, owner, deployment, fee) =
+        vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?
+    else {
+        bail!("Expected deployment");
+    };
+    let deployment = Deployment::new(
+        1,
+        deployment.program().clone(),
+        deployment.verifying_keys().clone(),
+        deployment.program_checksum().cloned(),
+    )?;
+    let transaction_second = Transaction::from_deployment(owner, deployment, fee)?;
+    let transaction_id_second = transaction_second.id();
+    let deployment_id_second = transaction_second.deployment().unwrap().to_deployment_id()?;
+
+    // Construct the third deployment.
+    let Transaction::Deploy(_, _, owner, deployment, fee) =
+        vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?
+    else {
+        bail!("Expected deployment");
+    };
+    let deployment = Deployment::new(
+        1,
+        deployment.program().clone(),
+        deployment.verifying_keys().clone(),
+        deployment.program_checksum().cloned(),
+    )?;
+    let transaction_third = Transaction::from_deployment(owner, deployment, fee)?;
+    let transaction_id_third = transaction_third.id();
+    let deployment_id_third = transaction_third.deployment().unwrap().to_deployment_id()?;
+
+    // Check that the first and second deployment IDs are the same.
+    assert_eq!(deployment_id_first, deployment_id_second);
+    // Check that the first and third deployment IDs are different.
+    assert_ne!(deployment_id_first, deployment_id_third);
+    // Check that the first, second, and third transaction IDs are different.
+    assert_ne!(transaction_id_first, transaction_id_second);
+    assert_ne!(transaction_id_first, transaction_id_third);
+
+    // Add the first deployment to the chain.
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction_first], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Deploy the program again as an upgrade.
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction_second], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
+
+    // Deploy the program with an extra mapping as an upgrade.
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction_third], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
 
     Ok(())
 }

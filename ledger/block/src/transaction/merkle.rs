@@ -135,6 +135,7 @@ impl<N: Network> Transaction<N> {
         // Ensure the number of leaves is within the Merkle tree size.
         Self::check_deployment_size(deployment)?;
         // Prepare the header for the hash.
+        // Note: After `ConsensusVersion::V5`, the program checksum is used instead of the program ID.
         let header = match deployment.program_checksum() {
             None => deployment.program().id().to_bits_le(),
             // Note that the checksum is verified in `VM::check_transaction`.

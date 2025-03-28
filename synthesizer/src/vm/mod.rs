@@ -3019,6 +3019,8 @@ function add_thrice:
 
         let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 2);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         vm.add_next_block(&block).unwrap();
 
         // Deploy two programs that depend on each other.
@@ -3069,6 +3071,8 @@ function adder:
 
         let block = sample_next_block(&vm, &caller_private_key, &[deployment_1, deployment_2], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
         vm.add_next_block(&block).unwrap();
 
         // Check that only `child_program.aleo` is in the VM.
@@ -3133,6 +3137,8 @@ function adder:
 
         let block = sample_next_block(&vm, &caller_private_key, &[deployment, transaction], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
         vm.add_next_block(&block).unwrap();
 
         // Check that the program was deployed.
@@ -3179,6 +3185,8 @@ finalize set_first:
         let deployment_v0 = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
         let block = sample_next_block(&vm, &caller_private_key, &[deployment_v0], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         vm.add_next_block(&block).unwrap();
 
         // Execute the program.
@@ -3195,6 +3203,8 @@ finalize set_first:
             .unwrap();
         let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         vm.add_next_block(&block).unwrap();
 
         // Verify that the entry exists in the mapping.
@@ -3258,6 +3268,8 @@ finalize set_first:
         // Add the upgrade and execution to the VM.
         let block = sample_next_block(&vm, &caller_private_key, &[deployment_v1, transaction], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
         vm.add_next_block(&block).unwrap();
 
         // Check that the program was upgraded.
@@ -3281,6 +3293,8 @@ finalize set_first:
         // Add the transaction to a block and update the VM.
         let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         vm.add_next_block(&block).unwrap();
 
         // Verify that the entry exists in both mappings.
