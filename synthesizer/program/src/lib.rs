@@ -99,7 +99,17 @@ use console::{
 use indexmap::IndexMap;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+enum ProgramLabel<N: Network> {
+    /// A program constructor.
+    Constructor,
+    /// A named component.
+    Identifier(Identifier<N>),
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum ProgramDefinition {
+    /// A program constructor.
+    Constructor,
     /// A program mapping.
     Mapping,
     /// A program struct.
@@ -118,10 +128,10 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     id: ProgramID<N>,
     /// A map of the declared imports for the program.
     imports: IndexMap<ProgramID<N>, Import<N>>,
+    /// A map of program labels to their program definitions.
+    components: IndexMap<ProgramLabel<N>, ProgramDefinition>,
     /// An optional constructor for the program.
     constructor: Option<ConstructorCore<N, Command>>,
-    /// A map of identifiers to their program declaration.
-    identifiers: IndexMap<Identifier<N>, ProgramDefinition>,
     /// A map of the declared mappings for the program.
     mappings: IndexMap<Identifier<N>, Mapping<N>>,
     /// A map of the declared structs for the program.
@@ -144,8 +154,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         Ok(Self {
             id,
             imports: IndexMap::new(),
+            components: IndexMap::new(),
             constructor: None,
-            identifiers: IndexMap::new(),
             mappings: IndexMap::new(),
             structs: IndexMap::new(),
             records: IndexMap::new(),
@@ -356,6 +366,10 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         ensure!(self.constructor.is_none(), "Program already has a constructor.");
         // Ensure the number of commands is within the allowed range.
         ensure!(constructor.commands().len() <= N::MAX_COMMANDS, "Constructor exceeds maximum number of commands");
+        // Add the constructor to the components.
+        if self.components.insert(ProgramLabel::Constructor, ProgramDefinition::Constructor).is_some() {
+            bail!("Constructor already exists in the program.")
+        }
         // Add the constructor to the program.
         self.constructor = Some(constructor);
         Ok(())
@@ -381,8 +395,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the mapping name is not a reserved opcode.
         ensure!(!Self::is_reserved_opcode(&mapping_name.to_string()), "'{mapping_name}' is a reserved opcode.");
 
-        // Add the mapping name to the identifiers.
-        if self.identifiers.insert(mapping_name, ProgramDefinition::Mapping).is_some() {
+        // Add the mapping name to the components.
+        if self.components.insert(ProgramLabel::Identifier(mapping_name), ProgramDefinition::Mapping).is_some() {
             bail!("'{mapping_name}' already exists in the program.")
         }
         // Add the mapping to the program.
@@ -442,8 +456,9 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             }
         }
 
-        // Add the struct name to the identifiers.
-        if self.identifiers.insert(struct_name, ProgramDefinition::Struct).is_some() {
+        // Add the struct name to the components.
+
+        if self.components.insert(ProgramLabel::Identifier(struct_name), ProgramDefinition::Struct).is_some() {
             bail!("'{}' already exists in the program.", struct_name)
         }
         // Add the struct to the program.
@@ -499,8 +514,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             }
         }
 
-        // Add the record name to the identifiers.
-        if self.identifiers.insert(record_name, ProgramDefinition::Record).is_some() {
+        // Add the record name to the components.
+        if self.components.insert(ProgramLabel::Identifier(record_name), ProgramDefinition::Record).is_some() {
             bail!("'{record_name}' already exists in the program.")
         }
         // Add the record to the program.
@@ -547,8 +562,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the number of outputs is within the allowed range.
         ensure!(closure.outputs().len() <= N::MAX_OUTPUTS, "Closure exceeds maximum number of outputs");
 
-        // Add the function name to the identifiers.
-        if self.identifiers.insert(closure_name, ProgramDefinition::Closure).is_some() {
+        // Add the function name to the components.
+        if self.components.insert(ProgramLabel::Identifier(closure_name), ProgramDefinition::Closure).is_some() {
             bail!("'{closure_name}' already exists in the program.")
         }
         // Add the closure to the program.
@@ -593,8 +608,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the number of outputs is within the allowed range.
         ensure!(function.outputs().len() <= N::MAX_OUTPUTS, "Function exceeds maximum number of outputs");
 
-        // Add the function name to the identifiers.
-        if self.identifiers.insert(function_name, ProgramDefinition::Function).is_some() {
+        // Add the function name to the components.
+        if self.components.insert(ProgramLabel::Identifier(function_name), ProgramDefinition::Function).is_some() {
             bail!("'{function_name}' already exists in the program.")
         }
         // Add the function to the program.
@@ -685,7 +700,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 
     /// Returns `true` if the given name does not already exist in the program.
     fn is_unique_name(&self, name: &Identifier<N>) -> bool {
-        !self.identifiers.contains_key(name)
+        !self.components.contains_key(&ProgramLabel::Identifier(*name))
     }
 
     /// Returns `true` if the given name is a reserved opcode.
@@ -937,6 +952,7 @@ finalize check:
     #[test]
     fn test_program_equality_and_checksum() {
         fn run_test(program1: &str, program2: &str, expected_equal: bool) {
+            println!("Comparing programs:\n{}\n{}", program1, program2);
             let program1 = Program::<CurrentNetwork>::from_str(program1).unwrap();
             let program2 = Program::<CurrentNetwork>::from_str(program2).unwrap();
             assert_eq!(program1 == program2, expected_equal);
@@ -959,7 +975,7 @@ finalize check:
         // Test two programs, both with a struct and function, but in different order.
         run_test(
             r"program test.aleo; struct foo: data as u8; function dummy:",
-            r"program test.aleo; function dummy:  struct foo: data as u8",
+            r"program test.aleo; function dummy: struct foo: data as u8;",
             false,
         );
     }

@@ -84,69 +84,75 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ToB
             import.write_le(&mut writer)?;
         }
 
-        // Write the number of components. A component is either an identifier or a constructor.
-        let number_of_components = self.identifiers.len() + self.constructor.is_some() as usize;
-        u16::try_from(number_of_components).map_err(error)?.write_le(&mut writer)?;
+        // Write the number of components.
+        u16::try_from(self.components.len()).map_err(error)?.write_le(&mut writer)?;
 
-        // Write the components that are identifiers.
-        for (identifier, definition) in self.identifiers.iter() {
-            match definition {
-                ProgramDefinition::Mapping => match self.mappings.get(identifier) {
-                    Some(mapping) => {
+        // Write the components.
+        for (label, definition) in self.components.iter() {
+            match label {
+                ProgramLabel::Constructor => {
+                    // Write the constructor, if it exists.
+                    if let Some(constructor) = &self.constructor {
                         // Write the variant.
-                        0u8.write_le(&mut writer)?;
-                        // Write the mapping.
-                        mapping.write_le(&mut writer)?;
+                        5u8.write_le(&mut writer)?;
+                        // Write the constructor.
+                        constructor.write_le(&mut writer)?;
                     }
-                    None => return Err(error(format!("Mapping '{identifier}' is not defined"))),
-                },
-                ProgramDefinition::Struct => match self.structs.get(identifier) {
-                    Some(struct_) => {
-                        // Write the variant.
-                        1u8.write_le(&mut writer)?;
-                        // Write the struct.
-                        struct_.write_le(&mut writer)?;
+                }
+                ProgramLabel::Identifier(identifier) => {
+                    match definition {
+                        ProgramDefinition::Constructor => {
+                            return Err(error("A program constructor cannot have a named label"));
+                        }
+                        ProgramDefinition::Mapping => match self.mappings.get(identifier) {
+                            Some(mapping) => {
+                                // Write the variant.
+                                0u8.write_le(&mut writer)?;
+                                // Write the mapping.
+                                mapping.write_le(&mut writer)?;
+                            }
+                            None => return Err(error(format!("Mapping '{identifier}' is not defined"))),
+                        },
+                        ProgramDefinition::Struct => match self.structs.get(identifier) {
+                            Some(struct_) => {
+                                // Write the variant.
+                                1u8.write_le(&mut writer)?;
+                                // Write the struct.
+                                struct_.write_le(&mut writer)?;
+                            }
+                            None => return Err(error(format!("Struct '{identifier}' is not defined."))),
+                        },
+                        ProgramDefinition::Record => match self.records.get(identifier) {
+                            Some(record) => {
+                                // Write the variant.
+                                2u8.write_le(&mut writer)?;
+                                // Write the record.
+                                record.write_le(&mut writer)?;
+                            }
+                            None => return Err(error(format!("Record '{identifier}' is not defined."))),
+                        },
+                        ProgramDefinition::Closure => match self.closures.get(identifier) {
+                            Some(closure) => {
+                                // Write the variant.
+                                3u8.write_le(&mut writer)?;
+                                // Write the closure.
+                                closure.write_le(&mut writer)?;
+                            }
+                            None => return Err(error(format!("Closure '{identifier}' is not defined."))),
+                        },
+                        ProgramDefinition::Function => match self.functions.get(identifier) {
+                            Some(function) => {
+                                // Write the variant.
+                                4u8.write_le(&mut writer)?;
+                                // Write the function.
+                                function.write_le(&mut writer)?;
+                            }
+                            None => return Err(error(format!("Function '{identifier}' is not defined."))),
+                        },
                     }
-                    None => return Err(error(format!("Struct '{identifier}' is not defined."))),
-                },
-                ProgramDefinition::Record => match self.records.get(identifier) {
-                    Some(record) => {
-                        // Write the variant.
-                        2u8.write_le(&mut writer)?;
-                        // Write the record.
-                        record.write_le(&mut writer)?;
-                    }
-                    None => return Err(error(format!("Record '{identifier}' is not defined."))),
-                },
-                ProgramDefinition::Closure => match self.closures.get(identifier) {
-                    Some(closure) => {
-                        // Write the variant.
-                        3u8.write_le(&mut writer)?;
-                        // Write the closure.
-                        closure.write_le(&mut writer)?;
-                    }
-                    None => return Err(error(format!("Closure '{identifier}' is not defined."))),
-                },
-                ProgramDefinition::Function => match self.functions.get(identifier) {
-                    Some(function) => {
-                        // Write the variant.
-                        4u8.write_le(&mut writer)?;
-                        // Write the function.
-                        function.write_le(&mut writer)?;
-                    }
-                    None => return Err(error(format!("Function '{identifier}' is not defined."))),
-                },
+                }
             }
         }
-
-        // Write the constructor, if it exists.
-        if let Some(constructor) = &self.constructor {
-            // Write the variant.
-            5u8.write_le(&mut writer)?;
-            // Write the constructor.
-            constructor.write_le(&mut writer)?;
-        }
-
         Ok(())
     }
 }

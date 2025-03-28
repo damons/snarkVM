@@ -167,37 +167,43 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Dis
         // Print the program name.
         write!(f, "{} {};\n\n", Self::type_name(), self.id)?;
 
-        // Write the constructor, if it exists.
-        if let Some(constructor) = &self.constructor {
-            writeln!(f, "{constructor}\n")?;
-        }
-
-        let mut identifier_iter = self.identifiers.iter().peekable();
-        while let Some((identifier, definition)) = identifier_iter.next() {
-            match definition {
-                ProgramDefinition::Mapping => match self.mappings.get(identifier) {
-                    Some(mapping) => writeln!(f, "{mapping}")?,
-                    None => return Err(fmt::Error),
-                },
-                ProgramDefinition::Struct => match self.structs.get(identifier) {
-                    Some(struct_) => writeln!(f, "{struct_}")?,
-                    None => return Err(fmt::Error),
-                },
-                ProgramDefinition::Record => match self.records.get(identifier) {
-                    Some(record) => writeln!(f, "{record}")?,
-                    None => return Err(fmt::Error),
-                },
-                ProgramDefinition::Closure => match self.closures.get(identifier) {
-                    Some(closure) => writeln!(f, "{closure}")?,
-                    None => return Err(fmt::Error),
-                },
-                ProgramDefinition::Function => match self.functions.get(identifier) {
-                    Some(function) => writeln!(f, "{function}")?,
-                    None => return Err(fmt::Error),
+        // Write the components.
+        let mut components_iter = self.components.iter().peekable();
+        while let Some((label, definition)) = components_iter.next() {
+            match label {
+                ProgramLabel::Constructor => {
+                    // Write the constructor, if it exists.
+                    if let Some(constructor) = &self.constructor {
+                        writeln!(f, "{constructor}\n")?;
+                    }
+                }
+                ProgramLabel::Identifier(identifier) => match definition {
+                    ProgramDefinition::Constructor => return Err(fmt::Error),
+                    ProgramDefinition::Mapping => match self.mappings.get(identifier) {
+                        Some(mapping) => writeln!(f, "{mapping}")?,
+                        None => return Err(fmt::Error),
+                    },
+                    ProgramDefinition::Struct => match self.structs.get(identifier) {
+                        Some(struct_) => writeln!(f, "{struct_}")?,
+                        None => return Err(fmt::Error),
+                    },
+                    ProgramDefinition::Record => match self.records.get(identifier) {
+                        Some(record) => writeln!(f, "{record}")?,
+                        None => return Err(fmt::Error),
+                    },
+                    ProgramDefinition::Closure => match self.closures.get(identifier) {
+                        Some(closure) => writeln!(f, "{closure}")?,
+                        None => return Err(fmt::Error),
+                    },
+                    ProgramDefinition::Function => match self.functions.get(identifier) {
+                        Some(function) => writeln!(f, "{function}")?,
+                        None => return Err(fmt::Error),
+                    },
                 },
             }
+
             // Omit the last newline.
-            if identifier_iter.peek().is_some() {
+            if components_iter.peek().is_some() {
                 writeln!(f)?;
             }
         }
