@@ -85,15 +85,13 @@ impl<N: Network> Rejected<N> {
     /// When a transaction is rejected, its fee transition is used to construct the confirmed transaction ID,
     /// changing the original transaction ID.
     pub fn to_unconfirmed_id(&self, fee: &Option<Fee<N>>) -> Result<Field<N>> {
-        let (tree, fee_index) = match self {
-            Self::Deployment(_, deployment) => (Transaction::deployment_tree(deployment)?, deployment.num_functions()),
-            Self::Execution(execution) => (Transaction::execution_tree(execution)?, execution.len()),
+        // Compute the deployment or execution tree.
+        let tree = match self {
+            Self::Deployment(_, deployment) => Transaction::deployment_tree(deployment)?,
+            Self::Execution(execution) => Transaction::execution_tree(execution)?,
         };
-        if let Some(fee) = fee {
-            Ok(*Transaction::transaction_tree(tree, fee_index, fee)?.root())
-        } else {
-            Ok(*tree.root())
-        }
+        // Construct the transaction tree and return the unconfirmed transaction ID.
+        Ok(*Transaction::transaction_tree(tree, fee.as_ref())?.root())
     }
 }
 
