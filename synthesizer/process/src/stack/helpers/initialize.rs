@@ -19,6 +19,28 @@ impl<N: Network> Stack<N> {
     /// Initializes a new stack, given the process and program.
     #[inline]
     pub(crate) fn initialize(process: &Process<N>, program: &Program<N>) -> Result<Self> {
+        // Compute the appropriate edition for the stack.
+        let edition = match process.contains_program(program.id()) {
+            // If the program does not exist in the process, use edition zero.
+            false => 0u16,
+            // If the new program matches the existing program, use the existing edition.
+            // Otherwise, increment the edition.
+            true => {
+                // Retrieve the stack for the program.
+                let stack = process.get_stack(program.id())?;
+                // Retrieve the program edition.
+                let mut edition = **stack.program_edition();
+                // If the program does not match the existing program, increment the edition.
+                if stack.program() != program {
+                    edition = edition
+                        .checked_add(1)
+                        .ok_or_else(|| anyhow!("Overflow while incrementing the program edition"))?;
+                }
+                // Output the edition
+                edition
+            }
+        };
+
         // Construct the stack for the program.
         let mut stack = Self {
             program: program.clone(),
@@ -30,20 +52,8 @@ impl<N: Network> Stack<N> {
             proving_keys: Default::default(),
             verifying_keys: Default::default(),
             program_address: program.id().to_address()?,
-            program_checksum: program.checksum()?,
-            program_edition: {
-                // If the program exists in the process, increment the edition.
-                // Otherwise, use zero.
-                let edition = match process.contains_program(program.id()) {
-                    false => 0u16,
-                    true => process
-                        .get_stack(program.id())?
-                        .program_edition()
-                        .checked_add(1)
-                        .ok_or_else(|| anyhow!("Overflow while incrementing the program edition"))?,
-                };
-                U16::new(edition)
-            },
+            program_checksum: program.to_checksum()?,
+            program_edition: U16::new(edition),
         };
 
         // Add all the imports into the stack.

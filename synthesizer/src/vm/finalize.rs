@@ -787,7 +787,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is producing a duplicate output
     /// - The transaction is producing a duplicate transition public key
     /// - The transaction is another deployment in the block from the same public fee payer.
-    /// - The transaction is an execution, and the program has been deployed or upgraded in this block.
+    /// - The transaction is an execution for a program following its deployment or redeployment in this block.
     #[allow(clippy::too_many_arguments)]
     fn should_abort_transaction(
         &self,
@@ -844,8 +844,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             }
         }
 
-        // If the transaction is an execution, ensure that the component programs have not been deployed or upgraded in this block.
-        // Note that this does not change existing behavior w.r.t. initial deployments since an execution's programs are verified to exist before it is finalized.
+        // If the transaction is an execution, ensure that its corresponding program(s)
+        // have not been deployed or redeployed prior to this transaction in this block.
+        // Note: This logic is compatible with deployments prior to `ConsensusVersion::V5`.
         if let Transaction::Execute(_, _, execution, _) = transaction {
             // If one of the component programs have been deployed or upgraded in this block, abort the transaction.
             for program_id in execution.transitions().map(|t| t.program_id()) {

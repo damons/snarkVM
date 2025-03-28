@@ -166,7 +166,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     }
 
     /// Returns the checksum of the program.
-    pub fn checksum(&self) -> Result<Field<N>> {
+    pub fn to_checksum(&self) -> Result<Field<N>> {
         N::hash_bhp1024(&self.to_bytes_le()?.to_bits_le())
     }
 
@@ -932,5 +932,35 @@ finalize check:
         // Ensure the program contains a constructor.
         assert!(program.contains_constructor());
         assert_eq!(program.constructor().unwrap().commands().len(), 5);
+    }
+
+    #[test]
+    fn test_program_equality_and_checksum() {
+        fn run_test(program1: &str, program2: &str, expected_equal: bool) {
+            let program1 = Program::<CurrentNetwork>::from_str(program1).unwrap();
+            let program2 = Program::<CurrentNetwork>::from_str(program2).unwrap();
+            assert_eq!(program1 == program2, expected_equal);
+            assert_eq!(program1.to_checksum().unwrap() == program2.to_checksum().unwrap(), expected_equal);
+        }
+
+        // Test two identical programs, with different whitespace.
+        run_test(r"program test.aleo; function dummy:    ", r"program  test.aleo;     function dummy:   ", true);
+
+        // Test two programs, one with a different function name.
+        run_test(r"program test.aleo; function dummy:    ", r"program test.aleo; function bummy:   ", false);
+
+        // Test two programs, one with a constructor and one without.
+        run_test(
+            r"program test.aleo; function dummy:    ",
+            r"program test.aleo; constructor: assert.eq true true; function dummy: ",
+            false,
+        );
+
+        // Test two programs, both with a struct and function, but in different order.
+        run_test(
+            r"program test.aleo; struct foo: data as u8; function dummy:",
+            r"program test.aleo; function dummy:  struct foo: data as u8",
+            false,
+        );
     }
 }

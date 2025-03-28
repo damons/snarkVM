@@ -3093,6 +3093,8 @@ constructor:
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
         assert_eq!(block.height(), 14);
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         ledger.advance_to_next_block(&block)?;
 
         // Attempt to deploy the second version of the program before block height 15.
@@ -3101,6 +3103,8 @@ constructor:
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
         assert_eq!(block.height(), 15);
         assert_eq!(block.transactions().num_accepted(), 0);
+        assert_eq!(block.transactions().num_rejected(), 1);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         ledger.advance_to_next_block(&block)?;
 
         // Attempt to deploy the second version of the program at block height 15.
@@ -3109,6 +3113,8 @@ constructor:
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
         assert_eq!(block.height(), 16);
         assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         ledger.advance_to_next_block(&block)?;
 
         Ok(())
