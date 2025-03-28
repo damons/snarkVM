@@ -33,7 +33,7 @@ impl<N: Network, Command: CommandTrait<N>> Parser for ConstructorCore<N, Command
 
         map_res(take(0usize), move |_| {
             // Initialize a new constructor.
-            let mut constructor = Self::new();
+            let mut constructor = Self { commands: Default::default(), num_writes: 0, positions: Default::default() };
             if let Err(error) = commands.iter().cloned().try_for_each(|command| constructor.add_command(command)) {
                 eprintln!("{error}");
                 return Err(error);
@@ -131,7 +131,11 @@ constructor:
         // Test that parsing an empty constructor fails.
         assert!(Constructor::<CurrentNetwork>::parse("constructor:").is_err());
         // Test that attempting to serialize an empty constructor fails.
-        let constructor = Constructor::<CurrentNetwork>::new();
+        let constructor = Constructor::<CurrentNetwork> {
+            commands: Default::default(),
+            num_writes: 0,
+            positions: Default::default(),
+        };
         assert!(constructor.write_le(Vec::new()).is_err());
     }
 }

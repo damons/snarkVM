@@ -22,7 +22,7 @@ impl<N: Network, Command: CommandTrait<N>> FromBytes for ConstructorCore<N, Comm
         // Read the commands.
         let num_commands = u16::read_le(&mut reader)?;
         if num_commands.is_zero() {
-            return Err(error("Failed to deserialize constructor: needs at least one command".to_string()));
+            return Err(error("Failed to deserialize constructor: needs at least one command"));
         }
         if num_commands > u16::try_from(N::MAX_COMMANDS).map_err(error)? {
             return Err(error(format!("Failed to deserialize constructor: too many commands ({num_commands})")));
@@ -32,7 +32,7 @@ impl<N: Network, Command: CommandTrait<N>> FromBytes for ConstructorCore<N, Comm
             commands.push(Command::read_le(&mut reader)?);
         }
         // Initialize a new constructor.
-        let mut constructor = Self::new();
+        let mut constructor = Self { commands: Default::default(), num_writes: 0, positions: Default::default() };
         commands.into_iter().try_for_each(|command| constructor.add_command(command)).map_err(error)?;
 
         Ok(constructor)

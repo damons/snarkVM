@@ -3076,7 +3076,7 @@ function adder:
     }
 
     #[test]
-    fn test_deploy_and_execute_in_same_block() {
+    fn test_deploy_and_execute_in_same_block_fails() {
         let rng = &mut TestRng::default();
 
         // Initialize a new caller.

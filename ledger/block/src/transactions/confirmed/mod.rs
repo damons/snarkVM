@@ -95,7 +95,7 @@ impl<N: Network> ConfirmedTransaction<N> {
             );
             // Ensure the number of fee finalize operations and the number of "write" operations in the constructor upper bounds the number of '*KeyValue' finalize operations.
             // This is an upper bound because a constructor may contain `branch.*` commands so that a subset of writes are executed.
-            let num_constructor_writes = program.constructor().map(|c| c.num_writes()).unwrap_or(0) as usize;
+            let num_constructor_writes = usize::from(program.constructor().map(|c| c.num_writes()).unwrap_or_default());
             ensure!(
                 fee.num_finalize_operations().saturating_add(num_constructor_writes) >= num_key_values,
                 "Transaction '{}' (deploy) must contain at most {} '*KeyValue' operations (found '{num_key_values}')",
