@@ -78,7 +78,7 @@ impl<N: Network> ConfirmedTransaction<N> {
                 );
             }
             // Ensure the number of program mappings upper bounds the number of 'InitializeMapping' finalize operations.
-            // The upper bound is due to the fact that some mappings may have been initialized in earlier deployments or updates.
+            // The upper bound is due to the fact that some mappings may have been initialized in earlier deployments or upgrades.
             ensure!(
                 num_initialize_mappings <= program.mappings().len(),
                 "Transaction '{}' (deploy) must contain at most '{}' 'InitializeMapping' operations (found '{num_initialize_mappings}')",

@@ -3139,6 +3139,7 @@ function adder:
         assert!(vm.process().read().contains_program(&ProgramID::from_str("adder_program.aleo").unwrap()));
     }
 
+    // Note: Do not change the prefix `test_vm_upgrade` of this test as CI uses it to detect the test.
     #[cfg(feature = "test")]
     #[test]
     fn test_vm_upgrade_and_execute_in_same_block() {

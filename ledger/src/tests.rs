@@ -3043,10 +3043,10 @@ mod valid_solutions {
         assert_eq!(*block_aborted_solution_id, invalid_solution.id(), "Aborted solutions do not match");
     }
 
-    // This test checks that a program can only be updated after a certain block height.
+    // This test checks that a program can only be upgraded after a certain block height.
     // While this test does not need a low proof target, it needs the `test` feature enabled to use a sufficiently low consensus height.
     #[test]
-    fn test_update_after_block_height() -> Result<()> {
+    fn test_upgrade_after_block_height() -> Result<()> {
         let rng = &mut TestRng::default();
 
         // Sample the test environment.
@@ -3068,7 +3068,7 @@ program upgradable.aleo;
 function foo:
 constructor:
     branch.eq edition 0u16 to end;
-    gte block.height 3u32 into r0;
+    gte block.height 15u32 into r0;
     assert.eq r0 true;
     position end;
     ",

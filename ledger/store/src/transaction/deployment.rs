@@ -200,6 +200,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
+        // Note that the VM enforces that the edition is always 0 for the first deployment of a program and that subsequent deployments increment the edition.
         let edition = deployment.edition();
         // Retrieve the program.
         let program = deployment.program();
@@ -222,7 +223,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.program_map().insert((program_id, edition), program.clone())?;
             // Store the checksum, if it exists.
             // Additionally, if the checksum exists, then also store the edition into the `IDEditionMap`.
-            // This is because the existence of a checksum implies that the ledger is at the V5 consensus height, which enables program updates.
+            // This is because the existence of a checksum implies that the ledger is at the V5 consensus height, which enables program upgrades.
             if let Some(checksum) = checksum {
                 self.checksum_map().insert((program_id, edition), *checksum)?;
                 self.id_edition_map().insert(*transaction_id, edition)?;
@@ -313,7 +314,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             return Ok(None);
         }
 
-        // Retrieve the edition.
+        // Retrieve the latest edition.
         let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
@@ -394,7 +395,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
                 };
                 // Verify that the latest edition is zero.
                 // This must be the case because if a program is not in the `IDEditionMap` but exists, then it must have been deployed
-                // before program updates were introduced.
+                // before program upgrades were introduced.
                 ensure!(latest_edition == 0, "Failed to get the edition for transaction '{transaction_id}'");
                 // Return the edition.
                 Ok(Some(0))
@@ -411,7 +412,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             return Ok(Some(Program::credits()?));
         }
 
-        // Retrieve the edition.
+        // Retrieve the latest edition.
         let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
@@ -459,7 +460,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             return Ok(Some(VerifyingKey::new(verifying_key.clone(), num_variables)));
         }
 
-        // Retrieve the edition.
+        // Retrieve the latest edition.
         let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
@@ -512,7 +513,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             return Ok(None);
         }
 
-        // Retrieve the edition.
+        // Retrieve the latest edition.
         let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
@@ -604,7 +605,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // TODO (raychu86): Consider program upgrades and edition changes.
-        // Retrieve the edition.
+        // Retrieve the latest edition.
         let edition = match self.get_edition_for_program(program_id)? {
             Some(edition) => edition,
             None => return Ok(None),
@@ -817,7 +818,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
 }
 
 impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
-    /// Returns the latest transaction ID that deployed or updated the given `program ID`.
+    /// Returns the latest transaction ID that deployed or upgraded the given `program ID`.
     pub fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
         self.storage.find_transaction_id_from_program_id(program_id)
     }
@@ -862,7 +863,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     }
 
     /// Returns an iterator over the program IDs, for all deployments.
-    /// Note that this can have duplicates if a program has been updated.
+    /// Note that this can have duplicates if a program has been upgraded.
     pub fn program_ids(&self) -> impl '_ + Iterator<Item = Cow<'_, ProgramID<N>>> {
         self.storage.id_map().values_confirmed().map(|id| match id {
             Cow::Borrowed(id) => Cow::Borrowed(id),

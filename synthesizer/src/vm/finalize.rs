@@ -844,9 +844,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             }
         }
 
-        // If the transaction is an execution, ensure that none of the component programs have not been deployed or upgraded in this block.
+        // If the transaction is an execution, ensure that the component programs have not been deployed or upgraded in this block.
+        // Note that this does not change existing behavior w.r.t. initial deployments since an execution's programs are verified to exist before it is finalized.
         if let Transaction::Execute(_, _, execution, _) = transaction {
-            // If one of the executed program have been deployed or upgraded in this block, abort the transaction.
+            // If one of the component programs have been deployed or upgraded in this block, abort the transaction.
             for program_id in execution.transitions().map(|t| t.program_id()) {
                 if deployments.contains(program_id) {
                     return Some(format!("Program {program_id} has been deployed or upgraded in this block"));
