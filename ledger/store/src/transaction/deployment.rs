@@ -200,7 +200,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
-        // Note that the VM enforces that the edition is always 0 for the first deployment of a program and that subsequent deployments increment the edition.
+        // Note that the VM enforces that the edition is always 0 for the first deployment of a program and that subsequent upgrades increment the edition.
         let edition = deployment.edition();
         // Retrieve the program.
         let program = deployment.program();
@@ -221,9 +221,9 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.owner_map().insert((program_id, edition), *owner)?;
             // Store the program.
             self.program_map().insert((program_id, edition), program.clone())?;
-            // Store the checksum, if it exists.
-            // Additionally, if the checksum exists, then also store the edition into the `IDEditionMap`.
-            // This is because the existence of a checksum implies that the ledger is at the V5 consensus height, which enables program upgrades.
+            // If the checksum exists, then store it and also store the edition into the `IDEditionMap`.
+            // This is done because the existence of the checksum implies a migration at the V5 consensus height.
+            // This migration enables program upgrades.
             if let Some(checksum) = checksum {
                 self.checksum_map().insert((program_id, edition), *checksum)?;
                 self.id_edition_map().insert(*transaction_id, edition)?;
@@ -921,6 +921,8 @@ mod tests {
 
         for transaction in transactions {
             let transaction_id = transaction.id();
+            let program_id = *transaction.deployment().unwrap().program_id();
+            let checksum = transaction.deployment().unwrap().program_checksum().clone();
 
             // Initialize a new transition store.
             let transition_store = TransitionStore::open(None).unwrap();
@@ -936,15 +938,46 @@ mod tests {
             // Insert the deployment transaction.
             deployment_store.insert(&transaction).unwrap();
 
+            // If the deployment has a checksum, then verify that the checksum exists in the `ChecksumMap` and that the edition exists in the `IDEditionMap`.
+            // Otherwise, verify that the checksum does not exist and that the ID-edition map is empty.
+            match checksum {
+                Some(checksum) => {
+                    let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
+                    assert_eq!(Some(checksum), candidate.as_deref());
+                    let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+                    assert_eq!(Some(0), candidate.as_deref().copied());
+                }
+                None => {
+                    let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
+                    assert_eq!(None, candidate);
+                    let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+                    assert_eq!(None, candidate);
+                }
+            }
+
             // Retrieve the deployment transaction.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(Some(transaction), candidate);
+
+            // Retrieve the latest edition and verify that it is zero.
+            let edition = deployment_store.get_edition_for_transaction(&transaction_id).unwrap();
+            assert_eq!(Some(0), edition);
 
             // Remove the deployment.
             deployment_store.remove(&transaction_id).unwrap();
 
             // Ensure the deployment transaction does not exist.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
+            assert_eq!(None, candidate);
+
+            // Ensure the edition is not found.
+            let candidate = deployment_store.edition_map().get_confirmed(&program_id).unwrap();
+            assert_eq!(None, candidate);
+            let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+            assert_eq!(None, candidate);
+
+            // Ensure the checksum is not found.
+            let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
             assert_eq!(None, candidate);
         }
     }
