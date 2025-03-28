@@ -913,9 +913,11 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Sample the transactions.
-        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(true, rng);
-        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(false, rng);
-        let transactions = vec![transaction_0, transaction_1];
+        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(1, true, rng);
+        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, false, rng);
+        let transaction_2 = ledger_test_helpers::sample_deployment_transaction(2, true, rng);
+        let transaction_3 = ledger_test_helpers::sample_deployment_transaction(2, false, rng);
+        let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3];
 
         for transaction in transactions {
             let transaction_id = transaction.id();
@@ -952,9 +954,11 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Sample the transactions.
-        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(true, rng);
-        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(false, rng);
-        let transactions = vec![transaction_0, transaction_1];
+        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(1, true, rng);
+        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, false, rng);
+        let transaction_2 = ledger_test_helpers::sample_deployment_transaction(2, true, rng);
+        let transaction_3 = ledger_test_helpers::sample_deployment_transaction(2, false, rng);
+        let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3];
 
         for transaction in transactions {
             let transaction_id = transaction.id();

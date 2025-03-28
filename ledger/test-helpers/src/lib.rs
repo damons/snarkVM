@@ -128,14 +128,48 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
 
 /******************************************* Deployment *******************************************/
 
-pub fn sample_deployment(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+pub fn sample_deployment_v1(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
     static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
     INSTANCE
         .get_or_init(|| {
             // Initialize a new program.
             let (string, program) = Program::<CurrentNetwork>::parse(
                 r"
-program testing.aleo;
+program testing_one.aleo;
+
+mapping store:
+    key as u32.public;
+    value as u32.public;
+
+function compute:
+    input r0 as u32.private;
+    add r0 r0 into r1;
+    output r1 as u32.public;",
+            )
+            .unwrap();
+            assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+
+            // Construct the process.
+            let process = Process::load().unwrap();
+            // Compute the deployment.
+            let mut deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+            // Unset the checksum.
+            deployment.set_program_checksum_raw(None);
+            // Return the deployment.
+            // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
+            Deployment::from_str(&deployment.to_string()).unwrap()
+        })
+        .clone()
+}
+
+pub fn sample_deployment_v2(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+    static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
+    INSTANCE
+        .get_or_init(|| {
+            // Initialize a new program.
+            let (string, program) = Program::<CurrentNetwork>::parse(
+                r"
+program testing_two.aleo;
 
 mapping store:
     key as u32.public;
@@ -153,6 +187,8 @@ function compute:
             let process = Process::load().unwrap();
             // Compute the deployment.
             let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+            // Verify that the checksum is set.
+            assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -161,9 +197,9 @@ function compute:
 }
 
 /// Samples a rejected deployment.
-pub fn sample_rejected_deployment(is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
+pub fn sample_rejected_deployment(version: u8, is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
     // Sample a deploy transaction.
-    let deployment = match crate::sample_deployment_transaction(is_fee_private, rng) {
+    let deployment = match crate::sample_deployment_transaction(version, is_fee_private, rng) {
         Transaction::Deploy(_, _, _, deployment, _) => (*deployment).clone(),
         _ => unreachable!(),
     };
@@ -351,11 +387,19 @@ function large_transaction:
 /****************************************** Transaction *******************************************/
 
 /// Samples a random deployment transaction with a private or public fee.
-pub fn sample_deployment_transaction(is_fee_private: bool, rng: &mut TestRng) -> Transaction<CurrentNetwork> {
+pub fn sample_deployment_transaction(
+    version: u8,
+    is_fee_private: bool,
+    rng: &mut TestRng,
+) -> Transaction<CurrentNetwork> {
     // Sample a private key.
     let private_key = PrivateKey::new(rng).unwrap();
     // Sample a deployment.
-    let deployment = crate::sample_deployment(rng);
+    let deployment = match version {
+        1 => crate::sample_deployment_v1(rng),
+        2 => crate::sample_deployment_v2(rng),
+        _ => panic!("Invalid deployment version: {version}"),
+    };
 
     // Compute the deployment ID.
     let deployment_id = deployment.to_deployment_id().unwrap();

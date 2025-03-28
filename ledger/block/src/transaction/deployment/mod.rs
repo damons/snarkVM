@@ -221,6 +221,40 @@ pub mod test_helpers {
     type CurrentNetwork = MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
 
+    pub(crate) fn sample_deployment_v1(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+        static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
+        INSTANCE
+            .get_or_init(|| {
+                // Initialize a new program.
+                let (string, program) = Program::<CurrentNetwork>::parse(
+                    r"
+program testing_three.aleo;
+
+mapping store:
+    key as u32.public;
+    value as u32.public;
+
+function compute:
+    input r0 as u32.private;
+    add r0 r0 into r1;
+    output r1 as u32.public;",
+                )
+                .unwrap();
+                assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+
+                // Construct the process.
+                let process = Process::load().unwrap();
+                // Compute the deployment.
+                let mut deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+                // Unset the checksum.
+                deployment.set_program_checksum_raw(None);
+                // Return the deployment.
+                // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
+                Deployment::from_str(&deployment.to_string()).unwrap()
+            })
+            .clone()
+    }
+
     pub(crate) fn sample_deployment_v2(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
         INSTANCE
@@ -228,7 +262,7 @@ pub mod test_helpers {
                 // Initialize a new program.
                 let (string, program) = Program::<CurrentNetwork>::parse(
                     r"
-program testing.aleo;
+program testing_four.aleo;
 
 mapping store:
     key as u32.public;
@@ -253,14 +287,5 @@ function compute:
                 Deployment::from_str(&deployment.to_string()).unwrap()
             })
             .clone()
-    }
-
-    pub(crate) fn sample_deployment_v1(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
-        // Get the deployment.
-        let mut deployment = sample_deployment_v2(rng);
-        // Remove the checksum.
-        deployment.set_program_checksum_raw(None);
-        // Return the deployment.
-        deployment
     }
 }

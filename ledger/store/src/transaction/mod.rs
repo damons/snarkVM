@@ -539,8 +539,10 @@ mod tests {
 
         // Sample the transactions.
         for transaction in [
-            ledger_test_helpers::sample_deployment_transaction(true, rng),
-            ledger_test_helpers::sample_deployment_transaction(false, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, false, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, false, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
             ledger_test_helpers::sample_fee_private_transaction(rng),
@@ -579,8 +581,10 @@ mod tests {
 
         // Sample the transactions.
         for transaction in [
-            ledger_test_helpers::sample_deployment_transaction(true, rng),
-            ledger_test_helpers::sample_deployment_transaction(false, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, false, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, false, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
             ledger_test_helpers::sample_fee_private_transaction(rng),

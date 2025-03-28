@@ -438,11 +438,19 @@ pub mod test_helpers {
     type CurrentNetwork = MainnetV0;
 
     /// Samples a random deployment transaction with a private or public fee.
-    pub fn sample_deployment_transaction(is_fee_private: bool, rng: &mut TestRng) -> Transaction<CurrentNetwork> {
+    pub fn sample_deployment_transaction(
+        version: u8,
+        is_fee_private: bool,
+        rng: &mut TestRng,
+    ) -> Transaction<CurrentNetwork> {
         // Sample a private key.
         let private_key = PrivateKey::new(rng).unwrap();
         // Sample a deployment.
-        let deployment = crate::transaction::deployment::test_helpers::sample_deployment_v2(rng);
+        let deployment = match version {
+            1 => crate::transaction::deployment::test_helpers::sample_deployment_v1(rng),
+            2 => crate::transaction::deployment::test_helpers::sample_deployment_v2(rng),
+            _ => panic!("Invalid deployment version."),
+        };
 
         // Compute the deployment ID.
         let deployment_id = deployment.to_deployment_id().unwrap();
@@ -506,8 +514,10 @@ mod tests {
 
         // Transaction IDs are created using `transaction_tree`.
         for expected in [
-            crate::transaction::test_helpers::sample_deployment_transaction(true, rng),
-            crate::transaction::test_helpers::sample_deployment_transaction(false, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(1, true, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(1, false, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(2, true, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(2, false, rng),
             crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng),
             crate::transaction::test_helpers::sample_execution_transaction_with_fee(false, rng),
         ]
