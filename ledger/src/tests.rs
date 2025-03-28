@@ -3044,7 +3044,7 @@ mod valid_solutions {
     }
 
     // This test checks that a program can only be updated after a certain block height.
-    // While this test does not need a low proof target, it needs the `test` feature enabled to test the consensus height.
+    // While this test does not need a low proof target, it needs the `test` feature enabled to use a sufficiently low consensus height.
     #[test]
     fn test_update_after_block_height() -> Result<()> {
         let rng = &mut TestRng::default();

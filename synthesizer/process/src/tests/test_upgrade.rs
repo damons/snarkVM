@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// The purpose of these tests are to ensure that an update made to a program is syntactically correct.
-/// These rules are defined in `check_update_is_valid`.
-/// These tests *DO NOT*: check the semantic correctness of the updates.
+/// The purpose of these tests are to ensure that an upgrade made to a program is syntactically correct.
+/// These rules are defined in `check_upgrade_is_valid`.
+/// These tests *DO NOT*: check the semantic correctness of the upgrades.
 use crate::Process;
 use console::network::{MainnetV0, prelude::*};
 use synthesizer_program::{Program, StackProgram};
@@ -61,7 +61,7 @@ function foo:
 }
 
 #[test]
-fn test_update_without_constructor() -> Result<()> {
+fn test_upgrade_without_constructor() -> Result<()> {
     // Sample the default process.
     let mut process = Process::<CurrentNetwork>::load()?;
     // Add a program without a constructor to the process.
@@ -72,23 +72,23 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Attempt to update the program.
+    // Attempt to upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
 
 #[test]
-fn test_update_with_constructor() -> Result<()> {
+fn test_upgrade_with_constructor() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
@@ -97,7 +97,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     process.add_program(&new_program)?;
     Ok(())
 }
@@ -106,7 +106,7 @@ function foo:
 fn test_add_import() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 import credits.aleo;
@@ -117,7 +117,7 @@ function foo:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("test.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -128,7 +128,7 @@ function foo:
 fn test_add_struct() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
@@ -140,7 +140,7 @@ function foo:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("test.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -151,7 +151,7 @@ function foo:
 fn test_add_record() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
@@ -164,7 +164,7 @@ function foo:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("test.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -175,7 +175,7 @@ function foo:
 fn test_add_mapping() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
@@ -188,7 +188,7 @@ function foo:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("test.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -199,7 +199,7 @@ function foo:
 fn test_add_closure() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
@@ -214,7 +214,7 @@ function foo:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("test.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -225,7 +225,7 @@ function foo:
 fn test_add_function() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program test.aleo;
@@ -240,7 +240,7 @@ function foo:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("test.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -265,7 +265,7 @@ function adder:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -279,7 +279,7 @@ function adder:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("basic.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -304,7 +304,7 @@ function adder:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -317,7 +317,7 @@ function adder:
     output r2 as u16.private;
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -344,7 +344,7 @@ finalize assert_on_chain:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -362,7 +362,7 @@ finalize assert_on_chain:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("basic.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -391,7 +391,7 @@ finalize assert_on_chain:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -408,7 +408,7 @@ finalize assert_on_chain:
     assert.eq r0 r1;
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -429,7 +429,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -440,7 +440,7 @@ struct bar:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -462,7 +462,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -474,7 +474,7 @@ record bar:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -496,7 +496,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -508,7 +508,7 @@ mapping onchain:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -532,7 +532,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -546,7 +546,7 @@ closure sum:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -570,7 +570,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -584,7 +584,7 @@ closure sum:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -604,7 +604,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -613,7 +613,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -634,7 +634,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -643,7 +643,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -665,7 +665,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -674,7 +674,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -696,7 +696,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -705,7 +705,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -729,7 +729,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -738,7 +738,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -762,7 +762,7 @@ function foo:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -771,7 +771,7 @@ constructor:
 function foo:
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -808,7 +808,7 @@ function adder:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 import non_async.aleo;
@@ -823,7 +823,7 @@ function adder:
     ",
     )?;
     process.add_program(&new_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("basic.aleo")?;
     let program = stack.program();
     assert_eq!(program, &new_program);
@@ -868,7 +868,7 @@ function adder:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 import async_example.aleo;
@@ -886,7 +886,7 @@ finalize adder:
     input r0 as async_example.aleo/foo.future;
     await r0;",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }
@@ -941,12 +941,12 @@ function foo:
     output r2 as u8.private;",
     )?;
     process.add_program(&dependent_program)?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     let stack = process.get_stack("dependent.aleo")?;
     let program = stack.program();
     assert_eq!(program, &dependent_program);
 
-    // Update basic.aleo to import dependent.aleo.
+    // Upgrade basic.aleo to import dependent.aleo.
     // This is allowed since we do not do cycle detection across programs.
     let new_program = Program::from_str(
         r"
@@ -961,13 +961,13 @@ function adder:
     output r2 as u8.private;
     ",
     )?;
-    // Verify that the update was successful.
+    // Verify that the upgrade was successful.
     process.add_program(&new_program)?;
     Ok(())
 }
 
 #[test]
-fn test_constructor_update() -> Result<()> {
+fn test_constructor_upgrade() -> Result<()> {
     // Sample the default process.
     let mut process = sample_process()?;
     // Add the initial program to the process.
@@ -980,7 +980,7 @@ constructor:
     ",
     )?;
     process.add_program(&initial_program)?;
-    // Update the program.
+    // Upgrade the program.
     let new_program = Program::from_str(
         r"
 program basic.aleo;
@@ -989,7 +989,7 @@ constructor:
     assert.eq 2u8 2u8;
     ",
     )?;
-    // Verify that the update was not successful.
+    // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
     Ok(())
 }

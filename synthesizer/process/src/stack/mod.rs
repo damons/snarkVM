@@ -214,7 +214,7 @@ impl<N: Network> Stack<N> {
         let program_id = program.id();
         // Ensure the program contains functions.
         ensure!(!program.functions().is_empty(), "No functions present in the deployment for program '{program_id}'");
-        // If the program exists in the process, check that the update is valid.
+        // If the program exists in the process, check that the upgrade is valid.
         if process.contains_program(program_id) {
             Self::check_upgrade_is_valid(process, program)?;
         }

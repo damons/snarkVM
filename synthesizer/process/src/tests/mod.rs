@@ -15,4 +15,4 @@
 
 pub mod test_credits;
 pub mod test_execute;
-pub mod test_update;
+pub mod test_upgrade;

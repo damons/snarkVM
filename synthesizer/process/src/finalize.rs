@@ -360,12 +360,10 @@ fn finalize_transition<N: Network, P: FinalizeStorage<N>>(
                 registers.function_name()
             )
         };
-        println!("Finalize: {:?}", finalize);
         // Evaluate the commands.
         while counter < finalize.commands().len() {
             // Retrieve the command.
             let command = &finalize.commands()[counter];
-            println!("Command: {:?}", command);
             // Finalize the command.
             match &command {
                 Command::BranchEq(branch_eq) => {

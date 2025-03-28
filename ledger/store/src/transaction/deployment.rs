@@ -211,8 +211,6 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         atomic_batch_scope!(self, {
             // Store the program ID.
             self.id_map().insert(*transaction_id, program_id)?;
-            // Store the edition for the transaction ID.
-            self.id_edition_map().insert(*transaction_id, edition)?;
             // Store the latest edition for the program ID.
             self.edition_map().insert(program_id, edition)?;
 
@@ -223,8 +221,11 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             // Store the program.
             self.program_map().insert((program_id, edition), program.clone())?;
             // Store the checksum, if it exists.
+            // Additionally, if the checksum exists, then also store the edition into the `IDEditionMap`.
+            // This is because the existence of a checksum implies that the ledger is at the V5 consensus height, which enables program updates.
             if let Some(checksum) = checksum {
                 self.checksum_map().insert((program_id, edition), *checksum)?;
+                self.id_edition_map().insert(*transaction_id, edition)?;
             }
 
             // Store the verifying keys and certificates.
