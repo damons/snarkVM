@@ -3081,7 +3081,7 @@ function foo:
 function bar:
 constructor:
     branch.eq edition 0u16 to end;
-    gte block.height 3u32 into r0;
+    gte block.height 15u32 into r0;
     assert.eq r0 true;
     position end;
     ",
@@ -3095,7 +3095,7 @@ constructor:
         assert_eq!(block.transactions().num_accepted(), 1);
         ledger.advance_to_next_block(&block)?;
 
-        // Attempt to deploy the second version of the program before block height 3.
+        // Attempt to deploy the second version of the program before block height 15.
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
@@ -3103,7 +3103,7 @@ constructor:
         assert_eq!(block.transactions().num_accepted(), 0);
         ledger.advance_to_next_block(&block)?;
 
-        // Attempt to deploy the second version of the program at block height 3.
+        // Attempt to deploy the second version of the program at block height 15.
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
