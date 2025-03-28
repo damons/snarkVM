@@ -36,11 +36,6 @@ pub struct ConstructorCore<N: Network, Command: CommandTrait<N>> {
 }
 
 impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
-    /// Initializes a new constructor.
-    pub fn new() -> Self {
-        Self { commands: Vec::new(), num_writes: 0, positions: HashMap::new() }
-    }
-
     /// Returns the constructor commands.
     pub fn commands(&self) -> &[Command] {
         &self.commands
@@ -54,13 +49,6 @@ impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
     /// Returns the mapping of `Position`s to their index in `commands`.
     pub const fn positions(&self) -> &HashMap<Identifier<N>, usize> {
         &self.positions
-    }
-}
-
-impl<N: Network, Command: CommandTrait<N>> Default for ConstructorCore<N, Command> {
-    /// Initializes a new default constructor.
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -136,7 +124,11 @@ mod tests {
     #[test]
     fn test_add_command() {
         // Initialize a new constructor instance.
-        let mut constructor = Constructor::<CurrentNetwork>::new();
+        let mut constructor = Constructor::<CurrentNetwork> {
+            commands: Default::default(),
+            num_writes: 0,
+            positions: Default::default(),
+        };
 
         // Ensure that a command can be added.
         let command = Command::<CurrentNetwork>::from_str("add r0 r1 into r2;").unwrap();
@@ -155,7 +147,11 @@ mod tests {
         // Ensure that adding more than the maximum number of writes will fail.
 
         // Initialize a new constructor instance.
-        let mut constructor = Constructor::<CurrentNetwork>::new();
+        let mut constructor = Constructor::<CurrentNetwork> {
+            commands: Default::default(),
+            num_writes: 0,
+            positions: Default::default(),
+        };
 
         for _ in 0..CurrentNetwork::MAX_WRITES * 2 {
             let command = Command::<CurrentNetwork>::from_str("remove object[r0];").unwrap();
@@ -170,7 +166,8 @@ mod tests {
     #[test]
     fn test_add_command_duplicate_positions() {
         // Initialize a new constructor instance.
-        let mut constructor = Constructor::<CurrentNetwork>::new();
+        let mut constructor =
+            Constructor { commands: Default::default(), num_writes: 0, positions: Default::default() };
 
         // Ensure that a command can be added.
         let command = Command::<CurrentNetwork>::from_str("position start;").unwrap();
