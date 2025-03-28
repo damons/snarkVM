@@ -469,6 +469,7 @@ pub(crate) mod test_helpers {
         VM::from(ConsensusStore::open(None).unwrap()).unwrap()
     }
 
+    #[cfg(feature = "test")]
     pub(crate) fn sample_vm_at_height(
         height: u32,
         rng: &mut TestRng,
@@ -2987,6 +2988,7 @@ function add_thrice:
         vm.add_next_block(&genesis).unwrap();
 
         // Fund two accounts to pay for the deployment.
+        // This has to be done because only one deployment can be made per fee-paying address per block.
         let private_key_1 = PrivateKey::new(rng).unwrap();
         let private_key_2 = PrivateKey::new(rng).unwrap();
         let address_1 = Address::try_from(&private_key_1).unwrap();
@@ -3087,26 +3089,6 @@ function adder:
         let vm = crate::vm::test_helpers::sample_vm();
         vm.add_next_block(&genesis).unwrap();
 
-        // Fund an account to pay for the deployment.
-        let private_key = PrivateKey::new(rng).unwrap();
-        let address = Address::try_from(&private_key).unwrap();
-
-        let tx = vm
-            .execute(
-                &caller_private_key,
-                ("credits.aleo", "transfer_public"),
-                [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("100000000u64").unwrap()].iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-
-        let block = sample_next_block(&vm, &caller_private_key, &[tx], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 1);
-        vm.add_next_block(&block).unwrap();
-
         // Deploy and execute a program in the same block.
         let program = Program::from_str(
             r"
@@ -3124,9 +3106,8 @@ function adder:
         // Initialize an "off-chain" VM to generate the deployment and execution.
         let off_chain_vm = sample_vm();
         off_chain_vm.add_next_block(&genesis).unwrap();
-        off_chain_vm.add_next_block(&block).unwrap();
         // Deploy the program.
-        let deployment = off_chain_vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+        let deployment = off_chain_vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
         // Check that the account has enough to pay for the deployment.
         assert_eq!(*deployment.fee_amount().unwrap(), 2483025);
         // Add the program to the off-chain VM.
@@ -3134,7 +3115,7 @@ function adder:
         // Execute the program.
         let transaction = off_chain_vm
             .execute(
-                &private_key,
+                &caller_private_key,
                 ("adder_program.aleo", "adder"),
                 [Value::from_str("1u64").unwrap(), Value::from_str("2u64").unwrap()].iter(),
                 None,
@@ -3156,5 +3137,159 @@ function adder:
 
         // Check that the program was deployed.
         assert!(vm.process().read().contains_program(&ProgramID::from_str("adder_program.aleo").unwrap()));
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_vm_upgrade_and_execute_in_same_block() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the VM at the V5 height.
+        let v5_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap();
+        let vm = crate::vm::test_helpers::sample_vm_at_height(v5_height, rng);
+
+        // Deploy the upgradable program.
+        let program_v0 = Program::from_str(
+            r"
+program test_one.aleo;
+
+constructor:
+    assert.eq true true;
+
+mapping first:
+    key as field.public;
+    value as field.public;
+
+function set_first:
+    input r0 as field.public;
+    input r1 as field.public;
+    async set_first r0 r1 into r2;
+    output r2 as test_one.aleo/set_first.future;
+finalize set_first:
+    input r0 as field.public;
+    input r1 as field.public;
+    set r0 into first[r1];",
+        )
+        .unwrap();
+
+        let deployment_v0 = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment_v0], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Execute the program.
+        let transaction = vm
+            .execute(
+                &caller_private_key,
+                ("test_one.aleo", "set_first"),
+                [Value::from_str("0field").unwrap(), Value::from_str("0field").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Verify that the entry exists in the mapping.
+        let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(field), _))) = vm
+            .finalize_store()
+            .get_value_confirmed(
+                ProgramID::from_str("test_one.aleo").unwrap(),
+                Identifier::from_str("first").unwrap(),
+                &Plaintext::from_str("0field").unwrap(),
+            )
+            .unwrap()
+        else {
+            panic!("Expected a valid field.");
+        };
+        assert_eq!(field, Field::from_str("0field").unwrap());
+
+        // Upgrade the program.
+        let program_v1 = Program::from_str(
+            r"
+program test_one.aleo;
+
+constructor:
+    assert.eq true true;
+
+mapping first:
+    key as field.public;
+    value as field.public;
+
+mapping second:
+    key as field.public;
+    value as field.public;
+
+function set_first:
+    input r0 as field.public;
+    input r1 as field.public;
+    async set_first r0 r1 into r2;
+    output r2 as test_one.aleo/set_first.future;
+finalize set_first:
+    input r0 as field.public;
+    input r1 as field.public;
+    set r0 into first[r1];
+    set r0 into second[r1];",
+        )
+        .unwrap();
+
+        // Deploy the upgraded program.
+        let deployment_v1 = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng).unwrap();
+        // Execute the program, note that this is the original program as the deployment has not been added to the VM.
+        let transaction = vm
+            .execute(
+                &caller_private_key,
+                ("test_one.aleo", "set_first"),
+                [Value::from_str("1field").unwrap(), Value::from_str("1field").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        // Add the upgrade and execution to the VM.
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment_v1, transaction], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 2);
+        vm.add_next_block(&block).unwrap();
+
+        // Check that the program was upgraded.
+        let program =
+            vm.process().read().get_stack(&ProgramID::from_str("test_one.aleo").unwrap()).unwrap().program().clone();
+        assert_eq!(&program_v1, &program);
+
+        // Verify that the entry exists in both mappings.
+        let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(field), _))) = vm
+            .finalize_store()
+            .get_value_confirmed(
+                ProgramID::from_str("test_one.aleo").unwrap(),
+                Identifier::from_str("first").unwrap(),
+                &Plaintext::from_str("1field").unwrap(),
+            )
+            .unwrap()
+        else {
+            panic!("Expected a valid field.");
+        };
+        assert_eq!(field, Field::from_str("1field").unwrap());
+
+        // Fix what is wrong.
+        let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(field), _))) = vm
+            .finalize_store()
+            .get_value_confirmed(
+                ProgramID::from_str("test_one.aleo").unwrap(),
+                Identifier::from_str("second").unwrap(),
+                &Plaintext::from_str("1field").unwrap(),
+            )
+            .unwrap()
+        else {
+            panic!("Expected a valid field.");
+        };
+        assert_eq!(field, Field::from_str("1field").unwrap());
     }
 }

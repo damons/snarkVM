@@ -13,13 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod test_vm_update;
+#[cfg(feature = "test")]
+mod test_vm_upgrade;
 
+#[cfg(feature = "test")]
 use super::*;
-
-use crate::vm::test_helpers::*;
-
-use console::{account::ViewKey, program::Value};
-use synthesizer_program::{Program, StackProgram};
-
-use std::panic::AssertUnwindSafe;

@@ -181,7 +181,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //  - The program does not exist in the store or process.
                 // Otherwise, check that:
                 //  - The program exists in the store and process.
-                //  - The existing program is updatable, meaning that it has a constructor.
+                //  - The existing program is upgradable, meaning that it has a constructor.
                 //  - The new edition increments the old edition.
                 let store_contains_program = self.transaction_store().contains_program_id(deployment.program_id())?;
                 let process_contains_program = self.contains_program(deployment.program_id());
@@ -211,10 +211,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         let stack = self.process().read().get_stack(deployment.program_id())?;
                         let contains_constructor = stack.program().contains_constructor();
                         let old_edition = **stack.program_edition();
-                        // Check that the program is updatable, meaning that it has a constructor.
+                        // Check that the program is upgradable, meaning that it has a constructor.
                         ensure!(
                             contains_constructor,
-                            "Invalid deployment transaction '{id}' - program is not updatable because it does not contain a constructor"
+                            "Invalid deployment transaction '{id}' - program is not upgradable because it does not contain a constructor"
                         );
                         // Check that the new edition increments the old edition.
                         ensure!(

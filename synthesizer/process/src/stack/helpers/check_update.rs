@@ -16,11 +16,11 @@
 use super::*;
 
 impl<N: Network> Stack<N> {
-    /// Checks that the new program is a valid update.
-    /// At a high-level, an update must preserve the existing interfaces of the original program.
-    /// An update may add new components, except for constructors, and modify logic **only** in functions and finalize scopes.
+    /// Checks that the new program is a valid upgrade.
+    /// At a high-level, an upgrade must preserve the existing interfaces of the original program.
+    /// An upgrade may add new components, except for constructors, and modify logic **only** in functions and finalize scopes.
     ///
-    /// An detailed overview of what an update can and cannot do is given below:
+    /// An detailed overview of what an upgrade can and cannot do is given below:
     ///  | Program Component | Delete |    Modify    |  Add  |
     ///  |-------------------|--------|--------------|-------|
     ///  | import            |   ❌   |      ❌      |  ✅   |
@@ -34,36 +34,36 @@ impl<N: Network> Stack<N> {
     ///  |-------------------|--------|--------------|-------|
     ///
     #[inline]
-    pub(crate) fn check_update_is_valid(process: &Process<N>, new_program: &Program<N>) -> Result<()> {
+    pub(crate) fn check_upgrade_is_valid(process: &Process<N>, new_program: &Program<N>) -> Result<()> {
         // Get the new program ID.
         let program_id = new_program.id();
         // Get the old program.
         let stack = process.get_stack(program_id)?;
         let old_program = stack.program();
-        // Check that the old program is updatable, meaning that it has a constructor.
+        // Check that the old program is upgradable, meaning that it has a constructor.
         ensure!(
             old_program.constructor().is_some(),
-            "Cannot update '{program_id}' because it does not have a constructor"
+            "Cannot upgrade '{program_id}' because it does not have a constructor"
         );
         // Ensure the program ID matches.
-        ensure!(old_program.id() == new_program.id(), "Cannot update '{program_id}' with different program ID");
+        ensure!(old_program.id() == new_program.id(), "Cannot upgrade '{program_id}' with different program ID");
         // Ensure that all of the imports in the old program exist in the new program.
         for old_import in old_program.imports().keys() {
             if !new_program.contains_import(old_import) {
-                bail!("Cannot update '{program_id}' because it is missing the original import '{old_import}'");
+                bail!("Cannot upgrade '{program_id}' because it is missing the original import '{old_import}'");
             }
         }
         // Ensure that the constructors in both programs are exactly the same.
         ensure!(
             old_program.constructor() == new_program.constructor(),
-            "Cannot update '{program_id}' because the constructor does not match"
+            "Cannot upgrade '{program_id}' because the constructor does not match"
         );
         // Ensure that all of the mappings in the old program exist in the new program.
         for (old_mapping_id, old_mapping_type) in old_program.mappings() {
             let new_mapping_type = new_program.get_mapping(old_mapping_id)?;
             ensure!(
                 *old_mapping_type == new_mapping_type,
-                "Cannot update '{program_id}' because the mapping '{old_mapping_id}' does not match"
+                "Cannot upgrade '{program_id}' because the mapping '{old_mapping_id}' does not match"
             );
         }
         // Ensure that all of the structs in the old program exist in the new program.
@@ -71,7 +71,7 @@ impl<N: Network> Stack<N> {
             let new_struct_type = new_program.get_struct(old_struct_id)?;
             ensure!(
                 old_struct_type == new_struct_type,
-                "Cannot update '{program_id}' because the struct '{old_struct_id}' does not match"
+                "Cannot upgrade '{program_id}' because the struct '{old_struct_id}' does not match"
             );
         }
         // Ensure that all of the records in the old program exist in the new program.
@@ -79,7 +79,7 @@ impl<N: Network> Stack<N> {
             let new_record_type = new_program.get_record(old_record_id)?;
             ensure!(
                 old_record_type == new_record_type,
-                "Cannot update '{program_id}' because the record '{old_record_id}' does not match"
+                "Cannot upgrade '{program_id}' because the record '{old_record_id}' does not match"
             );
         }
         // Ensure that the old program closures exist in the new program, with the exact same definition
@@ -88,7 +88,7 @@ impl<N: Network> Stack<N> {
             let new_closure = new_program.get_closure(old_closure_name)?;
             ensure!(
                 old_closure == &new_closure,
-                "Cannot update '{program_id}' because the closure '{old_closure_name}' does not match"
+                "Cannot upgrade '{program_id}' because the closure '{old_closure_name}' does not match"
             );
         }
         // Ensure that the old program functions exist in the new program, with the same input and output types.
@@ -98,24 +98,24 @@ impl<N: Network> Stack<N> {
             let new_function = new_program.get_function_ref(old_function_name)?;
             ensure!(
                 old_function.input_types() == new_function.input_types(),
-                "Cannot update '{program_id}' because the inputs to the function '{old_function_name}' do not match"
+                "Cannot upgrade '{program_id}' because the inputs to the function '{old_function_name}' do not match"
             );
             ensure!(
                 old_function.output_types() == new_function.output_types(),
-                "Cannot update '{program_id}' because the outputs of the function '{old_function_name}' do not match"
+                "Cannot upgrade '{program_id}' because the outputs of the function '{old_function_name}' do not match"
             );
             match (old_function.finalize_logic(), new_function.finalize_logic()) {
                 (None, None) => {} // Do nothing
                 (None, Some(_)) => bail!(
-                    "Cannot update '{program_id}' because the function '{old_function_name}' should not have a finalize block"
+                    "Cannot upgrade '{program_id}' because the function '{old_function_name}' should not have a finalize block"
                 ),
                 (Some(_), None) => bail!(
-                    "Cannot update '{program_id}' because the function '{old_function_name}' should have a finalize block"
+                    "Cannot upgrade '{program_id}' because the function '{old_function_name}' should have a finalize block"
                 ),
                 (Some(old_finalize), Some(new_finalize)) => {
                     ensure!(
                         old_finalize.input_types() == new_finalize.input_types(),
-                        "Cannot update '{program_id}' because the finalize inputs to the function '{old_function_name}' do not match"
+                        "Cannot upgrade '{program_id}' because the finalize inputs to the function '{old_function_name}' do not match"
                     );
                 }
             }

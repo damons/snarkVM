@@ -216,7 +216,7 @@ impl<N: Network> Stack<N> {
         ensure!(!program.functions().is_empty(), "No functions present in the deployment for program '{program_id}'");
         // If the program exists in the process, check that the update is valid.
         if process.contains_program(program_id) {
-            Self::check_update_is_valid(process, program)?;
+            Self::check_upgrade_is_valid(process, program)?;
         }
 
         // Serialize the program into bytes.

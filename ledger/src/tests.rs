@@ -3042,6 +3042,77 @@ mod valid_solutions {
         let block_aborted_solution_id = block.aborted_solution_ids().first().unwrap();
         assert_eq!(*block_aborted_solution_id, invalid_solution.id(), "Aborted solutions do not match");
     }
+
+    // This test checks that a program can only be updated after a certain block height.
+    // While this test does not need a low proof target, it needs the `test` feature enabled to test the consensus height.
+    #[test]
+    fn test_update_after_block_height() -> Result<()> {
+        let rng = &mut TestRng::default();
+
+        // Sample the test environment.
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
+        let caller_private_key = private_key;
+
+        // Advance the ledger past the V5 block height.
+        let v5_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?;
+        for _ in ledger.latest_height()..v5_height {
+            let block =
+                ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![], rng)?;
+            ledger.advance_to_next_block(&block)?;
+        }
+
+        // Define the programs.
+        let program_v0 = Program::from_str(
+            r"
+program upgradable.aleo;
+function foo:
+constructor:
+    branch.eq edition 0u16 to end;
+    gte block.height 3u32 into r0;
+    assert.eq r0 true;
+    position end;
+    ",
+        )?;
+
+        let program_v1 = Program::from_str(
+            r"
+program upgradable.aleo;
+function foo:
+function bar:
+constructor:
+    branch.eq edition 0u16 to end;
+    gte block.height 3u32 into r0;
+    assert.eq r0 true;
+    position end;
+    ",
+        )?;
+
+        // Deploy the first version of the program.
+        let transaction = ledger.vm().deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+        let block =
+            ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
+        assert_eq!(block.height(), 14);
+        assert_eq!(block.transactions().num_accepted(), 1);
+        ledger.advance_to_next_block(&block)?;
+
+        // Attempt to deploy the second version of the program before block height 3.
+        let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+        let block =
+            ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
+        assert_eq!(block.height(), 15);
+        assert_eq!(block.transactions().num_accepted(), 0);
+        ledger.advance_to_next_block(&block)?;
+
+        // Attempt to deploy the second version of the program at block height 3.
+        let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+        let block =
+            ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
+        assert_eq!(block.height(), 16);
+        assert_eq!(block.transactions().num_accepted(), 1);
+        ledger.advance_to_next_block(&block)?;
+
+        Ok(())
+    }
 }
 
 #[test]
@@ -3403,66 +3474,4 @@ function create_and_consume:
     assert_eq!(num_unspent_records, initial_unspent_records + 1);
     assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 1);
     assert_eq!(num_records, initial_records + 4);
-}
-
-// This test checks that a program can only be updated after a certain block height.
-#[test]
-fn test_update_after_block_height() -> Result<()> {
-    let rng = &mut TestRng::default();
-
-    // Sample the test environment.
-    let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
-    let caller_private_key = private_key;
-
-    // Define the programs.
-    let program_v0 = Program::from_str(
-        r"
-program updatable.aleo;
-function foo:
-constructor:
-    branch.eq edition 0u16 to end;
-    gte block.height 3u32 into r0;
-    assert.eq r0 true;
-    position end;
-    ",
-    )?;
-
-    let program_v1 = Program::from_str(
-        r"
-program updatable.aleo;
-function foo:
-function bar:
-constructor:
-    branch.eq edition 0u16 to end;
-    gte block.height 3u32 into r0;
-    assert.eq r0 true;
-    position end;
-    ",
-    )?;
-
-    // Deploy the first version of the program.
-    let transaction = ledger.vm().deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    let block =
-        ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-    assert_eq!(block.height(), 1);
-    assert_eq!(block.transactions().num_accepted(), 1);
-    ledger.advance_to_next_block(&block)?;
-
-    // Attempt to deploy the second version of the program before block height 3.
-    let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    let block =
-        ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-    assert_eq!(block.height(), 2);
-    assert_eq!(block.transactions().num_accepted(), 0);
-    ledger.advance_to_next_block(&block)?;
-
-    // Attempt to deploy the second version of the program at block height 3.
-    let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    let block =
-        ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-    assert_eq!(block.height(), 3);
-    assert_eq!(block.transactions().num_accepted(), 1);
-    ledger.advance_to_next_block(&block)?;
-
-    Ok(())
 }

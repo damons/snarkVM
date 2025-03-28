@@ -15,18 +15,63 @@
 
 use super::*;
 
-// This test checks that:
-//  - the logic of a simple transition without records can be updated.
-//  - once a program is updated, the old executions are no longer valid.
+use crate::vm::test_helpers::*;
+
+use console::{account::ViewKey, program::Value};
+use synthesizer_program::{Program, StackProgram};
+
+use std::panic::AssertUnwindSafe;
+
+// This test checks that a program with a constructor cannot be deployed before the V5 consensus height.
 #[test]
-fn test_simple_update() -> Result<()> {
+fn test_constructor_requires_v5() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)? - 1, rng);
+
+    // Initialize the program.
+    let program = Program::from_str(
+        r"
+program constructor_test.aleo;
+
+constructor:
+    assert.eq true true;
+
+function dummy:
+    ",
+    )?;
+
+    // Attempt to deploy the program.
+    assert!(vm.deploy(&caller_private_key, &program, None, 0, None, rng).is_err());
+
+    // Advance the VM to the V5 consensus height.
+    let block = sample_next_block(&vm, &caller_private_key, &[], rng)?;
+    vm.add_next_block(&block)?;
+
+    // Verify that the program can now be deployed.
+    let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+
+    Ok(())
+}
+
+// This test checks that:
+//  - the logic of a simple transition without records can be upgraded.
+//  - once a program is upgraded, the old executions are no longer valid.
+#[test]
+fn test_simple_upgrade() -> Result<()> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -46,7 +91,6 @@ constructor:
 
     // Deploy the program.
     let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 100_001_569_625);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -67,7 +111,6 @@ constructor:
         rng,
     )?;
     assert!(vm.check_transaction(&original_execution, None, rng).is_ok());
-    assert_eq!(*original_execution.fee_amount()?, 1_259);
 
     // Check that the output is correct.
     let output = match original_execution.transitions().next().unwrap().outputs().last().unwrap() {
@@ -77,7 +120,7 @@ constructor:
     assert_eq!(output, 2u8);
 
     // Update the program.
-    let updated_program = Program::from_str(
+    let upgraded_program = Program::from_str(
         r"
 program adder.aleo;
 
@@ -92,15 +135,14 @@ constructor:
     ",
     )?;
 
-    // Deploy the updated program.
-    let transaction = vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 100_001_569_675);
+    // Deploy the upgraded program.
+    let transaction = vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng)?;
     assert_eq!(transaction.deployment().unwrap().edition(), 1);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
-    // Check that the program is updated.
+    // Check that the program is upgraded.
     let stack = vm.process().read().get_stack("adder.aleo")?;
     assert_eq!(stack.program_id(), &ProgramID::from_str("adder.aleo")?);
     assert_eq!(**stack.program_edition(), 1);
@@ -109,7 +151,7 @@ constructor:
     vm.partially_verified_transactions().write().clear();
     assert!(vm.check_transaction(&original_execution, None, rng).is_err());
 
-    // Execute the updated program.
+    // Execute the upgraded program.
     let new_execution = vm.execute(
         &caller_private_key,
         ("adder.aleo", "binary_add"),
@@ -119,7 +161,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*new_execution.fee_amount()?, 1_259);
     assert!(vm.check_transaction(&new_execution, None, rng).is_ok());
 
     // Check that the output is correct.
@@ -133,14 +174,14 @@ constructor:
 }
 
 #[test]
-fn test_program_without_constructor_is_not_updatable() -> Result<()> {
+fn test_program_without_constructor_is_not_upgradable() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -150,8 +191,8 @@ function foo:
     ",
     )?;
 
-    // Initialize the updated program.
-    let updated_program = Program::from_str(
+    // Initialize the upgraded program.
+    let upgraded_program = Program::from_str(
         r"
 program basic.aleo;
 function foo:
@@ -161,20 +202,18 @@ function bar:
 
     // Deploy the program.
     let transaction_0 = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
-    assert_eq!(*transaction_0.fee_amount()?, 100_001_357_500);
-    let transaction_1 = vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng)?;
-    assert_eq!(*transaction_1.fee_amount()?, 100_002_663_000);
+    let transaction_1 = vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_0], rng)?;
     vm.add_next_block(&block)?;
 
-    // Attempt to deploy the updated program.
-    assert!(vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng).is_err());
+    // Attempt to deploy the upgraded program.
+    assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_1], rng)?;
     assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
-    // Initialize the updated program.
-    let updated_program = Program::from_str(
+    // Initialize the upgraded program.
+    let upgraded_program = Program::from_str(
         r"
 program basic.aleo;
 function foo:
@@ -184,11 +223,11 @@ constructor:
     ",
     )?;
 
-    // Attempt to deploy the updated program using `VM::deploy`.
-    assert!(vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng).is_err());
+    // Attempt to deploy the upgraded program using `VM::deploy`.
+    assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
 
-    // Initialize the updated program.
-    let updated_program = Program::from_str(
+    // Initialize the upgraded program.
+    let upgraded_program = Program::from_str(
         r"
 program basic.aleo;
 function foo:
@@ -198,15 +237,15 @@ constructor:
     ",
     )?;
 
-    // Attempt to deploy the updated program using `VM::deploy`.
-    assert!(vm.deploy(&caller_private_key, &updated_program, None, 0, None, rng).is_err());
+    // Attempt to deploy the upgraded program using `VM::deploy`.
+    assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
 
     Ok(())
 }
 
 // This test checks that:
 //  - the first instance of a program must be the zero-th edition.
-//  - subsequent updates to the program must be sequential.
+//  - subsequent upgrades to the program must be sequential.
 #[test]
 fn test_editions_are_sequential() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -215,8 +254,8 @@ fn test_editions_are_sequential() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize two VMs.
-    let off_chain_vm = sample_vm_at_height(13, rng);
-    let on_chain_vm = sample_vm_at_height(13, rng);
+    let off_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let on_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the three versions of the program.
     let program_v0 = Program::from_str(
@@ -259,19 +298,13 @@ constructor:
 
     // Using the off-chain VM, generate a sequence of deployments.
     let deployment_v0_pass = off_chain_vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    assert_eq!(*deployment_v0_pass.fee_amount()?, 100_001_421_500);
     off_chain_vm.process().write().add_program(&program_v0)?;
     let deployment_v1_fail = off_chain_vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*deployment_v1_fail.fee_amount()?, 100_002_727_000);
     let deployment_v1_pass = off_chain_vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*deployment_v1_pass.fee_amount()?, 100_002_727_000);
     let deployment_v2_as_v1_fail = off_chain_vm.deploy(&caller_private_key, &program_v2_as_v1, None, 0, None, rng)?;
-    assert_eq!(*deployment_v2_as_v1_fail.fee_amount()?, 100_004_032_500);
     off_chain_vm.process().write().add_program(&program_v1)?;
     let deployment_v2_fail = off_chain_vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
-    assert_eq!(*deployment_v2_fail.fee_amount()?, 100_004_032_500);
     let deployment_v2_pass = off_chain_vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
-    assert_eq!(*deployment_v2_pass.fee_amount()?, 100_004_032_500);
 
     // Deploy the programs to the on-chain VM individually in the following sequence:
     // - deployment_v1_fail
@@ -322,12 +355,12 @@ constructor:
 }
 
 // This test checks that:
-//  - records created before an update are still valid after an update.
-//  - records created after an update can be created and used in the updated program.
+//  - records created before an upgrade are still valid after an upgrade.
+//  - records created after an upgrade can be created and used in the upgraded program.
 //  - records are semantically distinct (old records cannot be used in functions that require new records).
 //  - functions can be disabled using `assert.neq self.caller self.caller`.
 #[test]
-fn test_update_with_records() -> Result<()> {
+fn test_upgrade_with_records() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
@@ -335,7 +368,7 @@ fn test_update_with_records() -> Result<()> {
     let caller_view_key = ViewKey::try_from(&caller_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -389,7 +422,6 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 3_178_975);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -404,7 +436,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*mint_execution_0.fee_amount()?, 1_329);
     let mint_execution_1 = vm.execute(
         &caller_private_key,
         ("record_test.aleo", "mint"),
@@ -414,7 +445,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*mint_execution_1.fee_amount()?, 1_329);
     let block = sample_next_block(&vm, &caller_private_key, &[mint_execution_0, mint_execution_1], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     let mut v1_records = block
@@ -426,7 +456,6 @@ constructor:
 
     // Update the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 8_205_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -456,7 +485,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*convert_execution.fee_amount()?, 1_847);
     let block = sample_next_block(&vm, &caller_private_key, &[convert_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     let mut v2_records = block
@@ -477,7 +505,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*burn_execution.fee_amount()?, 1698);
     let block = sample_next_block(&vm, &caller_private_key, &[burn_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -501,18 +528,18 @@ constructor:
 }
 
 // This test checks that:
-//  - mappings created before an update are still valid after an update.
-//  - mappings created by and updated are correctly initialized and usable in the program.
+//  - mappings created before an upgrade are still valid after an upgrade.
+//  - mappings created by and upgraded are correctly initialized and usable in the program.
 //  - functions can be disabled by inserting a failing condition in the on-chain logic.
 #[test]
-fn test_update_with_mappings() -> Result<()> {
+fn test_upgrade_with_mappings() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -587,7 +614,6 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 2_700_525);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -602,7 +628,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*store_data_v1_execution.fee_amount()?, 11_512);
     let block = sample_next_block(&vm, &caller_private_key, &[store_data_v1_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -620,7 +645,6 @@ constructor:
 
     // Update the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 5_876_450);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -635,7 +659,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*transaction.fee_amount()?, 1_812);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_rejected(), 1);
     vm.add_next_block(&block)?;
@@ -650,7 +673,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*migrate_data_v1_to_v2_execution.fee_amount()?, 22_993);
     let block = sample_next_block(&vm, &caller_private_key, &[migrate_data_v1_to_v2_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -687,7 +709,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*store_data_v2_execution.fee_amount()?, 11_512);
     let block = sample_next_block(&vm, &caller_private_key, &[store_data_v2_execution], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -707,19 +728,19 @@ constructor:
 }
 
 // This test checks that:
-//  - a dependent program accepts an update to off-chain logic
-//  - a dependent program accepts an update to on-chain logic
+//  - a dependent program accepts an upgrade to off-chain logic
+//  - a dependent program accepts an upgrade to on-chain logic
 //  - a dependent program can fix a specific version of the dependency
-//  - old executions of the dependent program are no longer valid after an update
+//  - old executions of the dependent program are no longer valid after an upgrade
 #[test]
-fn test_update_with_dependents() -> Result<()> {
+fn test_upgrade_with_dependents() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the two versions of the dependency program.
     let dependency_v0 = Program::from_str(
@@ -859,14 +880,12 @@ constructor:
 
     // Deploy the v0 dependency.
     let transaction = vm.deploy(&caller_private_key, &dependency_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 4_138_425);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the v0 dependent.
     let transaction = vm.deploy(&caller_private_key, &dependent_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 15_231_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -881,7 +900,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_1.fee_amount()?, 2_563);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum_and_check"),
@@ -891,7 +909,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_2.fee_amount()?, 3_192);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
@@ -910,7 +927,7 @@ constructor:
     }));
     assert!(result.is_err());
 
-    // Get a valid execution before the dependency update.
+    // Get a valid execution before the dependency upgrade.
     let sum_unchecked = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum_unchecked"),
@@ -920,17 +937,15 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*sum_unchecked.fee_amount()?, 2_019);
     assert!(vm.check_transaction(&sum_unchecked, None, rng).is_ok());
 
     // Update the dependency to v1.
     let transaction = vm.deploy(&caller_private_key, &dependency_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 4_138_525);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
-    // Verify that the original sum transaction fails after the dependency update.
+    // Verify that the original sum transaction fails after the dependency upgrade.
     vm.partially_verified_transactions().write().clear();
     assert!(vm.check_transaction(&sum_unchecked, None, rng).is_err());
     let block = sample_next_block(&vm, &caller_private_key, &[sum_unchecked], rng)?;
@@ -947,7 +962,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_1.fee_amount()?, 2_563);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum_and_check"),
@@ -957,14 +971,12 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_2.fee_amount()?, 3_192);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_rejected(), 2);
     vm.add_next_block(&block)?;
 
     // Update the dependent to v1.
     let transaction = vm.deploy(&caller_private_key, &dependent_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 15_231_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -979,7 +991,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_1.fee_amount()?, 2_563);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("dependent.aleo", "sum"),
@@ -989,7 +1000,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_2.fee_amount()?, 2_563);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
@@ -998,18 +1008,18 @@ constructor:
 }
 
 // This test checks that:
-//  - programs can be updated to create cycles in the dependency graph.
-//  - programs can be updated to create cycles in the call graph.
+//  - programs can be upgraded to create cycles in the dependency graph.
+//  - programs can be upgraded to create cycles in the call graph.
 //  - executions of cyclic programs w.r.t. to the call graph are rejected.
 #[test]
-fn test_update_with_cycles() -> Result<()> {
+fn test_upgrade_with_cycles() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the programs.
     let first_v0 = Program::from_str(
@@ -1074,13 +1084,11 @@ constructor:
 
     // Deploy the first version of the programs.
     let transaction = vm.deploy(&caller_private_key, &first_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 100_001_507_575);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     let transaction = vm.deploy(&caller_private_key, &second_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 10_001_642_425);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1095,7 +1103,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_1.fee_amount()?, 1_214);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("second.aleo", "foo"),
@@ -1105,14 +1112,12 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_2.fee_amount()?, 1_925);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
 
     // Update the first program to create a cycle in the dependency graph.
     let transaction = vm.deploy(&caller_private_key, &first_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 100_001_519_575);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1127,7 +1132,6 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_1.fee_amount()?, 1_214);
     let tx_2 = vm.execute(
         &caller_private_key,
         ("second.aleo", "foo"),
@@ -1137,14 +1141,12 @@ constructor:
         None,
         rng,
     )?;
-    assert_eq!(*tx_2.fee_amount()?, 1_925);
     let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng)?;
     assert_eq!(block.transactions().num_accepted(), 2);
     vm.add_next_block(&block)?;
 
     // Update the first program to create mutual recursion.
     let transaction = vm.deploy(&caller_private_key, &first_v2, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 100_001_643_225);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1175,7 +1177,7 @@ fn test_failing_init_block() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the programs.
     let passing_program = Program::from_str(
@@ -1206,14 +1208,12 @@ constructor:
 
     // Deploy the passing program.
     let transaction = vm.deploy(&caller_private_key, &passing_program, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 10_001_509_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the failing program.
     let transaction = vm.deploy(&caller_private_key, &failing_program, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 10_001_509_375);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1221,9 +1221,9 @@ constructor:
     Ok(())
 }
 
-// This tests verifies that anyone can update a program whose `updatable` metadata is set to `true` and has an intentionally empty constructor.
+// This tests verifies that anyone can upgrade a program whose `upgradable` metadata is set to `true` and has an intentionally empty constructor.
 #[test]
-fn test_anyone_can_update() -> Result<()> {
+fn test_anyone_can_upgrade() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
@@ -1236,7 +1236,7 @@ fn test_anyone_can_update() -> Result<()> {
     let unrelated_caller_address_1 = Address::try_from(&unrelated_caller_private_key_1)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Fund the unrelated callers.
     let transfer_1 = vm.execute(
@@ -1266,7 +1266,7 @@ fn test_anyone_can_update() -> Result<()> {
     // Define the programs.
     let program_v0 = Program::from_str(
         r"
-program updatable.aleo;
+program upgradable.aleo;
 function foo:
 constructor:
     assert.eq true true;
@@ -1275,7 +1275,7 @@ constructor:
 
     let program_v1 = Program::from_str(
         r"
-program updatable.aleo;
+program upgradable.aleo;
 function foo:
 function bar:
 constructor:
@@ -1285,7 +1285,7 @@ constructor:
 
     let program_v2 = Program::from_str(
         r"
-program updatable.aleo;
+program upgradable.aleo;
 function foo:
 function bar:
 function baz:
@@ -1296,21 +1296,18 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 11_429_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the second version of the program.
     let transaction = vm.deploy(&unrelated_caller_private_key_0, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 12_738_600);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the third version of the program.
     let transaction = vm.deploy(&unrelated_caller_private_key_1, &program_v2, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 14_047_900);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1318,38 +1315,37 @@ constructor:
     Ok(())
 }
 
-// This test checks that the following program variants cannot be updated:
+// This test checks that the following program variants cannot be upgraded:
 //  - a program with no constructor
-//  - a program with a constructor that restricts updates
+//  - a program with a constructor that restricts upgrades
 #[test]
-fn test_non_updatable_programs() -> Result<()> {
+fn test_non_upgradable_programs() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the programs.
     let program_0_v0 = Program::from_str(
         r"
-program non_updatable_0.aleo;
+program non_upgradable_0.aleo;
 function foo:
     ",
     )?;
 
     let program_0_v1 = Program::from_str(
         r"
-program non_updatable_0.aleo;
+program non_upgradable_0.aleo;
 function foo:
 function bar:
     ",
     )?;
 
-    // Deploy the programs and then attempt to update. The update should fail.
+    // Deploy the programs and then attempt to upgrade. The upgrade should fail.
     let transaction = vm.deploy(&caller_private_key, &program_0_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 2_377_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1357,7 +1353,7 @@ function bar:
 
     let program_1_v0 = Program::from_str(
         r"
-program non_updatable_1.aleo;
+program non_upgradable_1.aleo;
 function foo:
 constructor:
     assert.eq edition 0u16;
@@ -1366,7 +1362,7 @@ constructor:
 
     let program_1_v1 = Program::from_str(
         r"
-program non_updatable_1.aleo;
+program non_upgradable_1.aleo;
 function foo:
 function bar:
 constructor:
@@ -1374,15 +1370,13 @@ constructor:
     ",
     )?;
 
-    // Deploy the program and then update. The update should fail to be finalized.
+    // Deploy the program and then upgrade. The upgrade should fail to be finalized.
     let transaction = vm.deploy(&caller_private_key, &program_1_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 2_440_300);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     let transaction = vm.deploy(&caller_private_key, &program_1_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 3_755_600);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1390,27 +1384,27 @@ constructor:
     Ok(())
 }
 
-// This test checks that a program can be made non-updatable after being updatable.
+// This test checks that a program can be made non-upgradable after being upgradable.
 #[test]
-fn test_downgrade_updatable_program() -> Result<()> {
+fn test_downgrade_upgradable_program() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(
         r"
-program updatable.aleo;
+program upgradable.aleo;
 mapping locked:
     key as boolean.public;
     value as boolean.public;
 function set_lock:
     async set_lock into r0;
-    output r0 as updatable.aleo/set_lock.future;
+    output r0 as upgradable.aleo/set_lock.future;
 finalize set_lock:
     set true into locked[true];
 function foo:
@@ -1422,13 +1416,13 @@ constructor:
 
     let program_v1 = Program::from_str(
         r"
-program updatable.aleo;
+program upgradable.aleo;
 mapping locked:
     key as boolean.public;
     value as boolean.public;
 function set_lock:
     async set_lock into r0;
-    output r0 as updatable.aleo/set_lock.future;
+    output r0 as upgradable.aleo/set_lock.future;
 finalize set_lock:
     set true into locked[true];
 function foo:
@@ -1441,13 +1435,13 @@ constructor:
 
     let program_v2 = Program::from_str(
         r"
-program updatable.aleo;
+program upgradable.aleo;
 mapping locked:
     key as boolean.public;
     value as boolean.public;
 function set_lock:
     async set_lock into r0;
-    output r0 as updatable.aleo/set_lock.future;
+    output r0 as upgradable.aleo/set_lock.future;
 finalize set_lock:
     set true into locked[true];
 function foo:
@@ -1461,14 +1455,12 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 13_030_850);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Deploy the second version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 14_340_150);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1476,21 +1468,19 @@ constructor:
     // Set the lock.
     let transaction = vm.execute(
         &caller_private_key,
-        ("updatable.aleo", "set_lock"),
+        ("upgradable.aleo", "set_lock"),
         Vec::<Value<CurrentNetwork>>::new().into_iter(),
         None,
         0,
         None,
         rng,
     )?;
-    assert_eq!(*transaction.fee_amount()?, 11_406);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
 
     // Attempt to deploy the third version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v2, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 15_649_450);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1498,10 +1488,10 @@ constructor:
     Ok(())
 }
 
-// This test checks that an update can be locked to a checksum.
+// This test checks that an upgrade can be locked to a checksum.
 // The checksum is managed by an admin address.
 #[test]
-fn test_lock_update_to_checksum() -> Result<()> {
+fn test_lock_upgrade_to_checksum() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
@@ -1509,12 +1499,12 @@ fn test_lock_update_to_checksum() -> Result<()> {
     let caller_address = Address::try_from(&caller_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(13, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(&format!(
         r"
-program locked_update.aleo;
+program locked_upgrade.aleo;
 mapping admin:
     key as boolean.public;
     value as address.public;
@@ -1524,7 +1514,7 @@ mapping expected_checksum:
 function set_expected:
     input r0 as field.public;
     async set_expected self.caller r0 into r1;
-    output r1 as locked_update.aleo/set_expected.future;
+    output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
     input r1 as field.public;
@@ -1544,7 +1534,7 @@ constructor:
 
     let program_v1 = Program::from_str(&format!(
         r"
-program locked_update.aleo;
+program locked_upgrade.aleo;
 mapping admin:
     key as boolean.public;
     value as address.public;
@@ -1555,7 +1545,7 @@ function bar:
 function set_expected:
     input r0 as field.public;
     async set_expected self.caller r0 into r1;
-    output r1 as locked_update.aleo/set_expected.future;
+    output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
     input r1 as field.public;
@@ -1575,7 +1565,7 @@ constructor:
 
     let program_v1_mismatch = Program::from_str(&format!(
         r"
-program locked_update.aleo;
+program locked_upgrade.aleo;
 mapping admin:
     key as boolean.public;
     value as address.public;
@@ -1586,7 +1576,7 @@ function baz:
 function set_expected:
     input r0 as field.public;
     async set_expected self.caller r0 into r1;
-    output r1 as locked_update.aleo/set_expected.future;
+    output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
     input r1 as field.public;
@@ -1606,7 +1596,6 @@ constructor:
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 4_478_875);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1614,7 +1603,7 @@ constructor:
     // Check that the caller is the admin.
     let Some(Value::Plaintext(Plaintext::Literal(Literal::Address(admin), _))) =
         vm.finalize_store().get_value_confirmed(
-            ProgramID::from_str("locked_update.aleo")?,
+            ProgramID::from_str("locked_upgrade.aleo")?,
             Identifier::from_str("admin")?,
             &Plaintext::from_str("true")?,
         )?
@@ -1623,9 +1612,8 @@ constructor:
     };
     assert_eq!(admin, caller_address);
 
-    // Attempt to update without setting the expected checksum.
+    // Attempt to upgrade without setting the expected checksum.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 5_792_275);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1635,14 +1623,13 @@ constructor:
     let admin_private_key = PrivateKey::new(rng)?;
     let transaction = vm.execute(
         &admin_private_key,
-        ("locked_update.aleo", "set_expected"),
+        ("locked_upgrade.aleo", "set_expected"),
         vec![checksum].into_iter(),
         None,
         0,
         None,
         rng,
     )?;
-    assert_eq!(*transaction.fee_amount()?, 16_677);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
@@ -1651,7 +1638,7 @@ constructor:
     assert!(
         vm.finalize_store()
             .get_value_confirmed(
-                ProgramID::from_str("locked_update.aleo")?,
+                ProgramID::from_str("locked_upgrade.aleo")?,
                 Identifier::from_str("expected_checksum")?,
                 &Plaintext::from_str("true")?,
             )?
@@ -1662,14 +1649,13 @@ constructor:
     let checksum = program_v1.checksum()?;
     let transaction = vm.execute(
         &caller_private_key,
-        ("locked_update.aleo", "set_expected"),
+        ("locked_upgrade.aleo", "set_expected"),
         vec![Value::from_str(&checksum.to_string())].into_iter(),
         None,
         0,
         None,
         rng,
     )?;
-    assert_eq!(*transaction.fee_amount()?, 16_677);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
@@ -1677,7 +1663,7 @@ constructor:
     // Check that the expected checksum is set.
     let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(expected), _))) =
         vm.finalize_store().get_value_confirmed(
-            ProgramID::from_str("locked_update.aleo")?,
+            ProgramID::from_str("locked_upgrade.aleo")?,
             Identifier::from_str("expected_checksum")?,
             &Plaintext::from_str("true")?,
         )?
@@ -1686,16 +1672,14 @@ constructor:
     };
     assert_eq!(checksum, expected);
 
-    // Attempt to update with a mismatched program.
+    // Attempt to upgrade with a mismatched program.
     let transaction = vm.deploy(&caller_private_key, &program_v1_mismatch, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 5_792_275);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
     vm.add_next_block(&block)?;
 
     // Update with the expected checksum set.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
-    assert_eq!(*transaction.fee_amount()?, 5_792_275);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     vm.add_next_block(&block)?;
