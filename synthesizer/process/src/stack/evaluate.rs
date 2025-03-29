@@ -91,7 +91,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
                             None => *self.program_checksum(),
                         };
-                        Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))))
+                        Ok(Value::Plaintext(Plaintext::from(checksum)))
                     }
                     // If the operand is the program edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {
@@ -240,7 +240,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
                             None => *self.program_checksum(),
                         };
-                        Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))))
+                        Ok(Value::Plaintext(Plaintext::from(checksum)))
                     }
                     // If the operand is the program edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {

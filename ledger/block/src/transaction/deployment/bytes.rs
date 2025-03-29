@@ -48,7 +48,10 @@ impl<N: Network> FromBytes for Deployment<N> {
         // If the deployment version is 2, read the program checksum.
         let program_checksum = match version {
             DeploymentVersion::V1 => None,
-            DeploymentVersion::V2 => Some(Field::<N>::read_le(&mut reader)?),
+            DeploymentVersion::V2 => {
+                let checksum: [u8; 32] = FromBytes::read_le(&mut reader)?;
+                Some(checksum.map(U8::new))
+            }
         };
 
         // Return the deployment.
@@ -78,7 +81,9 @@ impl<N: Network> ToBytes for Deployment<N> {
         }
         // Write the checksum, if it exists.
         if let Some(program_checksum) = &self.program_checksum {
-            program_checksum.write_le(&mut writer)?;
+            for byte in program_checksum {
+                byte.write_le(&mut writer)?;
+            }
         }
         Ok(())
     }

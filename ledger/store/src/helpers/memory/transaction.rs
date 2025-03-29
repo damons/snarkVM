@@ -28,7 +28,7 @@ use crate::{
 use console::{
     prelude::*,
     program::{Identifier, ProgramID, ProgramOwner},
-    types::Field,
+    types::U8,
 };
 use synthesizer_program::Program;
 use synthesizer_snark::{Certificate, Proof, VerifyingKey};
@@ -104,7 +104,7 @@ pub struct DeploymentMemory<N: Network> {
     /// The program map.
     program_map: MemoryMap<(ProgramID<N>, u16), Program<N>>,
     /// The checksum map.
-    checksum_map: MemoryMap<(ProgramID<N>, u16), Field<N>>,
+    checksum_map: MemoryMap<(ProgramID<N>, u16), [U8<N>; 32]>,
     /// The verifying key map.
     verifying_key_map: MemoryMap<(ProgramID<N>, Identifier<N>, u16), VerifyingKey<N>>,
     /// The certificate map.
@@ -121,7 +121,7 @@ impl<N: Network> DeploymentStorage<N> for DeploymentMemory<N> {
     type ReverseIDMap = MemoryMap<(ProgramID<N>, u16), N::TransactionID>;
     type OwnerMap = MemoryMap<(ProgramID<N>, u16), ProgramOwner<N>>;
     type ProgramMap = MemoryMap<(ProgramID<N>, u16), Program<N>>;
-    type ChecksumMap = MemoryMap<(ProgramID<N>, u16), Field<N>>;
+    type ChecksumMap = MemoryMap<(ProgramID<N>, u16), [U8<N>; 32]>;
     type VerifyingKeyMap = MemoryMap<(ProgramID<N>, Identifier<N>, u16), VerifyingKey<N>>;
     type CertificateMap = MemoryMap<(ProgramID<N>, Identifier<N>, u16), Certificate<N>>;
     type FeeStorage = FeeMemory<N>;

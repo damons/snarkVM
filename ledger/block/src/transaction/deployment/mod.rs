@@ -23,7 +23,7 @@ use crate::Transaction;
 use console::{
     network::prelude::*,
     program::{Identifier, ProgramID},
-    types::Field,
+    types::{Field, U8},
 };
 use synthesizer_program::Program;
 use synthesizer_snark::{Certificate, VerifyingKey};
@@ -40,7 +40,7 @@ pub struct Deployment<N: Network> {
     /// This field creates a backwards-compatible implicit versioning mechanism for deployments.
     /// Before the migration height where this feature is enabled, the checksum will **not** be allowed.
     /// After the migration height where this feature is enabled, the checksum will be required.
-    program_checksum: Option<Field<N>>,
+    program_checksum: Option<[U8<N>; 32]>,
 }
 
 impl<N: Network> PartialEq for Deployment<N> {
@@ -57,7 +57,7 @@ impl<N: Network> Deployment<N> {
         edition: u16,
         program: Program<N>,
         verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
-        program_checksum: Option<Field<N>>,
+        program_checksum: Option<[U8<N>; 32]>,
     ) -> Result<Self> {
         // Construct the deployment.
         let deployment = Self { edition, program, verifying_keys, program_checksum };
@@ -133,7 +133,7 @@ impl<N: Network> Deployment<N> {
     }
 
     /// Returns the program checksum, if it was stored.
-    pub const fn program_checksum(&self) -> Option<&Field<N>> {
+    pub const fn program_checksum(&self) -> Option<&[U8<N>; 32]> {
         self.program_checksum.as_ref()
     }
 
@@ -191,7 +191,7 @@ impl<N: Network> Deployment<N> {
     /// Sets the program checksum.
     /// Note: This method is intended to be used by the synthesizer **only**, and should not be called by the user.
     #[doc(hidden)]
-    pub fn set_program_checksum_raw(&mut self, program_checksum: Option<Field<N>>) {
+    pub fn set_program_checksum_raw(&mut self, program_checksum: Option<[U8<N>; 32]>) {
         self.program_checksum = program_checksum;
     }
 

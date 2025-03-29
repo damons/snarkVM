@@ -52,7 +52,7 @@ impl<N: Network> Stack<N> {
             proving_keys: Default::default(),
             verifying_keys: Default::default(),
             program_address: program.id().to_address()?,
-            program_checksum: program.to_checksum()?,
+            program_checksum: program.to_checksum(),
             program_edition: U16::new(edition),
         };
 

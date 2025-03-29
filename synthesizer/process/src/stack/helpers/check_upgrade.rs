@@ -84,7 +84,7 @@ impl<N: Network> Stack<N> {
                 "Cannot upgrade '{program_id}' because the record '{old_record_id}' does not match"
             );
         }
-        // Ensure that the old program closures exist in the new program, with the exact same definition
+        // Ensure that the old program closures exist in the new program, with the exact same definition.
         for old_closure in old_program.closures().values() {
             let old_closure_name = old_closure.name();
             let new_closure = new_program.get_closure(old_closure_name)?;

@@ -24,6 +24,7 @@ pub type Closure<N> = crate::ClosureCore<N, Instruction<N>>;
 pub type Constructor<N> = crate::ConstructorCore<N, Command<N>>;
 
 mod closure;
+
 pub use closure::*;
 
 mod constructor;
@@ -50,6 +51,7 @@ pub use traits::*;
 mod bytes;
 mod parse;
 mod serialize;
+mod to_checksum;
 
 use console::{
     network::prelude::{
@@ -65,6 +67,7 @@ use console::{
         FromBytesDeserializer,
         FromStr,
         IoResult,
+        Itertools,
         Network,
         Parser,
         ParserResult,
@@ -91,12 +94,12 @@ use console::{
         tag,
         take,
     },
-    prelude::ToBits,
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
-    types::Field,
+    types::U8,
 };
 
 use indexmap::IndexMap;
+use tiny_keccak::{Hasher, Sha3 as TinySha3};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum ProgramLabel<N: Network> {
@@ -122,7 +125,7 @@ enum ProgramDefinition {
     Function,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
     /// The ID of the program.
     id: ProgramID<N>,
@@ -142,6 +145,39 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     closures: IndexMap<Identifier<N>, ClosureCore<N, Instruction>>,
     /// A map of the declared functions for the program.
     functions: IndexMap<Identifier<N>, FunctionCore<N, Instruction, Command>>,
+}
+
+impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> PartialEq
+    for ProgramCore<N, Instruction, Command>
+{
+    /// Compares two programs for equality, verifying that the components are in the same order.
+    /// The order of the components must match to ensure that deployment tree is well-formed.
+    fn eq(&self, other: &Self) -> bool {
+        // Check that the number of components is the same.
+        if self.components.len() != other.components.len() {
+            return false;
+        }
+        // Check that the components match in order.
+        for (left, right) in self.components.iter().zip_eq(other.components.iter()) {
+            if left != right {
+                return false;
+            }
+        }
+        // Check that the remaining fields match.
+        self.id == other.id
+            && self.imports == other.imports
+            && self.constructor == other.constructor
+            && self.mappings == other.mappings
+            && self.structs == other.structs
+            && self.records == other.records
+            && self.closures == other.closures
+            && self.functions == other.functions
+    }
+}
+
+impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Eq
+    for ProgramCore<N, Instruction, Command>
+{
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
@@ -173,11 +209,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns the ID of the program.
     pub const fn id(&self) -> &ProgramID<N> {
         &self.id
-    }
-
-    /// Returns the checksum of the program.
-    pub fn to_checksum(&self) -> Result<Field<N>> {
-        N::hash_bhp1024(&self.to_bytes_le()?.to_bits_le())
     }
 
     /// Returns the imports in the program.
@@ -956,7 +987,7 @@ finalize check:
             let program1 = Program::<CurrentNetwork>::from_str(program1).unwrap();
             let program2 = Program::<CurrentNetwork>::from_str(program2).unwrap();
             assert_eq!(program1 == program2, expected_equal);
-            assert_eq!(program1.to_checksum().unwrap() == program2.to_checksum().unwrap(), expected_equal);
+            assert_eq!(program1.to_checksum() == program2.to_checksum(), expected_equal);
         }
 
         // Test two identical programs, with different whitespace.

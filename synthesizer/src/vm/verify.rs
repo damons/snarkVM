@@ -171,10 +171,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // If the program checksum exists, then verify that it is correct.
                 if let Some(given_checksum) = deployment.program_checksum() {
                     // Compute the expected checksum.
-                    let expected_checksum = deployment.program().to_checksum()?;
+                    let expected_checksum = deployment.program().to_checksum();
                     ensure!(
                         given_checksum == &expected_checksum,
-                        "The checksum given in the deployment '{given_checksum}' did not match the expected checksum '{expected_checksum}'"
+                        "The checksum given in the deployment '[{}]' did not match the expected checksum '[{}]'",
+                        given_checksum.iter().join(", "),
+                        expected_checksum.iter().join(", ")
                     );
                 }
                 // If the edition is zero, then check that:

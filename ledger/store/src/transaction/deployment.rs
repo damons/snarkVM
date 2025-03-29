@@ -24,7 +24,7 @@ use crate::{
 use console::{
     network::prelude::*,
     program::{Identifier, ProgramID, ProgramOwner},
-    types::Field,
+    types::U8,
 };
 use ledger_block::{Deployment, Fee, Transaction};
 use synthesizer_program::Program;
@@ -50,7 +50,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// The mapping of `(program ID, edition)` to `program`.
     type ProgramMap: for<'a> Map<'a, (ProgramID<N>, u16), Program<N>>;
     /// The mapping of `(program ID, edition)` to `checksum`.
-    type ChecksumMap: for<'a> Map<'a, (ProgramID<N>, u16), Field<N>>;
+    type ChecksumMap: for<'a> Map<'a, (ProgramID<N>, u16), [U8<N>; 32]>;
     /// The mapping of `(program ID, function name, edition)` to `verifying key`.
     type VerifyingKeyMap: for<'a> Map<'a, (ProgramID<N>, Identifier<N>, u16), VerifyingKey<N>>;
     /// The mapping of `(program ID, function name, edition)` to `certificate`.
@@ -200,7 +200,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Retrieve the edition.
-        // Note that the VM enforces that the edition is always 0 for the first deployment of a program and that subsequent upgrades increment the edition.
+        // Note: The VM enforces that the edition is always 0 for the first deployment of a program and that subsequent upgrades increment the edition.
         let edition = deployment.edition();
         // Retrieve the program.
         let program = deployment.program();
@@ -225,8 +225,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             // This is done because the existence of the checksum implies a migration at the V5 consensus height.
             // This migration enables program upgrades.
             if let Some(checksum) = checksum {
-                self.checksum_map().insert((program_id, edition), *checksum)?;
                 self.id_edition_map().insert(*transaction_id, edition)?;
+                self.checksum_map().insert((program_id, edition), *checksum)?;
             }
 
             // Store the verifying keys and certificates.
