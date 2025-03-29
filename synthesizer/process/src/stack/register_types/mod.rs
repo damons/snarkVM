@@ -22,8 +22,10 @@ use console::{
         Access,
         ArrayType,
         EntryType,
+        FinalizeType,
         Identifier,
         LiteralType,
+        Locator,
         PlaintextType,
         RecordType,
         Register,
@@ -31,6 +33,7 @@ use console::{
         StructType,
         ValueType,
     },
+    types::U32,
 };
 use synthesizer_program::{
     CallOperator,
@@ -46,7 +49,6 @@ use synthesizer_program::{
     StackProgram,
 };
 
-use console::program::{FinalizeType, Locator};
 use indexmap::{IndexMap, IndexSet};
 
 #[derive(Clone, Default, PartialEq, Eq)]
@@ -100,7 +102,10 @@ impl<N: Network> RegisterTypes<N> {
             }
             Operand::BlockHeight => bail!("'block.height' is not a valid operand in a non-finalize context."),
             Operand::NetworkID => bail!("'network.id' is not a valid operand in a non-finalize context."),
-            Operand::Checksum(_) => RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Field)),
+            Operand::Checksum(_) => RegisterType::Plaintext(PlaintextType::Array(ArrayType::new(
+                PlaintextType::Literal(LiteralType::U8),
+                vec![U32::new(32)],
+            )?)),
             Operand::Edition(_) => RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
         })
     }

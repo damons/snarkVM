@@ -96,7 +96,10 @@ impl<N: Network> RegisterTypes<N> {
                 // Ensure the checksum type (field) matches the member type.
                 Operand::Checksum(_) => {
                     // Retrieve the operand type.
-                    let operand_type = PlaintextType::Literal(LiteralType::Field);
+                    let operand_type = PlaintextType::Array(ArrayType::new(
+                        PlaintextType::Literal(LiteralType::U8),
+                        vec![U32::new(32)],
+                    )?);
                     // Ensure the operand type matches the member type.
                     ensure!(
                         &operand_type == member_type,
@@ -192,7 +195,10 @@ impl<N: Network> RegisterTypes<N> {
                 // Ensure the checksum type (field) matches the element type.
                 Operand::Checksum(_) => {
                     // Retrieve the operand type.
-                    let operand_type = PlaintextType::Literal(LiteralType::Field);
+                    let operand_type = PlaintextType::Array(ArrayType::new(
+                        PlaintextType::Literal(LiteralType::U8),
+                        vec![U32::new(32)],
+                    )?);
                     // Ensure the operand type matches the element type.
                     ensure!(
                         &operand_type == array_type.next_element_type(),
@@ -346,7 +352,10 @@ impl<N: Network> RegisterTypes<N> {
                         // Ensure the checksum type (field) matches the entry type.
                         Operand::Checksum(_) => {
                             // Retrieve the operand type.
-                            let operand_type = &PlaintextType::Literal(LiteralType::Field);
+                            let operand_type =
+                                &PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![
+                                    U32::new(32),
+                                ])?);
                             // Ensure the operand type matches the entry type.
                             ensure!(
                                 operand_type == plaintext_type,

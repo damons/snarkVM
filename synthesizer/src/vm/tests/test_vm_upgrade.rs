@@ -1607,14 +1607,14 @@ mapping admin:
     value as address.public;
 mapping expected_checksum:
     key as boolean.public;
-    value as field.public;
+    value as [u8; 32u32].public;
 function set_expected:
-    input r0 as field.public;
+    input r0 as [u8; 32u32].public;
     async set_expected self.caller r0 into r1;
     output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
-    input r1 as field.public;
+    input r1 as [u8; 32u32].public;
     get admin[true] into r2;
     assert.eq r0 r2;
     set r1 into expected_checksum[true];
@@ -1637,15 +1637,15 @@ mapping admin:
     value as address.public;
 mapping expected_checksum:
     key as boolean.public;
-    value as field.public;
+    value as [u8; 32u32].public;
 function bar:
 function set_expected:
-    input r0 as field.public;
+    input r0 as [u8; 32u32].public;
     async set_expected self.caller r0 into r1;
     output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
-    input r1 as field.public;
+    input r1 as [u8; 32u32].public;
     get admin[true] into r2;
     assert.eq r0 r2;
     set r1 into expected_checksum[true];
@@ -1668,15 +1668,15 @@ mapping admin:
     value as address.public;
 mapping expected_checksum:
     key as boolean.public;
-    value as field.public;
+    value as [u8; 32u32].public;
 function baz:
 function set_expected:
-    input r0 as field.public;
+    input r0 as [u8; 32u32].public;
     async set_expected self.caller r0 into r1;
     output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
-    input r1 as field.public;
+    input r1 as [u8; 32u32].public;
     get admin[true] into r2;
     assert.eq r0 r2;
     set r1 into expected_checksum[true];
@@ -1725,7 +1725,7 @@ constructor:
         0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
         0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
         0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
-        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8
     ]",
     )?;
     let admin_private_key = PrivateKey::new(rng)?;

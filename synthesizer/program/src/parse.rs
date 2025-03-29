@@ -174,7 +174,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Dis
                 ProgramLabel::Constructor => {
                     // Write the constructor, if it exists.
                     if let Some(constructor) = &self.constructor {
-                        writeln!(f, "{constructor}\n")?;
+                        writeln!(f, "{constructor}")?;
                     }
                 }
                 ProgramLabel::Identifier(identifier) => match definition {
