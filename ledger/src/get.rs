@@ -233,7 +233,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Returns the program for the given program ID.
     pub fn get_program(&self, program_id: ProgramID<N>) -> Result<Program<N>> {
-        match self.vm.block_store().get_program(&program_id)? {
+        match self.vm.block_store().get_latest_program(&program_id)? {
             Some(program) => Ok(program),
             None => bail!("Missing program for ID {program_id}"),
         }

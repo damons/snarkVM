@@ -196,8 +196,11 @@ pub trait TransactionStorage<N: Network>: Clone + Send + Sync {
     }
 
     /// Returns the latest transaction ID that contains the given `program ID`.
-    fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
-        self.deployment_store().find_transaction_id_from_program_id(program_id)
+    fn find_latest_transaction_id_from_program_id(
+        &self,
+        program_id: &ProgramID<N>,
+    ) -> Result<Option<N::TransactionID>> {
+        self.deployment_store().find_latest_transaction_id_from_program_id(program_id)
     }
 
     /// Returns the transaction ID that contains the given `program ID` and `edition`.
@@ -388,22 +391,22 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     }
 
     /// Returns the latest program for the given `program ID`.
-    pub fn get_program(&self, program_id: &ProgramID<N>) -> Result<Option<Program<N>>> {
-        self.storage.deployment_store().get_program(program_id)
+    pub fn get_latest_program(&self, program_id: &ProgramID<N>) -> Result<Option<Program<N>>> {
+        self.storage.deployment_store().get_latest_program(program_id)
     }
 
     /// Returns the program for the given `program ID` and `edition`.
-    pub fn get_program_with_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
-        self.storage.deployment_store().get_program_with_edition(program_id, edition)
+    pub fn get_program_for_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
+        self.storage.deployment_store().get_program_for_edition(program_id, edition)
     }
 
     /// Returns the latest verifying key for the given `(program ID, function name)`.
-    pub fn get_verifying_key(
+    pub fn get_latest_verifying_key(
         &self,
         program_id: &ProgramID<N>,
         function_name: &Identifier<N>,
     ) -> Result<Option<VerifyingKey<N>>> {
-        self.storage.deployment_store().get_verifying_key(program_id, function_name)
+        self.storage.deployment_store().get_latest_verifying_key(program_id, function_name)
     }
 
     /// Returns the verifying key for the given `(program ID, function name, edition)`.
@@ -417,12 +420,12 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     }
 
     /// Returns the latest certificate for the given `(program ID, function name)`.
-    pub fn get_certificate(
+    pub fn get_latest_certificate(
         &self,
         program_id: &ProgramID<N>,
         function_name: &Identifier<N>,
     ) -> Result<Option<Certificate<N>>> {
-        self.storage.deployment_store().get_certificate(program_id, function_name)
+        self.storage.deployment_store().get_latest_certificate(program_id, function_name)
     }
 
     /// Returns the certificate for the given `(program ID, function name, edition)`.
@@ -438,8 +441,11 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
 
 impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     /// Returns the latest transaction ID that contains the given `program ID`.
-    pub fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
-        self.storage.deployment_store().find_transaction_id_from_program_id(program_id)
+    pub fn find_latest_transaction_id_from_program_id(
+        &self,
+        program_id: &ProgramID<N>,
+    ) -> Result<Option<N::TransactionID>> {
+        self.storage.deployment_store().find_latest_transaction_id_from_program_id(program_id)
     }
 
     /// Returns the transaction ID that contains the given `program ID` and `edition`.
@@ -497,24 +503,27 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     }
 
     /// Returns an iterator over the program IDs, for all deployments.
+    /// Note: If a program upgraded, this method will return duplicates of the program ID.
     pub fn program_ids(&self) -> impl '_ + Iterator<Item = Cow<'_, ProgramID<N>>> {
         self.storage.deployment_store().program_ids()
     }
 
-    pub fn program_ids_and_editions(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramID<N>>, Cow<'_, u16>)> {
-        self.storage.deployment_store().program_ids_and_editions()
+    /// Returns an iterator over the program IDs and latest editions.
+    pub fn program_ids_and_latest_editions(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramID<N>>, Cow<'_, u16>)> {
+        self.storage.deployment_store().program_ids_and_latest_editions()
     }
 
     /// Returns an iterator over the programs, for all deployments.
+    /// If a program has been upgraded, all instances of the program will be returned.
     pub fn programs(&self) -> impl '_ + Iterator<Item = Cow<'_, Program<N>>> {
         self.storage.deployment_store().programs()
     }
 
     /// Returns an iterator over the programs and editions, for all deployments.
-    pub fn programs_and_editions(
+    pub fn programs_with_editions(
         &self,
     ) -> impl '_ + Iterator<Item = (Cow<'_, ProgramIDEdition<N>>, Cow<'_, Program<N>>)> {
-        self.storage.deployment_store().programs_and_editions()
+        self.storage.deployment_store().programs_with_editions()
     }
 
     /// Returns an iterator over the `((program ID, function name, edition), verifying key)`, for all deployments.

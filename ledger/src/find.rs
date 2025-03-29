@@ -31,9 +31,12 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         self.vm.block_store().find_block_height_from_solution_id(solution_id)
     }
 
-    /// Returns the transaction ID that contains the given `program ID`.
-    pub fn find_transaction_id_from_program_id(&self, program_id: &ProgramID<N>) -> Result<Option<N::TransactionID>> {
-        self.vm.transaction_store().find_transaction_id_from_program_id(program_id)
+    /// Returns the latest transaction ID that contains the given `program ID`.
+    pub fn find_latest_transaction_id_from_program_id(
+        &self,
+        program_id: &ProgramID<N>,
+    ) -> Result<Option<N::TransactionID>> {
+        self.vm.transaction_store().find_latest_transaction_id_from_program_id(program_id)
     }
 
     /// Returns the transaction ID that contains the given `transition ID`.

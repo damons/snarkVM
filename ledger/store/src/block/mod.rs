@@ -1278,9 +1278,9 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
         self.storage.get_block(block_hash)
     }
 
-    /// Returns the program for the given `program ID`.
-    pub fn get_program(&self, program_id: &ProgramID<N>) -> Result<Option<Program<N>>> {
-        self.storage.transaction_store().get_program(program_id)
+    /// Returns the latest program for the given `program ID`.
+    pub fn get_latest_program(&self, program_id: &ProgramID<N>) -> Result<Option<Program<N>>> {
+        self.storage.transaction_store().get_latest_program(program_id)
     }
 
     /// Returns the batch certificate for the given `certificate ID`.
