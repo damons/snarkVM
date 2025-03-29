@@ -70,13 +70,18 @@ pub(crate) type VarunaProvingKey<N> = CircuitProvingKey<<N as Environment>::Pair
 pub(crate) type VarunaVerifyingKey<N> = CircuitVerifyingKey<<N as Environment>::PairingCurve>;
 
 /// The different consensus versions.
-/// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
+/// If you need the version active for a specific height, see: `N::CONSENSUS_VERSION`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum ConsensusVersion {
+    /// V1: The initial genesis consensus version.
     V1 = 1,
+    /// V2: Update to the block reward and execution cost algorithms.
     V2 = 2,
+    /// V3: Update to the number of validators and finalize scope RNG seed.
     V3 = 3,
+    /// V4: Update to the Varuna version.
     V4 = 4,
+    /// V5: Update to the number of validators and enable batch proposal spend limits.
     V5 = 5,
 }
 
@@ -226,16 +231,6 @@ pub trait Network:
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 3];
 
     /// Returns the consensus version which is active at the given height.
-    ///
-    /// V1: The initial genesis consensus version.
-    ///
-    /// V2: Update to the block reward and execution cost algorithms.
-    ///
-    /// V3: Update to the number of validators and finalize scope RNG seed.
-    ///
-    /// V4: Update to the Varuna version.
-    ///
-    /// V5: Update to the number of validators and enable batch proposal spend limits.
     #[allow(non_snake_case)]
     fn CONSENSUS_VERSION(seek_height: u32) -> anyhow::Result<ConsensusVersion> {
         match Self::CONSENSUS_VERSION_HEIGHTS.binary_search_by(|(_, height)| height.cmp(&seek_height)) {
