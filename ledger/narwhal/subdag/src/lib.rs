@@ -44,7 +44,10 @@ fn is_sequential<T>(map: &BTreeMap<u64, T>) -> bool {
     true
 }
 
+/// Checks that the given subDAG is not partitioned and the batches are ordered as expected, by traversing it starting from the leader.
+///
 /// Returns `true` if the DFS traversal using the given subdag structure matches the commit.
+/// Note, this does not guarantee that the subDAG contains all batches it should, because this function has no knowledge of other blocks/subDAGs.
 fn sanity_check_subdag_with_dfs<N: Network>(subdag: &BTreeMap<u64, IndexSet<BatchCertificate<N>>>) -> bool {
     use std::collections::HashSet;
 

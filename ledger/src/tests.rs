@@ -3074,6 +3074,8 @@ mod valid_solutions {
     }
 }
 
+/// Tests multiple attacks where the subDAG of a block is invalid
+/// (for example, because it contains more than one anchor)
 #[test]
 fn test_forged_block_subdags() {
     let rng = &mut TestRng::default();
@@ -3107,22 +3109,32 @@ fn test_forged_block_subdags() {
     // Construct the ledger.
     let ledger =
         Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+
+    // Advance to block 1.
     ledger.advance_to_next_block(&block_1).unwrap();
-    ledger.check_next_block(&block_2, rng).unwrap();
+
+    // Check that the original block 2 is accepted.
+    ledger.check_next_block(&block_2, rng).expect("Unmodified block 2 must be accepted by the ledger");
+
+    // Fetch the unmodified/correct subdags.
+    let Authority::Quorum(block_2_subdag) = block_2.authority() else { unreachable!("") };
+    let Authority::Quorum(block_3_subdag) = block_3.authority() else { unreachable!("") };
+
+    // Fetch the transmissions.
+    let block_2_transmissions = extract_transmissions(&block_2);
+    let block_3_transmissions = extract_transmissions(&block_3);
 
     ////////////////////////////////////////////////////////////////////////////
     // Attack 1: Forge block 2' with the subdag of block 3.
     ////////////////////////////////////////////////////////////////////////////
     {
-        let block_3_subdag =
-            if let Authority::Quorum(subdag) = block_3.authority() { subdag } else { unreachable!("") };
-
-        // Fetch the transmissions.
-        let transmissions = extract_transmissions(&block_3);
-
         // Forge the block.
         let forged_block_2 = ledger
-            .prepare_advance_to_next_quorum_block(block_3_subdag.clone(), transmissions, &mut rand::thread_rng())
+            .prepare_advance_to_next_quorum_block(
+                block_3_subdag.clone(),
+                block_3_transmissions.clone(),
+                &mut rand::thread_rng(),
+            )
             .unwrap();
 
         assert_ne!(forged_block_2, block_2);
@@ -3135,12 +3147,6 @@ fn test_forged_block_subdags() {
     // Attack 2: Forge block 2' with the combined subdag of block 2 and 3.
     ////////////////////////////////////////////////////////////////////////////
     {
-        // Fetch the subdags.
-        let block_2_subdag =
-            if let Authority::Quorum(subdag) = block_2.authority() { subdag } else { unreachable!("") };
-        let block_3_subdag =
-            if let Authority::Quorum(subdag) = block_3.authority() { subdag } else { unreachable!("") };
-
         // Combined the subdags.
         let mut combined_subdag = block_2_subdag.deref().clone();
         for (round, certificates) in block_3_subdag.iter() {
@@ -3150,12 +3156,8 @@ fn test_forged_block_subdags() {
                 .or_insert(certificates.clone());
         }
 
-        // Fetch the transmissions.
-        let block_2_transmissions = extract_transmissions(&block_2);
-        let block_3_transmissions = extract_transmissions(&block_3);
-
         // Combine the transmissions.
-        let mut combined_transmissions = block_2_transmissions;
+        let mut combined_transmissions = block_2_transmissions.clone();
         combined_transmissions.extend(block_3_transmissions);
 
         // Forge the block.
@@ -3171,6 +3173,40 @@ fn test_forged_block_subdags() {
 
         // Attempt to verify the forged block.
         assert!(ledger.check_next_block(&forged_block_2_from_both_subdags, &mut rand::thread_rng()).is_err());
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Attack 3:  Forge block 2' that misses some batches.
+    ////////////////////////////////////////////////////////////////////////////
+    {
+        let mut subdag = block_2_subdag.deref().clone();
+        assert!(subdag.keys().len() > 1, "SubDAG needs more than one round for attack to work");
+
+        // Get the lowest round which contains batches pointing to the previous
+        // block's DAG
+        let (_, first_dag_round) = subdag.iter_mut().next().unwrap();
+        assert!(first_dag_round.len() > 1, "First round needs more than one batch for attack to work");
+        // remove one "leaf" batch.
+        let _removed_batch = first_dag_round.drain(..1).next().unwrap();
+
+        // Build new set of transmissions that matches the modified DAG
+        // (we cannot just remove it, because transmissions might be in other batches as well)
+        let transmissions: IndexMap<_, _> = subdag
+            .iter()
+            .flat_map(|(_, batches)| batches.iter())
+            .flat_map(|batch| batch.transmission_ids().iter())
+            .map(|tid| (*tid, block_2_transmissions.get(tid).unwrap().clone()))
+            .collect();
+
+        // Forge the block.
+        let forged_block_2 = ledger
+            .prepare_advance_to_next_quorum_block(Subdag::from(subdag).unwrap(), transmissions, &mut rand::thread_rng())
+            .unwrap();
+
+        assert_ne!(forged_block_2, block_1);
+
+        // Attempt to verify the forged block.
+        assert!(ledger.check_next_block(&forged_block_2, &mut rand::thread_rng()).is_err());
     }
 }
 
