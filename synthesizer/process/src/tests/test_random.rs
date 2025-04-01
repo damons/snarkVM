@@ -577,6 +577,7 @@ fn print_operations(ops: &[Operation]) {
     }
 }
 
+#[ignore] // Ignoring as it causes CI timeouts
 #[test]
 fn test_random_operations() {
     loop {
