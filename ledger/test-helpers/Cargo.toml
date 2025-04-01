@@ -16,6 +16,11 @@ categories = [ "cryptography", "web-programming" ]
 license = "Apache-2.0"
 edition = "2021"
 
+[dependencies.algorithms]
+package = "snarkvm-algorithms"
+path = "../../algorithms"
+version = "=1.4.0"
+
 [dependencies.console]
 package = "snarkvm-console"
 path = "../../console"

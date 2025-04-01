@@ -3320,6 +3320,7 @@ dependencies = [
  "once_cell",
  "rayon",
  "serde_json",
+ "snarkvm-algorithms",
  "snarkvm-circuit",
  "snarkvm-console",
  "snarkvm-ledger-authority",
@@ -3537,6 +3538,7 @@ name = "snarkvm-ledger-test-helpers"
 version = "1.4.0"
 dependencies = [
  "once_cell",
+ "snarkvm-algorithms",
  "snarkvm-circuit",
  "snarkvm-console",
  "snarkvm-ledger-block",
@@ -3642,6 +3644,7 @@ dependencies = [
  "rand_chacha",
  "rayon",
  "serde_json",
+ "snarkvm-algorithms",
  "snarkvm-circuit",
  "snarkvm-console",
  "snarkvm-ledger-block",

@@ -50,6 +50,11 @@ name = "stack_operations"
 path = "benches/stack_operations.rs"
 harness = false
 
+[dependencies.algorithms]
+package = "snarkvm-algorithms"
+path = "../../algorithms"
+version = "=1.4.0"
+
 [dependencies.console]
 package = "snarkvm-console"
 path = "../../console"

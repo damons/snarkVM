@@ -98,6 +98,7 @@ required-features = [ "cli" ]
 
 [features]
 default = [
+  "algorithms",
   "circuit",
   "console",
   "ledger",
