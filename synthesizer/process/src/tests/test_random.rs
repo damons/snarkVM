@@ -19,6 +19,9 @@ use console::{
     network::{MainnetV0, prelude::*},
 };
 use ledger_committee::{MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE, MIN_VALIDATOR_STAKE};
+#[cfg(feature = "rocks")]
+use ledger_store::{FinalizeMode, FinalizeStorage, FinalizeStore, atomic_finalize};
+#[cfg(not(feature = "rocks"))]
 use ledger_store::{FinalizeMode, FinalizeStorage, FinalizeStore, atomic_finalize, helpers::memory::FinalizeMemory};
 use rand::seq::IteratorRandom;
 
