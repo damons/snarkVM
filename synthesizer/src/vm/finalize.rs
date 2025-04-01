@@ -77,6 +77,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let unordered_aborted_transaction_ids: IndexMap<N::TransactionID, &String> =
             verification_aborted_transaction_ids.chain(speculation_aborted_transaction_ids).collect();
 
+        println!("Verification aborted transactions: {:?}", verification_aborted_transactions);
+        println!("Speculation aborted transactions: {:?}", speculation_aborted_transactions);
+
         // Filter and order the aborted transaction ids according to candidate_transactions
         let aborted_transaction_ids: Vec<_> = candidate_transaction_ids
             .into_iter()
@@ -835,12 +838,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         }
 
         // If the transaction is a deployment, ensure that it is not another deployment in the block from the same public fee payer.
-        if let Transaction::Deploy(_, _, _, _, fee) = transaction {
+        if let Transaction::Deploy(_, _, _, deployment, fee) = transaction {
             // If any public deployment payer has already deployed in this block, abort the transaction.
             if let Some(payer) = fee.payer() {
                 if deployment_payers.contains(&payer) {
                     return Some(format!("Another deployment in the block from the same public fee payer {payer}"));
                 }
+            }
+            // If the program has already been deployed or redeployed in this block, abort the transaction.
+            if deployments.contains(deployment.program_id()) {
+                return Some(format!("Program {} has already been deployed in this block", deployment.program_id()));
             }
         }
 

@@ -258,6 +258,17 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         let Some(latest_edition) = self.get_latest_edition_for_program(&program_id)? else {
             bail!("Failed to locate the latest edition for program '{program_id}'");
         };
+        // Verify that the removed edition is latest edition.
+        // Note: This is condition should always hold true because:
+        //  - The VM enforces that exactly one deployment or upgrade is allowed per program per block.
+        //  - The only time a transaction is removed is when `remove_last_n` is invoked.
+        //  - `remove_last_n` is only invoked when finalization for the latest block fails.
+        //  - `remove_last_n` is only invoked with the parameter `1`.
+        // If any of these conditions are changed, then this check is no longer valid.
+        ensure!(
+            edition == latest_edition,
+            "Failed to remove the deployment for transaction '{transaction_id}' because it is not the latest edition"
+        );
         // Retrieve the program.
         let program = match self.program_map().get_confirmed(&(program_id, edition))? {
             Some(program) => cow_to_cloned!(program),
@@ -270,10 +281,22 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             // Remove the edition for the transaction ID.
             self.id_edition_map().remove(transaction_id)?;
             // Update the latest edition.
+            match edition.is_zero() {
+                // If the removed edition is 0, then remove the program ID from the latest edition map.
+                true => self.edition_map().remove(&program_id)?,
+                // Otherwise, decrement the edition.
+                false => self.edition_map().insert(program_id, edition.saturating_sub(1))?,
+            }
             match (edition, latest_edition) {
                 // If the removed and latest edition are 0, remove the program ID from the latest edition map.
                 (0, 0) => self.edition_map().remove(&program_id)?,
                 // If the removed edition is the latest one, update the latest edition map by decrementing the edition.
+                // Note: It is safe to remove in this manner instead of walking backwards through the editions for the
+                // following reasons:
+                //  - The VM enforces that exactly one deployment or upgrade is allowed per program per block.
+                //  - The only time a transaction is removed is when `remove_last_n` is invoked when finalization fails.
+                //  - `remove_last_n` is only invoked with the parameter `1`.
+                // If any of these conditions are changed, then this method is no longer safe.
                 (edition, latest_edition) if edition == latest_edition => {
                     self.edition_map().insert(program_id, edition.saturating_sub(1))?
                 }

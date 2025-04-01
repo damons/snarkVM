@@ -437,6 +437,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use super::*;
+    use circuit::AleoV0;
     use console::{
         account::{Address, ViewKey},
         network::MainnetV0,
@@ -457,6 +458,7 @@ pub(crate) mod test_helpers {
     use std::path::Path;
     use synthesizer_snark::{Proof, VerifyingKey};
 
+    pub(crate) type CurrentAleo = AleoV0;
     pub(crate) type CurrentNetwork = MainnetV0;
 
     /// Samples a new finalize state.
@@ -3324,5 +3326,225 @@ finalize set_first:
             panic!("Expected a valid field.");
         };
         assert_eq!(field, Field::from_str("1field").unwrap());
+    }
+
+    // Note: Do not change the prefix `test_vm_upgrade` of this test as CI uses it to detect the test.
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_vm_upgrade_and_upgrade_in_same_block() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the VM at the V5 height.
+        let v5_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap();
+        let vm = crate::vm::test_helpers::sample_vm_at_height(v5_height, rng);
+
+        // Deploy the upgradable program.
+        let program_v0 = Program::from_str(
+            r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function foo:
+        ",
+        )
+        .unwrap();
+
+        let deployment_v0 = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment_v0], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
+        vm.add_next_block(&block).unwrap();
+
+        // Fund two accounts to pay for the two upgrades.
+        // This has to be done because only one deployment can be made per fee-paying address per block.
+        let private_key_1 = PrivateKey::new(rng).unwrap();
+        let private_key_2 = PrivateKey::new(rng).unwrap();
+        let address_1 = Address::try_from(&private_key_1).unwrap();
+        let address_2 = Address::try_from(&private_key_2).unwrap();
+
+        let tx_1 = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address_1}")).unwrap(), Value::from_str("100_000_000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        let tx_2 = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address_2}")).unwrap(), Value::from_str("100_000_000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 2);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
+        vm.add_next_block(&block).unwrap();
+
+        // Upgrade the program twice.
+        let program_v1 = Program::from_str(
+            r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function foo:
+function bar:
+        ",
+        )
+        .unwrap();
+
+        let program_v2 = Program::from_str(
+            r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function foo:
+function bar:
+function baz:
+        ",
+        )
+        .unwrap();
+
+        // Generate the deployments.
+        let mut process = Process::load().unwrap();
+        process.add_program(&program_v0).unwrap();
+        let deployment_v1 = process.deploy::<CurrentAleo, _>(&program_v1, rng).unwrap();
+        assert_eq!(deployment_v1.edition(), 1);
+        process.add_program(&program_v1).unwrap();
+        let deployment_v2 = process.deploy::<CurrentAleo, _>(&program_v2, rng).unwrap();
+        assert_eq!(deployment_v2.edition(), 2);
+
+        // Construct the transactions.
+        let fee_1 = vm
+            .execute_fee_authorization(
+                process
+                    .authorize_fee_public::<CurrentAleo, _>(
+                        &private_key_1,
+                        10_000_000,
+                        0,
+                        deployment_v1.to_deployment_id().unwrap(),
+                        rng,
+                    )
+                    .unwrap(),
+                None,
+                rng,
+            )
+            .unwrap();
+        let owner_1 = ProgramOwner::new(&private_key_1, deployment_v1.to_deployment_id().unwrap(), rng).unwrap();
+        let transaction_1 = Transaction::from_deployment(owner_1, deployment_v1, fee_1).unwrap();
+        let fee_2 = vm
+            .execute_fee_authorization(
+                process
+                    .authorize_fee_public::<CurrentAleo, _>(
+                        &private_key_2,
+                        10_000_000,
+                        0,
+                        deployment_v2.to_deployment_id().unwrap(),
+                        rng,
+                    )
+                    .unwrap(),
+                None,
+                rng,
+            )
+            .unwrap();
+        let owner_2 = ProgramOwner::new(&private_key_2, deployment_v2.to_deployment_id().unwrap(), rng).unwrap();
+        let transaction_2 = Transaction::from_deployment(owner_2, deployment_v2, fee_2).unwrap();
+
+        // Attempt to upgrade the program twice.
+        let block = sample_next_block(&vm, &caller_private_key, &[transaction_1, transaction_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Attempt to upgrade twice using the same edition.
+        let program_v3 = Program::from_str(
+            r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function foo:
+function bar:
+function baz:
+function qux:
+        ",
+        )
+        .unwrap();
+
+        let program_v4 = Program::from_str(
+            r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function foo:
+function bar:
+function baz:
+function qux:
+function fly:
+        ",
+        )
+        .unwrap();
+
+        // Generate the deployments.
+        let deployment_v3 = process.deploy::<CurrentAleo, _>(&program_v3, rng).unwrap();
+        assert_eq!(deployment_v3.edition(), 2);
+        let deployment_v4 = process.deploy::<CurrentAleo, _>(&program_v4, rng).unwrap();
+        assert_eq!(deployment_v4.edition(), 2);
+
+        // Construct the transactions.
+        let fee_1 = vm
+            .execute_fee_authorization(
+                process
+                    .authorize_fee_public::<CurrentAleo, _>(
+                        &private_key_1,
+                        10_000_000,
+                        0,
+                        deployment_v3.to_deployment_id().unwrap(),
+                        rng,
+                    )
+                    .unwrap(),
+                None,
+                rng,
+            )
+            .unwrap();
+        let owner_1 = ProgramOwner::new(&private_key_1, deployment_v3.to_deployment_id().unwrap(), rng).unwrap();
+        let transaction_1 = Transaction::from_deployment(owner_1, deployment_v3, fee_1).unwrap();
+        let fee_2 = vm
+            .execute_fee_authorization(
+                process
+                    .authorize_fee_public::<CurrentAleo, _>(
+                        &private_key_2,
+                        10_000_000,
+                        0,
+                        deployment_v4.to_deployment_id().unwrap(),
+                        rng,
+                    )
+                    .unwrap(),
+                None,
+                rng,
+            )
+            .unwrap();
+        let owner_2 = ProgramOwner::new(&private_key_2, deployment_v4.to_deployment_id().unwrap(), rng).unwrap();
+        let transaction_2 = Transaction::from_deployment(owner_2, deployment_v4, fee_2).unwrap();
+
+        // Attempt to upgrade the program twice.
+        let block = sample_next_block(&vm, &caller_private_key, &[transaction_1, transaction_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
     }
 }
