@@ -304,6 +304,7 @@ pub mod test_helpers {
     use ledger_store::{BlockStore, helpers::memory::BlockMemory};
     use synthesizer_program::Program;
 
+    use aleo_std::StorageMode;
     use once_cell::sync::OnceCell;
 
     type CurrentNetwork = MainnetV0;
@@ -335,7 +336,7 @@ pub mod test_helpers {
         let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
         // Initialize a new block store.
-        let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+        let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
         // Prepare the assignments from the block store.
         trace.prepare(ledger_query::Query::from(block_store)).unwrap();
@@ -417,7 +418,8 @@ function compute:
                 let caller_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
 
                 // Initialize a new block store.
-                let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+                let block_store =
+                    BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
                 // Construct the process.
                 let process = sample_process(&program);

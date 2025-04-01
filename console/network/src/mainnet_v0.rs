@@ -172,10 +172,12 @@ impl Network for MainnetV0 {
     const INCLUSION_FUNCTION_NAME: &'static str = snarkvm_parameters::mainnet::NETWORK_INCLUSION_FUNCTION_NAME;
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
     #[cfg(not(any(test, feature = "test")))]
-    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25)];
+    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 3] =
+        [(ConsensusVersion::V1, 16), (ConsensusVersion::V3, 25), (ConsensusVersion::V4, 30)];
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
     #[cfg(any(test, feature = "test"))]
-    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100)];
+    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 3] =
+        [(ConsensusVersion::V1, 100), (ConsensusVersion::V3, 100), (ConsensusVersion::V4, 100)];
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
 
