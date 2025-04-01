@@ -135,7 +135,7 @@ impl Network for MainnetV0 {
     type TransmissionChecksum = u128;
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
+    /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     #[cfg(not(any(test, feature = "test")))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5] = [
         (ConsensusVersion::V1, 0),
@@ -145,7 +145,7 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V5, 7_060_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
+    /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     #[cfg(any(test, feature = "test"))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5] = [
         (ConsensusVersion::V1, 0),
