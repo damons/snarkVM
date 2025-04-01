@@ -140,7 +140,7 @@ impl Network for CanaryV0 {
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 2_900_000),
         (ConsensusVersion::V3, 4_560_000),
-        (ConsensusVersion::V4, 5_590_000),
+        (ConsensusVersion::V4, 5_660_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
