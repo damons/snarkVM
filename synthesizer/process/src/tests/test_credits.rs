@@ -21,7 +21,6 @@ use console::{
     program::{Identifier, Literal, Plaintext, ProgramID, Value},
     types::U64,
 };
-use indexmap::IndexMap;
 use ledger_committee::{MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE, MIN_VALIDATOR_STAKE};
 use ledger_query::Query;
 use ledger_store::{
@@ -33,6 +32,8 @@ use ledger_store::{
     helpers::memory::{BlockMemory, FinalizeMemory},
 };
 use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program};
+
+use indexmap::IndexMap;
 
 type CurrentNetwork = MainnetV0;
 type CurrentAleo = AleoV0;
