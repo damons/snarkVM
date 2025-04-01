@@ -133,6 +133,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Check that leaves in the subdag point to batches in other blocks that are valid.
+    ///
+    /// This does not verify that the batches are signed correctly or that the edges are valid
+    /// (only point to the previous round), as those checks already happend when the node received the batch.
     fn check_block_subdag_leaves(&self, block: &Block<N>) -> Result<()> {
         // Check if the block has a subdag.
         let Authority::Quorum(subdag) = block.authority() else {
@@ -148,11 +151,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             .filter(|(_, id)| !subdag_certs.contains(id))
             .collect();
 
-        for (round, cert_id) in leaf_edges {
+        for (_round, cert_id) in leaf_edges {
             // Find the block for this certificate.
             // We might check the same block multiple times, but, so far, the check
             // simply ensures that the block is a valid ancestor.
-            match self.vm.block_store().get_block_for_certificate(cert_id, Some(round))? {
+            match self.vm.block_store().get_block_for_certificate(cert_id)? {
                 Some(prev_block) => {
                     ensure!(
                         prev_block.height() < block.height(),

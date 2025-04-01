@@ -773,24 +773,13 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
     }
 
     /// Returns the block that contains the specified certificate (if any).
-    ///
-    /// You can, optionally, pass a round number to this function, and it will generate an error if the given certificate
-    /// is not in the expected round.
-    fn get_block_for_certificate(
-        &self,
-        certificate_id: &Field<N>,
-        expected_round: Option<u64>,
-    ) -> Result<Option<Block<N>>> {
+    fn get_block_for_certificate(&self, certificate_id: &Field<N>) -> Result<Option<Block<N>>> {
         // Retrieve the height and round for the given certificate ID.
-        let (block_height, round) = match self.certificate_map().get_confirmed(certificate_id)? {
+        let (block_height, _) = match self.certificate_map().get_confirmed(certificate_id)? {
             Some(res) => cow_to_copied!(res),
             None => return Ok(None),
         };
 
-        // Check that the round number matches expectations.
-        if let Some(expected_round) = expected_round {
-            ensure!(round == expected_round, "Certificate does not have the expected round number");
-        }
         // Retrieve the block hash.
         let Some(block_hash) = self.get_block_hash(block_height)? else {
             bail!("The block hash for block '{block_height}' is missing in block storage")
@@ -1314,14 +1303,8 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     }
 
     /// Returns the block for a given certificate (if any).
-    /// Optionally, you can pass a round number, and the function will generate an error if the certificates
-    /// actul round number is not equal to it.
-    pub fn get_block_for_certificate(
-        &self,
-        certificate_id: &Field<N>,
-        expected_round: Option<u64>,
-    ) -> Result<Option<Block<N>>> {
-        self.storage.get_block_for_certificate(certificate_id, expected_round)
+    pub fn get_block_for_certificate(&self, certificate_id: &Field<N>) -> Result<Option<Block<N>>> {
+        self.storage.get_block_for_certificate(certificate_id)
     }
 
     /// Returns the batch certificate for the given `certificate ID`.
