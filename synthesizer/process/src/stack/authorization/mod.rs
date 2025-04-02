@@ -62,14 +62,8 @@ impl<N: Network> TryFrom<(Vec<Request<N>>, Vec<Transition<N>>)> for Authorizatio
             requests.len(),
             transitions.len()
         );
-        // Move the first request to the back to match transition order
-        let mut requests = requests;
-        if let Some(first) = requests.first().cloned() {
-            requests.remove(0);
-            requests.push(first);
-        }
-        // Ensure the requests and transitions match in order
-        for (index, (request, transition)) in requests.iter().zip_eq(&transitions).enumerate() {
+        // Ensure the requests and transitions match in reverse order
+        for (index, (request, transition)) in requests.iter().rev().zip_eq(&transitions).enumerate() {
             // Ensure the request and transition correspond to one another.
             ensure_request_and_transition_matches(index, request, transition)?;
         }
