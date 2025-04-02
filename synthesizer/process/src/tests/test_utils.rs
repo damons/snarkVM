@@ -39,13 +39,12 @@ macro_rules! sample_finalize_store {
         let temp_dir = ();
 
         #[cfg(feature = "rocks")]
-        let store = FinalizeStore::<CurrentNetwork, ledger_store::helpers::rocksdb::FinalizeDB<_>>::open_testing(
+        let store = FinalizeStore::<CurrentNetwork, ledger_store::helpers::rocksdb::FinalizeDB<_>>::open(
             temp_dir.path().to_owned(),
-            None,
         )
         .unwrap();
         #[cfg(not(feature = "rocks"))]
-        let store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+        let store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(0u16).unwrap();
 
         (store, temp_dir)
     }};
@@ -241,7 +240,8 @@ fn execute_function<F: FinalizeStorage<CurrentNetwork>>(
     let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng)?;
 
     // Construct the block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None)?;
+    // Use 0u16 as a valid in-memory StorageMode value instead of None
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(0u16)?;
 
     // Prepare the trace.
     trace.prepare(Query::from(&block_store))?;
