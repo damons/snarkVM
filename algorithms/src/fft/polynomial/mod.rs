@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,7 @@ pub enum Polynomial<'a, F: Field> {
     Dense(Cow<'a, DensePolynomial<F>>),
 }
 
-impl<'a, F: Field> CanonicalSerialize for Polynomial<'a, F> {
+impl<F: Field> CanonicalSerialize for Polynomial<'_, F> {
     fn serialize_with_mode<W: Write>(&self, writer: W, compress: Compress) -> Result<(), SerializationError> {
         match self {
             Sparse(p) => {
@@ -66,7 +66,7 @@ impl<'a, F: Field> CanonicalSerialize for Polynomial<'a, F> {
     }
 }
 
-impl<'a, F: Field> Valid for Polynomial<'a, F> {
+impl<F: Field> Valid for Polynomial<'_, F> {
     fn check(&self) -> Result<(), SerializationError> {
         // Check that the polynomial contains a trailing zero coefficient.
         let has_trailing_zero = match self {
@@ -81,7 +81,7 @@ impl<'a, F: Field> Valid for Polynomial<'a, F> {
     }
 }
 
-impl<'a, F: Field> CanonicalDeserialize for Polynomial<'a, F> {
+impl<F: Field> CanonicalDeserialize for Polynomial<'_, F> {
     fn deserialize_with_mode<R: Read>(
         reader: R,
         compress: Compress,

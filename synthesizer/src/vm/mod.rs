@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@ use crate::{Restrictions, cast_mut_ref, cast_ref, convert, process};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
-    program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Value},
+    program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Response, Value},
     types::{Field, Group, U64},
 };
 use ledger_block::{
@@ -66,7 +66,10 @@ use utilities::try_vm_runtime;
 use aleo_std::prelude::{finish, lap, timer};
 use indexmap::{IndexMap, IndexSet};
 use itertools::Either;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::{Mutex, RwLock};
 use lru::LruCache;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::{Mutex, RwLock};
 use rand::{SeedableRng, rngs::StdRng};
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};
@@ -114,7 +117,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             process: &Process<N>,
             transaction_store: &TransactionStore<N, T>,
             transaction_id: N::TransactionID,
-        ) -> Result<Vec<(ProgramID<N>, Deployment<N>)>> {
+            deployments: Arc<RwLock<IndexMap<ProgramID<N>, Deployment<N>>>>,
+        ) -> Result<()> {
             // Retrieve the deployment from the transaction ID.
             let deployment = match transaction_store.get_deployment(&transaction_id)? {
                 Some(deployment) => deployment,
@@ -126,17 +130,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let program_id = program.id();
 
             // Return early if the program is already loaded.
-            if process.contains_program(program_id) {
-                return Ok(vec![]);
+            if process.contains_program(program_id) || deployments.read().contains_key(program_id) {
+                return Ok(());
             }
-
-            // Prepare a vector for the deployments.
-            let mut deployments = vec![];
 
             // Iterate through the program imports.
             for import_program_id in program.imports().keys() {
                 // Add the imports to the process if does not exist yet.
-                if !process.contains_program(import_program_id) {
+                if !process.contains_program(import_program_id) && !deployments.read().contains_key(program_id) {
                     // Fetch the deployment transaction ID.
                     let Some(transaction_id) =
                         transaction_store.deployment_store().find_transaction_id_from_program_id(import_program_id)?
@@ -145,24 +146,25 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     };
 
                     // Add the deployment and its imports found recursively.
-                    deployments.extend_from_slice(&load_deployment_and_imports(
-                        process,
-                        transaction_store,
-                        transaction_id,
-                    )?);
+                    load_deployment_and_imports(process, transaction_store, transaction_id, deployments.clone())?;
                 }
             }
 
             // Once all the imports have been included, add the parent deployment.
-            deployments.push((*program_id, deployment));
+            if !deployments.read().contains_key(program_id) {
+                // Note: There may be re-insertions due to parallelism, but it is safe to
+                //  reinsert into the IndexMap because it should be the same object.
+                deployments.write().entry(*program_id).or_insert(deployment);
+            }
 
-            Ok(deployments)
+            Ok(())
         }
 
         // Retrieve the transaction store.
         let transaction_store = store.transaction_store();
         // Retrieve the list of deployment transaction IDs.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
+        // TODO (raychu86): Investigate loading them in order to limit recursion.
         // Load the deployments from the store.
         for (i, chunk) in deployment_ids.chunks(256).enumerate() {
             debug!(
@@ -171,14 +173,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 ((i + 1) * 256).min(deployment_ids.len()),
                 deployment_ids.len()
             );
-            let deployments = cfg_iter!(chunk)
+            // Prepare a tracker for the deployments.
+            let deployments = Arc::new(RwLock::new(IndexMap::new()));
+            cfg_iter!(chunk)
                 .map(|transaction_id| {
                     // Load the deployment and its imports.
-                    load_deployment_and_imports(&process, transaction_store, **transaction_id)
+                    load_deployment_and_imports(&process, transaction_store, **transaction_id, deployments.clone())
                 })
-                .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<()>>()?;
 
-            for (program_id, deployment) in deployments.iter().flatten() {
+            for (program_id, deployment) in deployments.read().iter() {
                 // Load the deployment if it does not exist in the process yet.
                 if !process.contains_program(program_id) {
                     process.load_deployment(deployment)?;
@@ -471,36 +475,32 @@ pub(crate) mod test_helpers {
         program::{Entry, Value},
         types::Field,
     };
-    use ledger_block::{Block, Header, Metadata, Transition};
-    use ledger_store::helpers::memory::ConsensusMemory;
-    #[cfg(feature = "rocks")]
-    use ledger_store::helpers::rocksdb::ConsensusDB;
+    use ledger_block::{Block, Header, Input, Metadata, Transition};
     use ledger_test_helpers::{large_transaction_program, small_transaction_program};
     use synthesizer_program::Program;
 
+    use aleo_std::StorageMode;
     use indexmap::IndexMap;
     use once_cell::sync::OnceCell;
-    #[cfg(feature = "rocks")]
-    use std::path::Path;
-    use synthesizer_snark::VerifyingKey;
+    use serde_json::json;
+    use synthesizer_snark::{Proof, VerifyingKey};
 
     pub(crate) type CurrentNetwork = MainnetV0;
     type CurrentAleo = AleoV0;
+
+    #[cfg(not(feature = "rocks"))]
+    type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
+    #[cfg(feature = "rocks")]
+    type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
     /// Samples a new finalize state.
     pub(crate) fn sample_finalize_state(block_height: u32) -> FinalizeGlobalState {
         FinalizeGlobalState::from(block_height as u64, block_height, [0u8; 32])
     }
 
-    pub(crate) fn sample_vm() -> VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>> {
+    pub(crate) fn sample_vm() -> VM<CurrentNetwork, LedgerType> {
         // Initialize a new VM.
-        VM::from(ConsensusStore::open(None).unwrap()).unwrap()
-    }
-
-    #[cfg(feature = "rocks")]
-    pub(crate) fn sample_vm_rocks(path: &Path) -> VM<CurrentNetwork, ConsensusDB<CurrentNetwork>> {
-        // Initialize a new VM.
-        VM::from(ConsensusStore::open(path.to_owned()).unwrap()).unwrap()
+        VM::from(ConsensusStore::open(StorageMode::new_test(None)).unwrap()).unwrap()
     }
 
     pub(crate) fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwork> {
@@ -525,9 +525,7 @@ pub(crate) mod test_helpers {
             .clone()
     }
 
-    pub(crate) fn sample_vm_with_genesis_block(
-        rng: &mut TestRng,
-    ) -> VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>> {
+    pub(crate) fn sample_vm_with_genesis_block(rng: &mut TestRng) -> VM<CurrentNetwork, LedgerType> {
         // Initialize the VM.
         let vm = crate::vm::test_helpers::sample_vm();
         // Initialize the genesis block.
@@ -786,7 +784,7 @@ function compute:
     }
 
     pub fn sample_next_block<R: Rng + CryptoRng>(
-        vm: &VM<MainnetV0, ConsensusMemory<MainnetV0>>,
+        vm: &VM<MainnetV0, LedgerType>,
         private_key: &PrivateKey<MainnetV0>,
         transactions: &[Transaction<MainnetV0>],
         rng: &mut R,
@@ -1465,7 +1463,7 @@ function do:
         let transaction = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
         // Destructure the deployment transaction.
-        let Transaction::Deploy(_, program_owner, deployment, fee) = transaction else {
+        let Transaction::Deploy(_, _, program_owner, deployment, fee) = transaction else {
             panic!("Expected a deployment transaction");
         };
 
@@ -1529,7 +1527,7 @@ function do:
         let transaction = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
         // Destructure the deployment transaction.
-        let Transaction::Deploy(txid, program_owner, deployment, fee) = transaction else {
+        let Transaction::Deploy(txid, _, program_owner, deployment, fee) = transaction else {
             panic!("Expected a deployment transaction");
         };
 
@@ -1545,7 +1543,9 @@ function do:
         // Create a new deployment transaction with the underreported verifying keys.
         let adjusted_deployment =
             Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport).unwrap();
-        let adjusted_transaction = Transaction::Deploy(txid, program_owner, Box::new(adjusted_deployment), fee);
+        let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
+        let adjusted_transaction =
+            Transaction::Deploy(txid, deployment_id, program_owner, Box::new(adjusted_deployment), fee);
 
         // Verify the deployment transaction. It should error when enforcing the first constraint over the vk limit.
         let result = vm.check_transaction(&adjusted_transaction, None, rng);
@@ -1604,7 +1604,7 @@ function do:
         let transaction = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
         // Destructure the deployment transaction.
-        let Transaction::Deploy(txid, program_owner, deployment, fee) = transaction else {
+        let Transaction::Deploy(txid, _, program_owner, deployment, fee) = transaction else {
             panic!("Expected a deployment transaction");
         };
 
@@ -1618,7 +1618,9 @@ function do:
         // Create a new deployment transaction with the underreported verifying keys.
         let adjusted_deployment =
             Deployment::new(deployment.edition(), deployment.program().clone(), vks_with_underreport).unwrap();
-        let adjusted_transaction = Transaction::Deploy(txid, program_owner, Box::new(adjusted_deployment), fee);
+        let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
+        let adjusted_transaction =
+            Transaction::Deploy(txid, deployment_id, program_owner, Box::new(adjusted_deployment), fee);
 
         // Verify the deployment transaction. It should error when synthesizing the first variable over the vk limit.
         let result = vm.check_transaction(&adjusted_transaction, None, rng);
@@ -2441,6 +2443,394 @@ finalize transfer_public_to_private:
     }
 
     #[test]
+    fn test_modify_transaction_output() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Initialize a new private key.
+        let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+
+        // Call `transfer_public_to_private`.
+        let inputs = [
+            Value::from_str(&format!("{}", Address::try_from(&private_key).unwrap())).unwrap(),
+            Value::from_str("1u64").unwrap(),
+        ];
+        let transaction = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public_to_private"),
+                inputs.iter(),
+                None,
+                0u64,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        // Check that the transaction is valid.
+        vm.check_transaction(&transaction, None, rng).unwrap();
+
+        // Check that the transaction is as expected.
+        let transaction_string = transaction.to_string();
+        // Parse the transaction string as a JSON map.
+        let transaction: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&transaction_string).unwrap();
+        // Get the execution.
+        let execution = transaction.get("execution").unwrap();
+        // Get the `transfer_public_to_private` transition.
+        let transition = execution.get("transitions").unwrap().as_array().unwrap().first().unwrap();
+        // Check that the transition is as expected.
+        assert_eq!(transition.get("program").unwrap(), "credits.aleo");
+        assert_eq!(transition.get("function").unwrap(), "transfer_public_to_private");
+        // Get the transition outputs.
+        let outputs = transition.get("outputs").unwrap().as_array().unwrap();
+        // For any output that is a future, modify it to an external record.
+        let new_outputs = outputs
+            .iter()
+            .map(|output| {
+                if output.get("type").unwrap() == "future" {
+                    let id = output.get("id").unwrap().as_str().unwrap();
+                    json!({
+                        "type": "external_record",
+                        "id": id
+                    })
+                } else {
+                    output.clone()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Compute the new transition ID.
+        let inputs = transition
+            .get("inputs")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| {
+                let string = serde_json::to_string(value).unwrap();
+                Input::from_str(&string).unwrap()
+            })
+            .collect::<Vec<_>>();
+        let outputs = new_outputs
+            .iter()
+            .map(|value| {
+                let string = serde_json::to_string(value).unwrap();
+                Output::from_str(&string).unwrap()
+            })
+            .collect();
+        let tpk = Group::from_str(transition.get("tpk").unwrap().as_str().unwrap()).unwrap();
+        let tcm = Field::from_str(transition.get("tcm").unwrap().as_str().unwrap()).unwrap();
+        let scm = Field::from_str(transition.get("scm").unwrap().as_str().unwrap()).unwrap();
+        let transition = Transition::<CurrentNetwork>::new(
+            ProgramID::from_str("credits.aleo").unwrap(),
+            Identifier::from_str("transfer_public_to_private").unwrap(),
+            inputs,
+            outputs,
+            tpk,
+            tcm,
+            scm,
+        )
+        .unwrap();
+
+        // Construct the new transaction.
+        let mut new_transitions = vec![transition];
+        new_transitions.extend(execution.get("transitions").unwrap().as_array().unwrap().iter().skip(1).map(|value| {
+            let string = serde_json::to_string(value).unwrap();
+            Transition::from_str(&string).unwrap()
+        }));
+        let global_state_root = <CurrentNetwork as Network>::StateRoot::from_str(
+            execution.get("global_state_root").unwrap().as_str().unwrap(),
+        )
+        .unwrap();
+        let proof = Proof::<CurrentNetwork>::from_str(execution.get("proof").unwrap().as_str().unwrap()).unwrap();
+        let new_execution = Execution::from(new_transitions.into_iter(), global_state_root, Some(proof)).unwrap();
+        let authorization = vm
+            .authorize_fee_public(&caller_private_key, 10_000_000, 0, new_execution.to_execution_id().unwrap(), rng)
+            .unwrap();
+        let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
+        let new_transaction = Transaction::from_execution(new_execution, Some(fee)).unwrap();
+
+        // Verify the new transaction.
+        assert!(vm.check_transaction(&new_transaction, None, rng).is_err());
+    }
+
+    #[test]
+    fn test_modify_fee() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Initialize a new private key.
+        let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+
+        // Call `transfer_public_to_private`.
+        let inputs = [
+            Value::from_str(&format!("{}", Address::try_from(&private_key).unwrap())).unwrap(),
+            Value::from_str("1u64").unwrap(),
+        ];
+        let transaction = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public_to_private"),
+                inputs.iter(),
+                None,
+                0u64,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        // Check that the transaction is valid.
+        vm.check_transaction(&transaction, None, rng).unwrap();
+
+        // Check that the transaction is as expected.
+        let transaction_string = transaction.to_string();
+        // Parse the transaction string as a JSON map.
+        let transaction: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&transaction_string).unwrap();
+        // Get the execution.
+        let execution: Execution<CurrentNetwork> =
+            serde_json::from_value(transaction.get("execution").unwrap().clone()).unwrap();
+
+        // Get the fee.
+        let fee = transaction.get("fee").unwrap().as_object().unwrap();
+        // Get the transition
+        let transition = fee.get("transition").unwrap().as_object().unwrap();
+        // Check that the transition is as expected.
+        assert_eq!(transition.get("program").unwrap(), "credits.aleo");
+        assert_eq!(transition.get("function").unwrap(), "fee_public");
+        // Get the transition outputs.
+        let outputs = transition.get("outputs").unwrap().as_array().unwrap();
+        // For any output that is a future, modify it to an external record.
+        let new_outputs = outputs
+            .iter()
+            .map(|output| {
+                if output.get("type").unwrap() == "future" {
+                    let id = output.get("id").unwrap().as_str().unwrap();
+                    json!({
+                        "type": "external_record",
+                        "id": id
+                    })
+                } else {
+                    output.clone()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Compute the new transition ID.
+        let inputs = transition
+            .get("inputs")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| {
+                let string = serde_json::to_string(value).unwrap();
+                Input::from_str(&string).unwrap()
+            })
+            .collect::<Vec<_>>();
+        let outputs = new_outputs
+            .iter()
+            .map(|value| {
+                let string = serde_json::to_string(value).unwrap();
+                Output::from_str(&string).unwrap()
+            })
+            .collect();
+        let tpk = Group::from_str(transition.get("tpk").unwrap().as_str().unwrap()).unwrap();
+        let tcm = Field::from_str(transition.get("tcm").unwrap().as_str().unwrap()).unwrap();
+        let scm = Field::from_str(transition.get("scm").unwrap().as_str().unwrap()).unwrap();
+        // Construct the new transition.
+        let transition = Transition::<CurrentNetwork>::new(
+            ProgramID::from_str("credits.aleo").unwrap(),
+            Identifier::from_str("fee_public").unwrap(),
+            inputs,
+            outputs,
+            tpk,
+            tcm,
+            scm,
+        )
+        .unwrap();
+        // Get the state root.
+        let global_state_root =
+            <CurrentNetwork as Network>::StateRoot::from_str(fee.get("global_state_root").unwrap().as_str().unwrap())
+                .unwrap();
+        // Get the proof.
+        let proof = Proof::<CurrentNetwork>::from_str(fee.get("proof").unwrap().as_str().unwrap()).unwrap();
+        // Construct the new fee.
+        let fee = Fee::from(transition, global_state_root, Some(proof)).unwrap();
+
+        // Construct the new transaction.
+        let new_transaction = Transaction::from_execution(execution, Some(fee)).unwrap();
+
+        // Verify the new transaction.
+        assert!(vm.check_transaction(&new_transaction, None, rng).is_err());
+    }
+
+    #[test]
+    fn test_modify_input_and_output() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Deploy the test program.
+        let program = Program::from_str(
+            r"
+program basic_math.aleo;
+
+function add_thrice:
+    input r0 as u64.public;
+    input r1 as u64.private;
+    add r0 r1 into r2;
+    add r2 r1 into r3;
+    add r3 r1 into r4;
+    output r2 as u64.constant;
+    output r3 as u64.public;
+    output r4 as u64.private;
+        ",
+        )
+        .unwrap();
+        let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+        vm.add_next_block(&block).unwrap();
+
+        // Call the test program.
+        let transaction = vm
+            .execute(
+                &caller_private_key,
+                ("basic_math.aleo", "add_thrice"),
+                [Value::from_str("1u64").unwrap(), Value::from_str("2u64").unwrap()].iter(),
+                None,
+                0u64,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        // Check that the transaction is valid.
+        vm.check_transaction(&transaction, None, rng).unwrap();
+
+        // Get the transaction string.
+        let transaction_string = transaction.to_string();
+        // Parse the transaction string as a JSON map.
+        let transaction: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&transaction_string).unwrap();
+        // Get the execution.
+        let execution = transaction.get("execution").unwrap();
+        // Get the `add_twice` transition.
+        let transition = execution.get("transitions").unwrap().as_array().unwrap().first().unwrap();
+        // Get the transition inputs.
+        let inputs = transition.get("inputs").unwrap().as_array().unwrap();
+        // For any input, modify it to an external record.
+        let new_inputs = inputs
+            .iter()
+            .map(|input| {
+                let id = input.get("id").unwrap().as_str().unwrap();
+                json!({
+                    "type": "external_record",
+                    "id": id
+                })
+            })
+            .collect::<Vec<_>>();
+        // Get the transition outputs.
+        let outputs = transition.get("outputs").unwrap().as_array().unwrap();
+        // For any output, modify it to an external record.
+        let new_outputs = outputs
+            .iter()
+            .map(|output| {
+                let id = output.get("id").unwrap().as_str().unwrap();
+                json!({
+                    "type": "external_record",
+                    "id": id
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // Compute the new transition ID.
+        let inputs = new_inputs
+            .iter()
+            .map(|value| {
+                let string = serde_json::to_string(value).unwrap();
+                Input::from_str(&string).unwrap()
+            })
+            .collect::<Vec<_>>();
+        let outputs = new_outputs
+            .iter()
+            .map(|value| {
+                let string = serde_json::to_string(value).unwrap();
+                Output::from_str(&string).unwrap()
+            })
+            .collect();
+        let tpk = Group::from_str(transition.get("tpk").unwrap().as_str().unwrap()).unwrap();
+        let tcm = Field::from_str(transition.get("tcm").unwrap().as_str().unwrap()).unwrap();
+        let scm = Field::from_str(transition.get("scm").unwrap().as_str().unwrap()).unwrap();
+
+        // Construct the new transition.
+        let transition = Transition::<CurrentNetwork>::new(
+            ProgramID::from_str("basic_math.aleo").unwrap(),
+            Identifier::from_str("add_thrice").unwrap(),
+            inputs,
+            outputs,
+            tpk,
+            tcm,
+            scm,
+        )
+        .unwrap();
+
+        // Construct the new transaction.
+        let mut new_transitions = vec![transition];
+        new_transitions.extend(execution.get("transitions").unwrap().as_array().unwrap().iter().skip(1).map(|value| {
+            let string = serde_json::to_string(value).unwrap();
+            Transition::from_str(&string).unwrap()
+        }));
+        let global_state_root = <CurrentNetwork as Network>::StateRoot::from_str(
+            execution.get("global_state_root").unwrap().as_str().unwrap(),
+        )
+        .unwrap();
+        let proof = Proof::<CurrentNetwork>::from_str(execution.get("proof").unwrap().as_str().unwrap()).unwrap();
+        let new_execution = Execution::from(new_transitions.into_iter(), global_state_root, Some(proof)).unwrap();
+        let authorization = vm
+            .authorize_fee_public(&caller_private_key, 10_000_000, 0, new_execution.to_execution_id().unwrap(), rng)
+            .unwrap();
+        let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
+        let new_transaction = Transaction::from_execution(new_execution, Some(fee)).unwrap();
+
+        // Verify the new transaction.
+        assert!(vm.check_transaction(&new_transaction, None, rng).is_err());
+    }
+
+    #[test]
     fn test_large_transaction_is_aborted() {
         let rng = &mut TestRng::default();
 
@@ -2672,8 +3062,7 @@ function check:
         let block2 = sample_next_block(&vm, &genesis_private_key, &[], rng).unwrap();
 
         // Create a new, rocks-based VM shadowing the 1st one.
-        let tempdir = tempfile::tempdir().unwrap();
-        let vm = sample_vm_rocks(tempdir.path());
+        let vm = sample_vm();
         vm.add_next_block(&genesis).unwrap();
         // This time, however, try to insert the 2nd block first, which fails due to height.
         assert!(vm.add_next_block(&block2).is_err());

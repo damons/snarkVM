@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -229,7 +229,7 @@ impl<'a, F: PrimeField> From<&'a LabeledPolynomial<F>> for LabeledPolynomialWith
     }
 }
 
-impl<'a, F: PrimeField> From<LabeledPolynomial<F>> for LabeledPolynomialWithBasis<'a, F> {
+impl<F: PrimeField> From<LabeledPolynomial<F>> for LabeledPolynomialWithBasis<'_, F> {
     fn from(other: LabeledPolynomial<F>) -> Self {
         let polynomial = PolynomialWithBasis::Monomial {
             polynomial: Cow::Owned(other.polynomial),

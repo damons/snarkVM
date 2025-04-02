@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -124,7 +124,7 @@ pub trait ExecutionStorage<N: Network>: Clone + Send + Sync {
         // Ensure the transaction is a execution.
         let (transaction_id, execution, fee) = match transaction {
             Transaction::Deploy(..) => bail!("Attempted to insert a deploy transaction into execution storage."),
-            Transaction::Execute(transaction_id, execution, fee) => (transaction_id, execution, fee),
+            Transaction::Execute(transaction_id, _, execution, fee) => (transaction_id, execution, fee),
             Transaction::Fee(..) => bail!("Attempted to insert a fee transaction into execution storage."),
         };
 
@@ -401,7 +401,7 @@ mod tests {
         let transaction_id = transaction.id();
 
         // Initialize a new transition store.
-        let transition_store = TransitionStore::open(None)?;
+        let transition_store = TransitionStore::open(StorageMode::Test(None))?;
         // Initialize a new fee store.
         let fee_store = FeeStore::open(transition_store).unwrap();
         // Initialize a new execution store.
@@ -437,7 +437,7 @@ mod tests {
         }
 
         // Initialize a new transition store.
-        let transition_store = TransitionStore::open(None)?;
+        let transition_store = TransitionStore::open(StorageMode::Test(None))?;
         // Initialize a new fee store.
         let fee_store = FeeStore::open(transition_store).unwrap();
         // Initialize a new execution store.

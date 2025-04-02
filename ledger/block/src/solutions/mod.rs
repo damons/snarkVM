@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,9 +31,11 @@ pub struct Solutions<N: Network> {
 
 impl<N: Network> Solutions<N> {
     /// The maximum number of aborted solutions allowed in a block.
-    pub const MAX_ABORTED_SOLUTIONS: usize = BatchHeader::<N>::MAX_TRANSMISSIONS_PER_BATCH
-        * BatchHeader::<N>::MAX_GC_ROUNDS
-        * Committee::<N>::MAX_COMMITTEE_SIZE as usize;
+    pub fn max_aborted_solutions() -> Result<usize> {
+        Ok(BatchHeader::<N>::MAX_TRANSMISSIONS_PER_BATCH
+            * BatchHeader::<N>::MAX_GC_ROUNDS
+            * Committee::<N>::max_committee_size()? as usize)
+    }
 }
 
 impl<N: Network> From<Option<PuzzleSolutions<N>>> for Solutions<N> {

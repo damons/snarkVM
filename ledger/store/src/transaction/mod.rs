@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -437,6 +437,8 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     }
 }
 
+type ProgramTriplet<N> = (ProgramID<N>, Identifier<N>, u16);
+
 impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     /// Returns an iterator over the transaction IDs, for all transactions.
     pub fn transaction_ids(&self) -> impl '_ + Iterator<Item = Cow<'_, N::TransactionID>> {
@@ -464,16 +466,12 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
     }
 
     /// Returns an iterator over the `((program ID, function name, edition), verifying key)`, for all deployments.
-    pub fn verifying_keys(
-        &self,
-    ) -> impl '_ + Iterator<Item = (Cow<'_, (ProgramID<N>, Identifier<N>, u16)>, Cow<'_, VerifyingKey<N>>)> {
+    pub fn verifying_keys(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramTriplet<N>>, Cow<'_, VerifyingKey<N>>)> {
         self.storage.deployment_store().verifying_keys()
     }
 
     /// Returns an iterator over the `((program ID, function name, edition), certificate)`, for all deployments.
-    pub fn certificates(
-        &self,
-    ) -> impl '_ + Iterator<Item = (Cow<'_, (ProgramID<N>, Identifier<N>, u16)>, Cow<'_, Certificate<N>>)> {
+    pub fn certificates(&self) -> impl '_ + Iterator<Item = (Cow<'_, ProgramTriplet<N>>, Cow<'_, Certificate<N>>)> {
         self.storage.deployment_store().certificates()
     }
 }
@@ -499,7 +497,8 @@ mod tests {
             let transaction_id = transaction.id();
 
             // Initialize a new transition store.
-            let transition_store = TransitionStore::<_, TransitionMemory<_>>::open(None).unwrap();
+            let transition_store =
+                TransitionStore::<_, TransitionMemory<_>>::open(StorageMode::new_test(None)).unwrap();
             // Initialize a new transaction store.
             let transaction_store = TransactionStore::<_, TransactionMemory<_>>::open(transition_store).unwrap();
 
@@ -540,7 +539,8 @@ mod tests {
             let transition_ids = transaction.transition_ids();
 
             // Initialize a new transition store.
-            let transition_store = TransitionStore::<_, TransitionMemory<_>>::open(None).unwrap();
+            let transition_store =
+                TransitionStore::<_, TransitionMemory<_>>::open(StorageMode::new_test(None)).unwrap();
             // Initialize a new transaction store.
             let transaction_store = TransactionStore::<_, TransactionMemory<_>>::open(transition_store).unwrap();
 

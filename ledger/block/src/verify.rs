@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -225,6 +225,9 @@ impl<N: Network> Block<N> {
                     subdag.leader_address()
                 );
                 // Ensure the transmission IDs from the subdag correspond to the block.
+                // This is redundant if the block has been created via `Block::from()`;
+                // however, we need to obtain the solution and transaction IDs here,
+                // so may want to remove the redundant check in `Block::from()` and leave it here.
                 Self::check_subdag_transmissions(
                     subdag,
                     &self.solutions,
@@ -251,7 +254,7 @@ impl<N: Network> Block<N> {
                 "Leader certificate has an incorrect committee ID"
             );
 
-            // Check that all all certificates on each round have the same committee ID.
+            // Check that all certificates on each round have the same committee ID.
             cfg_iter!(subdag).try_for_each(|(round, certificates)| {
                 // Check that every certificate for a given round shares the same committee ID.
                 let expected_committee_id = certificates
@@ -321,18 +324,20 @@ impl<N: Network> Block<N> {
         let timestamp = self.timestamp();
 
         // Ensure the number of solutions is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
         ensure!(
             self.solutions.len() <= N::MAX_SOLUTIONS,
             "Block {height} contains too many prover solutions (found '{}', expected '{}')",
             self.solutions.len(),
             N::MAX_SOLUTIONS
         );
+
         // Ensure the number of aborted solution IDs is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
         ensure!(
-            self.aborted_solution_ids.len() <= Solutions::<N>::MAX_ABORTED_SOLUTIONS,
-            "Block {height} contains too many aborted solution IDs (found '{}', expected '{}')",
+            self.aborted_solution_ids.len() <= Solutions::<N>::max_aborted_solutions()?,
+            "Block {height} contains too many aborted solution IDs (found '{}')",
             self.aborted_solution_ids.len(),
-            Solutions::<N>::MAX_ABORTED_SOLUTIONS
         );
 
         // Ensure there are no duplicate solution IDs.
@@ -415,7 +420,7 @@ impl<N: Network> Block<N> {
             time_since_last_block,
             expected_coinbase_reward,
             expected_transaction_fees,
-        );
+        )?;
         // Compute the expected puzzle reward.
         let expected_puzzle_reward = puzzle_reward(expected_coinbase_reward);
 
@@ -436,6 +441,7 @@ impl<N: Network> Block<N> {
         let height = self.height();
 
         // Ensure the number of transactions is within the allowed range.
+        // This check is redundant if the block has been created via `Block::from()`.
         if self.transactions.len() > Transactions::<N>::MAX_TRANSACTIONS {
             bail!(
                 "Cannot validate a block with more than {} confirmed transactions",
@@ -444,10 +450,11 @@ impl<N: Network> Block<N> {
         }
 
         // Ensure the number of aborted transaction IDs is within the allowed range.
-        if self.aborted_transaction_ids.len() > Transactions::<N>::MAX_ABORTED_TRANSACTIONS {
+        // This check is redundant if the block has been created via `Block::from()`.
+        if self.aborted_transaction_ids.len() > Transactions::<N>::max_aborted_transactions()? {
             bail!(
                 "Cannot validate a block with more than {} aborted transaction IDs",
-                Transactions::<N>::MAX_ABORTED_TRANSACTIONS
+                Transactions::<N>::max_aborted_transactions()?
             );
         }
 
@@ -638,9 +645,9 @@ impl<N: Network> Block<N> {
         }
 
         // Ensure there are no more solutions in the block.
-        ensure!(solutions.next().is_none(), "There exists more solutions than expected.");
+        ensure!(solutions.next().is_none(), "There exist more solutions than expected.");
         // Ensure there are no more transactions in the block.
-        ensure!(unconfirmed_transactions.next().is_none(), "There exists more transactions than expected.");
+        ensure!(unconfirmed_transactions.next().is_none(), "There exist more transactions than expected.");
 
         // Ensure the aborted solution IDs match.
         for aborted_solution_id in aborted_solution_ids {

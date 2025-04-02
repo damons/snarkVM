@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -226,24 +226,24 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let num_solutions = solutions.len();
         // Retrieve the number of transactions.
         let num_transactions = transactions.len();
+        // Determine the maximum number of aborted solutions allowed in a block.
+        let max_aborted_solutions = Solutions::<N>::max_aborted_solutions()?;
+        // Determine the maximum number of aborted transactions allowed in a block.
+        let max_aborted_transactions = Transactions::<N>::max_aborted_transactions()?;
 
         // Perform the finalize operation on the preset finalize mode.
         atomic_finalize!(self.finalize_store(), FinalizeMode::DryRun, {
             // Ensure the number of solutions does not exceed the maximum.
-            if num_solutions > Solutions::<N>::MAX_ABORTED_SOLUTIONS {
+            if num_solutions > max_aborted_solutions {
                 // Note: This will abort the entire atomic batch.
-                return Err(format!(
-                    "Too many solutions in the block - {num_solutions} (max: {})",
-                    Solutions::<N>::MAX_ABORTED_SOLUTIONS
-                ));
+                return Err(format!("Too many solutions in the block - {num_solutions}",));
             }
 
             // Ensure the number of transactions does not exceed the maximum.
-            if num_transactions > Transactions::<N>::MAX_ABORTED_TRANSACTIONS {
+            if num_transactions > max_aborted_transactions {
                 // Note: This will abort the entire atomic batch.
                 return Err(format!(
-                    "Too many transactions in the block - {num_transactions} (max: {})",
-                    Transactions::<N>::MAX_ABORTED_TRANSACTIONS
+                    "Too many transactions in the block - {num_transactions} (max: {max_aborted_transactions})",
                 ));
             }
 
@@ -331,7 +331,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 let outcome = match transaction {
                     // The finalize operation here involves appending the 'stack',
                     // and adding the program to the finalize tree.
-                    Transaction::Deploy(_, program_owner, deployment, fee) => {
+                    Transaction::Deploy(_, _, program_owner, deployment, fee) => {
                         // Define the closure for processing a rejected deployment.
                         let process_rejected_deployment =
                             |fee: &Fee<N>,
@@ -391,7 +391,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     }
                     // The finalize operation here involves calling 'update_key_value',
                     // and update the respective leaves of the finalize tree.
-                    Transaction::Execute(_, execution, fee) => {
+                    Transaction::Execute(_, _, execution, fee) => {
                         // Determine if the transaction is safe for execution, and proceed to execute it.
                         match Self::prepare_for_execution(state, store, execution)
                             .and_then(|_| process.finalize_execution(state, store, execution, fee.as_ref()))
@@ -410,7 +410,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     }) {
                                         Ok((fee_tx, finalize)) => {
                                             // Construct the rejected execution.
-                                            let rejected = Rejected::new_execution(execution.clone());
+                                            let rejected = Rejected::new_execution(*execution.clone());
                                             // Construct the rejected execute transaction.
                                             ConfirmedTransaction::rejected_execute(counter, fee_tx, rejected, finalize)
                                                 .map_err(|e| e.to_string())
@@ -453,7 +453,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         // Add the transition public keys to the set of produced transition public keys.
                         tpks.extend(confirmed_transaction.transaction().transition_public_keys());
                         // Add any public deployment payer to the set of deployment payers.
-                        if let Transaction::Deploy(_, _, _, fee) = confirmed_transaction.transaction() {
+                        if let Transaction::Deploy(_, _, _, _, fee) = confirmed_transaction.transaction() {
                             fee.payer().map(|payer| deployment_payers.insert(payer));
                         }
                         // Store the confirmed transaction.
@@ -500,7 +500,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         time_since_last_block,
                         coinbase_reward,
                         transaction_fees,
-                    );
+                    )
+                    .map_err(|e| format!("Failed to compute the block reward - {e}"))?;
                     // Compute the puzzle reward.
                     let puzzle_reward = ledger_block::puzzle_reward(coinbase_reward);
 
@@ -610,7 +611,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     ConfirmedTransaction::AcceptedDeploy(_, transaction, finalize) => {
                         // Extract the deployment and fee from the transaction.
                         let (deployment, fee) = match transaction {
-                            Transaction::Deploy(_, _, deployment, fee) => (deployment, fee),
+                            Transaction::Deploy(_, _, _, deployment, fee) => (deployment, fee),
                             // Note: This will abort the entire atomic batch.
                             _ => return Err("Expected deploy transaction".to_string()),
                         };
@@ -637,7 +638,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     ConfirmedTransaction::AcceptedExecute(_, transaction, finalize) => {
                         // Extract the execution and fee from the transaction.
                         let (execution, fee) = match transaction {
-                            Transaction::Execute(_, execution, fee) => (execution, fee),
+                            Transaction::Execute(_, _, execution, fee) => (execution, fee),
                             // Note: This will abort the entire atomic batch.
                             _ => return Err("Expected execute transaction".to_string()),
                         };
@@ -830,7 +831,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         }
 
         // If the transaction is a deployment, ensure that it is not another deployment in the block from the same public fee payer.
-        if let Transaction::Deploy(_, _, _, fee) = transaction {
+        if let Transaction::Deploy(_, _, _, _, fee) = transaction {
             // If any public deployment payer has already deployed in this block, abort the transaction.
             if let Some(payer) = fee.payer() {
                 if deployment_payers.contains(&payer) {
@@ -901,7 +902,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // Add the transition public keys to the set of produced transition public keys.
                     tpks.extend(transaction.transition_public_keys());
                     // Add any public deployment payer to the set of deployment payers.
-                    if let Transaction::Deploy(_, _, _, fee) = transaction {
+                    if let Transaction::Deploy(_, _, _, _, fee) = transaction {
                         fee.payer().map(|payer| deployment_payers.insert(payer));
                     }
 
@@ -1000,10 +1001,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Compute the next committee size.
                 let next_committee_size = committee_members.len().saturating_add(num_new_validators);
                 // Determine the maximum committee size to use.
-                let max_committee_size = match state.block_height() < N::CONSENSUS_V3_HEIGHT {
-                    true => Committee::<N>::MAX_COMMITTEE_SIZE_BEFORE_V3,
-                    false => Committee::<N>::MAX_COMMITTEE_SIZE,
-                };
+                let max_committee_size = consensus_config_value!(N, MAX_CERTIFICATES, state.block_height())
+                    .ok_or(anyhow!("Failed to retrieve the maximum committee size"))?;
                 // Check that the number of new validators being bonded does not exceed the maximum number of validators.
                 match next_committee_size > max_committee_size as usize {
                     true => Err(anyhow!("Call to 'credits.aleo/bond_public' exceeds the committee size")),
@@ -1054,17 +1053,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Ratify::Genesis(..) expected a genesis committee round of 0"
                     );
                     // Ensure that the number of members in the committee does not exceed the maximum.
+                    let max_committee_size = consensus_config_value!(N, MAX_CERTIFICATES, state.block_height())
+                        .ok_or(anyhow!("Ratify::Genesis(..) failed to retrieve the maximum committee size"))?;
                     ensure!(
-                        committee.members().len() <= Committee::<N>::MAX_COMMITTEE_SIZE as usize,
+                        committee.members().len() <= max_committee_size as usize,
                         "Ratify::Genesis(..) exceeds the maximum number of committee members"
                     );
-                    // Ensure that the number of members in the committee does not exceed the maximum before consensus V3 rules apply.
-                    if state.block_height() < N::CONSENSUS_V3_HEIGHT {
-                        ensure!(
-                            committee.members().len() <= Committee::<N>::MAX_COMMITTEE_SIZE_BEFORE_V3 as usize,
-                            "Ratify::Genesis(..) exceeds the maximum number of committee members before V3"
-                        );
-                    }
                     // Ensure that the number of delegators does not exceed the maximum.
                     ensure!(
                         bonded_balances.len().saturating_sub(committee.members().len()) <= MAX_DELEGATORS as usize,
@@ -1406,16 +1400,19 @@ mod tests {
     };
     use ledger_block::{Block, Header, Metadata, Transaction, Transition};
     use ledger_committee::{MAX_DELEGATORS, MIN_VALIDATOR_STAKE};
-    use ledger_store::helpers::memory::ConsensusMemory;
     use synthesizer_program::Program;
 
     use rand::distributions::DistString;
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
+    #[cfg(not(feature = "rocks"))]
+    type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
+    #[cfg(feature = "rocks")]
+    type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
     /// Sample a new program and deploy it to the VM. Returns the program name.
     fn new_program_deployment<R: Rng + CryptoRng>(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
         previous_block: &Block<CurrentNetwork>,
         unspent_records: &mut Vec<Record<CurrentNetwork, Ciphertext<CurrentNetwork>>>,
@@ -1483,7 +1480,7 @@ finalize transfer_public:
 
     /// Construct a new block based on the given transactions.
     fn sample_next_block<R: Rng + CryptoRng>(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
         transactions: &[Transaction<CurrentNetwork>],
         previous_block: &Block<CurrentNetwork>,
@@ -1553,7 +1550,7 @@ finalize transfer_public:
 
     /// Generate split transactions for the unspent records.
     fn generate_splits<R: Rng + CryptoRng>(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
         previous_block: &Block<CurrentNetwork>,
         unspent_records: &mut Vec<Record<CurrentNetwork, Ciphertext<CurrentNetwork>>>,
@@ -1592,7 +1589,7 @@ finalize transfer_public:
 
     /// Create an execution transaction.
     fn create_execution(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
         program_id: &str,
         function_name: &str,
@@ -1619,7 +1616,7 @@ finalize transfer_public:
 
     /// Sample a public mint transaction.
     fn sample_mint_public(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
         program_id: &str,
         recipient: Address<CurrentNetwork>,
@@ -1637,7 +1634,7 @@ finalize transfer_public:
 
     /// Sample a public transfer transaction.
     fn sample_transfer_public(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
         program_id: &str,
         recipient: Address<CurrentNetwork>,
@@ -1660,10 +1657,10 @@ finalize transfer_public:
         finalize: &[FinalizeOperation<CurrentNetwork>],
     ) -> ConfirmedTransaction<CurrentNetwork> {
         match transaction {
-            Transaction::Execute(_, execution, fee) => ConfirmedTransaction::RejectedExecute(
+            Transaction::Execute(_, _, execution, fee) => ConfirmedTransaction::RejectedExecute(
                 index,
                 Transaction::from_fee(fee.clone().unwrap()).unwrap(),
-                Rejected::new_execution(execution.clone()),
+                Rejected::new_execution(*execution.clone()),
                 finalize.to_vec(),
             ),
             _ => panic!("only reject execution transactions"),
@@ -1826,7 +1823,7 @@ finalize transfer_public:
 
         // Initialize the validators with the maximum number of validators.
         let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 as usize,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize,
             rng,
         );
 
@@ -1917,64 +1914,30 @@ finalize transfer_public:
     #[test]
     fn test_genesis_num_validators_does_not_exceed_maximum_before_v3() {
         // This test will fail if the consensus v3 height is 0
-        assert_ne!(0, CurrentNetwork::CONSENSUS_V3_HEIGHT);
+        assert_ne!(0, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap());
 
         // Initialize an RNG.
         let rng = &mut TestRng::default();
 
-        // Initialize the VM.
-        let vm = sample_vm();
-
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 as usize + 1,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize + 1,
             rng,
         );
 
-        // Initialize a new address.
-        let new_validator_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
-        let new_validator_address = Address::try_from(&new_validator_private_key).unwrap();
-
         // Construct the committee.
         // Track the allocated amount.
-        let (committee_map, allocated_amount) =
+        let (committee_map, _allocated_amount) =
             sample_committee_map_and_allocated_amount(&validators, &IndexMap::new());
 
-        // Collect all of the addresses in a single place
-        let validator_addresses =
-            validators.keys().map(|private_key| Address::try_from(private_key).unwrap()).collect::<Vec<_>>();
-
-        // Construct the public balances, allocating the remaining supply.
-        let new_validator_balance = MIN_VALIDATOR_STAKE + 100_000_000;
-        let mut public_balances = sample_public_balances(
-            &validator_addresses,
-            <CurrentNetwork as Network>::STARTING_SUPPLY - allocated_amount - new_validator_balance,
-        );
-        // Set the public balance of the new validator to the minimum validator stake.
-        public_balances.insert(new_validator_address, new_validator_balance);
-
-        // Construct the bonded balances.
-        let bonded_balances = sample_bonded_balances(&validators, &IndexMap::new());
-
-        // Ensure that the block with too many validators fails to be created.
-        assert!(
-            vm.genesis_quorum(
-                validators.keys().next().unwrap(),
-                Committee::new_genesis(committee_map).unwrap(),
-                public_balances,
-                bonded_balances,
-                rng,
-            )
-            .is_err()
-        );
+        assert!(Committee::new_genesis(committee_map).is_err());
     }
 
-    #[cfg(feature = "test")]
     #[test]
     #[allow(clippy::assertions_on_constants)]
     fn test_migration_v3_maximum_validator_increase() {
         // This test will fail if the consensus v3 height is 0
-        assert_ne!(0, CurrentNetwork::CONSENSUS_V3_HEIGHT);
+        assert_ne!(0, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap());
 
         // Initialize an RNG.
         let rng = &mut TestRng::default();
@@ -1984,7 +1947,7 @@ finalize transfer_public:
 
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 as usize,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize,
             rng,
         );
 
@@ -2070,27 +2033,11 @@ finalize transfer_public:
             reject(0, &bond_validator_transaction, confirmed_transactions[0].finalize_operations())
         );
 
-        // Update the VM to the migration block height
-        let private_key = test_helpers::sample_genesis_private_key(rng);
-        let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_V3_HEIGHT {
-            // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-            vm.add_next_block(&next_block).unwrap();
-        }
-
-        // Test that attempting to bond a new validator above the maximum number of validators after the migration block height succeeds.
-
-        // Check that the new committee size is greater than the maximum committee size before the migration.
-        assert!(
-            Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 < Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE
-        );
-
         // Speculate on the transactions.
         let transactions = [bond_validator_transaction.clone()];
         let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
             .atomic_speculate(
-                sample_finalize_state(CurrentNetwork::CONSENSUS_V3_HEIGHT),
+                sample_finalize_state(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap()),
                 CurrentNetwork::BLOCK_TIME as i64,
                 None,
                 vec![],
@@ -2410,12 +2357,12 @@ function ped_hash:
             // Ensure that the transaction is rejected.
             assert_eq!(confirmed_transactions.len(), 1);
             assert!(transaction.is_execute());
-            if let Transaction::Execute(_, execution, fee) = transaction {
+            if let Transaction::Execute(_, _, execution, fee) = transaction {
                 let fee_transaction = Transaction::from_fee(fee.unwrap()).unwrap();
                 let expected_confirmed_transaction = ConfirmedTransaction::RejectedExecute(
                     0,
                     fee_transaction,
-                    Rejected::new_execution(execution),
+                    Rejected::new_execution(*execution),
                     vec![],
                 );
 
@@ -2600,11 +2547,11 @@ finalize compute:
         let mut transactions = Vec::new();
         let mut excess_transaction_ids = Vec::new();
 
-        for _ in 0..VM::<CurrentNetwork, ConsensusMemory<_>>::MAXIMUM_CONFIRMED_TRANSACTIONS + 1 {
+        for _ in 0..VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS + 1 {
             let transaction =
                 sample_mint_public(&vm, caller_private_key, &program_id, caller_address, 10, &mut unspent_records, rng);
             // Abort the transaction if the block is full.
-            if transactions.len() >= VM::<CurrentNetwork, ConsensusMemory<_>>::MAXIMUM_CONFIRMED_TRANSACTIONS {
+            if transactions.len() >= VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS {
                 excess_transaction_ids.push(transaction.id());
             }
 
@@ -2618,10 +2565,7 @@ finalize compute:
 
         // Ensure that the excess transactions were aborted.
         assert_eq!(next_block.aborted_transaction_ids(), &excess_transaction_ids);
-        assert_eq!(
-            next_block.transactions().len(),
-            VM::<CurrentNetwork, ConsensusMemory<_>>::MAXIMUM_CONFIRMED_TRANSACTIONS
-        );
+        assert_eq!(next_block.transactions().len(), VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS);
     }
 
     #[test]
@@ -2633,8 +2577,10 @@ finalize compute:
         let vm = sample_vm();
 
         // Construct the validators, greater than the maximum committee size.
-        let validators =
-            sample_validators::<CurrentNetwork>(Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE as usize + 1, rng);
+        let validators = sample_validators::<CurrentNetwork>(
+            Committee::<CurrentNetwork>::max_committee_size().unwrap() as usize + 1,
+            rng,
+        );
 
         // Construct the committee.
         let mut committee_map = IndexMap::new();
@@ -2650,7 +2596,7 @@ finalize compute:
         // Reset the validators.
         // Note: We use a smaller committee size to ensure that there is enough supply to allocate to the validators and genesis block transactions.
         let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 as usize,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize,
             rng,
         );
 
@@ -2695,7 +2641,7 @@ finalize compute:
         // Construct the validators.
         // Note: We use a smaller committee size to ensure that there is enough supply to allocate to the validators and genesis block transactions.
         let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 as usize / 4,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize / 4,
             rng,
         );
 

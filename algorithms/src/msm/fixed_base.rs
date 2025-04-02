@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +32,7 @@ impl FixedBase {
 
     pub fn get_window_table<T: ProjectiveCurve>(scalar_size: usize, window: usize, g: T) -> Vec<Vec<T>> {
         let in_window = 1 << window;
-        let outerc = (scalar_size + window - 1) / window;
+        let outerc = scalar_size.div_ceil(window);
         let last_in_window = 1 << (scalar_size - (outerc - 1) * window);
 
         let mut multiples_of_g = vec![vec![T::zero(); in_window]; outerc];
@@ -90,7 +90,7 @@ impl FixedBase {
         table: &[Vec<T>],
         v: &[T::ScalarField],
     ) -> Vec<T> {
-        let outerc = (scalar_size + window - 1) / window;
+        let outerc = scalar_size.div_ceil(window);
         assert!(outerc <= table.len());
 
         cfg_iter!(v).map(|e| Self::windowed_mul::<T>(outerc, window, table, e)).collect::<Vec<_>>()

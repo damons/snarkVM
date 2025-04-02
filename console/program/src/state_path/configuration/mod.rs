@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,6 +57,10 @@ pub type TransactionsTree<N> = BHPMerkleTree<N, TRANSACTIONS_DEPTH>;
 /// The Merkle path for a transaction in a block.
 pub type TransactionsPath<N> = MerklePath<N, TRANSACTIONS_DEPTH>;
 
+/// The Merkle tree for the execution.
+pub type ExecutionTree<N> = BHPMerkleTree<N, TRANSACTION_DEPTH>;
+/// The Merkle tree for the deployment.
+pub type DeploymentTree<N> = BHPMerkleTree<N, TRANSACTION_DEPTH>;
 /// The Merkle tree for the transaction.
 pub type TransactionTree<N> = BHPMerkleTree<N, TRANSACTION_DEPTH>;
 /// The Merkle path for a function or transition in the transaction.

@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,6 +33,7 @@ use ledger_store::{
 };
 use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program};
 
+use aleo_std::StorageMode;
 use indexmap::IndexMap;
 
 type CurrentNetwork = MainnetV0;
@@ -45,20 +46,15 @@ const TEST_COMMISSION: u8 = 5;
 macro_rules! sample_finalize_store {
     () => {{
         #[cfg(feature = "rocks")]
-        let temp_dir = tempfile::tempdir().expect("Failed to open temporary directory");
-        #[cfg(not(feature = "rocks"))]
-        let temp_dir = ();
-
-        #[cfg(feature = "rocks")]
-        let store = FinalizeStore::<CurrentNetwork, ledger_store::helpers::rocksdb::FinalizeDB<_>>::open_testing(
-            temp_dir.path().to_owned(),
-            None,
+        let store = FinalizeStore::<CurrentNetwork, ledger_store::helpers::rocksdb::FinalizeDB<_>>::open(
+            std::sync::Arc::new(tempfile::tempdir().expect("Failed to open temporary directory")),
         )
         .unwrap();
         #[cfg(not(feature = "rocks"))]
-        let store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+        let store =
+            FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(aleo_std::StorageMode::new_test(None)).unwrap();
 
-        (store, temp_dir)
+        store
     }};
 }
 
@@ -330,7 +326,7 @@ fn execute_function<F: FinalizeStorage<CurrentNetwork>>(
     let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng)?;
 
     // Construct the block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None)?;
+    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None))?;
 
     // Prepare the trace.
     trace.prepare(Query::from(&block_store))?;
@@ -464,7 +460,7 @@ fn test_bond_validator_simple() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -519,7 +515,7 @@ fn test_bond_public_with_minimum_bond() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validator and delegator keys
     let validator_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
@@ -613,7 +609,7 @@ fn test_bond_validator_below_min_stake_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -649,7 +645,7 @@ fn test_bond_validator_same_withdrawal_address_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -685,7 +681,7 @@ fn test_bond_validator_with_insufficient_funds_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -722,7 +718,7 @@ fn test_bond_validator_different_commission_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -790,7 +786,7 @@ fn test_bond_validator_multiple_bonds() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -850,7 +846,7 @@ fn test_bond_validator_to_other_validator_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&store, 2, 0, rng).unwrap();
@@ -936,7 +932,7 @@ fn test_bond_delegator_simple() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -998,7 +994,7 @@ fn test_bond_delegator_below_min_stake_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -1065,7 +1061,7 @@ fn test_bond_delegator_with_insufficient_funds_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -1132,7 +1128,7 @@ fn test_bond_delegator_multiple_bonds() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -1228,7 +1224,7 @@ fn test_bond_validator_and_delegator_multiple_times() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&finalize_store, 1, 1, rng).unwrap();
@@ -1359,7 +1355,7 @@ fn test_bond_delegator_to_multiple_validators_fails() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 2, 1, rng).unwrap();
@@ -1502,7 +1498,7 @@ fn test_unbond_validator() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -1646,7 +1642,7 @@ fn test_bond_validator_fails_if_unbonding_state() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -1733,7 +1729,7 @@ fn test_unbond_validator_fails_if_unbonding_beyond_their_stake() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -1831,7 +1827,7 @@ fn test_unbond_validator_continues_if_there_is_a_delegator() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -1912,7 +1908,7 @@ fn test_unbond_delegator() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -2070,7 +2066,7 @@ fn test_unbond_delegator_without_validator() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -2114,7 +2110,7 @@ fn test_unbond_delegator_removes_validator_with_insufficient_stake() {
     // Construct the process.
     let process = Process::<CurrentNetwork>::load().unwrap();
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -2189,7 +2185,7 @@ fn test_unbond_delegator_as_validator() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&finalize_store, 2, 1, rng).unwrap();
@@ -2274,7 +2270,7 @@ fn test_claim_unbond() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the validators and delegators.
     let (validators, _) = initialize_stakers(&finalize_store, 1, 0, rng).unwrap();
@@ -2331,7 +2327,7 @@ fn test_set_validator_state() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the validators.
     let (validators, _) = initialize_stakers(&finalize_store, 1, 0, rng).unwrap();
@@ -2368,7 +2364,7 @@ fn test_set_validator_state_for_non_validator_fails() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     /* Ensure calling `set_validator_state` as a non-validator fails. */
 
@@ -2387,7 +2383,7 @@ fn test_bonding_existing_stakers_to_closed_validator() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&finalize_store, 1, 1, rng).unwrap();
@@ -2524,7 +2520,7 @@ fn test_bonding_new_staker_to_closed_validator_fails() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(None).unwrap();
+    let finalize_store = FinalizeStore::<CurrentNetwork, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&finalize_store, 1, 1, rng).unwrap();
@@ -2568,7 +2564,7 @@ fn test_claim_unbond_public_to_withdrawal_address() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -2655,7 +2651,7 @@ fn test_bonding_multiple_stakers_to_same_withdrawal_address() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, delegators) = initialize_stakers(&store, 1, 1, rng).unwrap();
@@ -2686,7 +2682,7 @@ fn test_claim_unbond_public_removes_withdraw_mapping() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -2744,7 +2740,7 @@ fn test_bond_validator_to_different_withdraw_address_fails() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -2782,7 +2778,7 @@ fn test_bond_validator_with_different_commission_fails() {
     let process = Process::<CurrentNetwork>::load().unwrap();
 
     // Initialize a new finalize store.
-    let (store, _temp_dir) = sample_finalize_store!();
+    let store = sample_finalize_store!();
 
     // Initialize the validators and delegators.
     let (validators, _) = initialize_stakers(&store, 1, 0, rng).unwrap();
@@ -2890,7 +2886,7 @@ mod sanity_checks {
         let r2 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(stack, &private_key, function_name, &[r0, r1, r2], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1, r2], rng);
         assert_eq!(16, assignment.num_public());
         assert_eq!(50956, assignment.num_private());
         assert_eq!(51002, assignment.num_constraints());
@@ -2918,7 +2914,7 @@ mod sanity_checks {
         let r1 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(stack, &private_key, function_name, &[r0, r1], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1], rng);
         assert_eq!(11, assignment.num_public());
         assert_eq!(12318, assignment.num_private());
         assert_eq!(12325, assignment.num_constraints());
@@ -2946,7 +2942,7 @@ mod sanity_checks {
         let r1 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(stack, &private_key, function_name, &[r0, r1], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1], rng);
         assert_eq!(11, assignment.num_public());
         assert_eq!(12323, assignment.num_private());
         assert_eq!(12330, assignment.num_constraints());
@@ -2980,7 +2976,7 @@ mod sanity_checks {
         let r3 = Value::<CurrentNetwork>::from_str(&Field::<CurrentNetwork>::rand(rng).to_string()).unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(stack, &private_key, function_name, &[r0, r1, r2, r3], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1, r2, r3], rng);
         assert_eq!(15, assignment.num_public());
         assert_eq!(38115, assignment.num_private());
         assert_eq!(38151, assignment.num_constraints());
@@ -3008,7 +3004,7 @@ mod sanity_checks {
         let r2 = Value::<CurrentNetwork>::from_str(&Field::<CurrentNetwork>::rand(rng).to_string()).unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(stack, &private_key, function_name, &[r0, r1, r2], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1, r2], rng);
         assert_eq!(12, assignment.num_public());
         assert_eq!(12920, assignment.num_private());
         assert_eq!(12930, assignment.num_constraints());

@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,6 @@ use console::{
         PlaintextType,
         ProgramID,
         Record,
-        RecordType,
         Register,
         RegisterType,
         Value,
@@ -38,6 +37,33 @@ use console::{
     types::{Address, Field},
 };
 use rand::{CryptoRng, Rng};
+use synthesizer_snark::{ProvingKey, VerifyingKey};
+
+pub trait StackKeys<N: Network> {
+    /// Returns `true` if the proving key for the given function name exists.
+    fn contains_proving_key(&self, function_name: &Identifier<N>) -> bool;
+
+    /// Returns the proving key for the given function name.
+    fn get_proving_key(&self, function_name: &Identifier<N>) -> Result<ProvingKey<N>>;
+
+    /// Inserts the proving key for the given function name.
+    fn insert_proving_key(&self, function_name: &Identifier<N>, proving_key: ProvingKey<N>) -> Result<()>;
+
+    /// Removes the proving key for the given function name.
+    fn remove_proving_key(&self, function_name: &Identifier<N>);
+
+    /// Returns `true` if the verifying key for the given function name exists.
+    fn contains_verifying_key(&self, function_name: &Identifier<N>) -> bool;
+
+    /// Returns the verifying key for the given function name.
+    fn get_verifying_key(&self, function_name: &Identifier<N>) -> Result<VerifyingKey<N>>;
+
+    /// Inserts the verifying key for the given function name.
+    fn insert_verifying_key(&self, function_name: &Identifier<N>, verifying_key: VerifyingKey<N>) -> Result<()>;
+
+    /// Removes the verifying key for the given function name.
+    fn remove_verifying_key(&self, function_name: &Identifier<N>);
+}
 
 pub trait StackMatches<N: Network> {
     /// Checks that the given value matches the layout of the value type.
@@ -72,17 +98,8 @@ pub trait StackProgram<N: Network> {
     /// Returns the program address.
     fn program_address(&self) -> &Address<N>;
 
-    /// Returns `true` if the stack contains the external record.
-    fn contains_external_record(&self, locator: &Locator<N>) -> bool;
-
     /// Returns the external stack for the given program ID.
-    fn get_external_stack(&self, program_id: &ProgramID<N>) -> Result<&Arc<Self>>;
-
-    /// Returns the external program for the given program ID.
-    fn get_external_program(&self, program_id: &ProgramID<N>) -> Result<&Program<N>>;
-
-    /// Returns `true` if the stack contains the external record.
-    fn get_external_record(&self, locator: &Locator<N>) -> Result<&RecordType<N>>;
+    fn get_external_stack(&self, program_id: &ProgramID<N>) -> Result<Arc<Self>>;
 
     /// Returns the expected finalize cost for the given function name.
     fn get_finalize_cost(&self, function_name: &Identifier<N>) -> Result<u64>;
@@ -110,6 +127,16 @@ pub trait StackProgram<N: Network> {
         burner_address: &Address<N>,
         record_name: &Identifier<N>,
         record_nonce: Group<N>,
+        rng: &mut R,
+    ) -> Result<Record<N, Plaintext<N>>>;
+
+    /// Returns a record for the given record name, deriving the nonce from tvk and index.
+    fn sample_record_using_tvk<R: Rng + CryptoRng>(
+        &self,
+        burner_address: &Address<N>,
+        record_name: &Identifier<N>,
+        tvk: Field<N>,
+        index: Field<N>,
         rng: &mut R,
     ) -> Result<Record<N, Plaintext<N>>>;
 }

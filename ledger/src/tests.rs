@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +30,7 @@ use ledger_authority::Authority;
 use ledger_block::{Block, ConfirmedTransaction, Execution, Ratify, Rejected, Transaction};
 use ledger_committee::{Committee, MIN_VALIDATOR_STAKE};
 use ledger_narwhal::{BatchCertificate, BatchHeader, Data, Subdag, Transmission, TransmissionID};
-use ledger_store::{ConsensusStore, helpers::memory::ConsensusMemory};
+use ledger_store::ConsensusStore;
 use snarkvm_utilities::try_vm_runtime;
 use synthesizer::{Stack, program::Program, vm::VM};
 
@@ -39,9 +39,15 @@ use rand::seq::SliceRandom;
 use std::collections::{BTreeMap, HashMap};
 use time::OffsetDateTime;
 
+#[cfg(not(feature = "rocks"))]
+type LedgerType<N> = ledger_store::helpers::memory::ConsensusMemory<N>;
+#[cfg(feature = "rocks")]
+type LedgerType<N> = ledger_store::helpers::rocksdb::ConsensusDB<N>;
+
 /// Initializes a sample VM.
-fn sample_vm() -> VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>> {
-    VM::from(ConsensusStore::<CurrentNetwork, ConsensusMemory<CurrentNetwork>>::open(None).unwrap()).unwrap()
+fn sample_vm() -> VM<CurrentNetwork, LedgerType<CurrentNetwork>> {
+    VM::from(ConsensusStore::<CurrentNetwork, LedgerType<CurrentNetwork>>::open(StorageMode::new_test(None)).unwrap())
+        .unwrap()
 }
 
 /// Extract the transmissions from a block.
@@ -71,7 +77,7 @@ fn construct_quorum_blocks(
 ) -> Vec<Block<CurrentNetwork>> {
     // Initialize the ledger with the genesis block.
     let ledger =
-        Ledger::<CurrentNetwork, ConsensusMemory<CurrentNetwork>>::load(genesis.clone(), StorageMode::Production)
+        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis.clone(), StorageMode::new_test(None))
             .unwrap();
 
     // Initialize the round parameters.
@@ -121,7 +127,7 @@ fn construct_quorum_blocks(
 
     // Helper function to create a quorum block.
     fn create_next_quorum_block(
-        ledger: &Ledger<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        ledger: &Ledger<CurrentNetwork, LedgerType<CurrentNetwork>>,
         round: u64,
         leader_certificate: &BatchCertificate<CurrentNetwork>,
         previous_leader_certificate: Option<&BatchCertificate<CurrentNetwork>>,
@@ -182,12 +188,12 @@ fn test_load() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, ConsensusMemory<_>>::open(None).unwrap();
+    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
     // Initialize the ledger with the genesis block.
-    let ledger = CurrentLedger::load(genesis.clone(), StorageMode::Production).unwrap();
+    let ledger = CurrentLedger::load(genesis.clone(), StorageMode::new_test(None)).unwrap();
     assert_eq!(ledger.latest_hash(), genesis.hash());
     assert_eq!(ledger.latest_height(), genesis.height());
     assert_eq!(ledger.latest_round(), genesis.round());
@@ -196,22 +202,47 @@ fn test_load() {
 
 #[test]
 fn test_load_unchecked() {
-    // Load the genesis block.
-    let genesis = crate::test_helpers::sample_genesis_block();
+    let rng = &mut TestRng::default();
+
+    // Sample the genesis private key.
+    let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+    // Initialize the store.
+    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    // Create a genesis block.
+    let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
     // Initialize the ledger without checks.
-    let ledger = CurrentLedger::load_unchecked(genesis.clone(), StorageMode::Production).unwrap();
+    let ledger = CurrentLedger::load_unchecked(genesis.clone(), StorageMode::new_test(None)).unwrap();
     assert_eq!(ledger.latest_hash(), genesis.hash());
     assert_eq!(ledger.latest_height(), genesis.height());
     assert_eq!(ledger.latest_round(), genesis.round());
     assert_eq!(ledger.latest_block(), genesis);
 
     // Initialize the ledger with the genesis block.
-    let ledger = CurrentLedger::load(genesis.clone(), StorageMode::Production).unwrap();
+    let ledger = CurrentLedger::load(genesis.clone(), StorageMode::new_test(None)).unwrap();
     assert_eq!(ledger.latest_hash(), genesis.hash());
     assert_eq!(ledger.latest_height(), genesis.height());
     assert_eq!(ledger.latest_round(), genesis.round());
     assert_eq!(ledger.latest_block(), genesis);
+}
+
+#[test]
+fn test_get_block() {
+    let rng = &mut TestRng::default();
+
+    // Sample the genesis private key.
+    let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+    // Initialize the store.
+    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    // Create a genesis block.
+    let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
+
+    // Initialize a new ledger.
+    let ledger = CurrentLedger::load(genesis.clone(), StorageMode::new_test(None)).unwrap();
+    // Retrieve the genesis block.
+    let candidate = ledger.get_block(0).unwrap();
+    // Ensure the genesis block matches.
+    assert_eq!(genesis, candidate);
 }
 
 #[test]
@@ -577,10 +608,10 @@ finalize failed_assert:
     assert_eq!(next_block.transactions().len(), 1);
     let confirmed_transaction = next_block.transactions().iter().next().unwrap();
     assert!(confirmed_transaction.is_rejected());
-    if let Transaction::Execute(_, execution, fee) = failed_assert_transaction {
+    if let Transaction::Execute(_, _, execution, fee) = failed_assert_transaction {
         let fee_transaction = Transaction::from_fee(fee.unwrap()).unwrap();
         let expected_confirmed_transaction =
-            ConfirmedTransaction::RejectedExecute(0, fee_transaction, Rejected::new_execution(execution), vec![]);
+            ConfirmedTransaction::RejectedExecute(0, fee_transaction, Rejected::new_execution(*execution), vec![]);
 
         assert_eq!(confirmed_transaction, &expected_confirmed_transaction);
     }
@@ -1924,7 +1955,8 @@ fn test_max_committee_limit_with_bonds() {
     let vm = sample_vm();
 
     // Construct the validators, one less than the maximum committee size.
-    let validators = (0..Committee::<CurrentNetwork>::MAX_COMMITTEE_SIZE_BEFORE_V3 - 1)
+    let max_committee_size = consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap();
+    let validators = (0..max_committee_size - 1)
         .map(|_| {
             let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
             let amount = MIN_VALIDATOR_STAKE;
@@ -1990,8 +2022,7 @@ fn test_max_committee_limit_with_bonds() {
 
     // Initialize a Ledger from the genesis block.
     let ledger =
-        Ledger::<CurrentNetwork, ConsensusMemory<CurrentNetwork>>::load(genesis_block, StorageMode::Production)
-            .unwrap();
+        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis_block, StorageMode::new_test(None)).unwrap();
 
     // Bond the first validator.
     let bond_first_transaction = ledger
@@ -3050,7 +3081,7 @@ fn test_forged_block_subdags() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, ConsensusMemory<_>>::open(None).unwrap();
+    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3075,7 +3106,7 @@ fn test_forged_block_subdags() {
 
     // Construct the ledger.
     let ledger =
-        Ledger::<CurrentNetwork, ConsensusMemory<CurrentNetwork>>::load(genesis, StorageMode::Production).unwrap();
+        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
     ledger.advance_to_next_block(&block_1).unwrap();
     ledger.check_next_block(&block_2, rng).unwrap();
 
@@ -3141,4 +3172,265 @@ fn test_forged_block_subdags() {
         // Attempt to verify the forged block.
         assert!(ledger.check_next_block(&forged_block_2_from_both_subdags, &mut rand::thread_rng()).is_err());
     }
+}
+
+#[test]
+fn test_record_creation_and_consumption_in_call() {
+    let rng = &mut TestRng::default();
+
+    // Sample the test environment.
+    let crate::test_helpers::TestEnv { ledger, private_key, view_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+    // A helper function to get the record counts.
+    let get_record_counts = || {
+        let slow_spent_filter = RecordsFilter::SlowSpent(private_key);
+        let slow_unspent_filter = RecordsFilter::SlowUnspent(private_key);
+        let spent_records = ledger.find_records(&view_key, RecordsFilter::Spent).unwrap().collect_vec().len();
+        let slow_spent_records = ledger.find_records(&view_key, slow_spent_filter).unwrap().collect_vec().len();
+        let unspent_records = ledger.find_records(&view_key, RecordsFilter::Unspent).unwrap().collect_vec().len();
+        let slow_unspent_records = ledger.find_records(&view_key, slow_unspent_filter).unwrap().collect_vec().len();
+        let records = ledger.records().collect_vec().len();
+        (spent_records, slow_spent_records, unspent_records, slow_unspent_records, records)
+    };
+
+    // Check the initial record counts.
+    let (
+        initial_spent_records,
+        initial_slow_spent_records,
+        initial_unspent_records,
+        initial_slow_unspent_records,
+        initial_records,
+    ) = get_record_counts();
+    assert_eq!(0, initial_spent_records);
+    assert_eq!(0, initial_slow_spent_records);
+    assert_eq!(4, initial_unspent_records);
+    assert_eq!(4, initial_slow_unspent_records);
+    assert_eq!(4, initial_records);
+
+    // Initialize the two programs.
+    let program_0 = Program::from_str(
+        r"
+program child.aleo;
+
+record data:
+    owner as address.private;
+    val as u64.private;
+
+function mint:
+    cast self.signer 0u64 into r0 as data.record;
+    output r0 as data.record;
+
+function burn:
+    input r0 as data.record;
+    ",
+    )
+    .unwrap();
+
+    let program_1 = Program::from_str(
+        r"
+import child.aleo;
+
+program parent.aleo;
+
+function create_without_output:
+    call child.aleo/mint into r0;
+
+function create:
+    call child.aleo/mint into r0;
+    output r0 as child.aleo/data.record;
+
+function consume_without_call:
+    input r0 as child.aleo/data.record;
+
+function consume:
+    input r0 as child.aleo/data.record;
+    call child.aleo/burn r0;
+
+function create_and_consume:
+    call child.aleo/mint into r0;
+    call child.aleo/burn r0;
+    ",
+    )
+    .unwrap();
+
+    // Deploy the programs.
+    let deployment_0 = ledger.vm().deploy(&private_key, &program_0, None, 0, None, rng).unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![deployment_0], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    let deployment_1 = ledger.vm().deploy(&private_key, &program_1, None, 0, None, rng).unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![deployment_1], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Call the `mint` function.
+    let transaction = ledger
+        .vm()
+        .execute(&private_key, ("child.aleo", "mint"), Vec::<Value<CurrentNetwork>>::new().iter(), None, 0, None, rng)
+        .unwrap();
+    let mint_record = transaction.records().last().unwrap().1.decrypt(&view_key).unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Check the record counts.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records);
+    assert_eq!(num_unspent_records, initial_unspent_records + 1);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 1);
+    assert_eq!(num_records, initial_records + 1);
+
+    // Call the `create_without_output` function.
+    let transaction = ledger
+        .vm()
+        .execute(
+            &private_key,
+            ("parent.aleo", "create_without_output"),
+            Vec::<Value<CurrentNetwork>>::new().iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Check the record counts.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records);
+    assert_eq!(num_unspent_records, initial_unspent_records + 2);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 2);
+    assert_eq!(num_records, initial_records + 2);
+
+    // Call the `burn` function on record created by `create_without_output`.
+    let record = block.records().collect_vec().last().unwrap().1.decrypt(&view_key).unwrap();
+    let transaction = ledger
+        .vm()
+        .execute(&private_key, ("child.aleo", "burn"), vec![Value::Record(record)].iter(), None, 0, None, rng)
+        .unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Check the record counts.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records + 1);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records + 1);
+    assert_eq!(num_unspent_records, initial_unspent_records + 1);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 1);
+    assert_eq!(num_records, initial_records + 2);
+
+    // Call the `create` function.
+    let transaction = ledger
+        .vm()
+        .execute(
+            &private_key,
+            ("parent.aleo", "create"),
+            Vec::<Value<CurrentNetwork>>::new().iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Ensure that a record was created and spent.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records + 1);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records + 1);
+    assert_eq!(num_unspent_records, initial_unspent_records + 2);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 2);
+    assert_eq!(num_records, initial_records + 3);
+
+    // Call the `consume_without_call` function.
+    let transaction = ledger
+        .vm()
+        .execute(
+            &private_key,
+            ("parent.aleo", "consume_without_call"),
+            vec![Value::Record(mint_record.clone())].iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Ensure that no records were created or spent.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records + 1);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records + 1);
+    assert_eq!(num_unspent_records, initial_unspent_records + 2);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 2);
+    assert_eq!(num_records, initial_records + 3);
+
+    // Call the `consume` function.
+    let transaction = ledger
+        .vm()
+        .execute(&private_key, ("parent.aleo", "consume"), vec![Value::Record(mint_record)].iter(), None, 0, None, rng)
+        .unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Ensure that the record was spent.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records + 2);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records + 2);
+    assert_eq!(num_unspent_records, initial_unspent_records + 1);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 1);
+    assert_eq!(num_records, initial_records + 3);
+
+    // Call the `create_and_consume` function.
+    let transaction = ledger
+        .vm()
+        .execute(
+            &private_key,
+            ("parent.aleo", "create_and_consume"),
+            Vec::<Value<CurrentNetwork>>::new().iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    ledger.advance_to_next_block(&block).unwrap();
+
+    // Ensure that a record was created and spent.
+    let (num_spent_records, num_slow_spent_records, num_unspent_records, num_slow_unspent_records, num_records) =
+        get_record_counts();
+    assert_eq!(num_spent_records, initial_spent_records + 3);
+    assert_eq!(num_slow_spent_records, initial_slow_spent_records + 3);
+    assert_eq!(num_unspent_records, initial_unspent_records + 1);
+    assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 1);
+    assert_eq!(num_records, initial_records + 4);
 }

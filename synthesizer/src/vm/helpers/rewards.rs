@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -340,7 +340,7 @@ mod tests {
         // Sample a random block reward.
         let block_reward = rng.gen_range(0..MAX_COINBASE_REWARD);
         // Sample a committee.
-        let committee = ledger_committee::test_helpers::sample_committee_for_round_and_size(1, 100, rng);
+        let committee = ledger_committee::test_helpers::sample_committee_for_round_and_size(1, 25, rng);
         // Convert the committee into stakers.
         let stakers = crate::committee::test_helpers::to_stakers(committee.members(), rng);
 

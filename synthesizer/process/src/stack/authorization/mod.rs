@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,9 @@ use console::{network::prelude::*, program::Request, types::Field};
 use ledger_block::{Transaction, Transition};
 
 use indexmap::IndexMap;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::RwLock;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -180,7 +183,7 @@ impl<N: Network> Authorization<N> {
         if transitions.is_empty() {
             bail!("Cannot compute the execution ID for an empty authorization.");
         }
-        Ok(*Transaction::transitions_tree(transitions.values(), &None)?.root())
+        Ok(*Transaction::transitions_tree(transitions.values())?.root())
     }
 }
 

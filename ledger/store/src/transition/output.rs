@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,7 +50,7 @@ pub trait OutputStorage<N: Network>: Clone + Send + Sync {
     type FutureMap: for<'a> Map<'a, Field<N>, Option<Future<N>>>;
 
     /// Initializes the transition output storage.
-    fn open<S: Clone + Into<StorageMode>>(storage: S) -> Result<Self>;
+    fn open<S: Into<StorageMode>>(storage: S) -> Result<Self>;
 
     /// Returns the ID map.
     fn id_map(&self) -> &Self::IDMap;
@@ -328,7 +328,7 @@ pub struct OutputStore<N: Network, O: OutputStorage<N>> {
 
 impl<N: Network, O: OutputStorage<N>> OutputStore<N, O> {
     /// Initializes the transition output store.
-    pub fn open<S: Clone + Into<StorageMode>>(storage: S) -> Result<Self> {
+    pub fn open<S: Into<StorageMode>>(storage: S) -> Result<Self> {
         // Initialize a new transition output storage.
         let storage = O::open(storage)?;
         // Return the transition output store.
@@ -545,6 +545,7 @@ impl<N: Network, I: OutputStorage<N>> OutputStore<N, I> {
     }
 
     /// Returns an iterator over the `(commitment, record)` pairs, for all transition outputs that are records.
+    #[allow(clippy::type_complexity)]
     pub fn records(&self) -> impl '_ + Iterator<Item = (Cow<'_, Field<N>>, Cow<'_, Record<N, Ciphertext<N>>>)> {
         self.record.iter_confirmed().flat_map(|(commitment, output)| match output {
             Cow::Borrowed((_, Some(record))) => Some((commitment, Cow::Borrowed(record))),
@@ -573,7 +574,7 @@ mod tests {
         // Sample the transition outputs.
         for (transition_id, output) in ledger_test_helpers::sample_outputs() {
             // Initialize a new output store.
-            let output_store = OutputMemory::open(None).unwrap();
+            let output_store = OutputMemory::open(StorageMode::Test(None)).unwrap();
 
             // Ensure the transition output does not exist.
             let candidate = output_store.get(&transition_id).unwrap();
@@ -600,7 +601,7 @@ mod tests {
         // Sample the transition outputs.
         for (transition_id, output) in ledger_test_helpers::sample_outputs() {
             // Initialize a new output store.
-            let output_store = OutputMemory::open(None).unwrap();
+            let output_store = OutputMemory::open(StorageMode::Test(None)).unwrap();
 
             // Ensure the transition output does not exist.
             let candidate = output_store.get(&transition_id).unwrap();

@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright 2024-2025 Aleo Network Foundation
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +26,7 @@ use ledger_puzzle::{SOLUTION_ID_PREFIX, SolutionID};
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TransmissionID<N: Network> {
     /// A ratification.
+    /// This is a placeholder: currently ratifications are not actually supported.
     Ratification,
     /// A solution.
     Solution(SolutionID<N>, N::TransmissionChecksum),
