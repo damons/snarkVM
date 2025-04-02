@@ -2563,9 +2563,9 @@ finalize transfer_public_to_private:
         vm.add_next_block(&genesis).unwrap();
 
         // Deploy the base program.
-        let child_program = Program::from_str(
+        let child_program_1 = Program::from_str(
             r"
-program child_program.aleo;
+program child_program_1.aleo;
 
 function check:
     input r0 as field.private;
@@ -2574,23 +2574,42 @@ function check:
         )
         .unwrap();
 
-        let deployment = vm.deploy(&private_key, &child_program, None, 0, None, rng).unwrap();
-        assert!(vm.check_transaction(&deployment, None, rng).is_ok());
-        vm.add_next_block(&sample_next_block(&vm, &private_key, &[deployment], rng).unwrap()).unwrap();
+        let child_program_2 = Program::from_str(
+            r"
+program child_program_2.aleo;
 
-        // Check that program is deployed.
-        assert!(vm.contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
+function check:
+    input r0 as field.private;
+    assert.eq r0 123456789123456789123456789123456789123456789123456789field;
+        ",
+        )
+        .unwrap();
+
+        // Deploy the child programs and add them to a block
+        let deployment_1 = vm.deploy(&private_key, &child_program_1, None, 0, None, rng).unwrap();
+        assert!(vm.check_transaction(&deployment_1, None, rng).is_ok());
+        vm.add_next_block(&sample_next_block(&vm, &private_key, &[deployment_1], rng).unwrap()).unwrap();
+
+        let deployment_2 = vm.deploy(&private_key, &child_program_2, None, 0, None, rng).unwrap();
+        assert!(vm.check_transaction(&deployment_2, None, rng).is_ok());
+        vm.add_next_block(&sample_next_block(&vm, &private_key, &[deployment_2], rng).unwrap()).unwrap();
+
+        // Check that child programs are deployed
+        assert!(vm.contains_program(&ProgramID::from_str("child_program_1.aleo").unwrap()));
+        assert!(vm.contains_program(&ProgramID::from_str("child_program_2.aleo").unwrap()));
 
         // Deploy the program that calls the program from the previous layer.
         let parent_program = Program::from_str(
             r"
-import child_program.aleo;
+import child_program_1.aleo;
+import child_program_2.aleo;
 
 program parent_program.aleo;
 
 function check:
     input r0 as field.private;
-    call child_program.aleo/check r0;
+    call child_program_1.aleo/check r0;
+    call child_program_2.aleo/check r0;
         ",
         )
         .unwrap();
@@ -2606,7 +2625,8 @@ function check:
         let mut process = Process::<CurrentNetwork>::load().unwrap();
 
         // Load the child and parent program
-        process.add_program(&child_program).unwrap();
+        process.add_program(&child_program_1).unwrap();
+        process.add_program(&child_program_2).unwrap();
         process.add_program(&parent_program).unwrap();
 
         // Specify the function name on the parent program
