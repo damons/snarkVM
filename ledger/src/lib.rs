@@ -84,7 +84,7 @@ use rayon::prelude::*;
 
 pub type RecordMap<N> = IndexMap<Field<N>, Record<N, Plaintext<N>>>;
 
-/// The capacity of the LRU holding the recently queried committees.
+/// The capacity of the LRU cache holding the recently queried committees.
 const COMMITTEE_CACHE_SIZE: usize = 16;
 
 #[derive(Copy, Clone, Debug)]
@@ -101,6 +101,15 @@ pub enum RecordsFilter<N: Network> {
     SlowUnspent(PrivateKey<N>),
 }
 
+/// State of the whole blockchain.
+///
+/// All the state is actually in the `vm` component.
+/// The other components contain information that is also in the `vm` component.
+///
+/// The constructor is [`Ledger::load`],
+/// which loads the ledger from (generally persistent) storage,
+/// or initializes it with the genesis block if the storage is empty.
+/// So the blockchain is never empty after it is constructed via [`Ledger::load`].
 #[derive(Clone)]
 pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     /// The VM state.
@@ -109,11 +118,31 @@ pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     genesis_block: Block<N>,
     /// The current epoch hash.
     current_epoch_hash: Arc<RwLock<Option<N::BlockHash>>>,
-    /// The current committee.
+    /// The committee resulting from all the bonding and unbonding transactions in the blockchain.
+    ///
+    /// This includes any bonding and unbonding transactions in the latest block.
+    /// The starting point, in the genesis block, is the genesis committee.
+    /// If the latest block has round `R`, `current_committee` is
+    /// the committee bonded for rounds `R+1`, `R+2`, and perhaps others
+    /// (unless a block at round `R+2` changes the committee).
+    /// Note that this committee is not active (i.e. in charge of running consensus)
+    /// until round `R + 1 + L`, where `L` is the lookback round distance.
+    ///
+    /// This committee is always well-defined
+    /// (in particular, it is the genesis committee when the blockchain is empty, or only has the genesis block).
+    /// So the `Option` should always be `Some`,
+    /// but there are cases in which it is `None`,
+    /// probably only temporarily when loading/initializing the ledger,
     current_committee: Arc<RwLock<Option<Committee<N>>>>,
-    /// The current block.
+    /// The latest block.
     current_block: Arc<RwLock<Block<N>>>,
     /// The recent committees of interest paired with their applicable rounds.
+    ///
+    /// Each entry consisting of a round `R` and a committee `C`,
+    /// says that `C` is the bonded committee at round `R`,
+    /// i.e. resulting from all the bonding and unbonding transactions before `R`.
+    /// If `L` is the lookback round distance, `C` is the active committee at round `R + L`
+    /// (i.e. the committee in charge of running consensus at round `R + L`).
     committee_cache: Arc<Mutex<LruCache<u64, Committee<N>>>>,
 }
 
@@ -182,7 +211,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             committee_cache,
         };
 
-        // If the block store is empty, initialize the genesis block.
+        // If the block store is empty, add the genesis block to the blockchain.
         if ledger.vm.block_store().max_height().is_none() {
             // Add the genesis block.
             ledger.advance_to_next_block(&genesis_block)?;
@@ -218,7 +247,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         self.vm.puzzle()
     }
 
-    /// Returns the latest committee.
+    /// Returns the latest committee,
+    /// i.e. the committee resulting from all the bonding and unbonding transactions in the blockchain.
     pub fn latest_committee(&self) -> Result<Committee<N>> {
         match self.current_committee.read().as_ref() {
             Some(committee) => Ok(committee.clone()),
