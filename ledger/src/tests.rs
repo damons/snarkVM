@@ -36,7 +36,7 @@ use synthesizer::{Stack, program::Program, vm::VM};
 
 use indexmap::{IndexMap, IndexSet};
 use rand::seq::SliceRandom;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use time::OffsetDateTime;
 
 #[cfg(not(feature = "rocks"))]
@@ -68,37 +68,116 @@ fn extract_transmissions(
     transmissions
 }
 
-/// Construct `num_blocks` quorum blocks given a set of validator private keys and the genesis block.
-fn construct_quorum_blocks(
+/// Helper to build chains with custom sturctures for testing
+struct TestChainBuilder {
+    /// The keys of all validators.
     private_keys: Vec<PrivateKey<CurrentNetwork>>,
-    genesis: Block<CurrentNetwork>,
-    num_blocks: u64,
-    rng: &mut TestRng,
-) -> Vec<Block<CurrentNetwork>> {
-    // Initialize the ledger with the genesis block.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis.clone(), StorageMode::new_test(None))
-            .unwrap();
 
-    // Initialize the round parameters.
-    assert!(num_blocks > 0);
-    assert!(num_blocks < 25);
-    let rounds_per_commit = 2;
-    let final_round = num_blocks.saturating_mul(rounds_per_commit);
+    ledger: Ledger<CurrentNetwork, LedgerType<CurrentNetwork>>,
 
-    // Sample rounds of batch certificates starting at the genesis round from a static set of 4 authors.
-    let (round_to_certificates_map, committee) = {
-        let committee = ledger.latest_committee().unwrap();
-        let mut round_to_certificates_map: HashMap<u64, IndexSet<BatchCertificate<CurrentNetwork>>> = HashMap::new();
-        let mut previous_certificates: IndexSet<BatchCertificate<CurrentNetwork>> = IndexSet::with_capacity(4);
+    last_block_round: u64,
+
+    /// The batch certificates of the last round we generated.
+    round_to_certificates: HashMap<u64, IndexMap<usize, BatchCertificate<CurrentNetwork>>>,
+    /// The batch certificate of the last leader (if any).
+    previous_leader_certificate: Option<BatchCertificate<CurrentNetwork>>,
+    /// The height of the last block we created.
+    current_height: u64,
+    /// The last batch for each committee member that was included in a block.
+    /// Maps the author's index to a round number.
+    last_batch: HashMap<usize, u64>,
+    /// The last batch of a validator that was included in a block
+    last_committed_batch: HashMap<usize, u64>,
+}
+
+impl TestChainBuilder {
+    /// Initialize the builder with the specified commitee and gensis block
+    pub fn new(private_keys: Vec<PrivateKey<CurrentNetwork>>, genesis: Block<CurrentNetwork>) -> Self {
+        // Initialize the ledger with the genesis block.
+        let ledger =
+            Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis.clone(), StorageMode::new_test(None))
+                .unwrap();
+
+        Self {
+            private_keys,
+            ledger,
+            current_height: 1,
+            last_batch: Default::default(),
+            last_committed_batch: Default::default(),
+            last_block_round: 1,
+            round_to_certificates: Default::default(),
+            previous_leader_certificate: Default::default(),
+        }
+    }
+
+    /// Create multiple blocks, with fully-connected DAGs.
+    pub fn generate_blocks(&mut self, num_blocks: usize, rng: &mut TestRng) -> Vec<Block<CurrentNetwork>> {
+        self.generate_blocks_with_partition(num_blocks, &Default::default(), rng)
+    }
+
+    /// Create multiple blocks, with fully-connected DAGs.
+    pub fn generate_blocks_with_partition(
+        &mut self,
+        num_blocks: usize,
+        skip_nodes: &HashSet<usize>,
+        rng: &mut TestRng,
+    ) -> Vec<Block<CurrentNetwork>> {
+        assert!(num_blocks > 0, "Need to build at least one block");
+
+        (0..num_blocks).map(|_| self.generate_block_with_partition(skip_nodes, rng)).collect()
+    }
+
+    /// Create a new block, with a fully-connected DAG.
+    ///
+    /// This will "fill in " any gaps left in earlier rounds from non participating nodes.
+    pub fn generate_block(&mut self, rng: &mut TestRng) -> Block<CurrentNetwork> {
+        self.generate_block_with_partition(&Default::default(), rng)
+    }
+
+    /// Same as `generate_block` but with some nodes not participating in batch generation.
+    ///
+    /// This can result in blocks covering more than two rounds, because an anchor block might be skipped.
+    pub fn generate_block_with_partition(
+        &mut self,
+        skip_nodes: &HashSet<usize>,
+        rng: &mut TestRng,
+    ) -> Block<CurrentNetwork> {
+        assert!(self.current_height > 0);
+        assert!(skip_nodes.len() * 3 < self.private_keys.len());
+
+        let block_height = self.current_height + 1;
+
+        // SubDAGs can be at most GC roudns long.
+        let mut round = if self.last_block_round < BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 {
+            1
+        } else {
+            self.last_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 + 2
+        };
+        println!("Starting round is {round}");
 
         // Create certificates for each round.
-        for round in 1..=final_round {
-            let mut current_certificates = IndexSet::new();
-            let previous_certificate_ids =
-                if round <= 1 { IndexSet::new() } else { previous_certificates.iter().map(|c| c.id()).collect() };
+        loop {
+            let mut created_anchor = false;
 
-            for (i, private_key_1) in private_keys.iter().enumerate() {
+            let previous_certificate_ids = if round <= 1 {
+                IndexSet::default()
+            } else {
+                self.round_to_certificates.get(&(round - 1)).unwrap().iter().map(|(_, c)| c.id()).collect()
+            };
+
+            let committee = self.ledger.get_committee_lookback_for_round(round).unwrap().unwrap_or_else(|| {
+                panic!("No committee for round {round}");
+            });
+
+            for (key1_idx, private_key_1) in self.private_keys.iter().enumerate() {
+                if skip_nodes.contains(&key1_idx) {
+                    continue;
+                }
+                // Don't recreate batches that already exist.
+                if self.last_batch.get(&key1_idx).unwrap_or(&0) >= &round {
+                    continue;
+                }
+
                 let batch_header = BatchHeader::new(
                     private_key_1,
                     round,
@@ -109,76 +188,96 @@ fn construct_quorum_blocks(
                     rng,
                 )
                 .unwrap();
+
                 // Add signatures for the batch headers. This creates a fully connected DAG.
-                let signatures = private_keys
+                let signatures = self
+                    .private_keys
                     .iter()
                     .enumerate()
-                    .filter(|&(j, _)| i != j)
+                    .filter(|&(key2_idx, _)| key1_idx != key2_idx)
                     .map(|(_, private_key_2)| private_key_2.sign(&[batch_header.batch_id()], rng).unwrap())
                     .collect();
-                current_certificates.insert(BatchCertificate::from(batch_header, signatures).unwrap());
+
+                self.last_batch.insert(key1_idx, round);
+                self.round_to_certificates
+                    .entry(round)
+                    .or_default()
+                    .insert(key1_idx, BatchCertificate::from(batch_header, signatures).unwrap());
+
+                if round % 2 == 0 {
+                    let leader = committee.get_leader(round).unwrap();
+                    if leader == Address::try_from(private_key_1).unwrap() {
+                        created_anchor = true;
+                    }
+                }
             }
 
-            round_to_certificates_map.insert(round, current_certificates.clone());
-            previous_certificates = current_certificates;
-        }
-        (round_to_certificates_map, committee)
-    };
+            // Anchor was confirmed by more than a third of the validators.
+            if created_anchor && round % 2 == 0 && self.last_block_round < round {
+                self.last_block_round = round;
+                break;
+            }
 
-    // Helper function to create a quorum block.
-    fn create_next_quorum_block(
-        ledger: &Ledger<CurrentNetwork, LedgerType<CurrentNetwork>>,
-        round: u64,
-        leader_certificate: &BatchCertificate<CurrentNetwork>,
-        previous_leader_certificate: Option<&BatchCertificate<CurrentNetwork>>,
-        round_to_certificates_map: &HashMap<u64, IndexSet<BatchCertificate<CurrentNetwork>>>,
-        rng: &mut TestRng,
-    ) -> Block<CurrentNetwork> {
+            round += 1;
+        }
+
+        let commit_round = round;
+
+        println!("Creating block at round {commit_round}");
+
+        // Construct the block
+        let leader_committee = self.ledger.get_committee_lookback_for_round(round).unwrap().unwrap();
+        let leader = leader_committee.get_leader(commit_round).unwrap();
+        let (leader_idx, leader_certificate) =
+            self.round_to_certificates.get(&commit_round).unwrap().iter().find(|(_, c)| c.author() == leader).unwrap();
+        let leader_idx = *leader_idx;
+        let leader_certificate = leader_certificate.clone();
+
         // Construct the subdag for the block.
         let mut subdag_map = BTreeMap::new();
-        // Add the leader certificate.
-        subdag_map.insert(round, [leader_certificate.clone()].into());
-        // Add the certificates of the previous round.
-        subdag_map.insert(round - 1, round_to_certificates_map.get(&(round - 1)).unwrap().clone());
-        // Add the certificates from the previous leader round, excluding the previous leader certificate.
-        // This assumes the number of rounds per commit is 2.
-        if let Some(prev_leader_cert) = previous_leader_certificate {
-            let mut previous_leader_round_certificates =
-                round_to_certificates_map.get(&(round - 2)).cloned().unwrap_or_default();
-            previous_leader_round_certificates.shift_remove(prev_leader_cert);
-            subdag_map.insert(round - 2, previous_leader_round_certificates);
+
+        // Figure out what the earliest round for the subDAG could be.
+        let start_round = if commit_round < BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 {
+            1
+        } else {
+            commit_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 + 2
+        };
+
+        for round in start_round..commit_round {
+            let mut to_insert = IndexSet::new();
+            for idx in 0..self.private_keys.len() {
+                let cround = self.last_committed_batch.entry(idx).or_default();
+                // Batch already included in another block
+                if *cround >= round {
+                    continue;
+                }
+
+                if let Some(cert) = self.round_to_certificates.entry(round).or_default().get(&idx) {
+                    to_insert.insert(cert.clone());
+                    *cround = round;
+                }
+            }
+            if !to_insert.is_empty() {
+                subdag_map.insert(round, to_insert);
+            }
         }
+
+        // Add the leader certificate.
+        subdag_map.insert(commit_round, [leader_certificate.clone()].into());
+        self.last_committed_batch.insert(leader_idx, commit_round);
+
         // Construct the block.
         let subdag = Subdag::from(subdag_map).unwrap();
-        let block = ledger.prepare_advance_to_next_quorum_block(subdag, Default::default(), rng).unwrap();
-        ledger.check_next_block(&block, rng).unwrap();
+        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, Default::default(), rng).unwrap();
+        self.ledger.check_next_block(&block, rng).unwrap();
+
+        // Update state.
+        self.ledger.advance_to_next_block(&block).unwrap();
+        self.previous_leader_certificate = Some(leader_certificate.clone());
+        self.current_height = block_height;
+
         block
     }
-
-    // Track the blocks that are created.
-    let mut blocks = Vec::new();
-    let mut previous_leader_certificate: Option<&BatchCertificate<CurrentNetwork>> = None;
-
-    // Construct the blocks.
-    for block_height in 1..=num_blocks {
-        let round = block_height.saturating_mul(rounds_per_commit);
-        let leader = committee.get_leader(round).unwrap();
-        let leader_certificate =
-            round_to_certificates_map.get(&round).unwrap().iter().find(|c| c.author() == leader).unwrap();
-        let block = create_next_quorum_block(
-            &ledger,
-            round,
-            leader_certificate,
-            previous_leader_certificate,
-            &round_to_certificates_map,
-            rng,
-        );
-        ledger.advance_to_next_block(&block).unwrap();
-        previous_leader_certificate = Some(leader_certificate);
-        blocks.push(block);
-    }
-
-    blocks
 }
 
 #[test]
@@ -3099,7 +3198,7 @@ fn test_forged_block_subdags() {
     ];
 
     // Construct 3 quorum blocks.
-    let mut quorum_blocks = construct_quorum_blocks(private_keys.to_vec(), genesis.clone(), 3, rng);
+    let mut quorum_blocks = TestChainBuilder::new(private_keys.to_vec(), genesis.clone()).generate_blocks(3, rng);
 
     // Extract the individual blocks.
     let block_1 = quorum_blocks.remove(0);
@@ -3180,7 +3279,6 @@ fn test_forged_block_subdags() {
     ////////////////////////////////////////////////////////////////////////////
     {
         let mut subdag = block_2_subdag.deref().clone();
-        assert!(subdag.keys().len() > 1, "SubDAG needs more than one round for attack to work");
 
         // Get the lowest round which contains batches pointing to the previous
         // block's DAG
@@ -3208,6 +3306,134 @@ fn test_forged_block_subdags() {
         // Attempt to verify the forged block.
         assert!(ledger.check_next_block(&forged_block_2, &mut rand::thread_rng()).is_err());
     }
+}
+
+/// Test that a block that has a long branch for one validator
+/// (long = half of GC)
+#[test]
+fn test_subdag_with_long_branch() {
+    let rng = &mut TestRng::default();
+
+    // Sample the genesis private key.
+    let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+    // Initialize the store.
+    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
+    let seed: u64 = rng.gen();
+    let genesis_rng = &mut TestRng::from_seed(seed);
+    let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
+
+    // Extract the private keys from the genesis committee by using the same RNG to sample private keys.
+    let genesis_rng = &mut TestRng::from_seed(seed);
+    let private_keys = [
+        private_key,
+        PrivateKey::new(genesis_rng).unwrap(),
+        PrivateKey::new(genesis_rng).unwrap(),
+        PrivateKey::new(genesis_rng).unwrap(),
+    ];
+
+    let mut chain_builder = TestChainBuilder::new(private_keys.to_vec(), genesis.clone());
+
+    let skip_nodes: HashSet<usize> = [0].into();
+    let blocks = chain_builder.generate_blocks_with_partition(
+        BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS / 4,
+        &skip_nodes,
+        rng,
+    );
+
+    // Construct the ledger.
+    let ledger =
+        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+
+    for block in blocks {
+        ledger.advance_to_next_block(&block).unwrap();
+    }
+
+    // Now create a long block.
+    let block = chain_builder.generate_block(rng);
+
+    // Ensure it is still accepted
+    ledger.advance_to_next_block(&block).unwrap();
+}
+
+/// Create a block that is exactly GC rounds long
+#[test]
+fn test_subdag_with_gc_length() {
+    let rng = &mut TestRng::default();
+
+    // Sample the genesis private key.
+    let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+    // Initialize the store.
+    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
+    let seed: u64 = rng.gen();
+    let genesis_rng = &mut TestRng::from_seed(seed);
+    let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
+
+    // Extract the private keys from the genesis committee by using the same RNG to sample private keys.
+    let genesis_rng = &mut TestRng::from_seed(seed);
+    let private_keys = [
+        private_key,
+        PrivateKey::new(genesis_rng).unwrap(),
+        PrivateKey::new(genesis_rng).unwrap(),
+        PrivateKey::new(genesis_rng).unwrap(),
+    ];
+
+    let mut chain_builder = TestChainBuilder::new(private_keys.to_vec(), genesis.clone());
+
+    let skip_nodes: HashSet<usize> = [0].into();
+    let blocks = chain_builder.generate_blocks_with_partition(
+        BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS / 2,
+        &skip_nodes,
+        rng,
+    );
+
+    // Construct the ledger.
+    let ledger =
+        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+
+    for block in blocks {
+        ledger.advance_to_next_block(&block).unwrap();
+    }
+
+    // Now create a long block.
+    let block = chain_builder.generate_block(rng);
+
+    {
+        // First, let us ensure that the leaf check still works by removing the lowest round and trying to reinsert.
+        let Authority::Quorum(block_subdag) = block.authority() else { unreachable!("") };
+        let mut forged_subdag = block_subdag.deref().clone();
+        let transmissions = extract_transmissions(&block);
+
+        // Remove one round from the subDAG.
+        let _ = forged_subdag.first_entry().unwrap().remove();
+
+        // Build new set of transmissions that matches the modified DAG
+        // (we cannot just remove it, because transmissions might be in other batches as well)
+        let transmissions: IndexMap<_, _> = forged_subdag
+            .iter()
+            .flat_map(|(_, batches)| batches.iter())
+            .flat_map(|batch| batch.transmission_ids().iter())
+            .map(|tid| (*tid, transmissions.get(tid).unwrap().clone()))
+            .collect();
+
+        // Forge the block.
+        let forged_block = ledger
+            .prepare_advance_to_next_quorum_block(
+                Subdag::from(forged_subdag).unwrap(),
+                transmissions,
+                &mut rand::thread_rng(),
+            )
+            .unwrap();
+
+        assert_ne!(forged_block, block);
+
+        // Attempt to verify the forged block.
+        assert!(ledger.check_next_block(&forged_block, &mut rand::thread_rng()).is_err());
+    }
+
+    // Ensure it is still accepted
+    ledger.advance_to_next_block(&block).unwrap();
 }
 
 #[test]
