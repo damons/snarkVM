@@ -50,7 +50,7 @@ pub const MAX_DELEGATORS: u32 = 100_000u32;
 pub struct Committee<N: Network> {
     /// The committee ID, defined as the hash of the starting round, members, and total stake.
     id: Field<N>,
-    /// The starting round number for this committee.
+    /// The round number (of the block) at which this committee is created (always even).
     starting_round: u64,
     /// A map of `address` to `(stake, is_open, commission)` state.
     members: IndexMap<Address<N>, (u64, bool, u8)>,
