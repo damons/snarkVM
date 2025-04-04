@@ -209,7 +209,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             committee_cache,
         };
 
-        // If the block store is empty, add the genesis block to the blockchain.
+        // If the block store is empty, add the genesis block.
         if ledger.vm.block_store().max_height().is_none() {
             // Add the genesis block.
             ledger.advance_to_next_block(&genesis_block)?;
