@@ -20,6 +20,7 @@ use crate::{
     Trace,
     traits::{StackEvaluate, StackExecute},
 };
+use algorithms::snark::varuna::VarunaVersion;
 use circuit::{Aleo, network::AleoV0};
 use console::{
     account::{Address, PrivateKey, ViewKey},
@@ -94,7 +95,7 @@ pub fn sample_fee<N: Network, A: Aleo<Network = N>, B: BlockStorage<N>, P: Final
     // Prepare the assignments.
     trace.prepare(Query::from(block_store)).unwrap();
     // Compute the proof and construct the fee.
-    trace.prove_fee::<A, _>(rng).unwrap()
+    trace.prove_fee::<A, _>(VarunaVersion::V1, rng).unwrap()
 }
 
 #[test]
@@ -1292,10 +1293,9 @@ finalize compute:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap();
-
+    let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1405,10 +1405,10 @@ finalize compute:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1536,10 +1536,10 @@ finalize mint_public:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("token", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("token", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1704,10 +1704,10 @@ finalize init:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1819,10 +1819,10 @@ finalize compute:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1949,10 +1949,10 @@ function a:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("two", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("two", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 }
 
 #[test]
@@ -2136,10 +2136,10 @@ fn test_complex_execution_order() {
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("four", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 }
 
 #[test]
@@ -2247,10 +2247,10 @@ finalize compute:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2356,10 +2356,10 @@ function compute:
     // Prepare the trace.
     trace.prepare(Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(&execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
 }
 
 #[test]
@@ -2461,7 +2461,7 @@ function {function_name}:
         // Prepare the trace.
         trace.prepare(Query::from(block_store.clone())).unwrap();
         // Prove the execution.
-        trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap()
+        trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap()
     };
     assert_eq!(execution_1.len(), 1);
 
@@ -2480,7 +2480,7 @@ function {function_name}:
         // Prepare the trace.
         trace.prepare(Query::from(block_store)).unwrap();
         // Prove the execution.
-        trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap()
+        trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap()
     };
     assert_eq!(execution_2.len(), 1);
 
