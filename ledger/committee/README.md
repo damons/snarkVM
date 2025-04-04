@@ -91,4 +91,4 @@ This generalizes the maximum count of faulty validators in typical BFT systems.
 
 The _availability stake_ of a committee is defined as $f + 1$.
 
-The _quorum stake_ of a committee is defines as $N - f$.
+The _quorum stake_ of a committee is defined as $N - f$.
