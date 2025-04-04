@@ -116,7 +116,7 @@ pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     genesis_block: Block<N>,
     /// The current epoch hash.
     current_epoch_hash: Arc<RwLock<Option<N::BlockHash>>>,
-    /// The committee resulting from all the bonding and unbonding transactions in the blockchain.
+    /// The committee resulting from all the on-chain staking activity.
     ///
     /// This includes any bonding and unbonding transactions in the latest block.
     /// The starting point, in the genesis block, is the genesis committee.
