@@ -246,7 +246,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Returns the latest committee,
-    /// i.e. the committee resulting from all the bonding and unbonding transactions in the blockchain.
+    /// i.e. the committee resulting from all the on-chain staking activity.
     pub fn latest_committee(&self) -> Result<Committee<N>> {
         match self.current_committee.read().as_ref() {
             Some(committee) => Ok(committee.clone()),
