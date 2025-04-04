@@ -157,26 +157,17 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
         cfg_iter!(leaf_edges).try_for_each(|(leaf_id, prev_round, prev_id)| {
             if prev_round + (BatchHeader::<N>::MAX_GC_ROUNDS as u64) - 1 <= block.round() {
-                // If the previous round is at the end of GC, we cannot (and do not need to)
-                // verify the next batch.
-                // For this leaf we are at the maximum length of the DAG, so any following batches are not allowed to be part of the block
-                // and, thus, a malicious actor cannot remove them.
+                // If the previous round is at the end of GC, we cannot (and do not need to) verify the next batch.
+                // For this leaf we are at the maximum length of the DAG, so any following batches are not allowed
+                // to be part of the block and, thus, a malicious actor cannot remove them.
                 return Ok::<(), Error>(());
             }
 
-            // Find the block for this certificate.
-            // We might check the same block multiple times, but, so far, the check
-            // simply ensures that the block is a valid ancestor.
-            match self.vm.block_store().get_block_for_certificate(prev_id)? {
-                Some(prev_block) => {
-                    ensure!(
-                        prev_block.height() < block.height(),
-                        "Leaf {leaf_id} points to a block that is not an ancestor"
-                    );
-                }
-                None => bail!(
+            // Ensure that the certificate is associated with a previous block.
+            if self.vm.block_store().get_block_for_certificate(prev_id)?.is_none() {
+                bail!(
                     "Leaf {leaf_id} points to certificate {prev_id} in round {prev_round} that is not associated with a previous block"
-                ),
+                )
             }
 
             Ok(())
