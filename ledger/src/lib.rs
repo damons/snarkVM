@@ -101,15 +101,13 @@ pub enum RecordsFilter<N: Network> {
     SlowUnspent(PrivateKey<N>),
 }
 
-/// State of the whole blockchain.
+/// State of the entire chain.
 ///
-/// All the state is actually in the `vm` component.
-/// The other components contain information that is also in the `vm` component.
+/// All stored state is held in the `VM`, while Ledger holds the `VM` and relevant cache data.
 ///
 /// The constructor is [`Ledger::load`],
-/// which loads the ledger from (generally persistent) storage,
-/// or initializes it with the genesis block if the storage is empty.
-/// So the blockchain is never empty after it is constructed via [`Ledger::load`].
+/// which loads the ledger from storage,
+/// or initializes it with the genesis block if the storage is empty
 #[derive(Clone)]
 pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     /// The VM state.
