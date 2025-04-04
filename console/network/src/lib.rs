@@ -77,6 +77,7 @@ pub enum ConsensusVersion {
     V2 = 2,
     V3 = 3,
     V4 = 4,
+    V5 = 5,
 }
 
 pub trait Network:
@@ -218,7 +219,7 @@ pub trait Network:
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 4];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5];
     ///  A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: This value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
@@ -234,7 +235,9 @@ pub trait Network:
     ///
     /// V3: Update to the number of validators and finalize scope RNG seed.
     ///
-    /// V4: Update to the number of validators and enable batch proposal spend limits.
+    /// V4: Update to the Varuna version.
+    ///
+    /// V5: Update to the number of validators and enable batch proposal spend limits.
     #[allow(non_snake_case)]
     fn CONSENSUS_VERSION(seek_height: u32) -> anyhow::Result<ConsensusVersion> {
         match Self::CONSENSUS_VERSION_HEIGHTS.binary_search_by(|(_, height)| height.cmp(&seek_height)) {
