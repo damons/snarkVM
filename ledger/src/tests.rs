@@ -153,7 +153,6 @@ impl TestChainBuilder {
         } else {
             self.last_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 + 2
         };
-        println!("Starting round is {round}");
 
         // Create certificates for each round.
         loop {
@@ -222,8 +221,6 @@ impl TestChainBuilder {
         }
 
         let commit_round = round;
-
-        println!("Creating block at round {commit_round}");
 
         // Construct the block
         let leader_committee = self.ledger.get_committee_lookback_for_round(round).unwrap().unwrap();
