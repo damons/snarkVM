@@ -15,6 +15,8 @@
 
 use super::*;
 
+use crate::narwhal::BatchHeader;
+
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Checks the given block is valid next block.
     pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
@@ -147,26 +149,38 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         let subdag_certs: HashSet<_> = subdag.certificate_ids().collect();
         let leaf_edges: HashSet<_> = subdag
             .certificates()
-            .flat_map(|cert| cert.previous_certificate_ids().iter().map(|id| (cert.round() - 1, id)))
-            .filter(|(_, id)| !subdag_certs.contains(id))
+            .flat_map(|cert| {
+                cert.previous_certificate_ids().iter().map(|prev_id| (cert.id(), cert.round() - 1, prev_id))
+            })
+            .filter(|(_, _, prev_id)| !subdag_certs.contains(prev_id))
             .collect();
 
-        for (_round, cert_id) in leaf_edges {
+        cfg_iter!(leaf_edges).try_for_each(|(leaf_id, prev_round, prev_id)| {
+            if prev_round + (BatchHeader::<N>::MAX_GC_ROUNDS as u64) - 1 <= block.round() {
+                // If the previous round is at the end of GC, we cannot (and do not need to)
+                // verify the next batch.
+                // For this leaf we are at the maximum length of the DAG, so any following batches are not allowed to be part of the block
+                // and, thus, a malicious actor cannot remove them.
+                return Ok::<(), Error>(());
+            }
+
             // Find the block for this certificate.
             // We might check the same block multiple times, but, so far, the check
             // simply ensures that the block is a valid ancestor.
-            match self.vm.block_store().get_block_for_certificate(cert_id)? {
+            match self.vm.block_store().get_block_for_certificate(prev_id)? {
                 Some(prev_block) => {
                     ensure!(
                         prev_block.height() < block.height(),
-                        "Leaf is pointing to a block that is not an ancestor"
+                        "Leaf {leaf_id} points to a block that is not an ancestor"
                     );
                 }
-                None => bail!("Leaf is pointing to certificate that is not associated with a previous block"),
+                None => bail!(
+                    "Leaf {leaf_id} points to certificate {prev_id} in round {prev_round} that is not associated with a previous block"
+                ),
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
     }
 
     /// Check that the certificates in the block subdag have met quorum requirements.
