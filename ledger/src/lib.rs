@@ -127,7 +127,7 @@ pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     /// until round `R + 1 + L`, where `L` is the lookback round distance.
     ///
     /// This committee is always well-defined
-    /// (in particular, it is the genesis committee when the blockchain is empty, or only has the genesis block).
+    /// (in particular, it is the genesis committee when the `Ledger` is empty, or only has the genesis block).
     /// So the `Option` should always be `Some`,
     /// but there are cases in which it is `None`,
     /// probably only temporarily when loading/initializing the ledger,
