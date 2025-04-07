@@ -3011,6 +3011,29 @@ function check:
         // Check that program is deployed.
         assert!(vm.contains_program(&ProgramID::from_str("parent_program.aleo").unwrap()));
 
+        // Deploy the program that calls the program from the previous layer.
+        let grandparent_program = Program::from_str(
+            r"
+import parent_program.aleo;
+
+program grandparent_program.aleo;
+
+function check:
+    input r0 as field.private;
+    call parent_program.aleo/check r0;
+    call parent_program.aleo/check r0;
+    call parent_program.aleo/check r0;
+        ",
+        )
+        .unwrap();
+
+        let deployment = vm.deploy(&private_key, &grandparent_program, None, 0, None, rng).unwrap();
+        assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+        vm.add_next_block(&sample_next_block(&vm, &private_key, &[deployment], rng).unwrap()).unwrap();
+
+        // Check that program is deployed.
+        assert!(vm.contains_program(&ProgramID::from_str("grandparent_program.aleo").unwrap()));
+
         // Initialize the process.
         let mut process = Process::<CurrentNetwork>::load().unwrap();
 
@@ -3018,6 +3041,7 @@ function check:
         process.add_program(&child_program_1).unwrap();
         process.add_program(&child_program_2).unwrap();
         process.add_program(&parent_program).unwrap();
+        process.add_program(&grandparent_program).unwrap();
 
         // Specify the function name on the parent program
         let function_name = Identifier::<CurrentNetwork>::from_str("check").unwrap();
@@ -3027,7 +3051,13 @@ function check:
 
         // Generate the authorization that will contain multiple transitions
         let authorization = process
-            .authorize::<CurrentAleo, _>(&private_key, parent_program.id(), &function_name, vec![input].iter(), rng)
+            .authorize::<CurrentAleo, _>(
+                &private_key,
+                grandparent_program.id(),
+                &function_name,
+                vec![input].iter(),
+                rng,
+            )
             .unwrap();
 
         // Assert the Authorization has more than 1 transitions
