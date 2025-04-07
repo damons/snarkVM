@@ -147,15 +147,17 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Store the IDs of all certificates in this subDAG.
         // This allows determining which edges point to other subDAGs/blocks.
         let subdag_certs: HashSet<_> = subdag.certificate_ids().collect();
+
+        // Generate a set of all external certificates this subDAG references.
+        // If multiple certificates reference the same external certificate, the id and round number will be
+        // identical and the set will contain only one entry for the external certificate.
         let leaf_edges: HashSet<_> = subdag
             .certificates()
-            .flat_map(|cert| {
-                cert.previous_certificate_ids().iter().map(|prev_id| (cert.id(), cert.round() - 1, prev_id))
-            })
-            .filter(|(_, _, prev_id)| !subdag_certs.contains(prev_id))
+            .flat_map(|cert| cert.previous_certificate_ids().iter().map(|prev_id| (cert.round() - 1, prev_id)))
+            .filter(|(_, prev_id)| !subdag_certs.contains(prev_id))
             .collect();
 
-        cfg_iter!(leaf_edges).try_for_each(|(leaf_id, prev_round, prev_id)| {
+        cfg_iter!(leaf_edges).try_for_each(|(prev_round, prev_id)| {
             if prev_round + (BatchHeader::<N>::MAX_GC_ROUNDS as u64) - 1 <= block.round() {
                 // If the previous round is at the end of GC, we cannot (and do not need to) verify the next batch.
                 // For this leaf we are at the maximum length of the DAG, so any following batches are not allowed
@@ -166,7 +168,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             // Ensure that the certificate is associated with a previous block.
             if self.vm.block_store().get_block_for_certificate(prev_id)?.is_none() {
                 bail!(
-                    "Leaf {leaf_id} points to certificate {prev_id} in round {prev_round} that is not associated with a previous block"
+                    "Batch(es) in the block point(s) to a certificate {prev_id} in round {prev_round} that is not associated with a previous block"
                 )
             }
 
