@@ -71,6 +71,14 @@ impl<N: Network> Deployment<N> {
     pub fn check_is_ordered(&self) -> Result<()> {
         let program_id = self.program.id();
 
+        // Ensure that if the program checksum is absent, then the edition is zero.
+        if self.program_checksum.is_none() {
+            ensure!(
+                self.edition == 0,
+                "If the program checksum is absent, but the edition must be zero {}",
+                self.edition
+            );
+        }
         // Ensure the program contains functions.
         ensure!(
             !self.program.functions().is_empty(),

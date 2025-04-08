@@ -45,12 +45,22 @@ impl<N: Network> FromBytes for Deployment<N> {
             verifying_keys.push((identifier, (verifying_key, certificate)));
         }
 
-        // If the deployment version is 2, read the program checksum.
+        // If the deployment version is 2, read the program checksum and verify it.
         let program_checksum = match version {
             DeploymentVersion::V1 => None,
             DeploymentVersion::V2 => {
-                let checksum: [u8; 32] = FromBytes::read_le(&mut reader)?;
-                Some(checksum.map(U8::new))
+                // Read the program checksum.
+                let bytes: [u8; 32] = FromBytes::read_le(&mut reader)?;
+                let checksum = bytes.map(U8::new);
+                // Verify the checksum.
+                if checksum != program.to_checksum() {
+                    return Err(error(format!(
+                        "Invalid checksum in the deployment: expected [{}], got [{}]",
+                        program.to_checksum().iter().join(", "),
+                        checksum.iter().join(", ")
+                    )));
+                }
+                Some(checksum)
             }
         };
 

@@ -167,9 +167,6 @@ impl<N: Network> Package<N> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    type CurrentNetwork = snarkvm_console::network::MainnetV0;
     type CurrentAleo = snarkvm_circuit::network::AleoV0;
 
     #[test]
@@ -181,7 +178,7 @@ mod tests {
         let deployment = package.deploy::<CurrentAleo>(None).unwrap();
 
         // Ensure the deployment edition matches.
-        assert_eq!(<CurrentNetwork as Network>::EDITION, deployment.edition());
+        assert_eq!(0, deployment.edition());
         // Ensure the deployment program ID matches.
         assert_eq!(package.program().id(), deployment.program_id());
         // Ensure the deployment program matches.
@@ -200,7 +197,7 @@ mod tests {
         let deployment = package.deploy::<CurrentAleo>(None).unwrap();
 
         // Ensure the deployment edition matches.
-        assert_eq!(<CurrentNetwork as Network>::EDITION, deployment.edition());
+        assert_eq!(0, deployment.edition());
         // Ensure the deployment program ID matches.
         assert_eq!(package.program().id(), deployment.program_id());
         // Ensure the deployment program matches.

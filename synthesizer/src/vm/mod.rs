@@ -437,7 +437,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use super::*;
-    use circuit::AleoV0;
     use console::{
         account::{Address, ViewKey},
         network::MainnetV0,
@@ -458,7 +457,9 @@ pub(crate) mod test_helpers {
     use std::path::Path;
     use synthesizer_snark::{Proof, VerifyingKey};
 
-    pub(crate) type CurrentAleo = AleoV0;
+    #[cfg(feature = "test")]
+    pub(crate) type CurrentAleo = circuit::AleoV0;
+
     pub(crate) type CurrentNetwork = MainnetV0;
 
     /// Samples a new finalize state.
@@ -3299,7 +3300,7 @@ finalize set_first:
         assert_eq!(block.aborted_transaction_ids().len(), 0);
         vm.add_next_block(&block).unwrap();
 
-        // Verify that the entry exists in both mappings.
+        // Verify that the entry exists in the first mapping.
         let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(field), _))) = vm
             .finalize_store()
             .get_value_confirmed(
@@ -3313,7 +3314,7 @@ finalize set_first:
         };
         assert_eq!(field, Field::from_str("1field").unwrap());
 
-        // Fix what is wrong.
+        // Verify that the entry exists in the second mapping.
         let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(field), _))) = vm
             .finalize_store()
             .get_value_confirmed(

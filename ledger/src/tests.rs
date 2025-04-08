@@ -1890,7 +1890,8 @@ finalize foo2:
 
     // Enforce that the block transactions were correct.
     assert_eq!(block.transactions().num_accepted(), 1);
-    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
 
     // Enforce that the first program was deployed and the second was rejected.
     assert_eq!(ledger.get_program(*program_1.id()).unwrap(), program_1);
