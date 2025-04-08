@@ -788,6 +788,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is producing a duplicate transition public key
     /// - The transaction is another deployment in the block from the same public fee payer.
     /// - The transaction is an execution for a program following its deployment or redeployment in this block.
+    ///
+    /// - Note: If a transaction is a deployment for a program following its deployment or redeployment in this block,
+    ///     it is not aborted. Instead, it will be rejected and its fee will be consumed.
     #[allow(clippy::too_many_arguments)]
     fn should_abort_transaction(
         &self,
@@ -835,16 +838,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         }
 
         // If the transaction is a deployment, ensure that it is not another deployment in the block from the same public fee payer.
-        if let Transaction::Deploy(_, _, _, deployment, fee) = transaction {
+        if let Transaction::Deploy(_, _, _, _, fee) = transaction {
             // If any public deployment payer has already deployed in this block, abort the transaction.
             if let Some(payer) = fee.payer() {
                 if deployment_payers.contains(&payer) {
                     return Some(format!("Another deployment in the block from the same public fee payer {payer}"));
                 }
-            }
-            // If the program has already been deployed or redeployed in this block, abort the transaction.
-            if deployments.contains(deployment.program_id()) {
-                return Some(format!("Program {} has already been deployed in this block", deployment.program_id()));
             }
         }
 

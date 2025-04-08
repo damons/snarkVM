@@ -3421,6 +3421,7 @@ function baz:
         .unwrap();
 
         // Generate the deployments.
+        // Note that we are attempting to upgrade twice with consecutive editions.
         let mut process = Process::load().unwrap();
         process.add_program(&program_v0).unwrap();
         let deployment_v1 = process.deploy::<CurrentAleo, _>(&program_v1, rng).unwrap();
@@ -3545,7 +3546,7 @@ function fly:
         // Attempt to upgrade the program twice.
         let block = sample_next_block(&vm, &caller_private_key, &[transaction_1, transaction_2], rng).unwrap();
         assert_eq!(block.transactions().num_accepted(), 1);
-        assert_eq!(block.transactions().num_rejected(), 0);
-        assert_eq!(block.aborted_transaction_ids().len(), 1);
+        assert_eq!(block.transactions().num_rejected(), 1);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
     }
 }
