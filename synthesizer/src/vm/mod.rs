@@ -55,7 +55,6 @@ use ledger_store::{
     ConsensusStore,
     FinalizeMode,
     FinalizeStore,
-    TransactionStorage,
     TransactionStore,
     TransitionStore,
     atomic_finalize,
@@ -113,82 +112,52 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             }
         }
 
-        // A helper function to retrieve all the deployments.
-        fn load_deployment_and_imports<N: Network, T: TransactionStorage<N>>(
-            process: &Process<N>,
-            transaction_store: &TransactionStore<N, T>,
-            transaction_id: N::TransactionID,
-            deployments: Arc<RwLock<IndexMap<ProgramID<N>, Deployment<N>>>>,
-        ) -> Result<()> {
-            // Retrieve the deployment from the transaction ID.
-            let deployment = match transaction_store.get_deployment(&transaction_id)? {
-                Some(deployment) => deployment,
-                None => bail!("Deployment transaction '{transaction_id}' is not found in storage."),
-            };
-
-            // Fetch the program from the deployment.
-            let program = deployment.program();
-            let program_id = program.id();
-
-            // Return early if the program is already loaded.
-            if process.contains_program(program_id) || deployments.read().contains_key(program_id) {
-                return Ok(());
-            }
-
-            // Iterate through the program imports.
-            for import_program_id in program.imports().keys() {
-                // Add the imports to the process if does not exist yet.
-                if !process.contains_program(import_program_id) && !deployments.read().contains_key(program_id) {
-                    // Fetch the deployment transaction ID.
-                    let Some(transaction_id) =
-                        transaction_store.deployment_store().find_transaction_id_from_program_id(import_program_id)?
-                    else {
-                        bail!("Transaction ID for '{program_id}' is not found in storage.");
-                    };
-
-                    // Add the deployment and its imports found recursively.
-                    load_deployment_and_imports(process, transaction_store, transaction_id, deployments.clone())?;
-                }
-            }
-
-            // Once all the imports have been included, add the parent deployment.
-            if !deployments.read().contains_key(program_id) {
-                // Note: There may be re-insertions due to parallelism, but it is safe to
-                //  reinsert into the IndexMap because it should be the same object.
-                deployments.write().entry(*program_id).or_insert(deployment);
-            }
-
-            Ok(())
-        }
-
         // Retrieve the transaction store.
         let transaction_store = store.transaction_store();
-        // Retrieve the list of deployment transaction IDs.
+        // Retrieve the block store.
+        let block_store = store.block_store();
+
+        // Retrieve the list of deployment transaction IDs and their associated block heights.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
-        // TODO (raychu86): Investigate loading them in order to limit recursion.
-        // Load the deployments from the store.
-        for (i, chunk) in deployment_ids.chunks(256).enumerate() {
+        let mut deployment_ids = cfg_into_iter!(deployment_ids)
+            .map(|transaction_id| {
+                // Retrieve the height.
+                let height =
+                    match block_store.find_block_hash(&transaction_id)?.map(|hash| block_store.get_block_height(&hash))
+                    {
+                        Some(Ok(Some(height))) => height,
+                        _ => {
+                            bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
+                        }
+                    };
+                Ok((transaction_id, height))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        // Sort the deployment transaction IDs by their block heights.
+        deployment_ids.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
+
+        // Load the deployments in order of their block heights.
+        const PARALLELIZATION_FACTOR: usize = 256;
+        for (i, chunk) in deployment_ids.chunks(PARALLELIZATION_FACTOR).enumerate() {
             debug!(
                 "Loading deployments {}-{} (of {})...",
-                i * 256,
-                ((i + 1) * 256).min(deployment_ids.len()),
+                i * PARALLELIZATION_FACTOR,
+                ((i + 1) * PARALLELIZATION_FACTOR).min(deployment_ids.len()),
                 deployment_ids.len()
             );
-            // Prepare a tracker for the deployments.
-            let deployments = Arc::new(RwLock::new(IndexMap::new()));
-            cfg_iter!(chunk)
-                .map(|transaction_id| {
-                    // Load the deployment and its imports.
-                    load_deployment_and_imports(&process, transaction_store, **transaction_id, deployments.clone())
+            // Load the deployments.
+            let deployments = cfg_iter!(chunk)
+                .map(|(transaction_id, _)| {
+                    // Retrieve the deployment from the transaction ID.
+                    match transaction_store.get_deployment(transaction_id)? {
+                        Some(deployment) => Ok(deployment),
+                        None => bail!("Deployment transaction '{transaction_id}' is not found in storage."),
+                    }
                 })
-                .collect::<Result<()>>()?;
-
-            for (program_id, deployment) in deployments.read().iter() {
-                // Load the deployment if it does not exist in the process yet.
-                if !process.contains_program(program_id) {
-                    process.load_deployment(deployment)?;
-                }
-            }
+                .collect::<Result<Vec<_>>>()?;
+            // Add the deployments to the process.
+            // Note: This iterator must be serial, to ensure deployments are loaded in the order of their dependencies.
+            deployments.iter().try_for_each(|deployment| process.load_deployment(deployment))?;
         }
 
         // Return the new VM.
@@ -2965,5 +2934,106 @@ function add_thrice:
 
         // It should still be possible to insert the 1st block afterwards.
         vm.add_next_block(&block1).unwrap();
+    }
+
+    #[test]
+    fn test_dependent_deployments_in_same_block() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fund two accounts to pay for the deployment.
+        let private_key_1 = PrivateKey::new(rng).unwrap();
+        let private_key_2 = PrivateKey::new(rng).unwrap();
+        let address_1 = Address::try_from(&private_key_1).unwrap();
+        let address_2 = Address::try_from(&private_key_2).unwrap();
+
+        let tx_1 = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address_1}")).unwrap(), Value::from_str("100000000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        let tx_2 = vm
+            .execute(
+                &caller_private_key,
+                ("credits.aleo", "transfer_public"),
+                [Value::from_str(&format!("{address_2}")).unwrap(), Value::from_str("100000000u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+
+        let block = sample_next_block(&vm, &caller_private_key, &[tx_1, tx_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 2);
+        vm.add_next_block(&block).unwrap();
+
+        // Deploy two programs that depend on each other.
+        let program_1 = Program::from_str(
+            r"
+program child_program.aleo;
+
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    add r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        let program_2 = Program::from_str(
+            r"
+import child_program.aleo;
+
+program parent_program.aleo;
+
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    call child_program.aleo/adder r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        // Initialize an "off-chain" VM to generate the deployments.
+        let off_chain_vm = sample_vm();
+        off_chain_vm.add_next_block(&genesis).unwrap();
+        off_chain_vm.add_next_block(&block).unwrap();
+        // Deploy the first program.
+        let deployment_1 = off_chain_vm.deploy(&private_key_1, &program_1, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment_1.fee_amount().unwrap(), 2483025);
+        // Add the first program to the off-chain VM.
+        off_chain_vm.process().write().add_program(&program_1).unwrap();
+        // Deploy the second program.
+        let deployment_2 = off_chain_vm.deploy(&private_key_2, &program_2, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment_2.fee_amount().unwrap(), 2659575);
+        // Drop the off-chain VM.
+        drop(off_chain_vm);
+
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment_1, deployment_2], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Check that only `child_program.aleo` is in the VM.
+        assert!(vm.process().read().contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
     }
 }
