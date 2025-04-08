@@ -33,7 +33,7 @@ use std::{
 pub struct NestedMemoryMap<
     M: Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 > {
     // The reason for using BTreeMap with binary keys is for the order of items to be the same as
     // the one in the RocksDB-backed DataMap; if not for that, it could be any map
@@ -48,7 +48,7 @@ pub struct NestedMemoryMap<
 impl<
     M: Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 > Default for NestedMemoryMap<M, K, V>
 {
     fn default() -> Self {
@@ -65,7 +65,7 @@ impl<
 impl<
     M: Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 > FromIterator<(M, K, V)> for NestedMemoryMap<M, K, V>
 {
     /// Initializes a new `NestedMemoryMap` from the given iterator.
@@ -94,7 +94,7 @@ impl<
     'a,
     M: 'a + Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: 'a + Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: 'a + Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: 'a + Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 > NestedMap<'a, M, K, V> for NestedMemoryMap<M, K, V>
 {
     ///
@@ -239,7 +239,7 @@ impl<
     'a,
     M: 'a + Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: 'a + Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: 'a + Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: 'a + Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 > NestedMapRead<'a, M, K, V> for NestedMemoryMap<M, K, V>
 {
     // type Iterator = core::iter::FlatMap<
@@ -507,7 +507,7 @@ impl<
 fn insert<
     M: Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 >(
     map: &mut BTreeMap<Vec<u8>, BTreeSet<Vec<u8>>>,
     map_inner: &mut BTreeMap<Vec<u8>, V>,
@@ -531,7 +531,7 @@ fn insert<
 /// Removes the given map-key pair.
 fn remove_map<
     M: Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 >(
     map: &mut BTreeMap<Vec<u8>, BTreeSet<Vec<u8>>>,
     map_inner: &mut BTreeMap<Vec<u8>, V>,
@@ -557,7 +557,7 @@ fn remove_map<
 fn remove_key<
     M: Copy + Clone + PartialEq + Eq + Hash + Serialize + for<'de> Deserialize<'de> + Send + Sync,
     K: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
-    V: Clone + PartialEq + Eq + Serialize + for<'de> Deserialize<'de> + Send + Sync,
+    V: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync,
 >(
     map: &mut BTreeMap<Vec<u8>, BTreeSet<Vec<u8>>>,
     map_inner: &mut BTreeMap<Vec<u8>, V>,
