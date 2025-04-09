@@ -83,6 +83,8 @@ pub enum ConsensusVersion {
     V4 = 4,
     /// V5: Update to the number of validators and enable batch proposal spend limits.
     V5 = 5,
+    /// V6: Update to the number of validators.
+    V6 = 6,
 }
 
 pub trait Network:
@@ -222,7 +224,7 @@ pub trait Network:
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 5];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6];
     ///  A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: This value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
