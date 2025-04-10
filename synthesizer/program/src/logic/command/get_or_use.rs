@@ -87,7 +87,7 @@ impl<N: Network> GetOrUse<N> {
     /// Returns the default value.
     #[inline]
     pub const fn default(&self) -> &Operand<N> {
-        &self.operands[0]
+        &self.operands[1]
     }
 
     /// Returns the destination register.
