@@ -680,7 +680,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         "impl",
         "type",
         "future",
-        "constructor",
     ];
 
     /// Returns `true` if the given name does not already exist in the program.
