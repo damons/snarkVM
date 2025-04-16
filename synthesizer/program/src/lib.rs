@@ -48,44 +48,47 @@ mod parse;
 mod serialize;
 
 use console::{
-    network::prelude::{
-        Debug,
-        Deserialize,
-        Deserializer,
-        Display,
-        Err,
-        Error,
-        ErrorKind,
-        Formatter,
-        FromBytes,
-        FromBytesDeserializer,
-        FromStr,
-        IoResult,
-        Network,
-        Parser,
-        ParserResult,
-        Read,
-        Result,
-        Sanitizer,
-        Serialize,
-        Serializer,
-        ToBytes,
-        ToBytesSerializer,
-        TypeName,
-        Write,
-        anyhow,
-        bail,
-        de,
-        ensure,
-        error,
-        fmt,
-        make_error,
-        many0,
-        many1,
-        map,
-        map_res,
-        tag,
-        take,
+    network::{
+        ConsensusVersion,
+        prelude::{
+            Debug,
+            Deserialize,
+            Deserializer,
+            Display,
+            Err,
+            Error,
+            ErrorKind,
+            Formatter,
+            FromBytes,
+            FromBytesDeserializer,
+            FromStr,
+            IoResult,
+            Network,
+            Parser,
+            ParserResult,
+            Read,
+            Result,
+            Sanitizer,
+            Serialize,
+            Serializer,
+            ToBytes,
+            ToBytesSerializer,
+            TypeName,
+            Write,
+            anyhow,
+            bail,
+            de,
+            ensure,
+            error,
+            fmt,
+            make_error,
+            many0,
+            many1,
+            map,
+            map_res,
+            tag,
+            take,
+        },
     },
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
 };
@@ -93,7 +96,7 @@ use console::{
 use indexmap::IndexMap;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-enum ProgramDefinition {
+pub enum ProgramDefinition {
     /// A program mapping.
     Mapping,
     /// A program struct.
@@ -154,6 +157,11 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns the ID of the program.
     pub const fn id(&self) -> &ProgramID<N> {
         &self.id
+    }
+
+    /// Returns the identifiers in the program.
+    pub fn identifiers(&self) -> &IndexMap<Identifier<N>, ProgramDefinition> {
+        &self.identifiers
     }
 
     /// Returns the imports in the program.
@@ -642,6 +650,15 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         "type",
         "future",
     ];
+    /// A list of restricted keywords for Aleo programs.
+    /// These restrictions are used to enforce program hygiene.
+    /// Each entry is a tuple of the consensus version and a list of keywords.
+    /// If the current consensus version is greater than or equal to the specified version,
+    /// the keywords in the list should be restricted.
+    #[rustfmt::skip]
+    const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
+        (ConsensusVersion::V6, &["constructor"])
+    ];
 
     /// Returns `true` if the given name does not already exist in the program.
     fn is_unique_name(&self, name: &Identifier<N>) -> bool {
@@ -659,6 +676,17 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         let name = name.to_string();
         // Check if the name is a keyword.
         Self::KEYWORDS.iter().any(|keyword| *keyword == name)
+    }
+
+    /// Returns an iterator over the restricted keywords for the consensus version.
+    pub fn restricted_keywords_for_consensus_version(
+        current_version: ConsensusVersion,
+    ) -> impl Iterator<Item = &'static str> {
+        Self::RESTRICTED_KEYWORDS
+            .iter()
+            .filter(move |(version, _)| *version <= current_version)
+            .flat_map(|(_, keywords)| *keywords)
+            .copied()
     }
 }
 
