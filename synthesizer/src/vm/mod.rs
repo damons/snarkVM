@@ -3052,8 +3052,8 @@ function adder:
         assert!(vm.process().read().contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
     }
 
-    #[test]
     #[cfg(feature = "test")]
+    #[test]
     fn test_versioned_keyword_restrictions() {
         let rng = &mut TestRng::default();
 
