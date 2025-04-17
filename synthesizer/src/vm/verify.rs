@@ -165,45 +165,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Note: We intentionally do not enforce restrictions on the import names in case they were deployed before the restrictions were added.
                 let current_block_height = self.block_store().current_block_height();
                 let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
-                // Get all keywords that are restricted for the current version.
-                let keywords =
-                    Program::<N>::restricted_keywords_for_consensus_version(consensus_version).collect::<Vec<_>>();
-                // Check if the program name is a restricted keywords.
-                let program_name = deployment.program().id().name().to_string();
-                if keywords.iter().any(|keyword| program_name == *keyword) {
-                    bail!("Program name '{}' is a restricted keyword for the current consensus version", program_name)
-                }
-                // Check that all top-level program components are not restricted keywords.
-                for identifier in deployment.program().identifiers().keys() {
-                    if keywords.iter().any(|keyword| identifier.to_string() == *keyword) {
-                        bail!(
-                            "Program component '{}' is a restricted keyword for the current consensus version",
-                            identifier
-                        )
-                    }
-                }
-                // Check that all record entry names are not restricted keywords.
-                for record_type in deployment.program().records().values() {
-                    for member_name in record_type.entries().keys() {
-                        if keywords.iter().any(|keyword| member_name.to_string() == *keyword) {
-                            bail!(
-                                "Record entry '{}' is a restricted keyword for the current consensus version",
-                                member_name
-                            )
-                        }
-                    }
-                }
-                // Check that all struct member names are not restricted keywords.
-                for struct_type in deployment.program().structs().values() {
-                    for member_name in struct_type.members().keys() {
-                        if keywords.iter().any(|keyword| member_name.to_string() == *keyword) {
-                            bail!(
-                                "Struct member '{}' is a restricted keyword for the current consensus version",
-                                member_name
-                            )
-                        }
-                    }
-                }
+                deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {
                     // Verify the deployment.

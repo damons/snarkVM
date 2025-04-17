@@ -96,7 +96,7 @@ use console::{
 use indexmap::IndexMap;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ProgramDefinition {
+enum ProgramDefinition {
     /// A program mapping.
     Mapping,
     /// A program struct.
@@ -157,11 +157,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns the ID of the program.
     pub const fn id(&self) -> &ProgramID<N> {
         &self.id
-    }
-
-    /// Returns the identifiers in the program.
-    pub fn identifiers(&self) -> &IndexMap<Identifier<N>, ProgramDefinition> {
-        &self.identifiers
     }
 
     /// Returns the imports in the program.
@@ -575,6 +570,9 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
+    /// A list of reserved keywords for Aleo programs, enforced at the parser level.
+    // New keywords should be enforced through `RESTRICTED_KEYWORDS` instead, if possible.
+    // Adding keywords to this list will require a backwards-compatible versioning for programs.
     #[rustfmt::skip]
     const KEYWORDS: &'static [&'static str] = &[
         // Mode
@@ -650,8 +648,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         "type",
         "future",
     ];
-    /// A list of restricted keywords for Aleo programs.
-    /// These restrictions are used to enforce program hygiene.
+    /// A list of restricted keywords for Aleo programs, enforced at the VM-level for program hygiene.
     /// Each entry is a tuple of the consensus version and a list of keywords.
     /// If the current consensus version is greater than or equal to the specified version,
     /// the keywords in the list should be restricted.
@@ -678,7 +675,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         Self::KEYWORDS.iter().any(|keyword| *keyword == name)
     }
 
-    /// Returns an iterator over the restricted keywords for the consensus version.
+    /// Returns an iterator over the restricted keywords for the given consensus version.
     pub fn restricted_keywords_for_consensus_version(
         current_version: ConsensusVersion,
     ) -> impl Iterator<Item = &'static str> {
@@ -687,6 +684,41 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             .filter(move |(version, _)| *version <= current_version)
             .flat_map(|(_, keywords)| *keywords)
             .copied()
+    }
+
+    /// Checks a program for restricted keywords for the given consensus version.
+    /// Returns an error if any restricted keywords are found.
+    pub fn check_restricted_keywords_for_consensus_version(&self, consensus_version: ConsensusVersion) -> Result<()> {
+        // Get all keywords that are restricted for the consensus version.
+        let keywords = Program::<N>::restricted_keywords_for_consensus_version(consensus_version).collect::<Vec<_>>();
+        // Check if the program name is a restricted keywords.
+        let program_name = self.id().name().to_string();
+        if keywords.iter().any(|keyword| program_name == *keyword) {
+            bail!("Program name '{}' is a restricted keyword for the current consensus version", program_name)
+        }
+        // Check that all top-level program components are not restricted keywords.
+        for identifier in self.identifiers.keys() {
+            if keywords.iter().any(|keyword| identifier.to_string() == *keyword) {
+                bail!("Program component '{}' is a restricted keyword for the current consensus version", identifier)
+            }
+        }
+        // Check that all record entry names are not restricted keywords.
+        for record_type in self.records().values() {
+            for member_name in record_type.entries().keys() {
+                if keywords.iter().any(|keyword| member_name.to_string() == *keyword) {
+                    bail!("Record entry '{}' is a restricted keyword for the current consensus version", member_name)
+                }
+            }
+        }
+        // Check that all struct member names are not restricted keywords.
+        for struct_type in self.structs().values() {
+            for member_name in struct_type.members().keys() {
+                if keywords.iter().any(|keyword| member_name.to_string() == *keyword) {
+                    bail!("Struct member '{}' is a restricted keyword for the current consensus version", member_name)
+                }
+            }
+        }
+        Ok(())
     }
 }
 
