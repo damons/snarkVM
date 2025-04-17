@@ -298,8 +298,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Note: This is only enforced for programs deployed at or after `ConsensusVersion::V5`, when upgradability was introduced,
                 // to prevent executions on old versions of the program.
 
-                // Track the maximum block height.
+                // Track the maximum block height and the associated program ID.
                 let mut max_block_height = 0;
+                let mut latest_program = None;
                 // For each transition in the execution, get the block height at which the program was deployed or upgraded and update the maximum block height.
                 for transition in execution.transitions() {
                     // Get the program ID.
@@ -321,7 +322,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         bail!("Block hash '{block_hash}' does not have a corresponding block height in the store");
                     };
                     // Update the maximum block height.
-                    max_block_height = max_block_height.max(block_height);
+                    if max_block_height < block_height {
+                        max_block_height = block_height;
+                        latest_program = Some(program_id);
+                    }
                 }
                 // If the maximum block height is greater than or equal to `ConsensusVersion::V5`, then check that the execution state root is later than the maximum block height.
                 if max_block_height >= N::CONSENSUS_HEIGHT(ConsensusVersion::V5)? {
@@ -336,7 +340,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // Ensure the block height is greater than or equal to the maximum block height.
                     ensure!(
                         block_height >= max_block_height,
-                        "Execution '{id}' state root is earlier than the last deployment or upgrade for one of the programs in the execution"
+                        "Execution '{id}' state root is earlier than the last deployment or upgrade for program '{}'",
+                        // Note: This unwrap is safe because if `max_block_height` is greater than `N::CONSENSUS_HEIGHT(ConsensusVersion::V5)`,
+                        // then `latest_program` must have been set in the loop above.
+                        latest_program.unwrap()
                     );
                 }
                 // Verify the execution.
