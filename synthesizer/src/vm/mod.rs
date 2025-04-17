@@ -3052,7 +3052,7 @@ function adder:
     }
 
     #[test]
-    #[feature = "test"]
+    #[cfg(feature = "test")]
     fn test_versioned_keyword_restrictions() {
         let rng = &mut TestRng::default();
 
