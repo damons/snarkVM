@@ -293,6 +293,52 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if self.block_store().contains_rejected_deployment_or_execution_id(execution_id)? {
                     bail!("Transaction '{id}' contains a previously rejected execution")
                 }
+
+                // Ensure that the state root of the execution is greater than or equal to the height at which its component programs were deployed or upgraded.
+                // Note: This is only enforced for programs deployed at or after `ConsensusVersion::V5`, when upgradability was introduced,
+                // to prevent executions on old versions of the program.
+
+                // Track the maximum block height.
+                let mut max_block_height = 0;
+                // For each transition in the execution, get the block height at which the program was deployed or upgraded and update the maximum block height.
+                for transition in execution.transitions() {
+                    // Get the program ID.
+                    let program_id = transition.program_id();
+                    // Get the transaction ID of the transaction that last deployed or upgraded the program.
+                    let Some(transaction_id) = self
+                        .block_store()
+                        .transaction_store()
+                        .find_latest_transaction_id_from_program_id(program_id)?
+                    else {
+                        bail!("Program '{program_id}' does not have a corresponding transaction ID in the store");
+                    };
+                    // Get the block hash associated with the transaction ID.
+                    let Some(block_hash) = self.block_store().find_block_hash(&transaction_id)? else {
+                        bail!("Transaction '{transaction_id}' does not have a corresponding block hash in the store");
+                    };
+                    // Get the block height associated with the block hash.
+                    let Some(block_height) = self.block_store().get_block_height(&block_hash)? else {
+                        bail!("Block hash '{block_hash}' does not have a corresponding block height in the store");
+                    };
+                    // Update the maximum block height.
+                    max_block_height = max_block_height.max(block_height);
+                }
+                // If the maximum block height is greater than or equal to `ConsensusVersion::V5`, then check that the execution state root is later than the maximum block height.
+                if max_block_height >= N::CONSENSUS_HEIGHT(ConsensusVersion::V5)? {
+                    // Get the block height of the execution.
+                    let Some(block_height) =
+                        self.block_store().find_block_height_from_state_root(execution.global_state_root())?
+                    else {
+                        bail!(
+                            "The state root of execution '{id}' does not have a corresponding block height in the store"
+                        );
+                    };
+                    // Ensure the block height is greater than or equal to the maximum block height.
+                    ensure!(
+                        block_height >= max_block_height,
+                        "Execution '{id}' state root is earlier than the last deployment or upgrade for one of the programs in the execution"
+                    );
+                }
                 // Verify the execution.
                 match try_vm_runtime!(|| self.check_execution_internal(execution, is_partially_verified)) {
                     Ok(result) => result?,
