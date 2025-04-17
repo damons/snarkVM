@@ -3052,6 +3052,7 @@ function adder:
     }
 
     #[test]
+    #[feature = "test"]
     fn test_versioned_keyword_restrictions() {
         let rng = &mut TestRng::default();
 
@@ -3063,14 +3064,14 @@ function adder:
         let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap() - 7, rng);
 
         // Define the invalid program bodies.
-        let invalid_program_bodies = vec![
+        let invalid_program_bodies = [
             "function constructor:",
             "function dummy:\nclosure constructor: input r0 as u8; assert.eq r0 0u8;",
             "function dummy:\nmapping constructor: key as boolean.public; value as boolean.public;",
             "function dummy:\nrecord constructor: owner as address.private;",
             "function dummy:\nrecord foo: owner as address.public; constructor as address.public;",
             "function dummy:\nstruct constructor: foo as address;",
-            "function dummy:\nstruct foo:\nconstructor as address;",
+            "function dummy:\nstruct foo: constructor as address;",
         ];
 
         println!("Current height: {}", vm.block_store().current_block_height());
