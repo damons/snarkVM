@@ -574,7 +574,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     // New keywords should be enforced through `RESTRICTED_KEYWORDS` instead, if possible.
     // Adding keywords to this list will require a backwards-compatible versioning for programs.
     #[rustfmt::skip]
-    const KEYWORDS: &'static [&'static str] = &[
+    pub const KEYWORDS: &'static [&'static str] = &[
         // Mode
         "const",
         "constant",
@@ -653,7 +653,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// If the current consensus version is greater than or equal to the specified version,
     /// the keywords in the list should be restricted.
     #[rustfmt::skip]
-    const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
+    pub const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
         (ConsensusVersion::V6, &["constructor"])
     ];
 
