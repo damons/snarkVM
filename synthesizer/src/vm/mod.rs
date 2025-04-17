@@ -474,6 +474,20 @@ pub(crate) mod test_helpers {
         VM::from(ConsensusStore::open(StorageMode::new_test(None)).unwrap()).unwrap()
     }
 
+    pub(crate) fn sample_vm_at_height(height: u32, rng: &mut TestRng) -> VM<CurrentNetwork, LedgerType> {
+        // Initialize the VM with a genesis block.
+        let vm = sample_vm_with_genesis_block(rng);
+        // Get the genesis private key.
+        let genesis_private_key = sample_genesis_private_key(rng);
+        // Advance the VM to the given height.
+        for _ in 0..height {
+            let block = sample_next_block(&vm, &genesis_private_key, &[], rng).unwrap();
+            vm.add_next_block(&block).unwrap();
+        }
+        // Return the VM.
+        vm
+    }
+
     pub(crate) fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwork> {
         static INSTANCE: OnceCell<PrivateKey<CurrentNetwork>> = OnceCell::new();
         *INSTANCE.get_or_init(|| {
@@ -3035,5 +3049,60 @@ function adder:
 
         // Check that only `child_program.aleo` is in the VM.
         assert!(vm.process().read().contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
+    }
+
+    #[test]
+    fn test_versioned_keyword_restrictions() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the VM at a specific height.
+        // We subtract by 7 to deploy the 7 invalid programs.
+        let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap() - 7, rng);
+
+        // Define the invalid program bodies.
+        let invalid_program_bodies = vec![
+            "function constructor:",
+            "function dummy:\nclosure constructor: input r0 as u8; assert.eq r0 0u8;",
+            "function dummy:\nmapping constructor: key as boolean.public; value as boolean.public;",
+            "function dummy:\nrecord constructor: owner as address.private;",
+            "function dummy:\nrecord foo: owner as address.public; constructor as address.public;",
+            "function dummy:\nstruct constructor: foo as address;",
+            "function dummy:\nstruct foo:\nconstructor as address;",
+        ];
+
+        println!("Current height: {}", vm.block_store().current_block_height());
+
+        // Deploy a test program for each of the invalid program bodies.
+        // They should all be accepted by the VM, because the restriction is not yet in place.
+        for (i, body) in invalid_program_bodies.iter().enumerate() {
+            println!("Deploying 'valid' test program {}: {}", i, body);
+            let program = Program::from_str(&format!("program test_valid_{}.aleo;\n{}", i, body)).unwrap();
+            let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+            let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+            assert_eq!(block.transactions().num_accepted(), 1);
+            assert_eq!(block.transactions().num_rejected(), 0);
+            assert_eq!(block.aborted_transaction_ids().len(), 0);
+            vm.add_next_block(&block).unwrap();
+        }
+
+        println!("Current height: {}", vm.block_store().current_block_height());
+
+        // Deploy a test program for each of the invalid program bodies.
+        // Verify that `check_transaction` fails for each of them.
+        for (i, body) in invalid_program_bodies.iter().enumerate() {
+            println!("Deploying 'invalid' test program {}: {}", i, body);
+            let program = Program::from_str(&format!("program test_invalid_{}.aleo;\n{}", i, body)).unwrap();
+            let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+            assert!(vm.check_transaction(&deployment, None, rng).is_err());
+        }
+
+        // Attempt to deploy a program with the name `constructor`.
+        // Verify that `check_transaction` fails.
+        let program = Program::from_str(r"program constructor.aleo; function dummy:").unwrap();
+        let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+        assert!(vm.check_transaction(&deployment, None, rng).is_err());
     }
 }
