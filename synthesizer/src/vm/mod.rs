@@ -3097,13 +3097,21 @@ function adder:
             println!("Deploying 'invalid' test program {}: {}", i, body);
             let program = Program::from_str(&format!("program test_invalid_{}.aleo;\n{}", i, body)).unwrap();
             let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
-            assert!(vm.check_transaction(&deployment, None, rng).is_err());
+            if let Err(e) = vm.check_transaction(&deployment, None, rng) {
+                println!("Error: {}", e);
+            } else {
+                panic!("Expected an error, but the deployment was accepted.")
+            }
         }
 
         // Attempt to deploy a program with the name `constructor`.
         // Verify that `check_transaction` fails.
         let program = Program::from_str(r"program constructor.aleo; function dummy:").unwrap();
         let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
-        assert!(vm.check_transaction(&deployment, None, rng).is_err());
+        if let Err(e) = vm.check_transaction(&deployment, None, rng) {
+            println!("Error: {}", e);
+        } else {
+            panic!("Expected an error, but the deployment was accepted.")
+        }
     }
 }
