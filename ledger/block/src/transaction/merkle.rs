@@ -111,22 +111,23 @@ impl<N: Network> Transaction<N> {
         mut deployment_or_execution_tree: TransactionTree<N>,
         fee: Option<&Fee<N>>,
     ) -> Result<TransactionTree<N>> {
+        // Retrieve the fee index, defined as the last index in the transaction tree.
+        let fee_index = deployment_or_execution_tree.number_of_leaves();
+        // Ensure the fee index is within the Merkle tree size.
+        ensure!(
+            fee_index <= N::MAX_FUNCTIONS,
+            "The fee index ('{fee_index}') in the transaction tree must be less than {}",
+            N::MAX_FUNCTIONS
+        );
+        // Ensure the fee index is within the Merkle tree size.
+        ensure!(
+            fee_index < Self::MAX_TRANSITIONS,
+            "The fee index ('{fee_index}') in the transaction tree must be less than {}",
+            Self::MAX_TRANSITIONS
+        );
+
         // If a fee is provided, append the fee leaf to the transaction tree.
         if let Some(fee) = fee {
-            // Retrieve the fee index, defined as the last index in the transaction tree.
-            let fee_index = deployment_or_execution_tree.number_of_leaves();
-            // Ensure the fee index is within the Merkle tree size.
-            ensure!(
-                fee_index < Self::MAX_TRANSITIONS,
-                "The fee index ('{fee_index}') in the transaction tree must be less than {}",
-                Self::MAX_TRANSITIONS
-            );
-            // Ensure the fee index is within the Merkle tree size.
-            ensure!(
-                fee_index <= N::MAX_FUNCTIONS,
-                "The fee index ('{fee_index}') in the transaction tree must be less than {}",
-                N::MAX_FUNCTIONS
-            );
             // Construct the transaction leaf.
             let leaf = TransactionLeaf::new_fee(u16::try_from(fee_index)?, **fee.transition_id()).to_bits_le();
             // Append the fee leaf to the transaction tree.
@@ -185,20 +186,28 @@ impl<N: Network> Transaction<N> {
         let functions = program.functions();
         // Retrieve the verifying keys.
         let verifying_keys = deployment.verifying_keys();
+        // Retrieve the number of functions.
+        let num_functions = functions.len();
 
         // Ensure the number of functions and verifying keys match.
         ensure!(
-            functions.len() == verifying_keys.len(),
-            "Number of functions ('{}') and verifying keys ('{}') do not match",
-            functions.len(),
+            num_functions == verifying_keys.len(),
+            "Number of functions ('{num_functions}') and verifying keys ('{}') do not match",
             verifying_keys.len()
+        );
+        // Ensure there are functions.
+        ensure!(num_functions > 0, "Deployment must contain at least one function");
+        // Ensure the number of functions is within the allowed range.
+        ensure!(
+            num_functions <= N::MAX_FUNCTIONS,
+            "Deployment must contain less than {} functions, found {num_functions}",
+            N::MAX_FUNCTIONS,
         );
         // Ensure the number of functions is within the allowed range.
         ensure!(
-            functions.len() < Self::MAX_TRANSITIONS, // Note: Observe we hold back 1 for the fee.
-            "Deployment must contain less than {} functions, found {}",
+            num_functions < Self::MAX_TRANSITIONS, // Note: Observe we hold back 1 for the fee.
+            "Deployment must contain less than {} functions, found {num_functions}",
             Self::MAX_TRANSITIONS,
-            functions.len()
         );
         Ok(())
     }
@@ -257,5 +266,26 @@ impl<N: Network> Transaction<N> {
         });
         // Compute the deployment tree.
         N::merkle_tree_bhp::<TRANSACTION_DEPTH>(&leaves.collect::<Result<Vec<_>>>()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type CurrentNetwork = console::network::MainnetV0;
+
+    #[test]
+    fn test_transaction_depth_is_correct() {
+        // We ensure 2^TRANSACTION_DEPTH == MAX_FUNCTIONS + 1.
+        // The "1 extra" is for the fee transition.
+        assert_eq!(
+            2u32.checked_pow(TRANSACTION_DEPTH as u32).unwrap() as usize,
+            Transaction::<CurrentNetwork>::MAX_TRANSITIONS
+        );
+        assert_eq!(
+            CurrentNetwork::MAX_FUNCTIONS.checked_add(1).unwrap(),
+            Transaction::<CurrentNetwork>::MAX_TRANSITIONS
+        );
     }
 }
