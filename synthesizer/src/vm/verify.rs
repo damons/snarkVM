@@ -150,7 +150,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
                 // If the `CONSENSUS_VERSION` is `V5` or greater, then verify that the program checksum is present.
-                // Otherwise, verify that the program checksum is **not** present and that no constructors are present.
+                // Otherwise, verify that the deployment edition is zero, that the program checksum is **not** present in the deployment,
+                // and that the program does not use constructors, `Operand::Checksum`, or `Operand::Edition`.
                 let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
                 match consensus_version >= ConsensusVersion::V5 {
                     true => ensure!(
@@ -159,22 +160,28 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     ),
                     false => {
                         ensure!(
+                            deployment.edition().is_zero(),
+                            "Invalid deployment transaction '{id}' - edition should be zero"
+                        );
+                        ensure!(
                             deployment.program_checksum().is_none(),
                             "Invalid deployment transaction '{id}' - should not contain program checksum"
                         );
                         ensure!(
-                            !deployment.program().contains_constructor(),
-                            "Invalid deployment transaction '{id}' - should not contain a constructor"
+                            !deployment.program().uses_constructor_checksum_or_edition(),
+                            "Invalid deployment transaction '{id}' - should not use 'constructor's, the 'checksum' operand, or 'edition' operand "
                         );
                     }
                 }
                 // If the program checksum exists, then verify that it is correct.
                 if let Some(given_checksum) = deployment.program_checksum() {
                     // Compute the expected checksum.
-                    let expected_checksum = deployment.program().to_checksum()?;
+                    let expected_checksum = deployment.program().to_checksum();
                     ensure!(
                         given_checksum == &expected_checksum,
-                        "The checksum given in the deployment '{given_checksum}' did not match the expected checksum '{expected_checksum}'"
+                        "The checksum given in the deployment did not match the expected checksum\n('[{}]' != '[{}]')",
+                        given_checksum.iter().join(", "),
+                        expected_checksum.iter().join(", ")
                     );
                 }
                 // If the edition is zero, then check that:
@@ -183,43 +190,41 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //  - The program exists in the store and process.
                 //  - The existing program is upgradable, meaning that it has a constructor.
                 //  - The new edition increments the old edition.
-                let store_contains_program = self.transaction_store().contains_program_id(deployment.program_id())?;
-                let process_contains_program = self.contains_program(deployment.program_id());
+                let is_program_in_storage = self.transaction_store().contains_program_id(deployment.program_id())?;
+                let is_program_in_process = self.contains_program(deployment.program_id());
                 match deployment.edition() {
                     0 => {
                         // Ensure the program ID does not already exist in the store.
-                        ensure!(
-                            !store_contains_program,
-                            "Program ID '{}' is already deployed",
-                            deployment.program_id()
-                        );
+                        ensure!(!is_program_in_storage, "Program ID '{}' is already deployed", deployment.program_id());
                         // Ensure the program does not already exist in the process.
-                        ensure!(!process_contains_program, "Program ID '{}' already exists", deployment.program_id());
+                        ensure!(!is_program_in_process, "Program ID '{}' already exists", deployment.program_id());
                     }
                     new_edition => {
                         // Check that the program exists.
                         ensure!(
-                            store_contains_program,
+                            is_program_in_storage,
                             "Invalid deployment transaction '{id}' - program does not exist in the store"
                         );
                         ensure!(
-                            process_contains_program,
+                            is_program_in_process,
                             "Invalid deployment transaction '{id}' - program does not exist in the process"
                         );
-                        // Get the existing program and retrieve t
+                        // Get the existing program.
                         // It should be the case that the stored program matches the process program.
                         let stack = self.process().read().get_stack(deployment.program_id())?;
-                        let contains_constructor = stack.program().contains_constructor();
-                        let old_edition = **stack.program_edition();
                         // Check that the program is upgradable, meaning that it has a constructor.
                         ensure!(
-                            contains_constructor,
+                            stack.program().contains_constructor(),
                             "Invalid deployment transaction '{id}' - program is not upgradable because it does not contain a constructor"
                         );
                         // Check that the new edition increments the old edition.
+                        let old_edition = **stack.program_edition();
+                        let expected_edition = old_edition
+                            .checked_add(1)
+                            .ok_or_else(|| anyhow!("Invalid deployment transaction '{id}' - next edition overflows"))?;
                         ensure!(
-                            old_edition < new_edition && old_edition.saturating_add(1) == new_edition,
-                            "Invalid deployment transaction '{id}' - new edition does not increment old edition"
+                            expected_edition == new_edition,
+                            "Invalid deployment transaction '{id}' - next edition ('{new_edition}') does not match the expected edition ('{expected_edition}')",
                         );
                     }
                 }

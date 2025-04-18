@@ -13,13 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::Operand;
 use console::{
     network::Network,
     prelude::{FromBytes, Parser, ToBytes},
     program::{Identifier, Register},
 };
 
-pub trait CommandTrait<N: Network>: Clone + Parser + FromBytes + ToBytes {
+pub trait CommandTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes + ToBytes {
     /// Returns the destination registers of the command.
     fn destinations(&self) -> Vec<Register<N>>;
     /// Returns the branch target, if the command is a branch command.
@@ -34,4 +35,6 @@ pub trait CommandTrait<N: Network>: Clone + Parser + FromBytes + ToBytes {
     fn is_write(&self) -> bool;
     /// Returns `true` if the command is an await command.
     fn is_await(&self) -> bool;
+    /// Returns the operands of the command.
+    fn operands(&self) -> &[Operand<N>];
 }

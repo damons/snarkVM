@@ -1607,14 +1607,14 @@ mapping admin:
     value as address.public;
 mapping expected_checksum:
     key as boolean.public;
-    value as field.public;
+    value as [u8; 32u32].public;
 function set_expected:
-    input r0 as field.public;
+    input r0 as [u8; 32u32].public;
     async set_expected self.caller r0 into r1;
     output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
-    input r1 as field.public;
+    input r1 as [u8; 32u32].public;
     get admin[true] into r2;
     assert.eq r0 r2;
     set r1 into expected_checksum[true];
@@ -1637,15 +1637,15 @@ mapping admin:
     value as address.public;
 mapping expected_checksum:
     key as boolean.public;
-    value as field.public;
+    value as [u8; 32u32].public;
 function bar:
 function set_expected:
-    input r0 as field.public;
+    input r0 as [u8; 32u32].public;
     async set_expected self.caller r0 into r1;
     output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
-    input r1 as field.public;
+    input r1 as [u8; 32u32].public;
     get admin[true] into r2;
     assert.eq r0 r2;
     set r1 into expected_checksum[true];
@@ -1668,15 +1668,15 @@ mapping admin:
     value as address.public;
 mapping expected_checksum:
     key as boolean.public;
-    value as field.public;
+    value as [u8; 32u32].public;
 function baz:
 function set_expected:
-    input r0 as field.public;
+    input r0 as [u8; 32u32].public;
     async set_expected self.caller r0 into r1;
     output r1 as locked_upgrade.aleo/set_expected.future;
 finalize set_expected:
     input r0 as address.public;
-    input r1 as field.public;
+    input r1 as [u8; 32u32].public;
     get admin[true] into r2;
     assert.eq r0 r2;
     set r1 into expected_checksum[true];
@@ -1720,7 +1720,14 @@ constructor:
     vm.add_next_block(&block)?;
 
     // Attempt to set the expected checksum with the wrong admin.
-    let checksum = Value::from_str("0field")?;
+    let checksum = Value::from_str(
+        r"[
+        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8
+    ]",
+    )?;
     let admin_private_key = PrivateKey::new(rng)?;
     let transaction = vm.execute(
         &admin_private_key,
@@ -1749,11 +1756,11 @@ constructor:
     );
 
     // Set the expected checksum.
-    let checksum = program_v1.to_checksum()?;
+    let checksum = program_v1.to_checksum();
     let transaction = vm.execute(
         &caller_private_key,
         ("locked_upgrade.aleo", "set_expected"),
-        vec![Value::from_str(&checksum.to_string())].into_iter(),
+        vec![Value::from_str(&format!("[{}]", checksum.iter().join(", ")))].into_iter(),
         None,
         0,
         None,
@@ -1766,16 +1773,15 @@ constructor:
     vm.add_next_block(&block)?;
 
     // Check that the expected checksum is set.
-    let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(expected), _))) =
-        vm.finalize_store().get_value_confirmed(
-            ProgramID::from_str("locked_upgrade.aleo")?,
-            Identifier::from_str("expected_checksum")?,
-            &Plaintext::from_str("true")?,
-        )?
+    let Some(Value::Plaintext(expected)) = vm.finalize_store().get_value_confirmed(
+        ProgramID::from_str("locked_upgrade.aleo")?,
+        Identifier::from_str("expected_checksum")?,
+        &Plaintext::from_str("true")?,
+    )?
     else {
         bail!("Unexpected entry in expected_checksum mapping");
     };
-    assert_eq!(checksum, expected);
+    assert_eq!(Plaintext::from(checksum), expected);
 
     // Attempt to upgrade with a mismatched program.
     let transaction = vm.deploy(&caller_private_key, &program_v1_mismatch, None, 0, None, rng)?;

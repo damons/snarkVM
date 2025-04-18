@@ -62,6 +62,7 @@ impl<N: Network> Process<N> {
                 new_mappings
             }
         };
+        lap!(timer, "Retrieve the mappings to initialize");
 
         // Initialize the mappings, and store their finalize operations.
         atomic_batch_scope!(store, {

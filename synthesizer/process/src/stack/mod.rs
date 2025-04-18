@@ -62,7 +62,7 @@ use console::{
         Value,
         ValueType,
     },
-    types::{Field, Group, U16},
+    types::{Field, Group, U8, U16},
 };
 use ledger_block::{Deployment, Transaction, Transition};
 use synthesizer_program::{CallOperator, Closure, Constructor, Function, Instruction, Operand, Program, traits::*};
@@ -201,7 +201,7 @@ pub struct Stack<N: Network> {
     /// The program address.
     program_address: Address<N>,
     /// The program checksum.
-    program_checksum: Field<N>,
+    program_checksum: [U8<N>; 32],
     /// The program edition.
     program_edition: U16<N>,
 }
@@ -331,7 +331,7 @@ impl<N: Network> StackProgram<N> for Stack<N> {
 
     /// Returns the program checksum.
     #[inline]
-    fn program_checksum(&self) -> &Field<N> {
+    fn program_checksum(&self) -> &[U8<N>; 32] {
         &self.program_checksum
     }
 

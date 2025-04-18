@@ -126,9 +126,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
                             None => *self.program_checksum(),
                         };
-                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::Field(
-                            circuit::Field::new(circuit::Mode::Constant, checksum),
-                        ))))
+                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(checksum.map(circuit::U8::constant))))
                     }
                     // If the operand is the edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {
@@ -381,9 +379,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                             Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
                             None => *self.program_checksum(),
                         };
-                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::Field(
-                            circuit::Field::new(circuit::Mode::Constant, checksum),
-                        ))))
+                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(checksum.map(circuit::U8::constant))))
                     }
                     // If the operand is the edition, retrieve the edition from the stack.
                     Operand::Edition(program_id) => {

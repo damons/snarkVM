@@ -153,8 +153,6 @@ impl Network for CanaryV0 {
         (ConsensusVersion::V4, 12),
         (ConsensusVersion::V5, 13),
     ];
-    /// The network edition.
-    const EDITION: u16 = 0;
     /// The genesis block coinbase target.
     #[cfg(not(feature = "test_targets"))]
     const GENESIS_COINBASE_TARGET: u64 = (1u64 << 29).saturating_sub(1);

@@ -52,7 +52,7 @@ impl<N: Network> RegistersLoad<N> for FinalizeRegisters<N> {
                     Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
                     None => *stack.program_checksum(),
                 };
-                return Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))));
+                return Ok(Value::Plaintext(Plaintext::from(checksum)));
             }
             // If the operand is the edition, load the edition.
             Operand::Edition(program_id) => {

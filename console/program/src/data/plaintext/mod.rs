@@ -57,6 +57,32 @@ impl<N: Network> From<&Literal<N>> for Plaintext<N> {
     }
 }
 
+// A macro that derives the `From` implementation for an array of literals.
+// The array element type should be generic and so should the size.
+macro_rules! impl_plaintext_from_array {
+    ($element:ident, $($size:literal),+) => {
+        $(
+            impl<N: Network> From<[$element<N>; $size]> for Plaintext<N> {
+                fn from(value: [$element<N>; $size]) -> Self {
+                    Self::Array(
+                        value
+                            .into_iter()
+                            .map(|element| Plaintext::from(Literal::$element(element)))
+                            .collect(),
+                        OnceCell::new(),
+                    )
+                }
+            }
+        )+
+    };
+}
+
+// Implement for `[U8<N>, SIZE]` for sizes 1 through 32.
+impl_plaintext_from_array!(
+    U8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+    31, 32
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;

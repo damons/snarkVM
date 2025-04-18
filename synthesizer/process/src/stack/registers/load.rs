@@ -47,7 +47,7 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoad<N> for Registers<N
                     Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
                     None => *stack.program_checksum(),
                 };
-                return Ok(Value::Plaintext(Plaintext::from(Literal::Field(checksum))));
+                return Ok(Value::Plaintext(Plaintext::from(checksum)));
             }
             // If the operand is the edition, load the value of the edition.
             Operand::Edition(program_id) => {
@@ -148,9 +148,7 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoadCircuit<N, A> for R
                     Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
                     None => *stack.program_checksum(),
                 };
-                return Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::constant(
-                    Literal::Field(checksum),
-                ))));
+                return Ok(circuit::Value::Plaintext(circuit::Plaintext::from(checksum.map(circuit::U8::constant))));
             }
             // If the operand is the edition, load the value of the edition.
             Operand::Edition(program_id) => {

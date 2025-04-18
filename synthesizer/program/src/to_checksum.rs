@@ -13,18 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Operand;
-use console::{
-    network::Network,
-    prelude::{FromBytes, Parser, ToBytes},
-    program::Register,
-};
+use super::*;
 
-pub trait InstructionTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes + ToBytes {
-    /// Returns the destination registers of the instruction.
-    fn destinations(&self) -> Vec<Register<N>>;
-    /// Returns `true` if the given name is a reserved opcode.
-    fn is_reserved_opcode(name: &str) -> bool;
-    /// Returns the operands of the instruction.
-    fn operands(&self) -> &[Operand<N>];
+impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
+    /// Returns the checksum of the program.
+    ///
+    /// The checksum is a 32-byte hash of the program's source code in string format.
+    /// This ensures a strict definition of program equivalence, useful for program upgradability.
+    pub fn to_checksum(&self) -> [U8<N>; 32] {
+        let mut keccak = TinySha3::v256();
+        keccak.update(self.to_string().as_bytes());
+
+        let mut hash = [0u8; 32];
+        keccak.finalize(&mut hash);
+        hash.map(U8::new)
+    }
 }

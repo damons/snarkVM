@@ -99,8 +99,6 @@ pub trait Network:
     const ID: u16;
     /// The network name.
     const NAME: &'static str;
-    /// The network edition.
-    const EDITION: u16;
 
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str;

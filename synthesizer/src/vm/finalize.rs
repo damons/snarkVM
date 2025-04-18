@@ -788,6 +788,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is producing a duplicate transition public key
     /// - The transaction is another deployment in the block from the same public fee payer.
     /// - The transaction is an execution for a program following its deployment or redeployment in this block.
+    ///
+    /// - Note: If a transaction is a deployment for a program following its deployment or redeployment in this block,
+    ///     it is not aborted. Instead, it will be rejected and its fee will be consumed.
     #[allow(clippy::too_many_arguments)]
     fn should_abort_transaction(
         &self,

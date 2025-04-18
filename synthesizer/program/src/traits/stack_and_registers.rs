@@ -34,7 +34,7 @@ use console::{
         Value,
         ValueType,
     },
-    types::{Address, Field, U16},
+    types::{Address, Field, U8, U16},
 };
 use rand::{CryptoRng, Rng};
 use synthesizer_snark::{ProvingKey, VerifyingKey};
@@ -96,7 +96,7 @@ pub trait StackProgram<N: Network> {
     fn program_address(&self) -> &Address<N>;
 
     /// Returns the program checksum.
-    fn program_checksum(&self) -> &Field<N>;
+    fn program_checksum(&self) -> &[U8<N>; 32];
 
     /// Returns the program edition.
     fn program_edition(&self) -> &U16<N>;

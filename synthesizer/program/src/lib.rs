@@ -50,6 +50,7 @@ pub use traits::*;
 mod bytes;
 mod parse;
 mod serialize;
+mod to_checksum;
 
 use console::{
     network::prelude::{
@@ -65,6 +66,7 @@ use console::{
         FromBytesDeserializer,
         FromStr,
         IoResult,
+        Itertools,
         Network,
         Parser,
         ParserResult,
@@ -91,15 +93,25 @@ use console::{
         tag,
         take,
     },
-    prelude::ToBits,
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
-    types::Field,
+    types::U8,
 };
 
 use indexmap::IndexMap;
+use tiny_keccak::{Hasher, Sha3 as TinySha3};
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+enum ProgramLabel<N: Network> {
+    /// A program constructor.
+    Constructor,
+    /// A named component.
+    Identifier(Identifier<N>),
+}
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum ProgramDefinition {
+    /// A program constructor.
+    Constructor,
     /// A program mapping.
     Mapping,
     /// A program struct.
@@ -112,16 +124,16 @@ enum ProgramDefinition {
     Function,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
     /// The ID of the program.
     id: ProgramID<N>,
     /// A map of the declared imports for the program.
     imports: IndexMap<ProgramID<N>, Import<N>>,
+    /// A map of program labels to their program definitions.
+    components: IndexMap<ProgramLabel<N>, ProgramDefinition>,
     /// An optional constructor for the program.
     constructor: Option<ConstructorCore<N, Command>>,
-    /// A map of identifiers to their program declaration.
-    identifiers: IndexMap<Identifier<N>, ProgramDefinition>,
     /// A map of the declared mappings for the program.
     mappings: IndexMap<Identifier<N>, Mapping<N>>,
     /// A map of the declared structs for the program.
@@ -134,6 +146,39 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     functions: IndexMap<Identifier<N>, FunctionCore<N, Instruction, Command>>,
 }
 
+impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> PartialEq
+    for ProgramCore<N, Instruction, Command>
+{
+    /// Compares two programs for equality, verifying that the components are in the same order.
+    /// The order of the components must match to ensure that deployment tree is well-formed.
+    fn eq(&self, other: &Self) -> bool {
+        // Check that the number of components is the same.
+        if self.components.len() != other.components.len() {
+            return false;
+        }
+        // Check that the components match in order.
+        for (left, right) in self.components.iter().zip_eq(other.components.iter()) {
+            if left != right {
+                return false;
+            }
+        }
+        // Check that the remaining fields match.
+        self.id == other.id
+            && self.imports == other.imports
+            && self.constructor == other.constructor
+            && self.mappings == other.mappings
+            && self.structs == other.structs
+            && self.records == other.records
+            && self.closures == other.closures
+            && self.functions == other.functions
+    }
+}
+
+impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Eq
+    for ProgramCore<N, Instruction, Command>
+{
+}
+
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
     /// Initializes an empty program.
     #[inline]
@@ -144,8 +189,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         Ok(Self {
             id,
             imports: IndexMap::new(),
+            components: IndexMap::new(),
             constructor: None,
-            identifiers: IndexMap::new(),
             mappings: IndexMap::new(),
             structs: IndexMap::new(),
             records: IndexMap::new(),
@@ -163,11 +208,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Returns the ID of the program.
     pub const fn id(&self) -> &ProgramID<N> {
         &self.id
-    }
-
-    /// Returns the checksum of the program.
-    pub fn to_checksum(&self) -> Result<Field<N>> {
-        N::hash_bhp1024(&self.to_bytes_le()?.to_bits_le())
     }
 
     /// Returns the imports in the program.
@@ -356,6 +396,10 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         ensure!(self.constructor.is_none(), "Program already has a constructor.");
         // Ensure the number of commands is within the allowed range.
         ensure!(constructor.commands().len() <= N::MAX_COMMANDS, "Constructor exceeds maximum number of commands");
+        // Add the constructor to the components.
+        if self.components.insert(ProgramLabel::Constructor, ProgramDefinition::Constructor).is_some() {
+            bail!("Constructor already exists in the program.")
+        }
         // Add the constructor to the program.
         self.constructor = Some(constructor);
         Ok(())
@@ -381,8 +425,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the mapping name is not a reserved opcode.
         ensure!(!Self::is_reserved_opcode(&mapping_name.to_string()), "'{mapping_name}' is a reserved opcode.");
 
-        // Add the mapping name to the identifiers.
-        if self.identifiers.insert(mapping_name, ProgramDefinition::Mapping).is_some() {
+        // Add the mapping name to the components.
+        if self.components.insert(ProgramLabel::Identifier(mapping_name), ProgramDefinition::Mapping).is_some() {
             bail!("'{mapping_name}' already exists in the program.")
         }
         // Add the mapping to the program.
@@ -442,8 +486,9 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             }
         }
 
-        // Add the struct name to the identifiers.
-        if self.identifiers.insert(struct_name, ProgramDefinition::Struct).is_some() {
+        // Add the struct name to the components.
+
+        if self.components.insert(ProgramLabel::Identifier(struct_name), ProgramDefinition::Struct).is_some() {
             bail!("'{}' already exists in the program.", struct_name)
         }
         // Add the struct to the program.
@@ -499,8 +544,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             }
         }
 
-        // Add the record name to the identifiers.
-        if self.identifiers.insert(record_name, ProgramDefinition::Record).is_some() {
+        // Add the record name to the components.
+        if self.components.insert(ProgramLabel::Identifier(record_name), ProgramDefinition::Record).is_some() {
             bail!("'{record_name}' already exists in the program.")
         }
         // Add the record to the program.
@@ -547,8 +592,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the number of outputs is within the allowed range.
         ensure!(closure.outputs().len() <= N::MAX_OUTPUTS, "Closure exceeds maximum number of outputs");
 
-        // Add the function name to the identifiers.
-        if self.identifiers.insert(closure_name, ProgramDefinition::Closure).is_some() {
+        // Add the function name to the components.
+        if self.components.insert(ProgramLabel::Identifier(closure_name), ProgramDefinition::Closure).is_some() {
             bail!("'{closure_name}' already exists in the program.")
         }
         // Add the closure to the program.
@@ -593,8 +638,8 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the number of outputs is within the allowed range.
         ensure!(function.outputs().len() <= N::MAX_OUTPUTS, "Function exceeds maximum number of outputs");
 
-        // Add the function name to the identifiers.
-        if self.identifiers.insert(function_name, ProgramDefinition::Function).is_some() {
+        // Add the function name to the components.
+        if self.components.insert(ProgramLabel::Identifier(function_name), ProgramDefinition::Function).is_some() {
             bail!("'{function_name}' already exists in the program.")
         }
         // Add the function to the program.
@@ -602,6 +647,66 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             bail!("'{function_name}' already exists in the program.")
         }
         Ok(())
+    }
+}
+
+impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
+    /// Returns `true` if a program uses constructors, `Operand::Edition`, and `Operand::Checksum`.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V5`.
+    #[inline]
+    pub fn uses_constructor_checksum_or_edition(&self) -> bool {
+        // Check if the program contains a constructor.
+        if self.contains_constructor() {
+            return true;
+        }
+        // Check each instruction and output in each closure for the use of `Operand::Checksum` and `Operand::Edition`.
+        for closure in self.closures().values() {
+            // Check the instruction operands.
+            for instruction in closure.instructions() {
+                for operand in instruction.operands() {
+                    if matches!(operand, Operand::Checksum(_) | Operand::Edition(_)) {
+                        return true;
+                    }
+                }
+            }
+            // Check the output operands.
+            for output in closure.outputs() {
+                if matches!(output.operand(), Operand::Checksum(_) | Operand::Edition(_)) {
+                    return true;
+                }
+            }
+        }
+        // Check each instruction and output in each function for the use of `Operand::Checksum` and `Operand::Edition`.
+        // If the function has an associated finalize scope, then check its commands as well.
+        for function in self.functions().values() {
+            // Check the instruction oeprands.
+            for instruction in function.instructions() {
+                for operand in instruction.operands() {
+                    if matches!(operand, Operand::Checksum(_) | Operand::Edition(_)) {
+                        return true;
+                    }
+                }
+            }
+            // Check the output operands.
+            for output in function.outputs() {
+                if matches!(output.operand(), Operand::Checksum(_) | Operand::Edition(_)) {
+                    return true;
+                }
+            }
+            // Check the finalize scope if it exists.
+            if let Some(finalize_logic) = function.finalize_logic() {
+                // Check the command operands.
+                for command in finalize_logic.commands() {
+                    for operand in command.operands() {
+                        if matches!(operand, Operand::Checksum(_) | Operand::Edition(_)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        // Return `false` since no V5 syntax was found.
+        false
     }
 }
 
@@ -685,7 +790,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 
     /// Returns `true` if the given name does not already exist in the program.
     fn is_unique_name(&self, name: &Identifier<N>) -> bool {
-        !self.identifiers.contains_key(name)
+        !self.components.contains_key(&ProgramLabel::Identifier(*name))
     }
 
     /// Returns `true` if the given name is a reserved opcode.
@@ -937,10 +1042,11 @@ finalize check:
     #[test]
     fn test_program_equality_and_checksum() {
         fn run_test(program1: &str, program2: &str, expected_equal: bool) {
+            println!("Comparing programs:\n{}\n{}", program1, program2);
             let program1 = Program::<CurrentNetwork>::from_str(program1).unwrap();
             let program2 = Program::<CurrentNetwork>::from_str(program2).unwrap();
             assert_eq!(program1 == program2, expected_equal);
-            assert_eq!(program1.to_checksum().unwrap() == program2.to_checksum().unwrap(), expected_equal);
+            assert_eq!(program1.to_checksum() == program2.to_checksum(), expected_equal);
         }
 
         // Test two identical programs, with different whitespace.
@@ -959,7 +1065,7 @@ finalize check:
         // Test two programs, both with a struct and function, but in different order.
         run_test(
             r"program test.aleo; struct foo: data as u8; function dummy:",
-            r"program test.aleo; function dummy:  struct foo: data as u8",
+            r"program test.aleo; function dummy: struct foo: data as u8;",
             false,
         );
     }
