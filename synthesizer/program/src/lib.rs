@@ -93,7 +93,7 @@ use console::{
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
 };
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum ProgramDefinition {
@@ -677,44 +677,60 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 
     /// Returns an iterator over the restricted keywords for the given consensus version.
     pub fn restricted_keywords_for_consensus_version(
-        current_version: ConsensusVersion,
+        consensus_version: ConsensusVersion,
     ) -> impl Iterator<Item = &'static str> {
         Self::RESTRICTED_KEYWORDS
             .iter()
-            .filter(move |(version, _)| *version <= current_version)
+            .filter(move |(version, _)| *version <= consensus_version)
             .flat_map(|(_, keywords)| *keywords)
             .copied()
     }
 
     /// Checks a program for restricted keywords for the given consensus version.
     /// Returns an error if any restricted keywords are found.
+    /// Note: Restrictions are not enforced on the import names in case they were deployed before the restrictions were added.
     pub fn check_restricted_keywords_for_consensus_version(&self, consensus_version: ConsensusVersion) -> Result<()> {
         // Get all keywords that are restricted for the consensus version.
-        let keywords = Program::<N>::restricted_keywords_for_consensus_version(consensus_version).collect::<Vec<_>>();
+        let keywords =
+            Program::<N>::restricted_keywords_for_consensus_version(consensus_version).collect::<IndexSet<_>>();
         // Check if the program name is a restricted keywords.
         let program_name = self.id().name().to_string();
-        if keywords.iter().any(|keyword| program_name == *keyword) {
-            bail!("Program name '{}' is a restricted keyword for the current consensus version", program_name)
+        if keywords.contains(&program_name.as_str()) {
+            bail!("Program name '{program_name}' is a restricted keyword for the current consensus version")
         }
         // Check that all top-level program components are not restricted keywords.
         for identifier in self.identifiers.keys() {
-            if keywords.iter().any(|keyword| identifier.to_string() == *keyword) {
-                bail!("Program component '{}' is a restricted keyword for the current consensus version", identifier)
+            if keywords.contains(identifier.to_string().as_str()) {
+                bail!("Program component '{identifier}' is a restricted keyword for the current consensus version")
             }
         }
         // Check that all record entry names are not restricted keywords.
         for record_type in self.records().values() {
-            for member_name in record_type.entries().keys() {
-                if keywords.iter().any(|keyword| member_name.to_string() == *keyword) {
-                    bail!("Record entry '{}' is a restricted keyword for the current consensus version", member_name)
+            for entry_name in record_type.entries().keys() {
+                if keywords.contains(entry_name.to_string().as_str()) {
+                    bail!("Record entry '{entry_name}' is a restricted keyword for the current consensus version")
                 }
             }
         }
         // Check that all struct member names are not restricted keywords.
         for struct_type in self.structs().values() {
             for member_name in struct_type.members().keys() {
-                if keywords.iter().any(|keyword| member_name.to_string() == *keyword) {
-                    bail!("Struct member '{}' is a restricted keyword for the current consensus version", member_name)
+                if keywords.contains(member_name.to_string().as_str()) {
+                    bail!("Struct member '{member_name}' is a restricted keyword for the current consensus version")
+                }
+            }
+        }
+        // Check that all `finalize` positions.
+        // Note: It is sufficient to only check the positions in `FinalizeCore` since `FinalizeTypes::initialize` checks that every
+        // `Branch` instruction targets a valid position.
+        for function in self.functions().values() {
+            if let Some(finalize_logic) = function.finalize_logic() {
+                for position in finalize_logic.positions().keys() {
+                    if keywords.contains(position.to_string().as_str()) {
+                        bail!(
+                            "Finalize position '{position}' is a restricted keyword for the current consensus version"
+                        )
+                    }
                 }
             }
         }

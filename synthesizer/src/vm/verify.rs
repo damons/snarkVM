@@ -162,7 +162,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     bail!("Program ID '{}' already exists", deployment.program_id());
                 }
                 // Enforce the syntax restrictions on the programs based on the current consensus version.
-                // Note: We intentionally do not enforce restrictions on the import names in case they were deployed before the restrictions were added.
                 let current_block_height = self.block_store().current_block_height();
                 let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
                 deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
