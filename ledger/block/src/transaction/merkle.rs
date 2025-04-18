@@ -121,6 +121,12 @@ impl<N: Network> Transaction<N> {
                 "The fee index ('{fee_index}') in the transaction tree must be less than {}",
                 Self::MAX_TRANSITIONS
             );
+            // Ensure the fee index is within the Merkle tree size.
+            ensure!(
+                fee_index <= N::MAX_FUNCTIONS,
+                "The fee index ('{fee_index}') in the transaction tree must be less than {}",
+                N::MAX_FUNCTIONS
+            );
             // Construct the transaction leaf.
             let leaf = TransactionLeaf::new_fee(u16::try_from(fee_index)?, **fee.transition_id()).to_bits_le();
             // Append the fee leaf to the transaction tree.
