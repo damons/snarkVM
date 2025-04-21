@@ -77,6 +77,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let unordered_aborted_transaction_ids: IndexMap<N::TransactionID, &String> =
             verification_aborted_transaction_ids.chain(speculation_aborted_transaction_ids).collect();
 
+        println!("Unordered aborted transaction IDs: {unordered_aborted_transaction_ids:?}");
+
         // Filter and order the aborted transaction ids according to candidate_transactions
         let aborted_transaction_ids: Vec<_> = candidate_transaction_ids
             .into_iter()
@@ -788,9 +790,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is producing a duplicate transition public key
     /// - The transaction is another deployment in the block from the same public fee payer.
     /// - The transaction is an execution for a program following its deployment or redeployment in this block.
-    /// - The transaction is an execution with a state root whose corresponding block precedes the latest block
-    ///     at which any of the execution's programs were deployed or upgraded. This check is enforced only after
-    ///     `ConsensusVersion::V5` when program upgrades were introduced.
+    /// - The transaction is an execution with a state root whose corresponding block height is greater than or
+    ///     equal to the latest block at which any of the execution's programs were deployed or upgraded. This
+    ///     check is enforced only after `ConsensusVersion::V5` when program upgrades were introduced.
     ///
     /// - Note: If a transaction is a deployment for a program following its deployment or redeployment in this block,
     ///     it is not aborted. Instead, it will be rejected and its fee will be consumed.
@@ -878,7 +880,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // If the program is `credits.aleo`, set the appropriate state and continue.
                     if program_id.to_string() == "credits.aleo" {
                         // Note: This unwrap is safe as `credits.aleo` is known to be a valid program ID.
-                        latest_program = Some(ProgramID::from_str("credits.aleo").unwrap())
+                        latest_program = Some(ProgramID::from_str("credits.aleo").unwrap());
+                        continue;
                     }
                     // Get the transaction ID of the transaction that last deployed or upgraded the program.
                     let Ok(Some(transaction_id)) =
@@ -914,10 +917,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "The state root of execution '{id}' does not have a corresponding block height in the store"
                     ));
                 };
-                // Ensure the block height is greater than or equal to the maximum block height.
-                if block_height >= max_block_height {
-                    // Note: This unwrap is safe because if `max_block_height` is greater than `N::CONSENSUS_HEIGHT(ConsensusVersion::V5)`,
-                    // then `latest_program` must have been set in the loop above.
+                // If the block height of the execution is less than the maximum block height, abort the transaction.
+                if block_height < max_block_height {
+                    // Note: This unwrap is safe because `latest_program` must have been set in the loop above.
+                    //  - Either the program was `credits.aleo`, in which case `latest_program` was explicitly set.
+                    //  - Or the program was deployed after the genesis block and `latest_program` was set to the program ID.
                     return Some(format!(
                         "Execution '{id}' state root is earlier than the last deployment or upgrade for program '{}'",
                         latest_program.unwrap()

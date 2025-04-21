@@ -500,7 +500,7 @@ constructor:
             None,
             rng
         )
-        .is_err()
+            .is_err()
     );
 
     // Get the first record and execute the convert function.
@@ -554,7 +554,7 @@ constructor:
             None,
             rng
         )
-        .is_err()
+            .is_err()
     );
 
     Ok(())
@@ -1234,7 +1234,7 @@ constructor:
             None,
             rng,
         )
-        .is_err()
+            .is_err()
     );
 
     Ok(())
@@ -2032,7 +2032,7 @@ fn test_simple_admin_upgrade() {
                 Value::from_str(&format!("{}", separate_caller_address)).unwrap(),
                 Value::from_str("10_000_000_000_000u64").unwrap(),
             ]
-            .into_iter(),
+                .into_iter(),
             None,
             0,
             None,
@@ -2054,7 +2054,7 @@ constructor:
     assert.eq program_owner {caller_address};
     "
     ))
-    .unwrap();
+        .unwrap();
 
     let program_v1 = Program::from_str(&format!(
         r"
@@ -2065,7 +2065,7 @@ constructor:
     assert.eq program_owner {caller_address};
     "
     ))
-    .unwrap();
+        .unwrap();
 
     // Attempt to deploy the first version of the program with the wrong admin.
     let transaction = vm.deploy(&separate_caller_private_key, &program_v0, None, 0, None, rng).unwrap();
@@ -2122,7 +2122,7 @@ constructor:
    assert.eq true true;
    ",
     )
-    .unwrap();
+        .unwrap();
 
     let program_v1 = Program::from_str(
         r"
@@ -2134,7 +2134,7 @@ constructor:
     assert.eq true true;
     ",
     )
-    .unwrap();
+        .unwrap();
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
@@ -2200,7 +2200,7 @@ fn test_program_deployed_before_v5_do_not_have_owner() {
 program test_program_0.aleo;
 function foo:",
     )
-    .unwrap();
+        .unwrap();
 
     let program_after_v5 = Program::from_str(
         r"
@@ -2210,7 +2210,7 @@ constructor:
     assert.eq true true;
 ",
     )
-    .unwrap();
+        .unwrap();
 
     // Deploy the first program.
     let transaction = vm.deploy(&caller_private_key, &program_before_v5, None, 0, None, rng).unwrap();
@@ -2246,4 +2246,143 @@ constructor:
     let stack = vm.process().read().get_stack("test_program_1.aleo").unwrap();
     assert!(stack.program_owner().is_some());
     assert_eq!(stack.program_owner().unwrap(), caller_address);
+}
+
+#[test]
+fn test_old_execution_is_aborted_after_upgrade() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap(), rng);
+
+    // Define the programs.
+    let program_v0 = Program::from_str(
+        r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function dummy:",
+    )
+        .unwrap();
+
+    let program_v1 = Program::from_str(
+        r"
+program test_program.aleo;
+constructor:
+    assert.eq true true;
+function dummy:
+function dummy2:",
+    )
+        .unwrap();
+
+    // Deploy the first version of the program.
+    let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Pre-generate 3 executions of the dummy function.
+    let executions = (0..3)
+        .map(|_| {
+            vm.execute(
+                &caller_private_key,
+                ("test_program.aleo", "dummy"),
+                Vec::<Value<_>>::new().into_iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+                .unwrap()
+        })
+        .collect::<Vec<_>>();
+
+    // Add 2 transactions individually to blocks.
+    // They are expected to pass because the program has not been upgraded.
+    for execution in &executions[0..2] {
+        let block = sample_next_block(&vm, &caller_private_key, &[execution.clone()], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
+        vm.add_next_block(&block).unwrap();
+    }
+
+    // Upgrade the program.
+    let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Add the third transaction to a block.
+    // It is expected to be aborted because the program has been upgraded.
+    let block = sample_next_block(&vm, &caller_private_key, &[executions[2].clone()], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block).unwrap();
+}
+
+#[test]
+fn test_credits_execution_with_genesis_state_root() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+    let caller_address = Address::try_from(&caller_private_key).unwrap();
+
+    // Initialize the VM at height 0.
+    let vm = sample_vm_at_height(0, rng);
+
+    // Generate two executions of `transfer_public`.
+    let transfer_1 = vm
+        .execute(
+            &caller_private_key,
+            ("credits.aleo", "transfer_public"),
+            vec![Value::from_str(&format!("{caller_address}")).unwrap(), Value::from_str("2u64").unwrap()].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    assert!(vm.check_transaction(&transfer_1, None, rng).is_ok());
+
+    let transfer_2 = vm
+        .execute(
+            &caller_private_key,
+            ("credits.aleo", "transfer_public"),
+            vec![Value::from_str(&format!("{caller_address}")).unwrap(), Value::from_str("4u64").unwrap()].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    assert!(vm.check_transaction(&transfer_2, None, rng).is_ok());
+
+    // Add the first transaction to a block.
+    let block = sample_next_block(&vm, &caller_private_key, &[transfer_1], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Skip to consensus height V5.
+    while vm.block_store().current_block_height() <= CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap() {
+        let block = sample_next_block(&vm, &caller_private_key, &[], rng).unwrap();
+        vm.add_next_block(&block).unwrap();
+    }
+
+    // Add the second transaction to a block.
+    let block = sample_next_block(&vm, &caller_private_key, &[transfer_2], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
 }
