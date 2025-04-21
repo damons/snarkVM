@@ -200,7 +200,7 @@ impl<N: Network> Transaction<N> {
         // Ensure the number of functions is within the allowed range.
         ensure!(
             num_functions <= N::MAX_FUNCTIONS,
-            "Deployment must contain less than {} functions, found {num_functions}",
+            "Deployment must contain at most {} functions, found {num_functions}",
             N::MAX_FUNCTIONS,
         );
         // Ensure the number of functions is within the allowed range.
