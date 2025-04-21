@@ -58,5 +58,9 @@ package = "snarkvm-synthesizer-process"
 path = "../../synthesizer/process"
 version = "=1.5.0"
 
+[dependencies.aleo-std]
+version = "1.0.1"
+features = [ "storage" ]
+
 [dependencies.once_cell]
 version = "1.18"

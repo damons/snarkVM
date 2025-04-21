@@ -25,6 +25,13 @@ edition = "2021"
 
 [features]
 default = [ "process", "program", "rayon", "snark" ]
+locktick = [
+  "dep:locktick",
+  "ledger-puzzle/locktick",
+  "ledger-puzzle-epoch/locktick",
+  "ledger-store/locktick",
+  "synthesizer-process?/locktick"
+]
 process = [ "synthesizer-process" ]
 program = [ "synthesizer-program" ]
 snark = [ "synthesizer-snark" ]
@@ -44,7 +51,7 @@ serial = [
   "synthesizer-snark/serial"
 ]
 setup = [ ]
-test = [ "console/test", "ledger-block/test", "ledger-store/test" ]
+test = [ "console/test" ]
 timer = [ "aleo-std/timer" ]
 wasm = [
   "process",
@@ -143,7 +150,7 @@ path = "../utilities"
 version = "=1.5.0"
 
 [dependencies.aleo-std]
-version = "0.1.24"
+version = "1.0.1"
 default-features = false
 
 [dependencies.anyhow]
@@ -155,6 +162,11 @@ features = [ "serde", "rayon" ]
 
 [dependencies.itertools]
 version = "0.11.0"
+
+[dependencies.locktick]
+version = "0.3"
+features = [ "parking_lot" ]
+optional = true
 
 [dependencies.lru]
 version = "0.12"
