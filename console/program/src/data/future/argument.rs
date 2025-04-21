@@ -46,38 +46,6 @@ impl<N: Network> Equal<Self> for Argument<N> {
     }
 }
 
-impl<N: Network> FromBytes for Argument<N> {
-    fn read_le<R: Read>(mut reader: R) -> IoResult<Self>
-    where
-        Self: Sized,
-    {
-        // Read the index.
-        let index = u8::read_le(&mut reader)?;
-        // Read the argument.
-        let argument = match index {
-            0 => Self::Plaintext(Plaintext::read_le(&mut reader)?),
-            1 => Self::Future(Future::read_le(&mut reader)?),
-            2.. => return Err(error(format!("Failed to decode future argument {index}"))),
-        };
-        Ok(argument)
-    }
-}
-
-impl<N: Network> ToBytes for Argument<N> {
-    fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
-        match self {
-            Self::Plaintext(plaintext) => {
-                0u8.write_le(&mut writer)?;
-                plaintext.write_le(&mut writer)
-            }
-            Self::Future(future) => {
-                1u8.write_le(&mut writer)?;
-                future.write_le(&mut writer)
-            }
-        }
-    }
-}
-
 impl<N: Network> ToBits for Argument<N> {
     /// Returns the argument as a list of **little-endian** bits.
     #[inline]
