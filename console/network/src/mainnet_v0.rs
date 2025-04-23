@@ -136,7 +136,6 @@ impl Network for MainnetV0 {
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(not(any(test, feature = "test_consensus_heights")))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 2_800_000),
@@ -144,17 +143,6 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V4, 6_135_000),
         (ConsensusVersion::V5, 7_060_000),
         (ConsensusVersion::V6, 7_900_000),
-    ];
-    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(any(test, feature = "test_consensus_heights"))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6] = [
-        (ConsensusVersion::V1, 0),
-        (ConsensusVersion::V2, 10),
-        (ConsensusVersion::V3, 11),
-        (ConsensusVersion::V4, 12),
-        (ConsensusVersion::V5, 13),
-        (ConsensusVersion::V6, 14),
     ];
     /// The network edition.
     const EDITION: u16 = 0;
@@ -179,20 +167,11 @@ impl Network for MainnetV0 {
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str = snarkvm_parameters::mainnet::NETWORK_INCLUSION_FUNCTION_NAME;
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
-    #[cfg(not(any(test, feature = "test_consensus_heights")))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
         (ConsensusVersion::V1, 16),
         (ConsensusVersion::V3, 25),
         (ConsensusVersion::V5, 30),
         (ConsensusVersion::V6, 35),
-    ];
-    /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
-    #[cfg(any(test, feature = "test_consensus_heights"))]
-    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
-        (ConsensusVersion::V1, 100),
-        (ConsensusVersion::V3, 100),
-        (ConsensusVersion::V5, 100),
-        (ConsensusVersion::V6, 100),
     ];
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
