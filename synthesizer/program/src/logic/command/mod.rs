@@ -89,24 +89,6 @@ pub enum Command<N: Network> {
 }
 
 impl<N: Network> CommandTrait<N> for Command<N> {
-    /// Returns the destination registers of the command.
-    #[inline]
-    fn destinations(&self) -> Vec<Register<N>> {
-        match self {
-            Command::Instruction(instruction) => instruction.destinations(),
-            Command::Contains(contains) => vec![contains.destination().clone()],
-            Command::Get(get) => vec![get.destination().clone()],
-            Command::GetOrUse(get_or_use) => vec![get_or_use.destination().clone()],
-            Command::RandChaCha(rand_chacha) => vec![rand_chacha.destination().clone()],
-            Command::Await(_)
-            | Command::BranchEq(_)
-            | Command::BranchNeq(_)
-            | Command::Position(_)
-            | Command::Remove(_)
-            | Command::Set(_) => vec![],
-        }
-    }
-
     /// Returns the branch target, if the command is a branch command.
     /// Otherwise, returns `None`.
     #[inline]
@@ -166,6 +148,24 @@ impl<N: Network> CommandTrait<N> for Command<N> {
             Command::BranchEq(c) => c.operands(),
             Command::BranchNeq(c) => c.operands(),
             Command::Position(_) => Default::default(),
+        }
+    }
+
+    /// Returns the destination registers of the command.
+    #[inline]
+    fn destinations(&self) -> Vec<Register<N>> {
+        match self {
+            Command::Instruction(instruction) => instruction.destinations(),
+            Command::Contains(contains) => vec![contains.destination().clone()],
+            Command::Get(get) => vec![get.destination().clone()],
+            Command::GetOrUse(get_or_use) => vec![get_or_use.destination().clone()],
+            Command::RandChaCha(rand_chacha) => vec![rand_chacha.destination().clone()],
+            Command::Await(_)
+            | Command::BranchEq(_)
+            | Command::BranchNeq(_)
+            | Command::Position(_)
+            | Command::Remove(_)
+            | Command::Set(_) => vec![],
         }
     }
 }

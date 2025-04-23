@@ -21,10 +21,10 @@ use console::{
 };
 
 pub trait InstructionTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes + ToBytes {
-    /// Returns the destination registers of the instruction.
-    fn destinations(&self) -> Vec<Register<N>>;
     /// Returns `true` if the given name is a reserved opcode.
     fn is_reserved_opcode(name: &str) -> bool;
     /// Returns the operands of the instruction.
     fn operands(&self) -> &[Operand<N>];
+    /// Returns the destination registers of the instruction.
+    fn destinations(&self) -> Vec<Register<N>>;
 }

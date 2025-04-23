@@ -21,8 +21,6 @@ use console::{
 };
 
 pub trait CommandTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes + ToBytes {
-    /// Returns the destination registers of the command.
-    fn destinations(&self) -> Vec<Register<N>>;
     /// Returns the branch target, if the command is a branch command.
     fn branch_to(&self) -> Option<&Identifier<N>>;
     /// Returns the position name, if the command is a position command.
@@ -37,4 +35,6 @@ pub trait CommandTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes 
     fn is_await(&self) -> bool;
     /// Returns the operands of the command.
     fn operands(&self) -> &[Operand<N>];
+    /// Returns the destination registers of the command.
+    fn destinations(&self) -> Vec<Register<N>>;
 }

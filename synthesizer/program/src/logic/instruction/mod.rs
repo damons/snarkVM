@@ -374,12 +374,6 @@ macro_rules! opcodes {
 }
 
 impl<N: Network> InstructionTrait<N> for Instruction<N> {
-    /// Returns the destination registers of the instruction.
-    #[inline]
-    fn destinations(&self) -> Vec<Register<N>> {
-        instruction!(self, |instruction| instruction.destinations())
-    }
-
     /// Returns `true` if the given name is a reserved opcode.
     #[inline]
     fn is_reserved_opcode(name: &str) -> bool {
@@ -391,6 +385,12 @@ impl<N: Network> InstructionTrait<N> for Instruction<N> {
     #[inline]
     fn operands(&self) -> &[Operand<N>] {
         instruction!(self, |instruction| instruction.operands())
+    }
+
+    /// Returns the destination registers of the instruction.
+    #[inline]
+    fn destinations(&self) -> Vec<Register<N>> {
+        instruction!(self, |instruction| instruction.destinations())
     }
 }
 
