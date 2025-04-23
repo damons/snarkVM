@@ -16,7 +16,7 @@ wasm = [
 ]
 test = [ ]
 test_targets = [ ]
-test_consensus_versions = [ ]
+test_consensus_heights = [ ]
 
 [dependencies.snarkvm-algorithms]
 path = "../../algorithms"
