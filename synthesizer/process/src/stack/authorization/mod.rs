@@ -59,7 +59,11 @@ impl<N: Network> TryFrom<(Vec<Request<N>>, Vec<Transition<N>>)> for Authorizatio
     /// Initialize an `Authorization` instance, with the given requests and transitions.
     ///
     /// Note: This method is used primarily for serialization, and requires the
-    /// number of requests and transitions to match.
+    /// number of requests and transitions to match. Requests are added to an authorization
+    /// in the pre-order traversal sequence (parents before children), while transitions
+    /// are added to an authorization in the post-order traversal sequence (children before parents).
+    /// This method takes in as input requests and transitions in pre-order and post-order traversal
+    /// sequence, respectively, which is why the requests and transitions need to be checked independent of the ordering
     fn try_from((requests, transitions): (Vec<Request<N>>, Vec<Transition<N>>)) -> Result<Self> {
         // Ensure the number of requests and transitions matches.
         ensure!(
@@ -70,10 +74,7 @@ impl<N: Network> TryFrom<(Vec<Request<N>>, Vec<Transition<N>>)> for Authorizatio
         );
 
         // Build a map of transition commitments to their request indices
-        let mut tcm_indices: HashMap<&Field<N>, usize> = HashMap::new();
-        for (i, request) in requests.iter().enumerate() {
-            tcm_indices.insert(request.tcm(), i);
-        }
+        let tcm_indices: HashMap<_, _> = requests.iter().enumerate().map(|(i, request)| (request.tcm(), i)).collect();
 
         // Ensure the requests and transitions match
         for (index, transition) in transitions.iter().enumerate() {
