@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -135,7 +135,7 @@ impl Network for CanaryV0 {
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(not(any(test, feature = "test")))]
+    #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 2_900_000),
@@ -146,7 +146,7 @@ impl Network for CanaryV0 {
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(any(test, feature = "test"))]
+    #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
     const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 10),
@@ -174,7 +174,7 @@ impl Network for CanaryV0 {
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str = MainnetV0::INCLUSION_FUNCTION_NAME;
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
-    #[cfg(not(any(test, feature = "test")))]
+    #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
         (ConsensusVersion::V1, 100),
         (ConsensusVersion::V3, 100),
@@ -182,7 +182,7 @@ impl Network for CanaryV0 {
         (ConsensusVersion::V6, 100),
     ];
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
-    #[cfg(any(test, feature = "test"))]
+    #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
         (ConsensusVersion::V1, 25),
         (ConsensusVersion::V3, 25),
