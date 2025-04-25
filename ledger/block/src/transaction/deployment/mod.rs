@@ -80,6 +80,13 @@ impl<N: Network> Deployment<N> {
             bail!("Deployment has an incorrect number of verifying keys, according to the program.");
         }
 
+        // Ensure the number of functions does not exceed the maximum.
+        ensure!(
+            self.program.functions().len() <= N::MAX_FUNCTIONS,
+            "Deployment has too many functions (maximum is '{}')",
+            N::MAX_FUNCTIONS
+        );
+
         // Ensure the function and verifying keys correspond.
         for ((function_name, function), (name, _)) in self.program.functions().iter().zip_eq(&self.verifying_keys) {
             // Ensure the function name is correct.
