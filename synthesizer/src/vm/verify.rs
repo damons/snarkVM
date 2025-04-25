@@ -161,6 +161,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if self.contains_program(deployment.program_id()) {
                     bail!("Program ID '{}' already exists", deployment.program_id());
                 }
+                // Enforce the syntax restrictions on the programs based on the current consensus version.
+                let current_block_height = self.block_store().current_block_height();
+                let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
+                deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {
                     // Verify the deployment.
