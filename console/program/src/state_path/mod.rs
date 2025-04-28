@@ -233,6 +233,29 @@ impl<N: Network> StatePath<N> {
     pub const fn transition_leaf(&self) -> &TransitionLeaf<N> {
         &self.transition_leaf
     }
+
+    // TODO (raychu86): Write tests for this.
+    /// Returns the calculated record index based on the record's position in the global tree.
+    pub fn record_index(&self) -> u64 {
+        // Calculate the number of bottom-level leaves in each tree.
+        let num_leaves_in_transitions_tree = 2u64.pow(TRANSITION_DEPTH as u32);
+        let num_leaves_in_transactions_tree = 2u64.pow(TRANSACTIONS_DEPTH as u32) * num_leaves_in_transitions_tree;
+        let num_leaves_in_header_tree = 2u64.pow(HEADER_DEPTH as u32) * num_leaves_in_transactions_tree;
+
+        // Calculate the number of previous leaves in each tree based on the index.
+        let num_previous_leaves_from_block_tree =
+            num_leaves_in_header_tree.saturating_mul(*self.block_path.leaf_index());
+        let num_previous_leaves_from_header_tree =
+            num_leaves_in_transactions_tree.saturating_mul(self.header_leaf().index() as u64);
+        let num_previous_leaves_from_transactions_tree =
+            num_leaves_in_transitions_tree.saturating_mul(self.transaction_leaf().index() as u64);
+
+        // Calculate the global record index.
+        num_previous_leaves_from_block_tree
+            .saturating_add(num_previous_leaves_from_header_tree)
+            .saturating_add(num_previous_leaves_from_transactions_tree)
+            .saturating_add(self.transition_leaf.index() as u64)
+    }
 }
 
 #[cfg(any(test, feature = "test"))]

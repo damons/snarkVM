@@ -142,6 +142,9 @@ pub trait Network:
     /// The maximum number of microcredits that can be spent on a transaction's finalize scope.
     const TRANSACTION_SPEND_LIMIT: u64 = 100_000_000;
 
+    // /// The global record index
+    // const MIGRATION_RECORD_INDEX: u64;
+
     /// The anchor height, defined as the expected number of blocks to reach the coinbase target.
     const ANCHOR_HEIGHT: u32 = Self::ANCHOR_TIME as u32 / Self::BLOCK_TIME as u32;
     /// The anchor time in seconds.
