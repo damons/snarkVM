@@ -30,7 +30,7 @@ type LedgerType<N> = snarkvm_ledger_store::helpers::memory::ConsensusMemory<N>;
 #[cfg(feature = "rocks")]
 type LedgerType<N> = snarkvm_ledger_store::helpers::rocksdb::ConsensusDB<N>;
 
-use snarkvm_synthesizer::{VM, process::InclusionAssignment, snark::UniversalSRS};
+use snarkvm_synthesizer::{VM, process::InclusionV0Assignment, snark::UniversalSRS};
 
 use anyhow::{Result, anyhow};
 use rand::thread_rng;
@@ -105,7 +105,7 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>() -> Result<(Assignme
 
     // Construct the assignment for the inclusion circuit.
     let assignment =
-        InclusionAssignment::new(state_path.clone(), *commitment, gamma, serial_number, Default::default(), true)
+        InclusionV0Assignment::new(state_path.clone(), *commitment, gamma, serial_number, Default::default(), true)
             .to_circuit_assignment::<A>()?;
 
     Ok((assignment, state_path, serial_number))

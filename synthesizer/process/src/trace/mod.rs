@@ -16,8 +16,8 @@
 mod call_metrics;
 pub use call_metrics::*;
 
-mod inclusion;
-pub use inclusion::*;
+mod inclusion_v0;
+pub use inclusion_v0::*;
 
 use algorithms::snark::varuna::VarunaVersion;
 use circuit::Assignment;
@@ -39,12 +39,12 @@ pub struct Trace<N: Network> {
     /// A map of locators to (proving key, assignments) pairs.
     transition_tasks: HashMap<Locator<N>, (ProvingKey<N>, Vec<Assignment<N::Field>>)>,
     /// A tracker for all inclusion tasks.
-    inclusion_tasks: Inclusion<N>,
+    inclusion_tasks: InclusionV0<N>,
     /// A list of call metrics.
     call_metrics: Vec<CallMetrics<N>>,
 
     /// A tracker for the inclusion assignments.
-    inclusion_assignments: OnceCell<Vec<InclusionAssignment<N>>>,
+    inclusion_assignments: OnceCell<Vec<InclusionV0Assignment<N>>>,
     /// A tracker for the global state root.
     global_state_root: OnceCell<N::StateRoot>,
 }
@@ -55,7 +55,7 @@ impl<N: Network> Trace<N> {
         Self {
             transitions: Vec::new(),
             transition_tasks: HashMap::new(),
-            inclusion_tasks: Inclusion::new(),
+            inclusion_tasks: InclusionV0::new(),
             inclusion_assignments: OnceCell::new(),
             global_state_root: OnceCell::new(),
             call_metrics: Vec::new(),
@@ -287,7 +287,7 @@ impl<N: Network> Trace<N> {
         locator: &str,
         varuna_version: VarunaVersion,
         mut proving_tasks: Vec<(ProvingKey<N>, Vec<Assignment<N::Field>>)>,
-        inclusion_assignments: &[InclusionAssignment<N>],
+        inclusion_assignments: &[InclusionV0Assignment<N>],
         global_state_root: N::StateRoot,
         rng: &mut R,
     ) -> Result<(N::StateRoot, Proof<N>)> {
@@ -334,7 +334,7 @@ impl<N: Network> Trace<N> {
         proof: &Proof<N>,
     ) -> Result<()> {
         // Construct the batch of inclusion verifier inputs.
-        let batch_inclusion_inputs = Inclusion::prepare_verifier_inputs(global_state_root, transitions)?;
+        let batch_inclusion_inputs = InclusionV0::prepare_verifier_inputs(global_state_root, transitions)?;
         // Insert the batch of inclusion verifier inputs to the verifier inputs.
         if !batch_inclusion_inputs.is_empty() {
             // Retrieve the inclusion verifying key.

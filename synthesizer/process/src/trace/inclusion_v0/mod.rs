@@ -29,7 +29,7 @@ use ledger_query::QueryTrait;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
-struct InputTask<N: Network> {
+struct InputTaskV0<N: Network> {
     /// The commitment.
     commitment: Field<N>,
     /// The gamma value.
@@ -42,15 +42,15 @@ struct InputTask<N: Network> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub(super) struct Inclusion<N: Network> {
+pub(super) struct InclusionV0<N: Network> {
     /// A map of `transition IDs` to a list of `input tasks`.
-    input_tasks: HashMap<N::TransitionID, Vec<InputTask<N>>>,
+    input_tasks: HashMap<N::TransitionID, Vec<InputTaskV0<N>>>,
     /// A map of `commitments` to `(local transaction leaf, local transition root, local transition tcm, local transition path, local transition leaf)` pairs.
     output_commitments:
         HashMap<Field<N>, (TransactionLeaf<N>, Field<N>, Field<N>, TransitionPath<N>, TransitionLeaf<N>)>,
 }
 
-impl<N: Network> Inclusion<N> {
+impl<N: Network> InclusionV0<N> {
     /// Initializes a new `Inclusion` instance.
     pub fn new() -> Self {
         Self { input_tasks: HashMap::new(), output_commitments: HashMap::new() }
@@ -74,7 +74,7 @@ impl<N: Network> Inclusion<N> {
             // Filter the inputs for records.
             if let InputID::Record(commitment, gamma, serial_number, ..) = input_id {
                 // Add the record to the input tasks.
-                input_tasks.push(InputTask {
+                input_tasks.push(InputTaskV0 {
                     commitment: *commitment,
                     gamma: *gamma,
                     serial_number: *serial_number,
@@ -114,7 +114,7 @@ impl<N: Network> Inclusion<N> {
     }
 }
 
-impl<N: Network> Inclusion<N> {
+impl<N: Network> InclusionV0<N> {
     /// Returns the verifier public inputs for the given global state root and transitions.
     pub fn prepare_verifier_inputs<'a>(
         global_state_root: N::StateRoot,
@@ -163,7 +163,7 @@ impl<N: Network> Inclusion<N> {
 }
 
 #[derive(Clone, Debug)]
-pub struct InclusionAssignment<N: Network> {
+pub struct InclusionV0Assignment<N: Network> {
     pub(crate) state_path: StatePath<N>,
     commitment: Field<N>,
     gamma: Group<N>,
@@ -172,7 +172,7 @@ pub struct InclusionAssignment<N: Network> {
     is_global: bool,
 }
 
-impl<N: Network> InclusionAssignment<N> {
+impl<N: Network> InclusionV0Assignment<N> {
     /// Initializes a new inclusion assignment.
     pub fn new(
         state_path: StatePath<N>,

@@ -77,7 +77,7 @@ macro_rules! prepare_impl {
                         }
 
                         // Construct the assignment for the state path.
-                        let assignment = InclusionAssignment::new(
+                        let assignment = InclusionV0Assignment::new(
                             state_path,
                             task.commitment,
                             task.gamma,
@@ -101,13 +101,13 @@ macro_rules! prepare_impl {
     }};
 }
 
-impl<N: Network> Inclusion<N> {
+impl<N: Network> InclusionV0<N> {
     /// Returns the inclusion assignments for the given transitions.
     pub fn prepare(
         &self,
         transitions: &[Transition<N>],
         query: impl QueryTrait<N>,
-    ) -> Result<(Vec<InclusionAssignment<N>>, N::StateRoot)> {
+    ) -> Result<(Vec<InclusionV0Assignment<N>>, N::StateRoot)> {
         prepare_impl!(self, transitions, query, current_state_root, get_state_path_for_commitment)
     }
 
@@ -117,7 +117,7 @@ impl<N: Network> Inclusion<N> {
         &self,
         transitions: &[Transition<N>],
         query: impl QueryTrait<N>,
-    ) -> Result<(Vec<InclusionAssignment<N>>, N::StateRoot)> {
+    ) -> Result<(Vec<InclusionV0Assignment<N>>, N::StateRoot)> {
         prepare_impl!(self, transitions, query, current_state_root_async, get_state_path_for_commitment_async, await)
     }
 }
