@@ -136,6 +136,19 @@ impl<N: Network> Transaction<N> {
             _ => false,
         }
     }
+
+    /// Returns `true` if this transaction contains a call to `credits.aleo/update`.
+    #[inline]
+    pub fn contains_update(&self) -> bool {
+        match self {
+            // Case 1 - The transaction contains a transition that calls 'credits.aleo/update'.
+            Transaction::Execute(_, _, execution, _) => {
+                execution.transitions().any(|transition| transition.is_upgrade())
+            }
+            // Otherwise, return 'false'.
+            _ => false,
+        }
+    }
 }
 
 impl<N: Network> Transaction<N> {

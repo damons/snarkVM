@@ -16,8 +16,11 @@
 mod call_metrics;
 pub use call_metrics::*;
 
-mod inclusion_v0;
-pub use inclusion_v0::*;
+mod inclusion;
+pub use inclusion::*;
+
+// mod inclusion_v0;
+// pub use inclusion_v0::*;
 
 use algorithms::snark::varuna::VarunaVersion;
 use circuit::Assignment;
@@ -39,12 +42,12 @@ pub struct Trace<N: Network> {
     /// A map of locators to (proving key, assignments) pairs.
     transition_tasks: HashMap<Locator<N>, (ProvingKey<N>, Vec<Assignment<N::Field>>)>,
     /// A tracker for all inclusion tasks.
-    inclusion_tasks: InclusionV0<N>,
+    inclusion_tasks: Inclusion<N>,
     /// A list of call metrics.
     call_metrics: Vec<CallMetrics<N>>,
 
     /// A tracker for the inclusion assignments.
-    inclusion_assignments: OnceCell<Vec<InclusionV0Assignment<N>>>,
+    inclusion_assignments: OnceCell<Vec<InclusionAssignmentWrapper<N>>>,
     /// A tracker for the global state root.
     global_state_root: OnceCell<N::StateRoot>,
 }
@@ -55,7 +58,7 @@ impl<N: Network> Trace<N> {
         Self {
             transitions: Vec::new(),
             transition_tasks: HashMap::new(),
-            inclusion_tasks: InclusionV0::new(),
+            inclusion_tasks: Inclusion::new(),
             inclusion_assignments: OnceCell::new(),
             global_state_root: OnceCell::new(),
             call_metrics: Vec::new(),
@@ -118,6 +121,12 @@ impl<N: Network> Trace<N> {
     pub fn is_fee_public(&self) -> bool {
         // If there is 1 transition, check if the transition is a fee transition.
         self.transitions.len() == 1 && self.transitions[0].is_fee_public()
+    }
+
+    /// Returns `true` if the trace is for an upgrade transition.
+    pub fn is_upgrade(&self) -> bool {
+        // If there is 1 transition, check if the transition is a fee transition.
+        self.transitions.len() == 1 && self.transitions[0].is_upgrade()
     }
 }
 
@@ -287,7 +296,7 @@ impl<N: Network> Trace<N> {
         locator: &str,
         varuna_version: VarunaVersion,
         mut proving_tasks: Vec<(ProvingKey<N>, Vec<Assignment<N::Field>>)>,
-        inclusion_assignments: &[InclusionV0Assignment<N>],
+        inclusion_assignments: &[InclusionAssignmentWrapper<N>],
         global_state_root: N::StateRoot,
         rng: &mut R,
     ) -> Result<(N::StateRoot, Proof<N>)> {
@@ -301,13 +310,32 @@ impl<N: Network> Trace<N> {
         // Initialize a vector for the batch inclusion assignments.
         let mut batch_inclusions = Vec::with_capacity(inclusion_assignments.len());
 
+        let mut inclusion_version = None;
         for assignment in inclusion_assignments.iter() {
-            // Ensure the global state root is the same across iterations.
-            if global_state_root != assignment.state_path.global_state_root() {
-                bail!("Inclusion expected the global state root to be the same across iterations")
+            // Ensure the inclusion version is the same across iterations.
+            match &mut inclusion_version {
+                None => inclusion_version = Some(std::mem::discriminant(assignment)),
+                Some(expected) if *expected == std::mem::discriminant(assignment) => {}
+                Some(_) => bail!("Inclusion version expected to be the same across iterations."),
             }
             // Add the assignment to the assignments.
-            batch_inclusions.push(assignment.to_circuit_assignment::<A>()?);
+            let assignment = match assignment {
+                InclusionAssignmentWrapper::V0(v0) => {
+                    // Ensure the global state root is the same across iterations.
+                    if global_state_root != v0.state_path.global_state_root() {
+                        bail!("Inclusion expected the global state root to be the same across iterations")
+                    }
+                    v0.to_circuit_assignment::<A>()?
+                }
+                InclusionAssignmentWrapper::V1(v1) => {
+                    // Ensure the global state root is the same across iterations.
+                    if global_state_root != v1.state_path.global_state_root() {
+                        bail!("Inclusion expected the global state root to be the same across iterations")
+                    }
+                    v1.to_circuit_assignment::<A>()?
+                }
+            };
+            batch_inclusions.push(assignment);
         }
 
         if !batch_inclusions.is_empty() {
@@ -334,7 +362,7 @@ impl<N: Network> Trace<N> {
         proof: &Proof<N>,
     ) -> Result<()> {
         // Construct the batch of inclusion verifier inputs.
-        let batch_inclusion_inputs = InclusionV0::prepare_verifier_inputs(global_state_root, transitions)?;
+        let batch_inclusion_inputs = Inclusion::prepare_verifier_inputs(global_state_root, transitions)?;
         // Insert the batch of inclusion verifier inputs to the verifier inputs.
         if !batch_inclusion_inputs.is_empty() {
             // Retrieve the inclusion verifying key.

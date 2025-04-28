@@ -75,6 +75,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         self.vm.block_store().get_state_path_for_commitment(commitment)
     }
 
+    /// Returns the record index the given commitment.
+    pub fn get_record_index_for_commitment(&self, commitment: &Field<N>) -> Result<u64> {
+        self.get_state_path_for_commitment(commitment).map(|state_path| state_path.record_index())
+    }
+
     /// Returns the epoch hash for the given block height.
     pub fn get_epoch_hash(&self, block_height: u32) -> Result<N::BlockHash> {
         // Compute the epoch number from the current block height.

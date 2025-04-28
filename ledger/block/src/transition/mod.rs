@@ -362,6 +362,15 @@ impl<N: Network> Transition<N> {
             && self.program_id.to_string() == "credits.aleo"
             && self.function_name.to_string() == "split"
     }
+
+    /// Returns `true` if this is an `upgrade` transition.
+    #[inline]
+    pub fn is_upgrade(&self) -> bool {
+        self.inputs.len() == 1
+            && self.outputs.len() == 2
+            && self.program_id.to_string() == "credits.aleo"
+            && self.function_name.to_string() == "upgrade"
+    }
 }
 
 impl<N: Network> Transition<N> {

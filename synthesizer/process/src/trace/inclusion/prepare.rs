@@ -16,7 +16,7 @@
 use super::*;
 
 macro_rules! prepare_impl {
-    ($self:ident, $transitions:ident, $query:ident, $current_state_root:ident, $get_state_path_for_commitment:ident $(, $await:ident)?) => {{
+    ($self:ident, $transitions:ident, $query:ident, $current_state_root:ident, $current_block_height:ident, $get_state_path_for_commitment:ident $(, $await:ident)?) => {{
         // Ensure the number of leaves is within the Merkle tree size.
         Transaction::<N>::check_execution_size($transitions.len())?;
 
@@ -30,6 +30,15 @@ macro_rules! prepare_impl {
             $query.$current_state_root()
             $(.$await)?
         }?;
+
+        // Retrieve the current block height.
+        let current_block_height = {
+            $query.$current_block_height()
+            $(.$await)?
+        }?;
+
+        // Determine which consensus version is being used.
+        let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
 
         // Ensure the global state root is not zero.
         if *global_state_root == Field::zero() {
@@ -76,15 +85,44 @@ macro_rules! prepare_impl {
                             bail!("Inclusion expected the global state root to be the same across iterations")
                         }
 
-                        // Construct the assignment for the state path.
-                        let assignment = InclusionV0Assignment::new(
-                            state_path,
-                            task.commitment,
-                            task.gamma,
-                            task.serial_number,
-                            local_state_root,
-                            task.local.is_none(), // Equivalent to 'is_global'
-                        );
+                        // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
+                        // Construct the assignment for the state path based on the consensus version
+                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+                            let assignment = InclusionV0Assignment::new(
+                                state_path,
+                                task.commitment,
+                                task.gamma,
+                                task.serial_number,
+                                local_state_root,
+                                task.local.is_none(), // Equivalent to 'is_global'
+                            );
+
+                            InclusionAssignmentWrapper::V0(assignment)
+                        } else {
+                            // TODO (raychu86): Updated Inclusion - Determine the values here.
+                            //  Option 1: set `migration_record_index` to an index in the future.
+                            //      - Need to update `check_record_index` to be (!is_upgrade && network has past `migration_record_index`)
+                            //  Option 2: Set `migration_record_index` to a value when `the varuna fix was implemented.
+                            //      - The following code should be sufficient.
+                            // Determine if the record index should be checked.
+                            // Currently we must check it if the call is not `upgrade`.
+                            let check_record_index = !transition.is_upgrade();
+                            // Determine the migration record index.
+                            let migration_record_index = 1_000_000u64; // TODO (raychu86): Updated Inclusion - Use N::MIGRATION_RECORD_INDEX.
+
+                            let assignment = InclusionAssignment::new(
+                                state_path,
+                                task.commitment,
+                                task.gamma,
+                                task.serial_number,
+                                check_record_index,
+                                migration_record_index,
+                                local_state_root,
+                                task.local.is_none(), // Equivalent to 'is_global'
+                            );
+
+                            InclusionAssignmentWrapper::V1(assignment)
+                        };
 
                         // Add the assignment to the assignments.
                         assignments.push(assignment);
@@ -101,14 +139,14 @@ macro_rules! prepare_impl {
     }};
 }
 
-impl<N: Network> InclusionV0<N> {
+impl<N: Network> Inclusion<N> {
     /// Returns the inclusion assignments for the given transitions.
     pub fn prepare(
         &self,
         transitions: &[Transition<N>],
         query: impl QueryTrait<N>,
-    ) -> Result<(Vec<InclusionV0Assignment<N>>, N::StateRoot)> {
-        prepare_impl!(self, transitions, query, current_state_root, get_state_path_for_commitment)
+    ) -> Result<(Vec<InclusionAssignmentWrapper<N>>, N::StateRoot)> {
+        prepare_impl!(self, transitions, query, current_state_root, current_block_height, get_state_path_for_commitment)
     }
 
     /// Returns the inclusion assignments for the given transitions.
@@ -117,7 +155,15 @@ impl<N: Network> InclusionV0<N> {
         &self,
         transitions: &[Transition<N>],
         query: impl QueryTrait<N>,
-    ) -> Result<(Vec<InclusionV0Assignment<N>>, N::StateRoot)> {
-        prepare_impl!(self, transitions, query, current_state_root_async, get_state_path_for_commitment_async, await)
+    ) -> Result<(Vec<InclusionAssignmentWrapper<N>>, N::StateRoot)> {
+        prepare_impl!(
+            self,
+            transitions,
+            query,
+            current_state_root_async,
+            current_block_height_async,
+            get_state_path_for_commitment_async,
+            await
+        )
     }
 }
