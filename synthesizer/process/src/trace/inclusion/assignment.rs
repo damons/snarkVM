@@ -106,6 +106,7 @@ impl<N: Network> InclusionAssignment<N> {
         // Determine if the record index is past migration.
         let is_record_index_past_migration = record_index.is_greater_than_or_equal(&migration_record_index);
 
+        // TODO (raychu86): Updated Inclusion - Implement the enforcement that upgrades can only be called on records before the `migration_record_index`.
         // Enforce the record index if `check_record_index` is set.
         let accept = circuit::Boolean::<A>::new(circuit::Mode::Private, true);
         let is_valid_index = circuit::Boolean::ternary(&check_record_index, &is_record_index_past_migration, &accept);

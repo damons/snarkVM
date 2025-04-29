@@ -106,7 +106,7 @@ macro_rules! prepare_impl {
                             //      - The following code should be sufficient.
                             // Determine if the record index should be checked.
                             // Currently we must check it if the call is not `upgrade`.
-                            let check_record_index = !transition.is_upgrade();
+                            let check_record_index = !transition.is_upgrade(); // && network has past `migration_record_index`;
                             // Determine the migration record index.
                             let migration_record_index = N::MIGRATION_RECORD_INDEX;
 

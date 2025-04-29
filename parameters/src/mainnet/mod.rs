@@ -125,6 +125,9 @@ impl_local!(FeePrivateVerifier, "resources/", "fee_private", "verifier");
 // FeePublic
 impl_remote!(FeePublicProver, REMOTE_URL, "resources/", "fee_public", "prover");
 impl_local!(FeePublicVerifier, "resources/", "fee_public", "verifier");
+// Upgrade
+impl_remote!(UpgradeProver, REMOTE_URL, "resources/", "upgrade", "prover");
+impl_local!(UpgradeVerifier, "resources/", "upgrade", "verifier");
 
 #[macro_export]
 macro_rules! insert_credit_keys {
@@ -145,6 +148,7 @@ macro_rules! insert_credit_keys {
             $crate::insert_key!($map, string, $type<$network>, ("split", $crate::mainnet::[<Split $variant>]::load_bytes()));
             $crate::insert_key!($map, string, $type<$network>, ("fee_private", $crate::mainnet::[<FeePrivate $variant>]::load_bytes()));
             $crate::insert_key!($map, string, $type<$network>, ("fee_public", $crate::mainnet::[<FeePublic $variant>]::load_bytes()));
+            $crate::insert_key!($map, string, $type<$network>, ("upgrade", $crate::mainnet::[<Upgrade $variant>]::load_bytes()));
         }
     }};
 }
@@ -220,6 +224,8 @@ mod tests {
         FeePrivateVerifier::load_bytes().expect("Failed to load fee_private verifier");
         FeePublicProver::load_bytes().expect("Failed to load fee_public prover");
         FeePublicVerifier::load_bytes().expect("Failed to load fee_public verifier");
+        UpgradeProver::load_bytes().expect("Failed to load upgrade prover");
+        UpgradeVerifier::load_bytes().expect("Failed to load upgrade verifier");
         InclusionProver::load_bytes().expect("Failed to load inclusion prover");
         InclusionVerifier::load_bytes().expect("Failed to load inclusion verifier");
     }
