@@ -309,6 +309,12 @@ impl<N: Network> Transition<N> {
 }
 
 impl<N: Network> Transition<N> {
+    /// Returns `true` if this is a `credits.aleo/*` transition.
+    #[inline]
+    pub fn is_credits(&self) -> bool {
+        self.program_id.to_string() == "credits.aleo"
+    }
+
     /// Returns `true` if this is a `bond_public` transition.
     #[inline]
     pub fn is_bond_public(&self) -> bool {

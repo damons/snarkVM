@@ -323,14 +323,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
         // Determine the inclusion version to use.
-        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+        let is_network_behind_migration_record_index =
+            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX;
+        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
+            || is_network_behind_migration_record_index
+        {
             InclusionVersion::V0
         } else {
             InclusionVersion::V1
         };
 
         // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version.
-        if matches!(inclusion_version, InclusionVersion::V0) && execution.transitions().any(|t| t.is_upgrade()) {
+        if execution.transitions().any(|t| t.is_upgrade()) && matches!(inclusion_version, InclusionVersion::V0) {
             bail!(
                 "Execution verification failed - `credits.aleo/upgrade` can't be executed before Consensus Version 6"
             );
@@ -386,7 +390,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
         // Determine the inclusion version to use.
-        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+        let is_network_behind_migration_record_index =
+            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX;
+        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
+            || is_network_behind_migration_record_index
+        {
             InclusionVersion::V0
         } else {
             InclusionVersion::V1

@@ -99,14 +99,9 @@ macro_rules! prepare_impl {
 
                             InclusionAssignmentWrapper::V0(assignment)
                         } else {
-                            // TODO (raychu86): Updated Inclusion - Determine the values here.
-                            //  Option 1: set `migration_record_index` to an index in the future.
-                            //      - Need to update `check_record_index` to be (!is_upgrade && network has past `migration_record_index`)
-                            //  Option 2: Set `migration_record_index` to a value when `the varuna fix was implemented.
-                            //      - The following code should be sufficient.
-                            // Determine if the record index should be checked.
-                            // Currently we must check it if the call is not `upgrade`.
-                            let check_record_index = !transition.is_upgrade(); // && network has past `migration_record_index`;
+                            // Check the record index for `credits.aleo` calls that are not `upgrade`.
+                            // This should be consistent with `Inclusion::prepare_verifier_inputs`
+                            let check_record_index = transition.is_credits() && !transition.is_upgrade();
                             // Determine the migration record index.
                             let migration_record_index = N::MIGRATION_RECORD_INDEX;
 

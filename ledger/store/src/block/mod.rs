@@ -28,7 +28,7 @@ use crate::{
 };
 use console::{
     network::prelude::*,
-    program::{BlockTree, HeaderLeaf, ProgramID, StatePath},
+    program::{BlockTree, HEADER_DEPTH, HeaderLeaf, ProgramID, StatePath, TRANSACTIONS_DEPTH, TRANSITION_DEPTH},
     types::Field,
 };
 use ledger_authority::Authority;
@@ -1229,6 +1229,17 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     /// Returns a record index for the given `commitment`.
     pub fn get_record_index_for_commitment(&self, commitment: &Field<N>) -> Result<u64> {
         self.storage.get_record_index_for_commitment(commitment, &self.tree.read())
+    }
+
+    /// Returns the current global record index assuming all leaves are filled.
+    pub fn get_current_record_index(&self) -> u64 {
+        // Calculate the number of bottom-level leaves in each tree.
+        let num_leaves_in_transitions_tree = 2u64.pow(TRANSITION_DEPTH as u32);
+        let num_leaves_in_transactions_tree = 2u64.pow(TRANSACTIONS_DEPTH as u32) * num_leaves_in_transitions_tree;
+        let num_leaves_in_header_tree = 2u64.pow(HEADER_DEPTH as u32) * num_leaves_in_transactions_tree;
+
+        // Calculate the maximum number of leaves that the global tree could have produced.
+        num_leaves_in_header_tree.saturating_mul(self.tree.read().number_of_leaves() as u64)
     }
 
     /// Returns the previous block hash of the given `block height`.
