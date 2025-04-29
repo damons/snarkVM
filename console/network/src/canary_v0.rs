@@ -230,7 +230,7 @@ impl Network for CanaryV0 {
             // Skipping the first byte, which is the encoded version.
             Arc::new(
                 CircuitProvingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_PROVING_KEY[1..])
-                    .expect("Failed to load inclusion proving key."),
+                    .expect("Failed to load inclusion_v0 proving key."),
             )
         })
     }
@@ -242,7 +242,7 @@ impl Network for CanaryV0 {
             // Skipping the first byte, which is the encoded version.
             Arc::new(
                 CircuitVerifyingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_VERIFYING_KEY[1..])
-                    .expect("Failed to load inclusion verifying key."),
+                    .expect("Failed to load inclusion_v0 verifying key."),
             )
         })
     }

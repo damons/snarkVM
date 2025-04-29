@@ -255,6 +255,9 @@ pub mod test_helpers {
                 rng,
             )
             .unwrap();
+
+        println!("\n\n ------CONSTRUCT FEE TRACE\n\n");
+
         // Construct the fee trace.
         let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
@@ -264,10 +267,14 @@ pub mod test_helpers {
         // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
         block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
 
+        println!("\n\n ------PREPARE FEE TRACE\n\n");
+
         // Prepare the assignments.
         trace.prepare(Query::from(block_store)).unwrap();
         // Compute the proof and construct the fee.
         let fee = trace.prove_fee::<CurrentAleo, _>(VarunaVersion::V1, rng).unwrap();
+
+        println!("\n\n ------PROVED FEE \n\n");
 
         // Convert the fee.
         // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.

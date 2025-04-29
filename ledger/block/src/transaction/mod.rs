@@ -478,15 +478,20 @@ pub mod test_helpers {
         rng: &mut TestRng,
     ) -> Transaction<CurrentNetwork> {
         // Sample an execution.
+        println!("\n\n ------SAMPLING EXECUTION\n\n");
         let execution = crate::transaction::execution::test_helpers::sample_execution(rng);
         // Compute the execution ID.
         let execution_id = execution.to_execution_id().unwrap();
+
+        println!("\n\n ------SAMPLING Fee\n\n");
 
         // Sample the fee.
         let fee = match is_fee_private {
             true => crate::transaction::fee::test_helpers::sample_fee_private(execution_id, rng),
             false => crate::transaction::fee::test_helpers::sample_fee_public(execution_id, rng),
         };
+
+        println!("\n\n ------SAMPLED FEE\n\n");
 
         // Construct an execution transaction.
         Transaction::from_execution(execution, Some(fee)).unwrap()
