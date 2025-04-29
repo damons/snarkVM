@@ -22,7 +22,7 @@ pub struct InclusionAssignment<N: Network> {
     gamma: Group<N>,
     serial_number: Field<N>,
     check_record_index: bool,
-    migration_record_index: u64,
+    migration_record_index: u64, // TODO (raychu86): Updated Inclusion - Rename this.
     local_state_root: N::TransactionID,
     is_global: bool,
 }
@@ -77,19 +77,18 @@ impl<N: Network> InclusionAssignment<N> {
         let commitment = circuit::Field::<A>::new(circuit::Mode::Private, self.commitment);
         // Inject the gamma as `Mode::Private`.
         let gamma = circuit::Group::<A>::new(circuit::Mode::Private, self.gamma);
+        // Inject the local state root as `Mode::Public`.
+        let local_state_root = circuit::Field::<A>::new(circuit::Mode::Public, *self.local_state_root);
+        // Inject the 'is_global' flag as `Mode::Private`.
+        let is_global = circuit::Boolean::<A>::new(circuit::Mode::Private, self.is_global);
+        // Inject the serial number as `Mode::Public`.
+        let serial_number = circuit::Field::<A>::new(circuit::Mode::Public, self.serial_number);
         // Inject the check_record_index as `Mode::Public`.
         let check_record_index = circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_record_index);
         // Inject the migration_record_index as `Mode::Public`.
         let migration_record_index =
             circuit::U64::<A>::new(circuit::Mode::Public, U64::new(self.migration_record_index));
 
-        // Inject the local state root as `Mode::Public`.
-        let local_state_root = circuit::Field::<A>::new(circuit::Mode::Public, *self.local_state_root);
-        // Inject the 'is_global' flag as `Mode::Private`.
-        let is_global = circuit::Boolean::<A>::new(circuit::Mode::Private, self.is_global);
-
-        // Inject the serial number as `Mode::Public`.
-        let serial_number = circuit::Field::<A>::new(circuit::Mode::Public, self.serial_number);
         // Compute the candidate serial number.
         let candidate_serial_number =
             circuit::Record::<A, circuit::Plaintext<A>>::serial_number_from_gamma(&gamma, commitment.clone());
@@ -108,7 +107,7 @@ impl<N: Network> InclusionAssignment<N> {
         let is_record_index_past_migration = record_index.is_greater_than_or_equal(&migration_record_index);
 
         // Enforce the record index if `check_record_index` is set.
-        let accept = circuit::Boolean::<A>::new(circuit::Mode::Public, true);
+        let accept = circuit::Boolean::<A>::new(circuit::Mode::Private, true);
         let is_valid_index = circuit::Boolean::ternary(&check_record_index, &is_record_index_past_migration, &accept);
         A::assert(is_valid_index);
 

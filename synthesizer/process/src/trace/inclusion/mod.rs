@@ -34,6 +34,12 @@ use ledger_query::QueryTrait;
 
 use std::collections::HashMap;
 
+#[derive(Clone, Copy, Debug)]
+pub enum InclusionVersion {
+    V0,
+    V1,
+}
+
 #[derive(Clone, Debug)]
 pub enum InclusionAssignmentWrapper<N: Network> {
     V0(InclusionV0Assignment<N>),
@@ -127,9 +133,10 @@ impl<N: Network> Inclusion<N> {
 }
 
 impl<N: Network> Inclusion<N> {
-    /// Returns the verifier public inputs for the given global state root and transitions.
+    /// Returns the verifier public inputs for the given global state root, inclusion version, and transitions.
     pub fn prepare_verifier_inputs<'a>(
         global_state_root: N::StateRoot,
+        inclusion_version: InclusionVersion,
         transitions: impl ExactSizeIterator<Item = &'a Transition<N>>,
     ) -> Result<Vec<Vec<N::Field>>> {
         // Determine the number of transitions.
@@ -144,14 +151,28 @@ impl<N: Network> Inclusion<N> {
         for (transition_index, transition) in transitions.enumerate() {
             // Retrieve the local state root.
             let local_state_root = *transaction_tree.root();
+            // Determine if the transition is an upgrade call.
+            let is_upgrade = transition.is_upgrade();
 
             // Iterate through the inputs.
             for input in transition.inputs() {
                 // Filter the inputs for records.
                 if let Input::Record(serial_number, _) = input {
                     // Add the public inputs to the batch verifier inputs.
-                    let verifier_inputs =
+                    let mut verifier_inputs =
                         vec![N::Field::one(), **global_state_root, *local_state_root, **serial_number];
+                    // Add the additional inputs depending on the inclusion version.
+                    match inclusion_version {
+                        InclusionVersion::V0 => {}
+                        InclusionVersion::V1 => {
+                            // This should be consistent with `Inclusion::prepare`
+                            let check_record_index = !is_upgrade;
+                            let migration_record_index = 1_000_000u64; // TODO (raychu86): Updated Inclusion - Use N::MIGRATION_RECORD_INDEX.
+                            // Add the additional verifier inputs.
+                            verifier_inputs.push(*Field::<N>::from_bits_le(&[check_record_index])?);
+                            verifier_inputs.push(*Field::<N>::from_u64(migration_record_index));
+                        }
+                    }
                     batch_verifier_inputs.push(verifier_inputs);
                 }
             }

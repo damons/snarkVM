@@ -236,6 +236,7 @@ impl<N: Network> StatePath<N> {
 
     // TODO (raychu86): Write tests for this.
     /// Returns the calculated record index based on the record's position in the global tree.
+    /// Note: This number assumes all leaves are filled.
     pub fn record_index(&self) -> u64 {
         // Calculate the number of bottom-level leaves in each tree.
         let num_leaves_in_transitions_tree = 2u64.pow(TRANSITION_DEPTH as u32);

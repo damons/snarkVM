@@ -216,8 +216,8 @@ impl Network for CanaryV0 {
             .ok_or_else(|| anyhow!("Verifying key for credits.aleo/{function_name}' not found"))
     }
 
-    /// Returns the `proving key` for the inclusion circuit.
-    fn inclusion_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
+    /// Returns the `proving key` for the inclusion_v0 circuit.
+    fn inclusion_v0_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
         static INSTANCE: OnceCell<Arc<VarunaProvingKey<Console>>> = OnceCell::new();
         INSTANCE.get_or_init(|| {
             // Skipping the first byte, which is the encoded version.
@@ -228,8 +228,8 @@ impl Network for CanaryV0 {
         })
     }
 
-    /// Returns the `verifying key` for the inclusion circuit.
-    fn inclusion_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>> {
+    /// Returns the `verifying key` for the inclusion_v0 circuit.
+    fn inclusion_v0_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>> {
         static INSTANCE: OnceCell<Arc<VarunaVerifyingKey<Console>>> = OnceCell::new();
         INSTANCE.get_or_init(|| {
             // Skipping the first byte, which is the encoded version.
@@ -238,6 +238,16 @@ impl Network for CanaryV0 {
                     .expect("Failed to load inclusion verifying key."),
             )
         })
+    }
+
+    /// Returns the `proving key` for the inclusion circuit.
+    fn inclusion_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
+        unimplemented!()
+    }
+
+    /// Returns the `verifying key` for the inclusion circuit.
+    fn inclusion_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>> {
+        unimplemented!()
     }
 
     /// Returns the powers of `G`.

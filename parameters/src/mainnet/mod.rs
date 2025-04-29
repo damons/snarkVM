@@ -162,6 +162,8 @@ macro_rules! insert_key {
 }
 
 // Inclusion
+impl_remote!(InclusionV0Prover, REMOTE_URL, "resources/", "inclusion_v0", "prover");
+impl_local!(InclusionV0Verifier, "resources/", "inclusion_v0", "verifier");
 impl_remote!(InclusionProver, REMOTE_URL, "resources/", "inclusion", "prover");
 impl_local!(InclusionVerifier, "resources/", "inclusion", "verifier");
 
@@ -169,6 +171,10 @@ impl_local!(InclusionVerifier, "resources/", "inclusion", "verifier");
 pub const NETWORK_INCLUSION_FUNCTION_NAME: &str = "inclusion";
 
 lazy_static! {
+    pub static ref INCLUSION_V0_PROVING_KEY: Vec<u8> =
+        InclusionV0Prover::load_bytes().expect("Failed to load inclusion_v0 proving key");
+    pub static ref INCLUSION_V0_VERIFYING_KEY: Vec<u8> =
+        InclusionV0Verifier::load_bytes().expect("Failed to load inclusion_v0 verifying key");
     pub static ref INCLUSION_PROVING_KEY: Vec<u8> =
         InclusionProver::load_bytes().expect("Failed to load inclusion proving key");
     pub static ref INCLUSION_VERIFYING_KEY: Vec<u8> =
