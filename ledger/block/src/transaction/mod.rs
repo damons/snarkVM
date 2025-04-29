@@ -67,7 +67,7 @@ impl<N: Network> Transaction<N> {
         // Compute the deployment ID.
         let deployment_id = *deployment_tree.root();
         // Compute the transaction ID
-        let transaction_id = *Self::transaction_tree(deployment_tree, deployment.len(), &fee)?.root();
+        let transaction_id = *Self::transaction_tree(deployment_tree, Some(&fee))?.root();
         // Ensure the owner signed the correct transaction ID.
         ensure!(owner.verify(deployment_id), "Attempted to create a deployment transaction with an invalid owner");
         // Construct the deployment transaction.
@@ -82,14 +82,8 @@ impl<N: Network> Transaction<N> {
         let execution_tree = Self::execution_tree(&execution)?;
         // Compute the execution ID.
         let execution_id = *execution_tree.root();
-        // Compute the transaction ID
-        let transaction_id = match &fee {
-            Some(fee) => {
-                // Compute the root of the transaction tree.
-                *Self::transaction_tree(execution_tree, execution.len(), fee)?.root()
-            }
-            None => execution_id,
-        };
+        // Compute the transaction ID.
+        let transaction_id = *Self::transaction_tree(execution_tree, fee.as_ref())?.root();
         // Construct the execution transaction.
         Ok(Self::Execute(transaction_id.into(), execution_id, Box::new(execution), fee))
     }

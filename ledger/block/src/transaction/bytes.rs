@@ -96,7 +96,8 @@ impl<N: Network> ToBytes for Transaction<N> {
         1u8.write_le(&mut writer)?;
 
         // Write the transaction.
-        // We don't write the deployment or execution id, which are recomputed when creating the transaction.
+        // Note: We purposefully do not write out the deployment or execution ID,
+        // and instead recompute it when reconstructing the transaction, to ensure there was no malleability.
         match self {
             Self::Deploy(id, _, owner, deployment, fee) => {
                 // Write the variant.

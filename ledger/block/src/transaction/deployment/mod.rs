@@ -121,13 +121,8 @@ impl<N: Network> Deployment<N> {
     }
 
     /// Returns the number of program functions in the deployment.
-    pub fn len(&self) -> usize {
+    pub fn num_functions(&self) -> usize {
         self.program.functions().len()
-    }
-
-    /// Returns `true` if the deployment is empty.
-    pub fn is_empty(&self) -> bool {
-        self.program.functions().is_empty()
     }
 
     /// Returns the edition.
