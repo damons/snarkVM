@@ -273,17 +273,17 @@ mod tests {
                     // Compute the deployment ID.
                     let deployment_id = deployment.to_deployment_id().unwrap();
                     // Verify the fee.
-                    process.verify_fee(VarunaVersion::V1, InclusionVersion::V1, &fee, deployment_id).unwrap();
+                    process.verify_fee(VarunaVersion::V1, InclusionVersion::V0, &fee, deployment_id).unwrap();
                 }
                 Transaction::Execute(_, _, execution, fee) => {
                     // Compute the execution ID.
                     let execution_id = execution.to_execution_id().unwrap();
                     // Verify the fee.
-                    process.verify_fee(VarunaVersion::V1, InclusionVersion::V1, &fee.unwrap(), execution_id).unwrap();
+                    process.verify_fee(VarunaVersion::V1, InclusionVersion::V0, &fee.unwrap(), execution_id).unwrap();
                 }
                 Transaction::Fee(_, fee) => match fee.is_fee_private() {
-                    true => process.verify_fee_private(VarunaVersion::V1, InclusionVersion::V1, &&fee).unwrap(),
-                    false => process.verify_fee_public(VarunaVersion::V1, InclusionVersion::V1, &&fee).unwrap(),
+                    true => process.verify_fee_private(VarunaVersion::V1, InclusionVersion::V0, &&fee).unwrap(),
+                    false => process.verify_fee_public(VarunaVersion::V1, InclusionVersion::V0, &&fee).unwrap(),
                 },
             }
         }

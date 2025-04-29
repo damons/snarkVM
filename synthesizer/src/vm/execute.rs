@@ -37,7 +37,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Compute the authorization.
         let authorization = self.authorize(private_key, program_id, function_name, inputs, rng)?;
         // Determine if a fee is required.
-        let is_fee_required = !authorization.is_split();
+        let is_fee_required = !(authorization.is_split() || authorization.is_upgrade());
         // Determine if a priority fee is declared.
         let is_priority_fee_declared = priority_fee_in_microcredits > 0;
         // Compute the execution.

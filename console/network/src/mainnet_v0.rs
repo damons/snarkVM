@@ -194,6 +194,13 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V5, 100),
         (ConsensusVersion::V6, 100),
     ];
+    // TODO (raychu86): Updated Inclusion - Set the proper migration record index.
+    /// The global record index used for the inclusion proof.
+    #[cfg(any(test, feature = "test", feature = "test_migration_record_index"))]
+    const MIGRATION_RECORD_INDEX: u64 = 10;
+    /// The global record index used for the inclusion proof.
+    #[cfg(not(any(test, feature = "test", feature = "test_migration_record_index")))]
+    const MIGRATION_RECORD_INDEX: u64 = 1_000_000u64;
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
 

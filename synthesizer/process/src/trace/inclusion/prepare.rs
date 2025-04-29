@@ -108,7 +108,7 @@ macro_rules! prepare_impl {
                             // Currently we must check it if the call is not `upgrade`.
                             let check_record_index = !transition.is_upgrade();
                             // Determine the migration record index.
-                            let migration_record_index = 1_000_000u64; // TODO (raychu86): Updated Inclusion - Use N::MIGRATION_RECORD_INDEX.
+                            let migration_record_index = N::MIGRATION_RECORD_INDEX;
 
                             let assignment = InclusionAssignment::new(
                                 state_path,

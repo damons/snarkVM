@@ -167,7 +167,7 @@ impl<N: Network> Inclusion<N> {
                         InclusionVersion::V1 => {
                             // This should be consistent with `Inclusion::prepare`
                             let check_record_index = !is_upgrade;
-                            let migration_record_index = 1_000_000u64; // TODO (raychu86): Updated Inclusion - Use N::MIGRATION_RECORD_INDEX.
+                            let migration_record_index = N::MIGRATION_RECORD_INDEX;
                             // Add the additional verifier inputs.
                             verifier_inputs.push(*Field::<N>::from_bits_le(&[check_record_index])?);
                             verifier_inputs.push(*Field::<N>::from_u64(migration_record_index));

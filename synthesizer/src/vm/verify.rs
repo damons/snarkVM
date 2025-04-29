@@ -218,8 +218,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Transaction::Execute(id, execution_id, execution, fee) => {
                 // Ensure the rejected ID is not present.
                 ensure!(rejected_id.is_none(), "Transaction '{id}' should not have a rejected ID (execution)");
-                // If the transaction contains only 1 transition, and the transition is a split, then the fee can be skipped.
-                let is_fee_required = !(execution.len() == 1 && transaction.contains_split());
+                // If the transaction contains only 1 transition, and the transition is a split or upgrade, then the fee can be skipped.
+                let is_fee_required =
+                    !(execution.len() == 1 && (transaction.contains_split() || transaction.contains_upgrade()));
                 // Verify the fee.
                 if let Some(fee) = fee {
                     // If the fee is required, then check that the base fee amount is satisfied.
@@ -327,6 +328,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         } else {
             InclusionVersion::V1
         };
+
+        // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version.
+        if matches!(inclusion_version, InclusionVersion::V0) && execution.transitions().any(|t| t.is_upgrade()) {
+            bail!(
+                "Execution verification failed - `credits.aleo/upgrade` can't be executed before Consensus Version 6"
+            );
+        }
 
         // Verify the execution proof, if it has not been partially-verified before.
         let verification = match is_partially_verified {
