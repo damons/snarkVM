@@ -77,7 +77,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Returns the record index the given commitment.
     pub fn get_record_index_for_commitment(&self, commitment: &Field<N>) -> Result<u64> {
-        self.get_state_path_for_commitment(commitment).map(|state_path| state_path.record_index())
+        self.vm.block_store().get_record_index_for_commitment(commitment)
     }
 
     /// Returns the epoch hash for the given block height.

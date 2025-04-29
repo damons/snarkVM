@@ -729,6 +729,11 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
         ))
     }
 
+    /// Returns the record index the given commitment.
+    fn get_record_index_for_commitment(&self, commitment: &Field<N>, block_tree: &BlockTree<N>) -> Result<u64> {
+        self.get_state_path_for_commitment(commitment, block_tree).map(|state_path| state_path.record_index())
+    }
+
     /// Returns the previous block hash of the given `block height`.
     fn get_previous_block_hash(&self, height: u32) -> Result<Option<N::BlockHash>> {
         match height.is_zero() {
@@ -1219,6 +1224,11 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     /// Returns a state path for the given `commitment`.
     pub fn get_state_path_for_commitment(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         self.storage.get_state_path_for_commitment(commitment, &self.tree.read())
+    }
+
+    /// Returns a record index for the given `commitment`.
+    pub fn get_record_index_for_commitment(&self, commitment: &Field<N>) -> Result<u64> {
+        self.storage.get_record_index_for_commitment(commitment, &self.tree.read())
     }
 
     /// Returns the previous block hash of the given `block height`.

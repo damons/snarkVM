@@ -312,18 +312,26 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             bail!("Execution verification failed - restricted transition found");
         }
 
-        // Determine which Varuna version to use.
+        // Determine which consensus version to use.
         let consensus_version = N::CONSENSUS_VERSION(block_height)?;
+        // Determine which Varuna version to use.
         let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             VarunaVersion::V1
         } else {
             VarunaVersion::V2
         };
+        // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
+        // Determine the inclusion version to use.
+        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+            InclusionVersion::V0
+        } else {
+            InclusionVersion::V1
+        };
 
         // Verify the execution proof, if it has not been partially-verified before.
         let verification = match is_partially_verified {
             true => Ok(()),
-            false => self.process.read().verify_execution(varuna_version, execution),
+            false => self.process.read().verify_execution(varuna_version, inclusion_version, execution),
         };
         lap!(timer, "Verify the execution");
 
@@ -368,11 +376,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         } else {
             VarunaVersion::V2
         };
+        // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
+        // Determine the inclusion version to use.
+        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+            InclusionVersion::V0
+        } else {
+            InclusionVersion::V1
+        };
 
         // Verify the fee, if it has not been partially-verified before.
         let verification = match is_partially_verified {
             true => Ok(()),
-            false => self.process.read().verify_fee(varuna_version, fee, deployment_or_execution_id),
+            false => self.process.read().verify_fee(varuna_version, inclusion_version, fee, deployment_or_execution_id),
         };
         lap!(timer, "Verify the fee");
 
