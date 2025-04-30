@@ -87,7 +87,7 @@ macro_rules! prepare_impl {
 
                         // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
                         // Construct the assignment for the state path based on the consensus version
-                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) { // || is_network_behind_migration_record_index
                             let assignment = InclusionV0Assignment::new(
                                 state_path,
                                 task.commitment,

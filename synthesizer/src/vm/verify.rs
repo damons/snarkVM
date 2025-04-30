@@ -985,7 +985,6 @@ function compute:
     }
 }
 
-
 #[cfg(feature = "test")]
 #[cfg(test)]
 mod credits_migration_tests {
@@ -1035,7 +1034,7 @@ mod credits_migration_tests {
                 Value::<CurrentNetwork>::Record(genesis_records[0].clone()),
                 Value::<CurrentNetwork>::from_str("250_000_000_000u64").unwrap(), // Use the upgrade limit
             ]
-                .into_iter();
+            .into_iter();
             vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
         };
 
@@ -1136,8 +1135,8 @@ mod credits_migration_tests {
             Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
             Value::<CurrentNetwork>::from_str("1u64").unwrap(),
         ]
-            .into_iter();
-        // assert!(vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err());
+        .into_iter();
+        assert!(vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
         // 7. Check that `upgrade` works on the above record.
@@ -1169,7 +1168,8 @@ mod credits_migration_tests {
         // Fetch the records from the new block.
         let upgraded_records =
             next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
-        let upgraded_records = upgraded_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+        let upgraded_records =
+            upgraded_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
 
         let transfer_private = {
             let record_to_spend = upgraded_records[0].clone();
@@ -1178,7 +1178,7 @@ mod credits_migration_tests {
                 Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
                 Value::<CurrentNetwork>::from_str("1u64").unwrap(),
             ]
-                .into_iter();
+            .into_iter();
             vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).unwrap()
         };
 

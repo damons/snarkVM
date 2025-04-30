@@ -24,6 +24,7 @@ use snarkvm_console::{
     types::Field,
 };
 use snarkvm_ledger_store::ConsensusStore;
+use snarkvm_synthesizer::snark::{ProvingKey, VerifyingKey};
 
 #[cfg(not(feature = "rocks"))]
 type LedgerType<N> = snarkvm_ledger_store::helpers::memory::ConsensusMemory<N>;
@@ -97,7 +98,7 @@ pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assig
     vm.add_next_block(&genesis_block)?;
 
     // Fetch the first commitment.
-    let commitment = genesis_block.commitments().next().ok_or_else(|| anyhow!("No commitments found"))?;
+    let commitment = genesis_block.commitments().skip(3).next().ok_or_else(|| anyhow!("No commitments found"))?;
     // Compute the state path for the commitment.
     let state_path = vm.block_store().get_state_path_for_commitment(commitment)?;
 
@@ -148,9 +149,9 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
     let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, *commitment)?;
 
     // Set the `check_record_index` flag.
-    let check_record_index = false;
+    let check_record_index = true;
     // Initialize the `migration_record_index`.
-    let migration_record_index = 0u64;
+    let migration_record_index = 3;
 
     // Construct the assignment for the inclusion circuit.
     let assignment = InclusionAssignment::new(

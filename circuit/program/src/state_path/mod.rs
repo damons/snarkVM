@@ -92,8 +92,8 @@ impl<A: Aleo> StatePath<A> {
 
         // Calculate the number of bottom-level leaves in each tree.
         let num_leaves_in_transitions_tree = two.clone().pow(transitions_depth);
-        let num_leaves_in_transactions_tree = two.clone().pow(transactions_depth);
-        let num_leaves_in_header_tree = two.clone().pow(header_depth);
+        let num_leaves_in_transactions_tree = two.clone().pow(transactions_depth).mul(&num_leaves_in_transitions_tree);
+        let num_leaves_in_header_tree = two.clone().pow(header_depth).mul(&num_leaves_in_transactions_tree);
 
         // Calculate the number of previous leaves in each tree based on the index.
         let header_leaf_index = U64::<A>::new(

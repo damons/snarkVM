@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use super::*;
+use circuit::Eject;
 
 #[derive(Clone, Debug)]
 pub struct InclusionAssignment<N: Network> {
@@ -86,8 +87,12 @@ impl<N: Network> InclusionAssignment<N> {
         // Inject the check_record_index as `Mode::Public`.
         let check_record_index = circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_record_index);
         // Inject the migration_record_index as `Mode::Public`.
-        let migration_record_index =
-            circuit::U64::<A>::new(circuit::Mode::Public, U64::new(self.migration_record_index));
+        // This is cast into a u64 to prevent requiring 64 field elements as input.
+        let migration_record_index_field = circuit::Field::<A>::new(
+            circuit::Mode::Public,
+            console::types::Field::<N>::from_u64(self.migration_record_index),
+        );
+        let migration_record_index = circuit::U64::from_field_lossy(&migration_record_index_field);
 
         // Compute the candidate serial number.
         let candidate_serial_number =
