@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use super::*;
-use circuit::Eject;
 
 #[derive(Clone, Debug)]
 pub struct InclusionAssignment<N: Network> {

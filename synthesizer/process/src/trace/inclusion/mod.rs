@@ -27,7 +27,7 @@ use crate::Stack;
 use console::{
     network::prelude::*,
     program::{InputID, StatePath, TRANSACTION_DEPTH, TransactionLeaf, TransitionLeaf, TransitionPath},
-    types::{Field, Group, U64},
+    types::{Field, Group},
 };
 use ledger_block::{Input, Output, Transaction, Transition};
 use ledger_query::QueryTrait;
