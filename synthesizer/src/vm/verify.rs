@@ -1112,13 +1112,7 @@ mod credits_migration_tests {
 
         // Construct blocks with 5 `transfer_public_to_private` calls until the migration index is reached.
         while vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX {
-            let mut transactions = vec![];
-            // for _ in 0..5 {
-            //     let transfer_public_to_private = vm.execute(&private_key, ("credits.aleo", "transfer_public_to_private"), inputs.clone().into_iter(), None, 0, None, rng)
-            //         .unwrap();
-            //     transactions.push(transfer_public_to_private);
-            // }
-
+            let transactions = vec![];
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
         }
@@ -1141,9 +1135,6 @@ mod credits_migration_tests {
         // ----------------------------------------------------------------------------------------
         // 7. Check that `upgrade` works on the above record.
         // ----------------------------------------------------------------------------------------
-
-        // TODO (raychu86): Updated Inclusion - Fix this section. Varuna proof is failing?
-        println!("\n\n ------- STARTING 7 - record_index {} ------ \n\n", vm.block_store().get_current_record_index());
 
         let upgrade_3 = {
             let record_to_spend = split_records[0].clone();

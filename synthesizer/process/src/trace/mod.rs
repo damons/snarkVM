@@ -125,7 +125,7 @@ impl<N: Network> Trace<N> {
 
     /// Returns `true` if the trace is for an upgrade transition.
     pub fn is_upgrade(&self) -> bool {
-        // If there is 1 transition, check if the transition is a fee transition.
+        // If there is 1 transition, check if the transition is an upgrade transition.
         self.transitions.len() == 1 && self.transitions[0].is_upgrade()
     }
 }

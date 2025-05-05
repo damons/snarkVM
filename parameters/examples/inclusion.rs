@@ -96,7 +96,7 @@ pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assig
     // Update the VM.
     vm.add_next_block(&genesis_block)?;
 
-    // Fetch the first commitment.
+    // Fetch a record commitment.
     let commitment = genesis_block.commitments().nth(3).ok_or_else(|| anyhow!("No commitments found"))?;
     // Compute the state path for the commitment.
     let state_path = vm.block_store().get_state_path_for_commitment(commitment)?;
