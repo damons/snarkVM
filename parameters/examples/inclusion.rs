@@ -119,7 +119,7 @@ pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assig
 /// Returns the assignment for verifying the state path.
 #[allow(clippy::type_complexity)]
 pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
--> Result<(Assignment<N::Field>, StatePath<N>, Field<N>, bool, u64)> {
+-> Result<(Assignment<N::Field>, StatePath<N>, Field<N>, bool, bool, u64)> {
     // Initialize the consensus store.
     let store = ConsensusStore::<N, LedgerType<N>>::open(StorageMode::new_test(None))?;
     // Initialize a new VM.
@@ -147,8 +147,10 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
     // Compute the serial number.
     let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, *commitment)?;
 
-    // Set the `check_record_index` flag.
-    let check_record_index = true;
+    // Set the `is_credits` flag.
+    let is_credits = true;
+    // Set the `is_upgrade` flag.
+    let is_upgrade = false;
     // Initialize the `migration_record_index`.
     let migration_record_index = 3;
 
@@ -158,14 +160,15 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
         *commitment,
         gamma,
         serial_number,
-        check_record_index,
+        is_credits,
+        is_upgrade,
         migration_record_index,
         Default::default(),
         true,
     )
     .to_circuit_assignment::<A>()?;
 
-    Ok((assignment, state_path, serial_number, check_record_index, migration_record_index))
+    Ok((assignment, state_path, serial_number, is_credits, is_upgrade, migration_record_index))
 }
 
 /// Synthesizes the circuit keys for the inclusion circuit. (cargo run --release --example inclusion [network])
@@ -174,7 +177,7 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
     let universal_srs = UniversalSRS::<N>::load()?;
 
     // Sample the assignment for the inclusion circuit.
-    let (assignment, state_path, serial_number, check_record_index, migration_record_index) =
+    let (assignment, state_path, serial_number, is_credits, is_upgrade, migration_record_index) =
         sample_assignment::<N, A>()?;
 
     // Synthesize the proving and verifying key.
@@ -192,7 +195,8 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
                 **state_path.global_state_root(),
                 *Field::<N>::zero(),
                 *serial_number,
-                *Field::<N>::from_bits_le(&[check_record_index])?,
+                *Field::<N>::from_bits_le(&[is_credits])?,
+                *Field::<N>::from_bits_le(&[is_upgrade])?,
                 *Field::<N>::from_u64(migration_record_index)
             ],
             &proof
@@ -208,7 +212,8 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
                 **state_path.global_state_root(),
                 *Field::<N>::zero(),
                 *serial_number,
-                *Field::<N>::from_bits_le(&[check_record_index])?,
+                *Field::<N>::from_bits_le(&[is_credits])?,
+                *Field::<N>::from_bits_le(&[is_upgrade])?,
                 *Field::<N>::from_u64(migration_record_index)
             ],
             &proof

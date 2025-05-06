@@ -192,7 +192,7 @@ impl Network for TestnetV0 {
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
 
-    // TODO (raychu86): Updated Inclusion - Set the proper migration record index.
+    // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
     /// Returns the global record index used for the inclusion proof.
     #[allow(non_snake_case)]
     fn MIGRATION_RECORD_INDEX() -> Result<u64> {

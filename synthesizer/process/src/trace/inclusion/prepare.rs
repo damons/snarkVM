@@ -85,7 +85,7 @@ macro_rules! prepare_impl {
                             bail!("Inclusion expected the global state root to be the same across iterations")
                         }
 
-                        // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
+                        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
                         // Construct the assignment for the state path based on the consensus version
                         let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) { // || is_network_behind_migration_record_index
                             let assignment = InclusionV0Assignment::new(
@@ -99,18 +99,21 @@ macro_rules! prepare_impl {
 
                             InclusionAssignmentWrapper::V0(assignment)
                         } else {
-                            // Check the record index for `credits.aleo` calls that are not `upgrade`.
-                            // This should be consistent with `Inclusion::prepare_verifier_inputs`
-                            let check_record_index = transition.is_credits() && !transition.is_upgrade();
+                            // Determine if the transition is a `credits.aleo` call.
+                            let is_credits = transition.is_credits();
+                            // Determine if the transition is a `credits.aleo/upgrade` call.
+                            let is_upgrade = transition.is_upgrade();
                             // Determine the migration record index.
                             let migration_record_index = N::MIGRATION_RECORD_INDEX()?;
 
+                            // This should be consistent with `Inclusion::prepare_verifier_inputs`
                             let assignment = InclusionAssignment::new(
                                 state_path,
                                 task.commitment,
                                 task.gamma,
                                 task.serial_number,
-                                check_record_index,
+                                is_credits,
+                                is_upgrade,
                                 migration_record_index,
                                 local_state_root,
                                 task.local.is_none(), // Equivalent to 'is_global'

@@ -21,7 +21,8 @@ pub struct InclusionAssignment<N: Network> {
     commitment: Field<N>,
     gamma: Group<N>,
     serial_number: Field<N>,
-    check_record_index: bool,
+    is_credits: bool,
+    is_upgrade: bool,
     migration_record_index: u64, // TODO (raychu86): Updated Inclusion - Rename this.
     local_state_root: N::TransactionID,
     is_global: bool,
@@ -34,7 +35,8 @@ impl<N: Network> InclusionAssignment<N> {
         commitment: Field<N>,
         gamma: Group<N>,
         serial_number: Field<N>,
-        check_record_index: bool,
+        is_credits: bool,
+        is_upgrade: bool,
         migration_record_index: u64,
         local_state_root: N::TransactionID,
         is_global: bool,
@@ -44,7 +46,8 @@ impl<N: Network> InclusionAssignment<N> {
             commitment,
             gamma,
             serial_number,
-            check_record_index,
+            is_credits,
+            is_upgrade,
             migration_record_index,
             local_state_root,
             is_global,
@@ -83,15 +86,17 @@ impl<N: Network> InclusionAssignment<N> {
         let is_global = circuit::Boolean::<A>::new(circuit::Mode::Private, self.is_global);
         // Inject the serial number as `Mode::Public`.
         let serial_number = circuit::Field::<A>::new(circuit::Mode::Public, self.serial_number);
-        // Inject the check_record_index as `Mode::Public`.
-        let check_record_index = circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_record_index);
+        // Inject the is_credits flag as `Mode::Public`.
+        let is_credits = circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_credits);
+        // Inject the is_upgrade flag as `Mode::Public`.
+        let is_upgrade = circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_upgrade);
         // Inject the migration_record_index as `Mode::Public`.
         // This is cast into a u64 to prevent requiring 64 field elements as input.
         let migration_record_index_field = circuit::Field::<A>::new(
             circuit::Mode::Public,
             console::types::Field::<N>::from_u64(self.migration_record_index),
         );
-        let migration_record_index = circuit::U64::from_field_lossy(&migration_record_index_field);
+        let migration_record_index = circuit::U64::from_field(migration_record_index_field);
 
         // Compute the candidate serial number.
         let candidate_serial_number =
@@ -107,13 +112,19 @@ impl<N: Network> InclusionAssignment<N> {
         // Fetch the record index from the state path.
         let record_index = state_path.record_index();
 
-        // Determine if the record index is past migration.
+        // Determine if the record index is at or past migration.
         let is_record_index_past_migration = record_index.is_greater_than_or_equal(&migration_record_index);
+        // Determine if the record index is before migration.
+        let is_record_index_before_migration = is_record_index_past_migration.clone().not();
 
-        // TODO (raychu86): Updated Inclusion - Implement the enforcement that upgrades can only be called on records before the `migration_record_index`.
-        // Enforce the record index if `check_record_index` is set.
-        let accept = circuit::Boolean::<A>::new(circuit::Mode::Private, true);
-        let is_valid_index = circuit::Boolean::ternary(&check_record_index, &is_record_index_past_migration, &accept);
+        // Enforce the record index based on the conditions:
+        //     1. If the function is an `upgrade` then check that the record index is before the migration index.
+        //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record index is after the migration index.
+        //     3. If the function is neither, do not perform any index check.
+        let is_valid_upgrade = is_upgrade.clone().bitand(&is_record_index_before_migration);
+        let is_valid_credits = is_upgrade.clone().not().bitand(&is_credits).bitand(&is_record_index_past_migration);
+        let is_not_upgrade_or_credits = is_upgrade.not().bitand(&is_credits.not());
+        let is_valid_index = &is_valid_upgrade.bitor(&is_valid_credits).bitor(is_not_upgrade_or_credits);
         A::assert(is_valid_index);
 
         #[cfg(debug_assertions)]

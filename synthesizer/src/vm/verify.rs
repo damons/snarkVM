@@ -321,7 +321,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         } else {
             VarunaVersion::V2
         };
-        // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
+        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_migration_record_index =
             self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX()?;
@@ -388,7 +388,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         } else {
             VarunaVersion::V2
         };
-        // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
+        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_migration_record_index =
             self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX()?;
@@ -1003,12 +1003,11 @@ mod credits_migration_tests {
     fn test_inclusion_migration() {
         // 1. Check that `upgrade` is not callable before migration
         // 2. Construct blocks until migration occurs
-        // 3. Check that network hasn't reached the `migration_record_index`
-        // 4. Check that `upgrade` is not callable before network reaches `migration_record_index`.
-        // 5. Construct transactions and blocks to reach `migration_record_index`.
-        // 6. Check that records from before the `migration_record_index` can't be spent.
-        // 7. Check that `upgrade` works on the above record.
-        // 8. Check that the upgraded records can now be spent.
+        // 3. Check that network has reached the `migration_record_index`
+        // 4. Check that records from before the `migration_record_index` can't be spent.
+        // 5. Check that `upgrade` works on the above record.
+        // 6. Check that `upgrade` does not work on already upgraded records.
+        // 7. Check that the upgraded records can now be spent.
 
         let rng = &mut TestRng::default();
 
@@ -1070,7 +1069,7 @@ mod credits_migration_tests {
         // ----------------------------------------------------------------------------------------
 
         // TODO (raychu86): Updated Inclusion - Select the proper consensus version.
-        // Advance the ledger past ConsensusV6
+        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
         {
@@ -1080,47 +1079,13 @@ mod credits_migration_tests {
         }
 
         // ----------------------------------------------------------------------------------------
-        // 3. Check that network hasn't reached the `migration_record_index`
+        // 3. Check that network has reached the `migration_record_index`
         // ----------------------------------------------------------------------------------------
 
-        assert!(vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX_);
+        assert_eq!(vm.block_store().get_current_record_index(), CurrentNetwork::MIGRATION_RECORD_INDEX().unwrap());
 
         // ----------------------------------------------------------------------------------------
-        // 4. Check that `upgrade` is not callable before network reaches `migration_record_index`.
-        // ----------------------------------------------------------------------------------------
-
-        let upgrade_2 = {
-            let record_to_spend = split_records[0].clone();
-            let amount = match record_to_spend.data().get(&microcredits) {
-                Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
-                _ => panic!("Invalid record"),
-            };
-            assert!(amount <= 250_000_000_000u64);
-            let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
-        };
-        assert!(vm.check_transaction(&upgrade_2, None, rng).is_err());
-
-        // ----------------------------------------------------------------------------------------
-        // 5. Construct transactions and blocks to reach `migration_record_index`.
-        // ----------------------------------------------------------------------------------------
-
-        // let inputs = [
-        //     Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
-        //     Value::<CurrentNetwork>::from_str("1u64").unwrap(),
-        // ];
-
-        // Construct blocks with 5 `transfer_public_to_private` calls until the migration index is reached.
-        while vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX_ {
-            let transactions = vec![];
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-            vm.add_next_block(&next_block).unwrap();
-        }
-
-        assert!(vm.block_store().get_current_record_index() >= CurrentNetwork::MIGRATION_RECORD_INDEX_);
-
-        // ----------------------------------------------------------------------------------------
-        // 6. Check that records from before the `migration_record_index` can't be spent.
+        // 4. Check that records from before the `migration_record_index` can't be spent.
         // ----------------------------------------------------------------------------------------
 
         let record_to_spend = split_records[0].clone();
@@ -1133,10 +1098,10 @@ mod credits_migration_tests {
         assert!(vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 7. Check that `upgrade` works on the above record.
+        // 5. Check that `upgrade` works on the above record.
         // ----------------------------------------------------------------------------------------
 
-        let upgrade_3 = {
+        let upgrade_2 = {
             let record_to_spend = split_records[0].clone();
             let amount = match record_to_spend.data().get(&microcredits) {
                 Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
@@ -1146,14 +1111,14 @@ mod credits_migration_tests {
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
             vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
         };
-        assert!(vm.check_transaction(&upgrade_3, None, rng).is_ok());
+        assert!(vm.check_transaction(&upgrade_2, None, rng).is_ok());
 
-        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[upgrade_3], rng).unwrap();
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[upgrade_2], rng).unwrap();
         vm.add_next_block(&next_block).unwrap();
         assert_eq!(next_block.transactions().len(), 1);
 
         // ----------------------------------------------------------------------------------------
-        // 8. Check that the upgraded records can now be spent.
+        // 6. Check that `upgrade` does not work on already upgraded records.
         // ----------------------------------------------------------------------------------------
 
         // Fetch the records from the new block.
@@ -1161,6 +1126,14 @@ mod credits_migration_tests {
             next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
         let upgraded_records =
             upgraded_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        let record_to_spend = upgraded_records[0].clone();
+        let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
+        assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
+
+        // ----------------------------------------------------------------------------------------
+        // 7. Check that the upgraded records can now be spent.
+        // ----------------------------------------------------------------------------------------
 
         let transfer_private = {
             let record_to_spend = upgraded_records[0].clone();

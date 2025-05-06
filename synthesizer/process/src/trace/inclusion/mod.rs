@@ -168,11 +168,10 @@ impl<N: Network> Inclusion<N> {
                     match inclusion_version {
                         InclusionVersion::V0 => {}
                         InclusionVersion::V1 => {
-                            // Check the record index for `credits.aleo` calls that are not `upgrade`.
                             // This should be consistent with `Inclusion::prepare`
-                            let check_record_index = is_credits && !is_upgrade;
                             // Add the additional verifier inputs.
-                            verifier_inputs.push(*Field::<N>::from_bits_le(&[check_record_index])?);
+                            verifier_inputs.push(*Field::<N>::from_bits_le(&[is_credits])?);
+                            verifier_inputs.push(*Field::<N>::from_bits_le(&[is_upgrade])?);
                             verifier_inputs.push(*Field::<N>::from_u64(N::MIGRATION_RECORD_INDEX()?));
                         }
                     }
