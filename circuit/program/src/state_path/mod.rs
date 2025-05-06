@@ -26,15 +26,15 @@ use snarkvm_circuit_network::Aleo;
 use snarkvm_circuit_types::{Boolean, Field, U8, U32, U64, environment::prelude::*};
 
 /// The depth of the Merkle tree for the blocks.
-const BLOCKS_DEPTH: u8 = console::BLOCKS_DEPTH;
+const BLOCKS_DEPTH: u8 = console_network::BLOCKS_DEPTH;
 /// The depth of the Merkle tree for the block header.
-const HEADER_DEPTH: u8 = console::HEADER_DEPTH;
+const HEADER_DEPTH: u8 = console_network::HEADER_DEPTH;
 /// The depth of the Merkle tree for transactions in a block.
-const TRANSACTIONS_DEPTH: u8 = console::TRANSACTIONS_DEPTH;
+const TRANSACTIONS_DEPTH: u8 = console_network::TRANSACTIONS_DEPTH;
 /// The depth of the Merkle tree for the transaction.
-const TRANSACTION_DEPTH: u8 = console::TRANSACTION_DEPTH;
+const TRANSACTION_DEPTH: u8 = console_network::TRANSACTION_DEPTH;
 /// The depth of the Merkle tree for the transition.
-const TRANSITION_DEPTH: u8 = console::TRANSITION_DEPTH;
+const TRANSITION_DEPTH: u8 = console_network::TRANSITION_DEPTH;
 
 type BlockPath<A> = MerklePath<A, BLOCKS_DEPTH>;
 type HeaderPath<A> = MerklePath<A, HEADER_DEPTH>;
@@ -85,10 +85,10 @@ impl<A: Aleo> StatePath<A> {
     /// Returns the calculated record index based on the record's position in the global tree.
     pub fn record_index(&self) -> U64<A> {
         // Instantiate the constants.
-        let two = U64::<A>::new(Mode::Private, console::U64::new(2u64));
-        let transitions_depth = U32::<A>::new(Mode::Private, console::U32::new(TRANSITION_DEPTH as u32));
-        let transactions_depth = U32::<A>::new(Mode::Private, console::U32::new(TRANSACTIONS_DEPTH as u32));
-        let header_depth = U32::<A>::new(Mode::Private, console::U32::new(HEADER_DEPTH as u32));
+        let two = U64::<A>::new(Mode::Constant, console::U64::new(2u64));
+        let transitions_depth = U32::<A>::new(Mode::Constant, console::U32::new(TRANSITION_DEPTH as u32));
+        let transactions_depth = U32::<A>::new(Mode::Constant, console::U32::new(TRANSACTIONS_DEPTH as u32));
+        let header_depth = U32::<A>::new(Mode::Constant, console::U32::new(HEADER_DEPTH as u32));
 
         // Calculate the number of bottom-level leaves in each tree.
         let num_leaves_in_transitions_tree = two.clone().pow(transitions_depth);

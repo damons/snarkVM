@@ -192,12 +192,19 @@ impl Network for TestnetV0 {
     // TODO (raychu86): Updated Inclusion - Set the proper migration record index.
     /// The global record index used for the inclusion proof.
     #[cfg(any(test, feature = "test", feature = "test_migration_record_index"))]
-    const MIGRATION_RECORD_INDEX: u64 = 4_250_000_000u64;
+    const MIGRATION_RECORD_INDEX_: u64 = 4_250_000_000u64;
     /// The global record index used for the inclusion proof.
     #[cfg(not(any(test, feature = "test", feature = "test_migration_record_index")))]
-    const MIGRATION_RECORD_INDEX: u64 = 999_999_999_999_999_999u64;
+    const MIGRATION_RECORD_INDEX_: u64 = 999_999_999_999_999_999u64;
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
+
+    /// Returns the global record index used for the inclusion proof.
+    #[allow(non_snake_case)]
+    fn MIGRATION_RECORD_INDEX() -> Result<u64> {
+        let block_height = Self::CONSENSUS_HEIGHT(ConsensusVersion::V6)?;
+        Ok(get_record_index_for_height(block_height))
+    }
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8] {

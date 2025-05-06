@@ -30,17 +30,7 @@ mod string;
 use crate::Transition;
 use console::{
     network::prelude::*,
-    program::{
-        Ciphertext,
-        DeploymentTree,
-        ExecutionTree,
-        ProgramOwner,
-        Record,
-        TRANSACTION_DEPTH,
-        TransactionLeaf,
-        TransactionPath,
-        TransactionTree,
-    },
+    program::{Ciphertext, ProgramOwner, Record, TransactionLeaf},
     types::{Field, Group, U64},
 };
 

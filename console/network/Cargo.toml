@@ -17,7 +17,6 @@ wasm = [
 test = [ ]
 test_targets = [ ]
 test_consensus_heights = [ ]
-test_migration_record_index = [ ]
 
 [dependencies.snarkvm-algorithms]
 path = "../../algorithms"

@@ -18,3 +18,6 @@ pub use id::*;
 
 mod object;
 pub use object::*;
+
+mod trees;
+pub use trees::*;

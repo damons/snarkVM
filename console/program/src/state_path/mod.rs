@@ -13,9 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod configuration;
-pub use configuration::*;
-
 mod header_leaf;
 pub use header_leaf::*;
 
@@ -262,7 +259,7 @@ impl<N: Network> StatePath<N> {
 #[cfg(any(test, feature = "test"))]
 pub mod test_helpers {
     use super::*;
-    use snarkvm_console_network::prelude::TestRng;
+    use snarkvm_console_network::{TransactionTree, TransitionTree, prelude::TestRng};
 
     /// Randomly sample a state path to a global state root.
     /// If a `commitment` is given, it is used. Otherwise, a `commitment` is randomly sampled.

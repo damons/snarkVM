@@ -36,7 +36,7 @@ mod testnet_v0;
 pub use testnet_v0::*;
 
 pub mod prelude {
-    pub use crate::{ConsensusVersion, Network, consensus_config_value, environment::prelude::*};
+    pub use crate::{ConsensusVersion, Network, consensus_config_value, environment::prelude::*, helpers::*};
 }
 
 use crate::environment::prelude::*;
@@ -143,7 +143,7 @@ pub trait Network:
     const TRANSACTION_SPEND_LIMIT: u64 = 100_000_000;
 
     /// The global record index used for the inclusion proof.
-    const MIGRATION_RECORD_INDEX: u64;
+    const MIGRATION_RECORD_INDEX_: u64;
 
     /// The anchor height, defined as the expected number of blocks to reach the coinbase target.
     const ANCHOR_HEIGHT: u32 = Self::ANCHOR_TIME as u32 / Self::BLOCK_TIME as u32;
@@ -262,6 +262,10 @@ pub trait Network:
     fn LATEST_MAX_CERTIFICATES() -> Result<u16> {
         Self::MAX_CERTIFICATES.last().map_or(Err(anyhow!("No MAX_CERTIFICATES defined.")), |(_, value)| Ok(*value))
     }
+
+    /// Returns the global record index used for the inclusion proof.
+    #[allow(non_snake_case)]
+    fn MIGRATION_RECORD_INDEX() -> Result<u64>;
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8];
