@@ -324,7 +324,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_migration_record_index =
-            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX;
+            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
             || is_network_behind_migration_record_index
         {
@@ -391,7 +391,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // TODO (raychu86): Updated Inclusion - Use the correct consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_migration_record_index =
-            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX;
+            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
             || is_network_behind_migration_record_index
         {
@@ -1083,7 +1083,7 @@ mod credits_migration_tests {
         // 3. Check that network hasn't reached the `migration_record_index`
         // ----------------------------------------------------------------------------------------
 
-        assert!(vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX);
+        assert!(vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX_);
 
         // ----------------------------------------------------------------------------------------
         // 4. Check that `upgrade` is not callable before network reaches `migration_record_index`.
@@ -1111,13 +1111,13 @@ mod credits_migration_tests {
         // ];
 
         // Construct blocks with 5 `transfer_public_to_private` calls until the migration index is reached.
-        while vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX {
+        while vm.block_store().get_current_record_index() < CurrentNetwork::MIGRATION_RECORD_INDEX_ {
             let transactions = vec![];
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
         }
 
-        assert!(vm.block_store().get_current_record_index() >= CurrentNetwork::MIGRATION_RECORD_INDEX);
+        assert!(vm.block_store().get_current_record_index() >= CurrentNetwork::MIGRATION_RECORD_INDEX_);
 
         // ----------------------------------------------------------------------------------------
         // 6. Check that records from before the `migration_record_index` can't be spent.

@@ -103,7 +103,7 @@ macro_rules! prepare_impl {
                             // This should be consistent with `Inclusion::prepare_verifier_inputs`
                             let check_record_index = transition.is_credits() && !transition.is_upgrade();
                             // Determine the migration record index.
-                            let migration_record_index = N::MIGRATION_RECORD_INDEX;
+                            let migration_record_index = N::MIGRATION_RECORD_INDEX()?;
 
                             let assignment = InclusionAssignment::new(
                                 state_path,

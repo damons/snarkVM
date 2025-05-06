@@ -189,16 +189,10 @@ impl Network for CanaryV0 {
         (ConsensusVersion::V5, 25),
         (ConsensusVersion::V6, 25),
     ];
-    // TODO (raychu86): Updated Inclusion - Set the proper migration record index.
-    /// The global record index used for the inclusion proof.
-    #[cfg(any(test, feature = "test", feature = "test_migration_record_index"))]
-    const MIGRATION_RECORD_INDEX_: u64 = 4_250_000_000u64;
-    /// The global record index used for the inclusion proof.
-    #[cfg(not(any(test, feature = "test", feature = "test_migration_record_index")))]
-    const MIGRATION_RECORD_INDEX_: u64 = 999_999_999_999_999_999u64;
     /// The network name.
     const NAME: &'static str = "Aleo Canary (v0)";
 
+    // TODO (raychu86): Updated Inclusion - Set the proper migration record index.
     /// Returns the global record index used for the inclusion proof.
     #[allow(non_snake_case)]
     fn MIGRATION_RECORD_INDEX() -> Result<u64> {

@@ -24,9 +24,10 @@ pub use assignment::*;
 #[cfg(debug_assertions)]
 use crate::Stack;
 
+use circuit::traits::FromField;
 use console::{
     network::prelude::*,
-    program::{InputID, StatePath, TRANSACTION_DEPTH, TransactionLeaf, TransitionLeaf, TransitionPath},
+    program::{InputID, StatePath, TransactionLeaf, TransitionLeaf},
     types::{Field, Group},
 };
 use ledger_block::{Input, Output, Transaction, Transition};
@@ -170,10 +171,9 @@ impl<N: Network> Inclusion<N> {
                             // Check the record index for `credits.aleo` calls that are not `upgrade`.
                             // This should be consistent with `Inclusion::prepare`
                             let check_record_index = is_credits && !is_upgrade;
-                            let migration_record_index = N::MIGRATION_RECORD_INDEX;
                             // Add the additional verifier inputs.
                             verifier_inputs.push(*Field::<N>::from_bits_le(&[check_record_index])?);
-                            verifier_inputs.push(*Field::<N>::from_u64(migration_record_index));
+                            verifier_inputs.push(*Field::<N>::from_u64(N::MIGRATION_RECORD_INDEX()?));
                         }
                     }
                     batch_verifier_inputs.push(verifier_inputs);
