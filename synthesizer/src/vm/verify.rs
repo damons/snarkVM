@@ -1147,4 +1147,181 @@ mod credits_migration_tests {
 
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
     }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_inclusion_local_indexes() {
+        // 1. Check that records that have not been upgraded can't be spent via calls
+        // 2. Check that upgrades can be called via another program
+        // 3. Check that local records can be spent and checked properly.
+        let rng = &mut TestRng::default();
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fetch the private key.
+        let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+        let view_key = ViewKey::try_from(&private_key).unwrap();
+        let address = Address::try_from(&private_key).unwrap();
+
+        // Fetch the unspent record.
+        let records = genesis.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
+        let genesis_records = records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        // Deploy the program.
+        let program = Program::from_str(
+            r"
+import credits.aleo;
+
+program test_local_calls.aleo;
+
+function multi_upgrade:
+    input r0 as credits.aleo/credits.record;
+    input r1 as credits.aleo/credits.record;
+    call credits.aleo/upgrade r0 into r2 r3;
+    call credits.aleo/upgrade r1 into r4 r5;
+    async multi_upgrade r3 r5 into r6;
+    output r2 as credits.aleo/credits.record;
+    output r4 as credits.aleo/credits.record;
+    output r6 as test_local_calls.aleo/multi_upgrade.future;
+
+finalize multi_upgrade:
+    input r0 as credits.aleo/upgrade.future;
+    input r1 as credits.aleo/upgrade.future;
+    await r0;
+    await r1;
+
+function proxy_transfer:
+    input r0 as credits.aleo/credits.record;
+    input r1 as address.private;
+    input r2 as u64.private;
+    call credits.aleo/transfer_private r0 r1 r2 into r3 r4;
+    output r3 as credits.aleo/credits.record;
+    output r4 as credits.aleo/credits.record;
+
+function local_transfer:
+    input r0 as credits.aleo/credits.record;
+    input r1 as address.private;
+    input r2 as u64.private;
+    call credits.aleo/transfer_private r0 r1 r2 into r3 r4;
+    call credits.aleo/transfer_private r3 r1 r2 into r5 r6;
+    output r3 as credits.aleo/credits.record;
+    output r4 as credits.aleo/credits.record;
+    output r5 as credits.aleo/credits.record;
+    output r6 as credits.aleo/credits.record;
+    ",
+        )
+        .unwrap();
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
+        vm.add_next_block(&crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap())
+            .unwrap();
+
+        // Create a split transaction before the migration.
+        let split_transaction = {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(genesis_records[0].clone()),
+                Value::<CurrentNetwork>::from_str("250_000_000_000u64").unwrap(), // Use the upgrade limit
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+        };
+        // Create a split transaction before the migration.
+        let split_transaction_2 = {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(genesis_records[1].clone()),
+                Value::<CurrentNetwork>::from_str("250_000_000_000u64").unwrap(), // Use the upgrade limit
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+        };
+        // Create a new block that includes the split.
+        let next_block = crate::vm::test_helpers::sample_next_block(
+            &vm,
+            &private_key,
+            &[split_transaction, split_transaction_2],
+            rng,
+        )
+        .unwrap();
+        vm.add_next_block(&next_block).unwrap();
+
+        // Fetch the records from the new block.
+        let split_records =
+            next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
+        let split_records = split_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        // ----------------------------------------------------------------------------------------
+        // Construct blocks until migration occurs
+        // ----------------------------------------------------------------------------------------
+
+        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
+        {
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // ----------------------------------------------------------------------------------------
+        // 1. Check that records that have not been upgraded can't be spent via calls
+        // ----------------------------------------------------------------------------------------
+
+        let inputs = [
+            Value::<CurrentNetwork>::Record(split_records[0].clone()),
+            Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+            Value::<CurrentNetwork>::from_str("1u64").unwrap(),
+        ]
+        .into_iter();
+        assert!(
+            vm.execute(&private_key, ("test_local_calls.aleo", "proxy_transfer"), inputs, None, 0, None, rng).is_err()
+        );
+
+        // ----------------------------------------------------------------------------------------
+        // 2. Check that upgrades can be called via another program
+        // ----------------------------------------------------------------------------------------
+
+        let inputs = [
+            Value::<CurrentNetwork>::Record(split_records[0].clone()),
+            Value::<CurrentNetwork>::Record(split_records[2].clone()),
+        ]
+        .into_iter();
+        let multi_upgrade =
+            vm.execute(&private_key, ("test_local_calls.aleo", "multi_upgrade"), inputs, None, 0, None, rng).unwrap();
+        assert!(vm.check_transaction(&multi_upgrade, None, rng).is_ok());
+
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[multi_upgrade], rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+        assert_eq!(next_block.transactions().len(), 1);
+
+        // ----------------------------------------------------------------------------------------
+        // 3. Check that local records can be spent and checked properly.
+        // ----------------------------------------------------------------------------------------
+
+        // Fetch the records from the new block.
+        let upgraded_records =
+            next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
+        let upgraded_records =
+            upgraded_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        let record_to_spend = upgraded_records[0].clone();
+        let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
+        assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
+
+        // Create a transaction with local transfers
+        let local_transfer = {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(upgraded_records[0].clone()),
+                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("10u64").unwrap(),
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("test_local_calls.aleo", "local_transfer"), inputs, None, 0, None, rng).unwrap()
+        };
+
+        assert!(vm.check_transaction(&local_transfer, None, rng).is_ok());
+    }
 }

@@ -130,7 +130,8 @@ impl<N: Network> InclusionAssignment<N> {
         let no_checks_required = check_reached_record_index.not().bitand(&check_not_reached_record_index.not());
         // Determine the final validity based on the above conditions.
         let is_valid_index = &is_valid_reached_index.bitor(&is_valid_not_reached_index).bitor(no_checks_required);
-        A::assert(is_valid_index);
+        // Check that the index is valid if the record is from a global state path.
+        A::assert(is_global.not().bitor(is_valid_index));
 
         #[cfg(debug_assertions)]
         Stack::log_circuit::<A, _>(&format!("State Path for {}", self.serial_number));
