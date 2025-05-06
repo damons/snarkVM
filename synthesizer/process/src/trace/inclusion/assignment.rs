@@ -21,8 +21,8 @@ pub struct InclusionAssignment<N: Network> {
     commitment: Field<N>,
     gamma: Group<N>,
     serial_number: Field<N>,
-    is_credits: bool,
-    is_upgrade: bool,
+    check_reached_record_index: bool,
+    check_not_reached_record_index: bool,
     migration_record_index: u64, // TODO (raychu86): Updated Inclusion - Rename this.
     local_state_root: N::TransactionID,
     is_global: bool,
@@ -35,8 +35,8 @@ impl<N: Network> InclusionAssignment<N> {
         commitment: Field<N>,
         gamma: Group<N>,
         serial_number: Field<N>,
-        is_credits: bool,
-        is_upgrade: bool,
+        check_reached_record_index: bool,
+        check_not_reached_record_index: bool,
         migration_record_index: u64,
         local_state_root: N::TransactionID,
         is_global: bool,
@@ -46,8 +46,8 @@ impl<N: Network> InclusionAssignment<N> {
             commitment,
             gamma,
             serial_number,
-            is_credits,
-            is_upgrade,
+            check_reached_record_index,
+            check_not_reached_record_index,
             migration_record_index,
             local_state_root,
             is_global,
@@ -86,10 +86,12 @@ impl<N: Network> InclusionAssignment<N> {
         let is_global = circuit::Boolean::<A>::new(circuit::Mode::Private, self.is_global);
         // Inject the serial number as `Mode::Public`.
         let serial_number = circuit::Field::<A>::new(circuit::Mode::Public, self.serial_number);
-        // Inject the is_credits flag as `Mode::Public`.
-        let is_credits = circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_credits);
-        // Inject the is_upgrade flag as `Mode::Public`.
-        let is_upgrade = circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_upgrade);
+        // Inject the `check_reached_record_index` flag as `Mode::Public`.
+        let check_reached_record_index =
+            circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_reached_record_index);
+        // Inject the `check_not_reached_record_index` flag as `Mode::Public`.
+        let check_not_reached_record_index =
+            circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_not_reached_record_index);
         // Inject the migration_record_index as `Mode::Public`.
         // This is cast into a u64 to prevent requiring 64 field elements as input.
         let migration_record_index_field = circuit::Field::<A>::new(
@@ -116,15 +118,18 @@ impl<N: Network> InclusionAssignment<N> {
         let is_record_index_past_migration = record_index.is_greater_than_or_equal(&migration_record_index);
         // Determine if the record index is before migration.
         let is_record_index_before_migration = is_record_index_past_migration.clone().not();
+        // Ensure that both "record index has been reached" and "not yet reached" are not being checked simultaneously.
+        A::assert(check_reached_record_index.clone().bitand(&check_not_reached_record_index).not());
 
-        // Enforce the record index based on the conditions:
-        //     1. If the function is an `upgrade` then check that the record index is before the migration index.
-        //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record index is after the migration index.
-        //     3. If the function is neither, do not perform any index check.
-        let is_valid_upgrade = is_upgrade.clone().bitand(&is_record_index_before_migration);
-        let is_valid_credits = is_upgrade.clone().not().bitand(&is_credits).bitand(&is_record_index_past_migration);
-        let is_not_upgrade_or_credits = is_upgrade.not().bitand(&is_credits.not());
-        let is_valid_index = &is_valid_upgrade.bitor(&is_valid_credits).bitor(is_not_upgrade_or_credits);
+        // Ensure that the record index is reached if `check_reached_record_index` is true.
+        let is_valid_reached_index = check_reached_record_index.clone().bitand(&is_record_index_past_migration);
+        // Ensure that the record index is not reached if `check_not_reached_record_index` is true.
+        let is_valid_not_reached_index =
+            check_not_reached_record_index.clone().bitand(&is_record_index_before_migration);
+        // Determine if no checks are required if both `check_reached_record_index` and `check_not_reached_record_index` are false
+        let no_checks_required = check_reached_record_index.not().bitand(&check_not_reached_record_index.not());
+        // Determine the final validity based on the above conditions.
+        let is_valid_index = &is_valid_reached_index.bitor(&is_valid_not_reached_index).bitor(no_checks_required);
         A::assert(is_valid_index);
 
         #[cfg(debug_assertions)]

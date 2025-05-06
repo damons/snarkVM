@@ -152,10 +152,10 @@ impl<N: Network> Inclusion<N> {
         for (transition_index, transition) in transitions.enumerate() {
             // Retrieve the local state root.
             let local_state_root = *transaction_tree.root();
-            // Determine if the transition is an `credits.aleo/upgrade` call.
-            let is_upgrade = transition.is_upgrade();
-            // Determine if the transition is a `credits.aleo` call.
-            let is_credits = transition.is_credits();
+            // Determine if the record index should be reached.
+            let check_reached_record_index = transition.is_credits() && !transition.is_upgrade();
+            // Determine if the record index should not be reached.
+            let check_not_reached_record_index = transition.is_upgrade();
 
             // Iterate through the inputs.
             for input in transition.inputs() {
@@ -170,8 +170,8 @@ impl<N: Network> Inclusion<N> {
                         InclusionVersion::V1 => {
                             // This should be consistent with `Inclusion::prepare`
                             // Add the additional verifier inputs.
-                            verifier_inputs.push(*Field::<N>::from_bits_le(&[is_credits])?);
-                            verifier_inputs.push(*Field::<N>::from_bits_le(&[is_upgrade])?);
+                            verifier_inputs.push(*Field::<N>::from_bits_le(&[check_reached_record_index])?);
+                            verifier_inputs.push(*Field::<N>::from_bits_le(&[check_not_reached_record_index])?);
                             verifier_inputs.push(*Field::<N>::from_u64(N::MIGRATION_RECORD_INDEX()?));
                         }
                     }

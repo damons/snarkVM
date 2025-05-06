@@ -1068,7 +1068,6 @@ mod credits_migration_tests {
         // 2. Construct blocks until migration occurs
         // ----------------------------------------------------------------------------------------
 
-        // TODO (raychu86): Updated Inclusion - Select the proper consensus version.
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()

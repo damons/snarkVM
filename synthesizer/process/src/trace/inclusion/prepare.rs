@@ -99,10 +99,15 @@ macro_rules! prepare_impl {
 
                             InclusionAssignmentWrapper::V0(assignment)
                         } else {
-                            // Determine if the transition is a `credits.aleo` call.
-                            let is_credits = transition.is_credits();
-                            // Determine if the transition is a `credits.aleo/upgrade` call.
-                            let is_upgrade = transition.is_upgrade();
+                            // Enforce the record index based on the conditions:
+                            //     1. If the function is an `upgrade` then check that the record index is before the migration index.
+                            //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record index is after the migration index.
+                            //     3. If the function is neither, do not perform any index check.
+
+                            // Determine if the record index should be reached.
+                            let check_reached_record_index = transition.is_credits() && !transition.is_upgrade();
+                            // Determine if the record index should not be reached.
+                            let check_not_reached_record_index = transition.is_upgrade();
                             // Determine the migration record index.
                             let migration_record_index = N::MIGRATION_RECORD_INDEX()?;
 
@@ -112,8 +117,8 @@ macro_rules! prepare_impl {
                                 task.commitment,
                                 task.gamma,
                                 task.serial_number,
-                                is_credits,
-                                is_upgrade,
+                                check_reached_record_index,
+                                check_not_reached_record_index,
                                 migration_record_index,
                                 local_state_root,
                                 task.local.is_none(), // Equivalent to 'is_global'
