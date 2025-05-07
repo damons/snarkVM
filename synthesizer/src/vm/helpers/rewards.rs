@@ -51,26 +51,41 @@ pub fn staking_rewards<N: Network>(
         return stakers.clone();
     }
 
+    // First, validate all validators and create a map of valid validators.
+    let valid_validators: IndexMap<_, _> = committee
+        .members()
+        .iter()
+        .filter_map(|(validator, (validator_stake, _, commission_rate))| {
+            // Skip validators with invalid commission rates.
+            if *commission_rate > 100 {
+                error!("Commission rate ({commission_rate}) is greater than 100 - skipping validator {validator}");
+                return None;
+            }
+            // Skip validators with more than 25% of total stake.
+            if *validator_stake > committee.total_stake().saturating_div(4) {
+                trace!("Validator {validator} has more than 25% of the total stake - skipping all stakers");
+                return None;
+            }
+            Some((*validator, (*validator_stake, *commission_rate)))
+        })
+        .collect();
+
+    // Pre-check for validators not in committee.
+    let mut non_committee_validators = std::collections::HashSet::new();
+    for (_, (validator, _)) in stakers {
+        if !committee.members().contains_key(validator) && non_committee_validators.insert(*validator) {
+            trace!("Validator {validator} is not in the committee - skipping all stakers");
+        }
+    }
+
     // Compute the updated stakers.
     cfg_iter!(stakers)
         .map(|(staker, (validator, stake))| {
-            // If the validator is not in the committee, skip the staker.
-            let Some((validator_stake, _is_open, commission_rate)) = committee.members().get(validator) else {
-                trace!("Validator {validator} is not in the committee - skipping {staker}");
+            // If the validator is not in the valid validators list, skip the staker.
+            let Some((validator_stake, commission_rate)) = valid_validators.get(validator) else {
+                // No logging here to avoid log spam.
                 return (*staker, (*validator, *stake));
             };
-
-            // If the commission rate is greater than 100, skip the staker.
-            if *commission_rate > 100 {
-                error!("Commission rate ({commission_rate}) is greater than 100 - skipping {staker}");
-                return (*staker, (*validator, *stake));
-            }
-
-            // If the validator has more than 25% of the total stake, skip the staker.
-            if *validator_stake > committee.total_stake().saturating_div(4) {
-                trace!("Validator {validator} has more than 25% of the total stake - skipping {staker}");
-                return (*staker, (*validator, *stake));
-            }
 
             // If the staker has less than the minimum required stake, skip the staker, unless the staker is the validator.
             if *stake < MIN_DELEGATOR_STAKE && *staker != *validator {
