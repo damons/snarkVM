@@ -165,9 +165,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 let current_block_height = self.block_store().current_block_height();
                 let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
                 deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
-                // TODO (raychu86): Program Rules - Update the consensus height.
-                // Perform additional program checks if the consensus version is V6 or beyond.
-                if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V6)? {
+                // Perform additional program checks if the consensus version is V7 or beyond.
+                if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V7)? {
                     deployment.program().check_program_naming_structure()?;
                 }
                 // Verify the deployment if it has not been verified before.
@@ -1077,10 +1076,9 @@ function compute:
         assert!(vm.check_transaction(&deploy_3, None, rng).is_ok());
         assert!(vm.check_transaction(&deploy_4, None, rng).is_ok());
 
-        // TODO (raychu86): Update this to the proper consensus version used in the migration.
-        // Advance the ledger past ConsensusV6
+        // Advance the ledger past ConsensusVersion::V7
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V7).unwrap()
         {
             // // Ensure that the deployments are valid.
             assert!(vm.check_transaction(&deploy_1, None, rng).is_ok());
