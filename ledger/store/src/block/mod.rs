@@ -1021,6 +1021,9 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
             aborted_transaction_ids,
         )?))
     }
+
+    #[cfg(feature = "rocks")]
+    fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String>;
 }
 
 /// The block store.
@@ -1192,6 +1195,11 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     /// Unpauses atomic writes.
     pub fn unpause_atomic_writes<const DISCARD_BATCH: bool>(&self) -> Result<()> {
         self.storage.unpause_atomic_writes::<DISCARD_BATCH>()
+    }
+
+    #[cfg(feature = "rocks")]
+    pub fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String> {
+        self.storage.backup_database(path)
     }
 }
 

@@ -235,6 +235,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         Ok(ledger)
     }
 
+    #[cfg(feature = "rocks")]
+    pub fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String> {
+        self.vm.block_store().backup_database(path)
+    }
+
     /// Returns the VM.
     pub const fn vm(&self) -> &VM<N, C> {
         &self.vm
