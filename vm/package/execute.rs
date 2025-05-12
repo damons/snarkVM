@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,16 +52,24 @@ impl<N: Network> Package<N> {
         let authorization = process.authorize::<A, R>(private_key, program_id, function_name, inputs.iter(), rng)?;
 
         // Retrieve the program.
-        let program = process.get_program(program_id)?;
+        let stack = process.get_stack(program_id)?;
+        let program = stack.program();
         // Retrieve the function from the program.
         let function = program.get_function(&function_name)?;
         // Save all the prover and verifier files for any function calls that are made.
         for instruction in function.instructions() {
             if let Instruction::Call(call) = instruction {
-                // Retrieve the program and resource.
-                let (program, resource) = match call.operator() {
-                    CallOperator::Locator(locator) => (process.get_program(locator.program_id())?, locator.resource()),
-                    CallOperator::Resource(resource) => (program, resource),
+                // Retrieve the external stack and resource.
+                let (external_stack, resource) = match call.operator() {
+                    CallOperator::Locator(locator) => {
+                        (Some(process.get_stack(locator.program_id())?), locator.resource())
+                    }
+                    CallOperator::Resource(resource) => (None, resource),
+                };
+                // Retrieve the program.
+                let program = match &external_stack {
+                    Some(external_stack) => external_stack.program(),
+                    None => program,
                 };
                 // If this is a function call, save its corresponding prover and verifier files.
                 if program.contains_function(resource) {
@@ -102,10 +110,20 @@ impl<N: Network> Package<N> {
         // Retrieve the call metrics.
         let call_metrics = trace.call_metrics().to_vec();
 
+        // Prepare the query.
+        let query = Query::<_, BlockMemory<_>>::from(endpoint);
+        // Determine which Varuna version to use.
+        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            VarunaVersion::V1
+        } else {
+            VarunaVersion::V2
+        };
         // Prepare the trace.
-        trace.prepare(Query::<_, BlockMemory<_>>::from(endpoint))?;
+        trace.prepare(query)?;
+
         // Prove the execution.
-        let execution = trace.prove_execution::<A, R>(&locator.to_string(), rng)?;
+        let execution = trace.prove_execution::<A, R>(&locator.to_string(), varuna_version, rng)?;
         // Return the response, execution, and call metrics.
         Ok((response, execution, call_metrics))
     }

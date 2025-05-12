@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,19 +43,19 @@ mod verify_fee;
 #[cfg(test)]
 mod tests;
 
+use algorithms::snark::varuna::VarunaVersion;
 use console::{
     account::PrivateKey,
     network::prelude::*,
     program::{Identifier, Literal, Locator, Plaintext, ProgramID, Record, Response, Value, compute_function_id},
     types::{Field, U16, U64},
 };
-use ledger_block::{Deployment, Execution, Fee, Input, Output, Transition};
+use ledger_block::{Deployment, Execution, Fee, Input, Output, Transaction, Transition};
 use ledger_store::{FinalizeStorage, FinalizeStore, atomic_batch_scope};
 use synthesizer_program::{
     Branch,
     Closure,
     Command,
-    Finalize,
     FinalizeGlobalState,
     FinalizeOperation,
     Instruction,
@@ -69,6 +69,9 @@ use synthesizer_snark::{ProvingKey, UniversalSRS, VerifyingKey};
 
 use aleo_std::prelude::{finish, lap, timer};
 use indexmap::IndexMap;
+#[cfg(feature = "locktick")]
+use locktick::parking_lot::RwLock;
+#[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc};
 
@@ -78,9 +81,9 @@ use colored::Colorize;
 #[derive(Clone)]
 pub struct Process<N: Network> {
     /// The universal SRS.
-    universal_srs: Arc<UniversalSRS<N>>,
+    universal_srs: UniversalSRS<N>,
     /// The mapping of program IDs to stacks.
-    stacks: IndexMap<ProgramID<N>, Arc<Stack<N>>>,
+    stacks: Arc<RwLock<IndexMap<ProgramID<N>, Arc<Stack<N>>>>>,
 }
 
 impl<N: Network> Process<N> {
@@ -90,7 +93,7 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process:setup");
 
         // Initialize the process.
-        let mut process = Self { universal_srs: Arc::new(UniversalSRS::load()?), stacks: IndexMap::new() };
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: Default::default() };
         lap!(timer, "Initialize process");
 
         // Initialize the 'credits.aleo' program.
@@ -133,8 +136,12 @@ impl<N: Network> Process<N> {
     /// If you intend to `execute` the program, use `deploy` and `finalize_deployment` instead.
     #[inline]
     pub fn add_stack(&mut self, stack: Stack<N>) {
-        // Add the stack to the process.
-        self.stacks.insert(*stack.program_id(), Arc::new(stack));
+        // Get the program ID.
+        let program_id = *stack.program_id();
+        // Arc the stack first to limit the scope of the write lock.
+        let stack = Arc::new(stack);
+        // Insert the stack into the process, replacing the existing stack if it exists.
+        self.stacks.write().insert(program_id, stack);
     }
 }
 
@@ -145,7 +152,7 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process::load");
 
         // Initialize the process.
-        let mut process = Self { universal_srs: Arc::new(UniversalSRS::load()?), stacks: IndexMap::new() };
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: Default::default() };
         lap!(timer, "Initialize process");
 
         // Initialize the 'credits.aleo' program.
@@ -183,7 +190,7 @@ impl<N: Network> Process<N> {
     #[cfg(feature = "wasm")]
     pub fn load_web() -> Result<Self> {
         // Initialize the process.
-        let mut process = Self { universal_srs: Arc::new(UniversalSRS::load()?), stacks: IndexMap::new() };
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: Default::default() };
 
         // Initialize the 'credits.aleo' program.
         let program = Program::credits()?;
@@ -200,33 +207,32 @@ impl<N: Network> Process<N> {
 
     /// Returns the universal SRS.
     #[inline]
-    pub const fn universal_srs(&self) -> &Arc<UniversalSRS<N>> {
+    pub const fn universal_srs(&self) -> &UniversalSRS<N> {
         &self.universal_srs
     }
 
     /// Returns `true` if the process contains the program with the given ID.
     #[inline]
     pub fn contains_program(&self, program_id: &ProgramID<N>) -> bool {
-        self.stacks.contains_key(program_id)
+        self.stacks.read().contains_key(program_id)
     }
 
     /// Returns the stack for the given program ID.
     #[inline]
-    pub fn get_stack(&self, program_id: impl TryInto<ProgramID<N>>) -> Result<&Arc<Stack<N>>> {
+    pub fn get_stack(&self, program_id: impl TryInto<ProgramID<N>>) -> Result<Arc<Stack<N>>> {
         // Prepare the program ID.
         let program_id = program_id.try_into().map_err(|_| anyhow!("Invalid program ID"))?;
         // Retrieve the stack.
-        let stack = self.stacks.get(&program_id).ok_or_else(|| anyhow!("Program '{program_id}' does not exist"))?;
+        let stack = self
+            .stacks
+            .read()
+            .get(&program_id)
+            .ok_or_else(|| anyhow!("Program '{program_id}' does not exist"))?
+            .clone();
         // Ensure the program ID matches.
         ensure!(stack.program_id() == &program_id, "Expected program '{}', found '{program_id}'", stack.program_id());
         // Return the stack.
         Ok(stack)
-    }
-
-    /// Returns the program for the given program ID.
-    #[inline]
-    pub fn get_program(&self, program_id: impl TryInto<ProgramID<N>>) -> Result<&Program<N>> {
-        Ok(self.get_stack(program_id)?.program())
     }
 
     /// Returns the proving key for the given program ID and function name.
@@ -299,6 +305,7 @@ pub mod test_helpers {
     use ledger_store::{BlockStore, helpers::memory::BlockMemory};
     use synthesizer_program::Program;
 
+    use aleo_std::StorageMode;
     use once_cell::sync::OnceCell;
 
     type CurrentNetwork = MainnetV0;
@@ -330,7 +337,7 @@ pub mod test_helpers {
         let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
         // Initialize a new block store.
-        let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+        let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
         // Prepare the assignments from the block store.
         trace.prepare(ledger_query::Query::from(block_store)).unwrap();
@@ -339,7 +346,7 @@ pub mod test_helpers {
         let locator = format!("{:?}:{function_name:?}", program.id());
 
         // Return the execution object.
-        trace.prove_execution::<CurrentAleo, _>(&locator, rng).unwrap()
+        trace.prove_execution::<CurrentAleo, _>(&locator, VarunaVersion::V1, rng).unwrap()
     }
 
     pub fn sample_key() -> (Identifier<CurrentNetwork>, ProvingKey<CurrentNetwork>, VerifyingKey<CurrentNetwork>) {
@@ -412,7 +419,8 @@ function compute:
                 let caller_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
 
                 // Initialize a new block store.
-                let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(None).unwrap();
+                let block_store =
+                    BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
                 // Construct the process.
                 let process = sample_process(&program);
@@ -434,7 +442,7 @@ function compute:
                 // Prepare the trace.
                 trace.prepare(Query::from(block_store)).unwrap();
                 // Compute the execution.
-                trace.prove_execution::<CurrentAleo, _>("testing", rng).unwrap()
+                trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap()
             })
             .clone()
     }

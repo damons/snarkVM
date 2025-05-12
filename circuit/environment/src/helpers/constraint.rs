@@ -1,4 +1,4 @@
-// Copyright 2024 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +16,7 @@
 use crate::{prelude::*, *};
 use snarkvm_fields::PrimeField;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Constraint<F: PrimeField>(
     pub(crate) Scope,
     pub(crate) LinearCombination<F>,
