@@ -335,9 +335,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version.
         if execution.transitions().any(|t| t.is_upgrade()) && matches!(inclusion_version, InclusionVersion::V0) {
-            bail!(
-                "Execution verification failed - `credits.aleo/upgrade` can't be executed before Consensus Version 6"
-            );
+            bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
         }
 
         // Verify the execution proof, if it has not been partially-verified before.
@@ -1031,7 +1029,7 @@ mod credits_migration_tests {
         let split_transaction = {
             let inputs = [
                 Value::<CurrentNetwork>::Record(genesis_records[0].clone()),
-                Value::<CurrentNetwork>::from_str("250_000_000_000u64").unwrap(), // Use the upgrade limit
+                Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
             ]
             .into_iter();
             vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
@@ -1058,7 +1056,7 @@ mod credits_migration_tests {
                 Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                 _ => panic!("Invalid record"),
             };
-            assert!(amount <= 250_000_000_000u64);
+            assert!(amount <= 500_000_000_000u64);
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
             vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
         };
@@ -1106,7 +1104,7 @@ mod credits_migration_tests {
                 Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                 _ => panic!("Invalid record"),
             };
-            assert!(amount <= 250_000_000_000u64);
+            assert!(amount <= 500_000_000_000u64);
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
             vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
         };
@@ -1224,7 +1222,7 @@ function local_transfer:
         let split_transaction = {
             let inputs = [
                 Value::<CurrentNetwork>::Record(genesis_records[0].clone()),
-                Value::<CurrentNetwork>::from_str("250_000_000_000u64").unwrap(), // Use the upgrade limit
+                Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
             ]
             .into_iter();
             vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
@@ -1233,7 +1231,7 @@ function local_transfer:
         let split_transaction_2 = {
             let inputs = [
                 Value::<CurrentNetwork>::Record(genesis_records[1].clone()),
-                Value::<CurrentNetwork>::from_str("250_000_000_000u64").unwrap(), // Use the upgrade limit
+                Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
             ]
             .into_iter();
             vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()

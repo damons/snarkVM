@@ -321,19 +321,19 @@ impl<N: Network> Trace<N> {
             }
             // Add the assignment to the assignments.
             let assignment = match assignment {
-                InclusionAssignmentWrapper::V0(v0) => {
+                InclusionAssignmentWrapper::V0(assignment_v0) => {
                     // Ensure the global state root is the same across iterations.
-                    if global_state_root != v0.state_path.global_state_root() {
+                    if global_state_root != assignment_v0.state_path.global_state_root() {
                         bail!("Inclusion expected the global state root to be the same across iterations")
                     }
-                    v0.to_circuit_assignment::<A>()?
+                    assignment_v0.to_circuit_assignment::<A>()?
                 }
-                InclusionAssignmentWrapper::V1(v1) => {
+                InclusionAssignmentWrapper::V1(assignment_v1) => {
                     // Ensure the global state root is the same across iterations.
-                    if global_state_root != v1.state_path.global_state_root() {
+                    if global_state_root != assignment_v1.state_path.global_state_root() {
                         bail!("Inclusion expected the global state root to be the same across iterations")
                     }
-                    v1.to_circuit_assignment::<A>()?
+                    assignment_v1.to_circuit_assignment::<A>()?
                 }
             };
             batch_inclusions.push(assignment);

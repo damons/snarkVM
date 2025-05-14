@@ -1056,8 +1056,8 @@ function upgrade:
     // Input the record.
     input r0 as credits.record;
 
-    // Check if the record amount is at most 250,000 credits. // TODO (raychu86): Determine limit value.
-    lte r0.microcredits 250_000_000_000u64 into r1;
+    // Check if the record amount is at most 500,000 credits.
+    lte r0.microcredits 500_000_000_000u64 into r1;
     // Ensure that the record amount is at most 250,000 credits.
     assert.eq r1 true;
 
