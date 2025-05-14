@@ -114,9 +114,9 @@ pub const NETWORK_INCLUSION_FUNCTION_NAME: &str = "inclusion";
 
 lazy_static! {
     pub static ref INCLUSION_V0_PROVING_KEY: Vec<u8> =
-        InclusionProver::load_bytes().expect("Failed to load inclusion_v0 proving key");
+        InclusionV0Prover::load_bytes().expect("Failed to load inclusion_v0 proving key");
     pub static ref INCLUSION_V0_VERIFYING_KEY: Vec<u8> =
-        InclusionVerifier::load_bytes().expect("Failed to load inclusion_v0 verifying key");
+        InclusionV0Verifier::load_bytes().expect("Failed to load inclusion_v0 verifying key");
     pub static ref INCLUSION_PROVING_KEY: Vec<u8> =
         InclusionProver::load_bytes().expect("Failed to load inclusion proving key");
     pub static ref INCLUSION_VERIFYING_KEY: Vec<u8> =
