@@ -333,9 +333,25 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             InclusionVersion::V1
         };
 
-        // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version.
-        if execution.transitions().any(|t| t.is_upgrade()) && matches!(inclusion_version, InclusionVersion::V0) {
-            bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
+        // Perform checks if the execution contains `credits.aleo/upgrade`.
+        if execution.transitions().any(|t| t.is_upgrade()) {
+            // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version.
+            if matches!(inclusion_version, InclusionVersion::V0) {
+                bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
+            }
+
+            // Do not allow upgrades to occur if the block height is past the upgrade window.
+            if block_height > N::CONSENSUS_HEIGHT(ConsensusVersion::V6)?.saturating_add(N::UPGRADE_WINDOW_NUM_BLOCKS) {
+                bail!(
+                    "Execution verification failed - `credits.aleo/upgrade` cannot be called after the upgrade window"
+                );
+            }
+
+            // Do not allow upgrades to be callable by other programs.
+            // This is to prevent local records from being upgraded, which would ignore the record index checks.
+            if execution.transitions().len() > 1 {
+                bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called by another program");
+            }
         }
 
         // Verify the execution proof, if it has not been partially-verified before.
@@ -992,9 +1008,15 @@ mod credits_migration_tests {
         account::{Address, ViewKey},
         program::Entry,
     };
-    use ledger_block::{Transaction, Transition};
+    use ledger_block::Transition;
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
+
+    // Returns the migration height that enables the new inclusion assignment.
+    fn inclusion_migration_height() -> u32 {
+        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
+        CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
+    }
 
     #[cfg(feature = "test")]
     #[test]
@@ -1006,6 +1028,7 @@ mod credits_migration_tests {
         // 5. Check that `upgrade` works on the above record.
         // 6. Check that `upgrade` does not work on already upgraded records.
         // 7. Check that the upgraded records can now be spent.
+        // 8. Check that `upgrade` no longer works after the the window expires.
 
         let rng = &mut TestRng::default();
 
@@ -1035,9 +1058,24 @@ mod credits_migration_tests {
             vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
         };
 
+        // Create a split transaction before the migration.
+        let split_transaction_2 = {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(genesis_records[1].clone()),
+                Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+        };
+
         // Create a new block that includes the split.
-        let next_block =
-            crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[split_transaction], rng).unwrap();
+        let next_block = crate::vm::test_helpers::sample_next_block(
+            &vm,
+            &private_key,
+            &[split_transaction, split_transaction_2],
+            rng,
+        )
+        .unwrap();
         vm.add_next_block(&next_block).unwrap();
 
         // Fetch the records from the new block.
@@ -1066,12 +1104,9 @@ mod credits_migration_tests {
         // 2. Construct blocks until migration occurs
         // ----------------------------------------------------------------------------------------
 
-        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
-        let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
-        {
+        while vm.block_store().current_block_height() < inclusion_migration_height() {
             // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
         }
 
@@ -1144,6 +1179,30 @@ mod credits_migration_tests {
         };
 
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
+
+        // ----------------------------------------------------------------------------------------
+        // 8. Check that `upgrade` no longer works after the the window expires.
+        // ----------------------------------------------------------------------------------------
+
+        while vm.block_store().current_block_height()
+            <= inclusion_migration_height().saturating_add(CurrentNetwork::UPGRADE_WINDOW_NUM_BLOCKS)
+        {
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        let upgrade_3 = {
+            let record_to_spend = split_records[2].clone();
+            let amount = match record_to_spend.data().get(&microcredits) {
+                Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
+                _ => panic!("Invalid record"),
+            };
+            assert!(amount <= 500_000_000_000u64);
+            let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
+            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+        };
+        assert!(vm.check_transaction(&upgrade_3, None, rng).is_err());
     }
 
     #[cfg(feature = "test")]
@@ -1255,12 +1314,9 @@ function local_transfer:
         // Construct blocks until migration occurs
         // ----------------------------------------------------------------------------------------
 
-        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
-        let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
-        {
+        while vm.block_store().current_block_height() < inclusion_migration_height() {
             // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
         }
 
@@ -1279,7 +1335,7 @@ function local_transfer:
         );
 
         // ----------------------------------------------------------------------------------------
-        // 2. Check that upgrades can be called via another program
+        // 2. Check that upgrades cannot be called via another program
         // ----------------------------------------------------------------------------------------
 
         let inputs = [
@@ -1289,15 +1345,22 @@ function local_transfer:
         .into_iter();
         let multi_upgrade =
             vm.execute(&private_key, ("test_local_calls.aleo", "multi_upgrade"), inputs, None, 0, None, rng).unwrap();
-        assert!(vm.check_transaction(&multi_upgrade, None, rng).is_ok());
-
-        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[multi_upgrade], rng).unwrap();
-        vm.add_next_block(&next_block).unwrap();
-        assert_eq!(next_block.transactions().len(), 1);
+        assert!(vm.check_transaction(&multi_upgrade, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
         // 3. Check that local records can be spent and checked properly.
         // ----------------------------------------------------------------------------------------
+
+        // Upgrade an old record
+        let inputs = [Value::<CurrentNetwork>::Record(split_records[0].clone())].into_iter();
+        let upgrade =
+            vm.execute(&private_key, ("credits.aleo", "multi_upgradeupgrade"), inputs, None, 0, None, rng).unwrap();
+        assert!(vm.check_transaction(&upgrade, None, rng).is_ok());
+
+        // Add the upgrade function to a new block
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[upgrade], rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+        assert_eq!(next_block.transactions().len(), 1);
 
         // Fetch the records from the new block.
         let upgraded_records =

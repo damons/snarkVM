@@ -260,6 +260,14 @@ pub trait Network:
         Self::MAX_CERTIFICATES.last().map_or(Err(anyhow!("No MAX_CERTIFICATES defined.")), |(_, value)| Ok(*value))
     }
 
+    /// The number of blocks that the `credits.aleo/upgrade` function is available for after migration.
+    #[cfg(not(feature = "test"))]
+    const UPGRADE_WINDOW_NUM_BLOCKS: u32 = 1_750_000_u32; // Approximately 60 days at 3 second block times.
+    /// The number of blocks that the `credits.aleo/upgrade` function is available for after migration.
+    /// This is deliberately set to a low value (10) for testing purposes only.
+    #[cfg(feature = "test")]
+    const UPGRADE_WINDOW_NUM_BLOCKS: u32 = 10_u32;
+
     /// Returns the global record index used for the inclusion proof.
     #[allow(non_snake_case)]
     fn UPGRADE_RECORD_INDEX() -> Result<u64>;
