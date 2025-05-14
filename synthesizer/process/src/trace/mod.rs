@@ -19,9 +19,6 @@ pub use call_metrics::*;
 mod inclusion;
 pub use inclusion::*;
 
-// mod inclusion_v0;
-// pub use inclusion_v0::*;
-
 use algorithms::snark::varuna::VarunaVersion;
 use circuit::Assignment;
 use console::{
