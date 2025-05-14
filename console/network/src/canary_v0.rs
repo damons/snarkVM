@@ -197,7 +197,7 @@ impl Network for CanaryV0 {
     #[allow(non_snake_case)]
     fn MIGRATION_RECORD_INDEX() -> Result<u64> {
         let block_height = Self::CONSENSUS_HEIGHT(ConsensusVersion::V6)?;
-        Ok(get_record_index_for_height(block_height))
+        Ok(get_maximum_leaf_index_for_height(block_height))
     }
 
     /// Returns the genesis block bytes.

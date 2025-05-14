@@ -96,8 +96,8 @@ pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assig
     // Update the VM.
     vm.add_next_block(&genesis_block)?;
 
-    // Fetch a record commitment.
-    let commitment = genesis_block.commitments().nth(3).ok_or_else(|| anyhow!("No commitments found"))?;
+    // Fetch the first commitment.
+    let commitment = genesis_block.commitments().next().ok_or_else(|| anyhow!("No commitments found"))?;
     // Compute the state path for the commitment.
     let state_path = vm.block_store().get_state_path_for_commitment(commitment)?;
 
@@ -147,12 +147,12 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
     // Compute the serial number.
     let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, *commitment)?;
 
-    // Set the `check_reached_record_index` flag.
-    let check_reached_record_index = true;
-    // Set the `check_not_reached_record_index` flag.
-    let check_not_reached_record_index = false;
-    // Initialize the `migration_record_index`.
-    let migration_record_index = 3;
+    // Set the `enforce_record_index_check` flag.
+    let enforce_record_index_check = true;
+    // Set the `is_record_index_reached` flag.
+    let is_record_index_reached = true;
+    // Initialize the `upgrade_record_index`.
+    let upgrade_record_index = 0;
 
     // Construct the assignment for the inclusion circuit.
     let assignment = InclusionAssignment::new(
@@ -160,9 +160,9 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
         *commitment,
         gamma,
         serial_number,
-        check_reached_record_index,
-        check_not_reached_record_index,
-        migration_record_index,
+        enforce_record_index_check,
+        is_record_index_reached,
+        upgrade_record_index,
         Default::default(),
         true,
     )
@@ -172,9 +172,9 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
         assignment,
         state_path,
         serial_number,
-        check_reached_record_index,
-        check_not_reached_record_index,
-        migration_record_index,
+        enforce_record_index_check,
+        is_record_index_reached,
+        upgrade_record_index,
     ))
 }
 
@@ -188,9 +188,9 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
         assignment,
         state_path,
         serial_number,
-        check_reached_record_index,
-        check_not_reached_record_index,
-        migration_record_index,
+        enforce_record_index_check,
+        is_record_index_reached,
+        upgrade_record_index,
     ) = sample_assignment::<N, A>()?;
 
     // Synthesize the proving and verifying key.
@@ -208,9 +208,9 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
                 **state_path.global_state_root(),
                 *Field::<N>::zero(),
                 *serial_number,
-                *Field::<N>::from_bits_le(&[check_reached_record_index])?,
-                *Field::<N>::from_bits_le(&[check_not_reached_record_index])?,
-                *Field::<N>::from_u64(migration_record_index)
+                *Field::<N>::from_bits_le(&[enforce_record_index_check])?,
+                *Field::<N>::from_bits_le(&[is_record_index_reached])?,
+                *Field::<N>::from_u64(upgrade_record_index)
             ],
             &proof
         ));
@@ -225,9 +225,9 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
                 **state_path.global_state_root(),
                 *Field::<N>::zero(),
                 *serial_number,
-                *Field::<N>::from_bits_le(&[check_reached_record_index])?,
-                *Field::<N>::from_bits_le(&[check_not_reached_record_index])?,
-                *Field::<N>::from_u64(migration_record_index)
+                *Field::<N>::from_bits_le(&[enforce_record_index_check])?,
+                *Field::<N>::from_bits_le(&[is_record_index_reached])?,
+                *Field::<N>::from_u64(upgrade_record_index)
             ],
             &proof
         ));

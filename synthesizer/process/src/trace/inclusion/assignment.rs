@@ -21,9 +21,9 @@ pub struct InclusionAssignment<N: Network> {
     commitment: Field<N>,
     gamma: Group<N>,
     serial_number: Field<N>,
-    check_reached_record_index: bool,
-    check_not_reached_record_index: bool,
-    migration_record_index: u64, // TODO (raychu86): Updated Inclusion - Rename this.
+    enforce_record_index_check: bool,
+    is_record_index_reached: bool,
+    upgrade_record_index: u64,
     local_state_root: N::TransactionID,
     is_global: bool,
 }
@@ -35,9 +35,9 @@ impl<N: Network> InclusionAssignment<N> {
         commitment: Field<N>,
         gamma: Group<N>,
         serial_number: Field<N>,
-        check_reached_record_index: bool,
-        check_not_reached_record_index: bool,
-        migration_record_index: u64,
+        enforce_record_index_check: bool,
+        is_record_index_reached: bool,
+        upgrade_record_index: u64,
         local_state_root: N::TransactionID,
         is_global: bool,
     ) -> Self {
@@ -46,9 +46,9 @@ impl<N: Network> InclusionAssignment<N> {
             commitment,
             gamma,
             serial_number,
-            check_reached_record_index,
-            check_not_reached_record_index,
-            migration_record_index,
+            enforce_record_index_check,
+            is_record_index_reached,
+            upgrade_record_index,
             local_state_root,
             is_global,
         }
@@ -80,25 +80,27 @@ impl<N: Network> InclusionAssignment<N> {
         let commitment = circuit::Field::<A>::new(circuit::Mode::Private, self.commitment);
         // Inject the gamma as `Mode::Private`.
         let gamma = circuit::Group::<A>::new(circuit::Mode::Private, self.gamma);
+
         // Inject the local state root as `Mode::Public`.
         let local_state_root = circuit::Field::<A>::new(circuit::Mode::Public, *self.local_state_root);
         // Inject the 'is_global' flag as `Mode::Private`.
         let is_global = circuit::Boolean::<A>::new(circuit::Mode::Private, self.is_global);
+
         // Inject the serial number as `Mode::Public`.
         let serial_number = circuit::Field::<A>::new(circuit::Mode::Public, self.serial_number);
-        // Inject the `check_reached_record_index` flag as `Mode::Public`.
-        let check_reached_record_index =
-            circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_reached_record_index);
-        // Inject the `check_not_reached_record_index` flag as `Mode::Public`.
-        let check_not_reached_record_index =
-            circuit::Boolean::<A>::new(circuit::Mode::Public, self.check_not_reached_record_index);
-        // Inject the migration_record_index as `Mode::Public`.
+
+        // Inject the `enforce_record_index_check` flag as `Mode::Public`.
+        let enforce_record_index_check =
+            circuit::Boolean::<A>::new(circuit::Mode::Public, self.enforce_record_index_check);
+        // Inject the `is_record_index_reached` flag as `Mode::Public`.
+        let is_record_index_reached = circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_record_index_reached);
+        // Inject the `upgrade_record_index` as `Mode::Public`.
         // This is cast into a u64 to prevent requiring 64 field elements as input.
-        let migration_record_index_field = circuit::Field::<A>::new(
+        let upgrade_record_index_field = circuit::Field::<A>::new(
             circuit::Mode::Public,
-            console::types::Field::<N>::from_u64(self.migration_record_index),
+            console::types::Field::<N>::from_u64(self.upgrade_record_index),
         );
-        let migration_record_index = circuit::U64::from_field(migration_record_index_field);
+        let upgrade_record_index = circuit::U64::from_field(upgrade_record_index_field);
 
         // Compute the candidate serial number.
         let candidate_serial_number =
@@ -113,25 +115,14 @@ impl<N: Network> InclusionAssignment<N> {
 
         // Fetch the record index from the state path.
         let record_index = state_path.record_index();
-
-        // Determine if the record index is at or past migration.
-        let is_record_index_past_migration = record_index.is_greater_than_or_equal(&migration_record_index);
-        // Determine if the record index is before migration.
-        let is_record_index_before_migration = is_record_index_past_migration.clone().not();
-        // Ensure that both "record index has been reached" and "not yet reached" are not being checked simultaneously.
-        A::assert(check_reached_record_index.clone().bitand(&check_not_reached_record_index).not());
-
-        // Ensure that the record index is reached if `check_reached_record_index` is true.
-        let is_valid_reached_index = check_reached_record_index.clone().bitand(&is_record_index_past_migration);
-        // Ensure that the record index is not reached if `check_not_reached_record_index` is true.
-        let is_valid_not_reached_index =
-            check_not_reached_record_index.clone().bitand(&is_record_index_before_migration);
-        // Determine if no checks are required if both `check_reached_record_index` and `check_not_reached_record_index` are false
-        let no_checks_required = check_reached_record_index.not().bitand(&check_not_reached_record_index.not());
-        // Determine the final validity based on the above conditions.
-        let is_valid_index = &is_valid_reached_index.bitor(&is_valid_not_reached_index).bitor(no_checks_required);
+        // Determine if the record index is at or past the upgrade index.
+        let is_record_index_past_upgrade_index = record_index.is_greater_than_or_equal(&upgrade_record_index);
+        // Determine if the record index is correctly evaluated.
+        let is_record_index_check_valid = is_record_index_reached.is_equal(&is_record_index_past_upgrade_index);
+        // Determine if the index check is valid.
+        let is_global_index_check_valid = enforce_record_index_check.bitand(is_record_index_check_valid);
         // Check that the index is valid if the record is from a global state path.
-        A::assert(is_global.not().bitor(is_valid_index));
+        A::assert(is_global.not().bitor(is_global_index_check_valid));
 
         #[cfg(debug_assertions)]
         Stack::log_circuit::<A, _>(&format!("State Path for {}", self.serial_number));

@@ -71,8 +71,8 @@ pub type TransitionTree<N> = BHPMerkleTree<N, TRANSITION_DEPTH>;
 /// The Merkle path for an input or output ID in the transition.
 pub type TransitionPath<N> = MerklePath<N, TRANSITION_DEPTH>;
 
-/// Returns the record index of the network at the given block height.
-pub fn get_record_index_for_height(block_height: u32) -> u64 {
+/// Returns the maximum leaf index of the network at the given block height.
+pub fn get_maximum_leaf_index_for_height(block_height: u32) -> u64 {
     // Calculate the number of total blocks including the genesis block.
     let num_blocks = block_height.saturating_add(1) as u64;
     // Calculate the number of bottom-level leaves in each tree.

@@ -16,6 +16,8 @@
 mod helpers;
 use helpers::{LeafHash, PathHash};
 
+mod leaf_index;
+
 mod verify;
 
 #[cfg(all(test, feature = "console"))]
@@ -28,13 +30,6 @@ pub struct MerklePath<E: Environment, const DEPTH: u8> {
     leaf_index: U64<E>,
     /// The `siblings` contains a list of sibling hashes from the leaf to the root.
     siblings: Vec<Field<E>>,
-}
-
-impl<E: Environment, const DEPTH: u8> MerklePath<E, DEPTH> {
-    /// Returns the leaf index of the merkle path.
-    pub const fn leaf_index(&self) -> &U64<E> {
-        &self.leaf_index
-    }
 }
 
 #[cfg(feature = "console")]

@@ -96,18 +96,9 @@ impl<A: Aleo> StatePath<A> {
         let num_leaves_in_header_tree = two.clone().pow(header_depth).mul(&num_leaves_in_transactions_tree);
 
         // Calculate the number of previous leaves in each tree based on the index.
-        let header_leaf_index = U64::<A>::new(
-            self.header_leaf.index().eject_mode(),
-            console::U64::new(*self.header_leaf.index().eject_value() as u64),
-        );
-        let transaction_leaf_index = U64::<A>::new(
-            self.transaction_leaf.index().eject_mode(),
-            console::U64::new(*self.transaction_leaf.index().eject_value() as u64),
-        );
-        let transition_leaf_index = U64::<A>::new(
-            self.transition_leaf.index().eject_mode(),
-            console::U64::new(*self.transition_leaf.index().eject_value() as u64),
-        );
+        let header_leaf_index = U64::<A>::from_bits_le(&self.header_leaf.index().to_bits_le());
+        let transaction_leaf_index = U64::<A>::from_bits_le(&self.transaction_leaf.index().to_bits_le());
+        let transition_leaf_index = U64::<A>::from_bits_le(&self.transition_leaf.index().to_bits_le());
         let num_previous_leaves_from_block_tree = num_leaves_in_header_tree.mul(self.block_path.leaf_index());
         let num_previous_leaves_from_header_tree = num_leaves_in_transactions_tree.mul(header_leaf_index);
         let num_previous_leaves_from_transactions_tree = num_leaves_in_transitions_tree.mul(transaction_leaf_index);

@@ -324,7 +324,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_migration_record_index =
-            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX()?;
+            self.block_store().get_current_maximum_leaf_index() < N::MIGRATION_RECORD_INDEX()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
             || is_network_behind_migration_record_index
         {
@@ -391,7 +391,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_migration_record_index =
-            self.block_store().get_current_record_index() < N::MIGRATION_RECORD_INDEX()?;
+            self.block_store().get_current_maximum_leaf_index() < N::MIGRATION_RECORD_INDEX()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
             || is_network_behind_migration_record_index
         {
@@ -1081,7 +1081,10 @@ mod credits_migration_tests {
         // 3. Check that network has reached the `migration_record_index`
         // ----------------------------------------------------------------------------------------
 
-        assert_eq!(vm.block_store().get_current_record_index(), CurrentNetwork::MIGRATION_RECORD_INDEX().unwrap());
+        assert_eq!(
+            vm.block_store().get_current_maximum_leaf_index(),
+            CurrentNetwork::MIGRATION_RECORD_INDEX().unwrap()
+        );
 
         // ----------------------------------------------------------------------------------------
         // 4. Check that records from before the `migration_record_index` can't be spent.

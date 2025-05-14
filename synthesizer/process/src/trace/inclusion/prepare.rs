@@ -104,12 +104,10 @@ macro_rules! prepare_impl {
                             //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record index is after the migration index.
                             //     3. If the function is neither, do not perform any index check.
 
+                            // Determine if the record index check should be enforced.
+                            let enforce_record_index_check = transition.is_credits();
                             // Determine if the record index should be reached.
-                            let check_reached_record_index = transition.is_credits() && !transition.is_upgrade();
-                            // Determine if the record index should not be reached.
-                            let check_not_reached_record_index = transition.is_upgrade();
-                            // Determine the migration record index.
-                            let migration_record_index = N::MIGRATION_RECORD_INDEX()?;
+                            let is_record_index_reached = !transition.is_upgrade();
 
                             // This should be consistent with `Inclusion::prepare_verifier_inputs`
                             let assignment = InclusionAssignment::new(
@@ -117,9 +115,9 @@ macro_rules! prepare_impl {
                                 task.commitment,
                                 task.gamma,
                                 task.serial_number,
-                                check_reached_record_index,
-                                check_not_reached_record_index,
-                                migration_record_index,
+                                enforce_record_index_check,
+                                is_record_index_reached,
+                                N::MIGRATION_RECORD_INDEX()?,
                                 local_state_root,
                                 task.local.is_none(), // Equivalent to 'is_global'
                             );

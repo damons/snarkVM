@@ -1221,9 +1221,9 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
         self.storage.get_state_path_for_commitment(commitment, &self.tree.read())
     }
 
-    /// Returns the current global record index assuming all leaves are filled.
-    pub fn get_current_record_index(&self) -> u64 {
-        get_record_index_for_height(self.current_block_height())
+    /// Returns the current maximum leaf index assuming all leaves are filled.
+    pub fn get_current_maximum_leaf_index(&self) -> u64 {
+        get_maximum_leaf_index_for_height(self.current_block_height())
     }
 
     /// Returns the previous block hash of the given `block height`.
