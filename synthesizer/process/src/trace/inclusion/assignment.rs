@@ -59,11 +59,14 @@ impl<N: Network> InclusionAssignment<N> {
     /// # Diagram
     /// The `[[ ]]` notation is used to denote public inputs.
     /// ```ignore
-    ///             [[ global_state_root ]] || [[ local_state_root ]]
-    ///                        |                          |
-    ///                        -------- is_global --------
-    ///                                     |
-    ///                                state_path
+    ///             [[ global_state_root ]] || [[ local_state_root ]]  [[ is_record_index_reached ]]
+    ///                        |                          |                         |
+    ///                        -------- is_global --------                          |
+    ///                                     |                                       |
+    ///                                state_path ---------- record_index ------ compare ------ [[ upgrade_record_index ]]
+    ///                                    |                                        |
+    ///                                    |                                        |
+    ///                                    |                     is_global ------ check ------ [[ enforce_record_index_check ]]
     ///                                    |
     /// [[ serial_number ]] := Commit( commitment || Hash( COFACTOR * gamma ) )
     /// ```

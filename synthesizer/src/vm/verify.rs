@@ -1353,8 +1353,7 @@ function local_transfer:
 
         // Upgrade an old record
         let inputs = [Value::<CurrentNetwork>::Record(split_records[0].clone())].into_iter();
-        let upgrade =
-            vm.execute(&private_key, ("credits.aleo", "multi_upgradeupgrade"), inputs, None, 0, None, rng).unwrap();
+        let upgrade = vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap();
         assert!(vm.check_transaction(&upgrade, None, rng).is_ok());
 
         // Add the upgrade function to a new block
@@ -1368,6 +1367,7 @@ function local_transfer:
         let upgraded_records =
             upgraded_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
 
+        // Check that the upgraded record can't be upgraded again.
         let record_to_spend = upgraded_records[0].clone();
         let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
         assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
