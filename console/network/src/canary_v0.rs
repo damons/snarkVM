@@ -172,7 +172,7 @@ impl Network for CanaryV0 {
     /// The network ID.
     const ID: u16 = 2;
     /// The function name for the inclusion circuit.
-    const INCLUSION_FUNCTION_NAME: &'static str = MainnetV0::INCLUSION_FUNCTION_NAME;
+    const INCLUSION_FUNCTION_NAME: &'static str = snarkvm_parameters::canary::NETWORK_INCLUSION_FUNCTION_NAME;
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
     #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
@@ -230,7 +230,7 @@ impl Network for CanaryV0 {
         INSTANCE.get_or_init(|| {
             // Skipping the first byte, which is the encoded version.
             Arc::new(
-                CircuitProvingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_PROVING_KEY[1..])
+                CircuitProvingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_V0_PROVING_KEY[1..])
                     .expect("Failed to load inclusion_v0 proving key."),
             )
         })
@@ -242,7 +242,7 @@ impl Network for CanaryV0 {
         INSTANCE.get_or_init(|| {
             // Skipping the first byte, which is the encoded version.
             Arc::new(
-                CircuitVerifyingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_VERIFYING_KEY[1..])
+                CircuitVerifyingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_V0_VERIFYING_KEY[1..])
                     .expect("Failed to load inclusion_v0 verifying key."),
             )
         })
@@ -250,12 +250,26 @@ impl Network for CanaryV0 {
 
     /// Returns the `proving key` for the inclusion circuit.
     fn inclusion_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
-        unimplemented!()
+        static INSTANCE: OnceCell<Arc<VarunaProvingKey<Console>>> = OnceCell::new();
+        INSTANCE.get_or_init(|| {
+            // Skipping the first byte, which is the encoded version.
+            Arc::new(
+                CircuitProvingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_PROVING_KEY[1..])
+                    .expect("Failed to load inclusion proving key."),
+            )
+        })
     }
 
     /// Returns the `verifying key` for the inclusion circuit.
     fn inclusion_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>> {
-        unimplemented!()
+        static INSTANCE: OnceCell<Arc<VarunaVerifyingKey<Console>>> = OnceCell::new();
+        INSTANCE.get_or_init(|| {
+            // Skipping the first byte, which is the encoded version.
+            Arc::new(
+                CircuitVerifyingKey::from_bytes_le(&snarkvm_parameters::canary::INCLUSION_VERIFYING_KEY[1..])
+                    .expect("Failed to load inclusion verifying key."),
+            )
+        })
     }
 
     /// Returns the powers of `G`.
