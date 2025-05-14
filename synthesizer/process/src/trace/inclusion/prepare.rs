@@ -87,7 +87,7 @@ macro_rules! prepare_impl {
 
                         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
                         // Construct the assignment for the state path based on the consensus version
-                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) { // || is_network_behind_migration_record_index
+                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
                             let assignment = InclusionV0Assignment::new(
                                 state_path,
                                 task.commitment,
@@ -100,8 +100,8 @@ macro_rules! prepare_impl {
                             InclusionAssignmentWrapper::V0(assignment)
                         } else {
                             // Enforce the record index based on the conditions:
-                            //     1. If the function is an `upgrade` then check that the record index is before the migration index.
-                            //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record index is after the migration index.
+                            //     1. If the function is an `upgrade` then check that the record index is before the upgrade index.
+                            //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record index is after the upgrade index.
                             //     3. If the function is neither, do not perform any index check.
 
                             // Determine if the record index check should be enforced.
@@ -117,7 +117,7 @@ macro_rules! prepare_impl {
                                 task.serial_number,
                                 enforce_record_index_check,
                                 is_record_index_reached,
-                                N::MIGRATION_RECORD_INDEX()?,
+                                N::UPGRADE_RECORD_INDEX()?,
                                 local_state_root,
                                 task.local.is_none(), // Equivalent to 'is_global'
                             );

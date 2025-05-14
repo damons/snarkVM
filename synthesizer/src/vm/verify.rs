@@ -323,10 +323,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
-        let is_network_behind_migration_record_index =
-            self.block_store().get_current_maximum_leaf_index() < N::MIGRATION_RECORD_INDEX()?;
+        let is_network_behind_upgrade_record_index =
+            self.block_store().get_current_maximum_leaf_index() < N::UPGRADE_RECORD_INDEX()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
-            || is_network_behind_migration_record_index
+            || is_network_behind_upgrade_record_index
         {
             InclusionVersion::V0
         } else {
@@ -390,10 +390,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
-        let is_network_behind_migration_record_index =
-            self.block_store().get_current_maximum_leaf_index() < N::MIGRATION_RECORD_INDEX()?;
+        let is_network_behind_upgrade_record_index =
+            self.block_store().get_current_maximum_leaf_index() < N::UPGRADE_RECORD_INDEX()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
-            || is_network_behind_migration_record_index
+            || is_network_behind_upgrade_record_index
         {
             InclusionVersion::V0
         } else {
@@ -1003,8 +1003,8 @@ mod credits_migration_tests {
     fn test_inclusion_migration() {
         // 1. Check that `upgrade` is not callable before migration
         // 2. Construct blocks until migration occurs
-        // 3. Check that network has reached the `migration_record_index`
-        // 4. Check that records from before the `migration_record_index` can't be spent.
+        // 3. Check that network has reached the `upgrade_record_index`
+        // 4. Check that records from before the `upgrade_record_index` can't be spent.
         // 5. Check that `upgrade` works on the above record.
         // 6. Check that `upgrade` does not work on already upgraded records.
         // 7. Check that the upgraded records can now be spent.
@@ -1078,16 +1078,13 @@ mod credits_migration_tests {
         }
 
         // ----------------------------------------------------------------------------------------
-        // 3. Check that network has reached the `migration_record_index`
+        // 3. Check that network has reached the `upgrade_record_index`
         // ----------------------------------------------------------------------------------------
 
-        assert_eq!(
-            vm.block_store().get_current_maximum_leaf_index(),
-            CurrentNetwork::MIGRATION_RECORD_INDEX().unwrap()
-        );
+        assert_eq!(vm.block_store().get_current_maximum_leaf_index(), CurrentNetwork::UPGRADE_RECORD_INDEX().unwrap());
 
         // ----------------------------------------------------------------------------------------
-        // 4. Check that records from before the `migration_record_index` can't be spent.
+        // 4. Check that records from before the `upgrade_record_index` can't be spent.
         // ----------------------------------------------------------------------------------------
 
         let record_to_spend = split_records[0].clone();

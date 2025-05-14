@@ -172,7 +172,7 @@ impl<N: Network> Inclusion<N> {
                             // Add the additional verifier inputs.
                             verifier_inputs.push(*Field::<N>::from_bits_le(&[enforce_record_index_check])?);
                             verifier_inputs.push(*Field::<N>::from_bits_le(&[is_record_index_reached])?);
-                            verifier_inputs.push(*Field::<N>::from_u64(N::MIGRATION_RECORD_INDEX()?));
+                            verifier_inputs.push(*Field::<N>::from_u64(N::UPGRADE_RECORD_INDEX()?));
                         }
                     }
                     batch_verifier_inputs.push(verifier_inputs);

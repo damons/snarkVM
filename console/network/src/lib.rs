@@ -262,7 +262,7 @@ pub trait Network:
 
     /// Returns the global record index used for the inclusion proof.
     #[allow(non_snake_case)]
-    fn MIGRATION_RECORD_INDEX() -> Result<u64>;
+    fn UPGRADE_RECORD_INDEX() -> Result<u64>;
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8];
