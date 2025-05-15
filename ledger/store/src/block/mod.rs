@@ -773,8 +773,8 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
     }
 
     /// Returns true if there is a block that contains the specified certificate.
-    fn has_block_for_certificate(&self, certificate_id: &Field<N>) -> Result<bool> {
-        Ok(self.certificate_map().get_confirmed(certificate_id)?.is_some())
+    fn contains_block_for_certificate(&self, certificate_id: &Field<N>) -> Result<bool> {
+        self.certificate_map().contains_key_confirmed(certificate_id)
     }
 
     /// Returns the batch certificate for the given `certificate ID`.
@@ -1292,8 +1292,8 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     }
 
     /// Returns true if there is a block for the given certificate.
-    pub fn has_block_for_certificate(&self, certificate_id: &Field<N>) -> Result<bool> {
-        self.storage.has_block_for_certificate(certificate_id)
+    pub fn contains_block_for_certificate(&self, certificate_id: &Field<N>) -> Result<bool> {
+        self.storage.contains_block_for_certificate(certificate_id)
     }
 
     /// Returns the batch certificate for the given `certificate ID`.
