@@ -55,7 +55,7 @@ pub fn staking_rewards<N: Network>(
     let valid_validators: IndexMap<_, _> = committee
         .members()
         .iter()
-        .filter_map(|(validator, (validator_stake, _, commission_rate))| {
+        .filter_map(|(validator, (validator_stake, _is_open, commission_rate))| {
             // Skip validators with invalid commission rates.
             if *commission_rate > 100 {
                 error!("Commission rate ({commission_rate}) is greater than 100 - skipping validator {validator}");
@@ -83,7 +83,6 @@ pub fn staking_rewards<N: Network>(
         .map(|(staker, (validator, stake))| {
             // If the validator is not in the valid validators list, skip the staker.
             let Some((validator_stake, commission_rate)) = valid_validators.get(validator) else {
-                // No logging here to avoid log spam.
                 return (*staker, (*validator, *stake));
             };
 
