@@ -138,6 +138,10 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                             circuit::U16::new(circuit::Mode::Constant, edition),
                         ))))
                     }
+                    // If the operand is the program owner, throw an error.
+                    Operand::ProgramOwner(_) => {
+                        bail!("Illegal operation: cannot retrieve the program owner in a closure scope")
+                    }
                 }
             })
             .collect();
@@ -390,6 +394,10 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                         Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::U16(
                             circuit::U16::new(circuit::Mode::Constant, edition),
                         ))))
+                    }
+                    // If the operand is the program owner, throw an error.
+                    Operand::ProgramOwner(_) => {
+                        bail!("Illegal operation: cannot retrieve the program owner in a function scope")
                     }
                 }
             })

@@ -62,6 +62,20 @@ impl<N: Network> RegistersLoad<N> for FinalizeRegisters<N> {
                 };
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))));
             }
+            // If the operand is the program owner, load the program address.
+            Operand::ProgramOwner(program_id) => {
+                // Get the program owner from the stack.
+                let program_owner = match program_id {
+                    Some(program_id) => *stack.get_external_stack(program_id)?.program_owner(),
+                    None => *stack.program_owner(),
+                };
+                // Get the address, if it exists.
+                let address = match program_owner {
+                    Some(address) => address,
+                    None => bail!("The program owner does not exist for the program '{}'.", stack.program_id()),
+                };
+                return Ok(Value::Plaintext(Plaintext::from(Literal::Address(address))));
+            }
         };
 
         // Retrieve the value.

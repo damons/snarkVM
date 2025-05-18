@@ -54,6 +54,7 @@ impl<N: Network> Stack<N> {
             program_address: program.id().to_address()?,
             program_checksum: program.to_checksum(),
             program_edition: U16::new(edition),
+            program_owner: None,
         };
 
         // Add all the imports into the stack.

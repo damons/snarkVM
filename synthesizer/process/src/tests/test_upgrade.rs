@@ -1004,7 +1004,9 @@ fn test_credits_is_not_upgradable() -> Result<()> {
     let credits_program = Program::<CurrentNetwork>::credits()?;
     let program = Program::from_str(&format!("{credits_program}\nfunction dummy:"))?;
     // Attempt to add the new credits program.
-    let result = Stack::check_upgrade_is_valid(&process, &program);
+    let stack = process.get_stack("credits.aleo")?;
+    let old_program = stack.program();
+    let result = Stack::check_upgrade_is_valid(old_program, &program);
     // Verify that the upgrade was not successful.
     assert!(result.is_err(), "Upgrading 'credits.aleo' should not be allowed");
     Ok(())

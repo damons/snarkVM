@@ -116,6 +116,12 @@ impl<N: Network> RegisterTypes<N> {
                         "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{operand_type}' in the operand '{operand}'.",
                     )
                 }
+                // If the operand is a program owner type, throw an error.
+                Operand::ProgramOwner(_) => {
+                    bail!(
+                        "Struct member '{struct_name}.{member_name}' cannot be from a program owner in a non-finalize scope"
+                    )
+                }
             }
         }
         Ok(())
@@ -217,6 +223,10 @@ impl<N: Network> RegisterTypes<N> {
                         array_type.next_element_type()
                     )
                 }
+                // If the operand is a program owner type, throw an error.
+                Operand::ProgramOwner(_) => {
+                    bail!("Array element cannot be from a program owner in a non-finalize scope")
+                }
             }
         }
         Ok(())
@@ -287,6 +297,9 @@ impl<N: Network> RegisterTypes<N> {
             }
             Operand::Edition(_) => {
                 bail!("Forbidden operation: Cannot cast an edition as a record owner")
+            }
+            Operand::ProgramOwner(_) => {
+                bail!("Forbidden operation: Cannot cast a program owner as a record owner")
             }
         }
 
@@ -370,6 +383,12 @@ impl<N: Network> RegisterTypes<N> {
                             ensure!(
                                 operand_type == plaintext_type,
                                 "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found '{operand_type}' in the operand '{operand}'.",
+                            )
+                        }
+                        // Fail if the operand is a program owner.
+                        Operand::ProgramOwner(_) => {
+                            bail!(
+                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found a program owner in the operand '{operand}'."
                             )
                         }
                     }

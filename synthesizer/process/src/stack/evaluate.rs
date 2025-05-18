@@ -101,6 +101,8 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                         };
                         Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))))
                     }
+                    // If the operand is the program owner, throw an error.
+                    Operand::ProgramOwner(_) => bail!("Cannot retrieve the program owner from a closure scope."),
                 }
             })
             .collect();
@@ -250,6 +252,8 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                         };
                         Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))))
                     }
+                    // If the operand is the program owner, throw an error.
+                    Operand::ProgramOwner(_) => bail!("Cannot retrieve the program owner from a function scope."),
                 }
             })
             .collect::<Result<Vec<_>>>()?;

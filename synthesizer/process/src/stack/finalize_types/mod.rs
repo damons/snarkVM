@@ -122,6 +122,7 @@ impl<N: Network> FinalizeTypes<N> {
                 vec![U32::new(32)],
             )?)),
             Operand::Edition(_) => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
+            Operand::ProgramOwner(_) => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::Address)),
         })
     }
 

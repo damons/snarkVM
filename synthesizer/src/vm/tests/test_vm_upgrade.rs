@@ -230,7 +230,6 @@ constructor:
     assert_eq!(**stack.program_edition(), 1);
 
     // Check that the old execution is no longer valid.
-    vm.partially_verified_transactions().write().clear();
     assert!(vm.check_transaction(&original_execution, None, rng).is_err());
 
     // Execute the upgraded program.
@@ -1000,7 +999,6 @@ constructor:
     vm.add_next_block(&block)?;
 
     // Verify that the original sum transaction fails after the dependency upgrade.
-    vm.partially_verified_transactions().write().clear();
     assert!(vm.check_transaction(&sum_unchecked, None, rng).is_err());
     let block = sample_next_block(&vm, &caller_private_key, &[sum_unchecked], rng)?;
     assert_eq!(block.transactions().num_accepted(), 0);
@@ -2007,4 +2005,245 @@ constructor:
     assert!(result.is_err());
 
     Ok(())
+}
+
+// This test checks that a program can be upgraded using the simple admin mechanism.
+#[test]
+fn test_simple_admin_upgrade() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+    let caller_address = Address::try_from(&caller_private_key).unwrap();
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap(), rng);
+
+    // Generate a separate caller.
+    let separate_caller_private_key = PrivateKey::new(rng).unwrap();
+    let separate_caller_address = Address::try_from(&separate_caller_private_key).unwrap();
+
+    // Fund the new caller with 10M credits.
+    let transaction = vm
+        .execute(
+            &caller_private_key,
+            ("credits.aleo", "transfer_public"),
+            vec![
+                Value::from_str(&format!("{}", separate_caller_address)).unwrap(),
+                Value::from_str("10_000_000_000_000u64").unwrap(),
+            ]
+            .into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Define the programs.
+    let program_v0 = Program::from_str(&format!(
+        r"
+program simple_admin.aleo;
+function foo:
+constructor:
+    assert.eq program_owner {caller_address};
+    "
+    ))
+    .unwrap();
+
+    let program_v1 = Program::from_str(&format!(
+        r"
+program simple_admin.aleo;
+function foo:
+function bar:
+constructor:
+    assert.eq program_owner {caller_address};
+    "
+    ))
+    .unwrap();
+
+    // Attempt to deploy the first version of the program with the wrong admin.
+    let transaction = vm.deploy(&separate_caller_private_key, &program_v0, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the first version of the program with the correct admin.
+    let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Attempt to upgrade the program with the wrong admin.
+    let transaction = vm.deploy(&separate_caller_private_key, &program_v1, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Upgrade the program with the correct admin.
+    let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+}
+
+// This test verifies the behavior of `partially_verified_transactions` cache for transactions before and after a program upgrade.
+#[test]
+fn test_verification_cache() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap(), rng);
+
+    // Define the programs.
+    let program_v0 = Program::from_str(
+        r"
+program test_program.aleo;
+function foo:
+   input r0 as boolean.private;
+   assert.eq r0 true;
+constructor:
+   assert.eq true true;
+   ",
+    )
+    .unwrap();
+
+    let program_v1 = Program::from_str(
+        r"
+program test_program.aleo;
+function foo:
+   input r0 as boolean.private;
+   assert.eq r0 false;
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    // Deploy the first version of the program.
+    let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Execute a transaction with the first version of the program.
+    let execution = vm
+        .execute(
+            &caller_private_key,
+            ("test_program.aleo", "foo"),
+            vec![Value::from_str("true").unwrap()].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+
+    // Get the size of the verification cache before running the verification.
+    let cache_size_before = vm.partially_verified_transactions().read().len();
+
+    // Verify the transaction and check the cache size.
+    assert!(vm.check_transaction(&execution, None, rng).is_ok());
+    let cache_size_after = vm.partially_verified_transactions().read().len();
+    assert_eq!(cache_size_after, cache_size_before + 1);
+
+    // Upgrade the program to the new version.
+    let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Verify the transaction again and check the cache size.
+    assert!(vm.check_transaction(&execution, None, rng).is_err());
+    let cache_size_after_upgrade = vm.partially_verified_transactions().read().len();
+    assert_eq!(cache_size_after_upgrade, cache_size_after + 1);
+}
+
+// This test verifies that
+//   - a program deployed before `V5` does not have an owner.
+//   - `credits.aleo` does not have an owner.
+//   - a program deployed after `V5` has an owner.
+#[test]
+fn test_program_deployed_before_v5_do_not_have_owner() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+    let caller_address = Address::try_from(&caller_private_key).unwrap();
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap() - 1, rng);
+
+    // Define the programs.
+    let program_before_v5 = Program::from_str(
+        r"
+program test_program_0.aleo;
+function foo:",
+    )
+    .unwrap();
+
+    let program_after_v5 = Program::from_str(
+        r"
+program test_program_1.aleo;
+function foo:
+constructor:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    // Deploy the first program.
+    let transaction = vm.deploy(&caller_private_key, &program_before_v5, None, 0, None, rng).unwrap();
+    // Check that the deployment does not have an owner or checksum.
+    assert!(transaction.deployment().unwrap().program_checksum().is_none());
+    assert!(transaction.deployment().unwrap().program_owner().is_none());
+    // Create the next block and check that the transaction is accepted.
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the second program.
+    let transaction = vm.deploy(&caller_private_key, &program_after_v5, None, 0, None, rng).unwrap();
+    // Check that the deployment has an owner and checksum.
+    assert!(transaction.deployment().unwrap().program_checksum().is_some());
+    assert!(transaction.deployment().unwrap().program_owner().is_some());
+    // Create the next block and check that the transaction is accepted.
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Check the owners of the programs.
+    let stack = vm.process().read().get_stack("credits.aleo").unwrap();
+    assert!(stack.program_owner().is_none());
+
+    let stack = vm.process().read().get_stack("test_program_0.aleo").unwrap();
+    assert!(stack.program_owner().is_none());
+
+    let stack = vm.process().read().get_stack("test_program_1.aleo").unwrap();
+    assert!(stack.program_owner().is_some());
+    assert_eq!(stack.program_owner().unwrap(), caller_address);
 }

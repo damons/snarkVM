@@ -107,6 +107,7 @@ impl<N: Network> RegisterTypes<N> {
                 vec![U32::new(32)],
             )?)),
             Operand::Edition(_) => RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
+            Operand::ProgramOwner(_) => bail!("'program.owner' is not a valid operand in a non-finalize context."),
         })
     }
 

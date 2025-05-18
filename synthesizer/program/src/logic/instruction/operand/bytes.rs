@@ -43,6 +43,15 @@ impl<N: Network> FromBytes for Operand<N> {
                 };
                 Ok(Self::Edition(program_id))
             }
+            9 => {
+                // Read the program ID.
+                let program_id = match u8::read_le(&mut reader)? {
+                    0 => None,
+                    1 => Some(ProgramID::read_le(&mut reader)?),
+                    variant => return Err(error(format!("Invalid program ID variant '{variant}' for the owner"))),
+                };
+                Ok(Self::ProgramOwner(program_id))
+            }
             variant => Err(error(format!("Failed to deserialize operand variant {variant}"))),
         }
     }
@@ -80,6 +89,17 @@ impl<N: Network> ToBytes for Operand<N> {
             }
             Self::Edition(program_id) => {
                 8u8.write_le(&mut writer)?;
+                // Write the program ID.
+                match program_id {
+                    None => 0u8.write_le(&mut writer),
+                    Some(ref program_id) => {
+                        1u8.write_le(&mut writer)?;
+                        program_id.write_le(&mut writer)
+                    }
+                }
+            }
+            Self::ProgramOwner(program_id) => {
+                9u8.write_le(&mut writer)?;
                 // Write the program ID.
                 match program_id {
                     None => 0u8.write_le(&mut writer),

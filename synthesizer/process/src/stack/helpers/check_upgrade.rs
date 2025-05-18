@@ -34,14 +34,11 @@ impl<N: Network> Stack<N> {
     ///  |-------------------|--------|--------------|-------|
     ///
     #[inline]
-    pub(crate) fn check_upgrade_is_valid(process: &Process<N>, new_program: &Program<N>) -> Result<()> {
+    pub fn check_upgrade_is_valid(old_program: &Program<N>, new_program: &Program<N>) -> Result<()> {
         // Get the new program ID.
         let program_id = new_program.id();
         // Ensure the program is not `credits.aleo`.
         ensure!(program_id != &ProgramID::from_str("credits.aleo")?, "Cannot upgrade 'credits.aleo'");
-        // Get the old program.
-        let stack = process.get_stack(program_id)?;
-        let old_program = stack.program();
         // Ensure the program ID matches.
         ensure!(old_program.id() == new_program.id(), "Cannot upgrade '{program_id}' with different program ID");
         // Ensure that the old program is not the same as the new program.

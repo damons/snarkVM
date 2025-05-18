@@ -409,17 +409,19 @@ pub(crate) mod test_helpers {
     pub(crate) type CurrentAleo = AleoV0;
 
     #[cfg(not(feature = "rocks"))]
-    pub(crate) type CurrentLedger =
-        Ledger<CurrentNetwork, ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>>;
+    pub(crate) type CurrentLedger = Ledger<CurrentNetwork, CurrentConsensusStorage>;
     #[cfg(feature = "rocks")]
-    pub(crate) type CurrentLedger = Ledger<CurrentNetwork, ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>>;
+    pub(crate) type CurrentLedger = Ledger<CurrentNetwork, CurrentConsensusStorage>;
 
     #[cfg(not(feature = "rocks"))]
-    pub(crate) type CurrentConsensusStore =
-        ConsensusStore<CurrentNetwork, ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>>;
+    pub(crate) type CurrentConsensusStore = ConsensusStore<CurrentNetwork, CurrentConsensusStorage>;
     #[cfg(feature = "rocks")]
-    pub(crate) type CurrentConsensusStore =
-        ConsensusStore<CurrentNetwork, ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>>;
+    pub(crate) type CurrentConsensusStore = ConsensusStore<CurrentNetwork, CurrentConsensusStorage>;
+
+    #[cfg(not(feature = "rocks"))]
+    pub(crate) type CurrentConsensusStorage = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
+    #[cfg(feature = "rocks")]
+    pub(crate) type CurrentConsensusStorage = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
     #[allow(dead_code)]
     pub(crate) struct TestEnv {

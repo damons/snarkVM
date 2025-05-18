@@ -76,6 +76,11 @@ use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
 
+// The key for the partially-verified transactions cache.
+// The key is a tuple of the transaction ID and a list of program editions for the transitions in the transaction.
+// Note: If a program is upgraded, then the program edition will change, effectively invalidating the previously cached result.
+type TransactionCacheKey<N> = (<N as Network>::TransactionID, Vec<u16>);
+
 #[derive(Clone)]
 pub struct VM<N: Network, C: ConsensusStorage<N>> {
     /// The process.
@@ -85,7 +90,7 @@ pub struct VM<N: Network, C: ConsensusStorage<N>> {
     /// The VM store.
     store: ConsensusStore<N, C>,
     /// A cache containing the list of recent partially-verified transactions.
-    partially_verified_transactions: Arc<RwLock<LruCache<N::TransactionID, N::TransmissionChecksum>>>,
+    partially_verified_transactions: Arc<RwLock<LruCache<TransactionCacheKey<N>, N::TransmissionChecksum>>>,
     /// The restrictions list.
     restrictions: Restrictions<N>,
     /// The lock to guarantee atomicity over calls to speculate and finalize.
@@ -193,7 +198,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
     /// Returns the partially-verified transactions.
     #[inline]
-    pub fn partially_verified_transactions(&self) -> Arc<RwLock<LruCache<N::TransactionID, N::TransmissionChecksum>>> {
+    pub fn partially_verified_transactions(
+        &self,
+    ) -> Arc<RwLock<LruCache<TransactionCacheKey<N>, N::TransmissionChecksum>>> {
         self.partially_verified_transactions.clone()
     }
 

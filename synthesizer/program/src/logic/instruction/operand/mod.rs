@@ -52,6 +52,10 @@ pub enum Operand<N: Network> {
     /// If no program ID is specified, the edition is for the current program.
     /// If a program ID is specified, the edition is for an external program.
     Edition(Option<ProgramID<N>>),
+    /// The operand is the program owner.
+    /// If no program ID is specified, the owner is for the current program.
+    /// If a program ID is specified, the owner is for an external program.
+    ProgramOwner(Option<ProgramID<N>>),
 }
 
 impl<N: Network> From<Literal<N>> for Operand<N> {

@@ -101,6 +101,14 @@ pub trait StackProgram<N: Network> {
     /// Returns the program edition.
     fn program_edition(&self) -> &U16<N>;
 
+    /// Returns the program owner.
+    /// The program owner should only be set for programs that were deployed after `ConsensusVersion::V5`
+    /// when the program owner was enforced by consensus.
+    fn program_owner(&self) -> &Option<Address<N>>;
+
+    /// Sets the program owner.
+    fn set_program_owner(&mut self, program_owner: Option<Address<N>>);
+
     /// Returns the external stack for the given program ID.
     fn get_external_stack(&self, program_id: &ProgramID<N>) -> Result<Arc<Self>>;
 

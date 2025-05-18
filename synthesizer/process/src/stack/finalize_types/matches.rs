@@ -130,6 +130,16 @@ impl<N: Network> FinalizeTypes<N> {
                         "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{edition_type}' in the operand '{operand}'.",
                     )
                 }
+                // Ensure the program owner type (address) matches the member type.
+                Operand::ProgramOwner(_) => {
+                    // Retrieve the program owner type.
+                    let program_owner_type = PlaintextType::Literal(LiteralType::Address);
+                    // Ensure the program owner type matches the member type.
+                    ensure!(
+                        &program_owner_type == member_type,
+                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{program_owner_type}' in the operand '{operand}'.",
+                    )
+                }
             }
         }
         Ok(())
@@ -244,6 +254,17 @@ impl<N: Network> FinalizeTypes<N> {
                     ensure!(
                         &edition_type == array_type.next_element_type(),
                         "Array element expects {}, but found '{edition_type}' in the operand '{operand}'.",
+                        array_type.next_element_type()
+                    )
+                }
+                // Ensure the program owner type (address) matches the member type.
+                Operand::ProgramOwner(_) => {
+                    // Retrieve the program owner type.
+                    let program_owner_type = PlaintextType::Literal(LiteralType::Address);
+                    // Ensure the program owner type matches the member type.
+                    ensure!(
+                        &program_owner_type == array_type.next_element_type(),
+                        "Array element expects {}, but found '{program_owner_type}' in the operand '{operand}'.",
                         array_type.next_element_type()
                     )
                 }

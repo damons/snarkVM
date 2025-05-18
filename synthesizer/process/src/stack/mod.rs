@@ -204,6 +204,8 @@ pub struct Stack<N: Network> {
     program_checksum: [U8<N>; 32],
     /// The program edition.
     program_edition: U16<N>,
+    /// The program owner.
+    program_owner: Option<Address<N>>,
 }
 
 impl<N: Network> Stack<N> {
@@ -216,7 +218,10 @@ impl<N: Network> Stack<N> {
         ensure!(!program.functions().is_empty(), "No functions present in the deployment for program '{program_id}'");
         // If the program exists in the process, check that the upgrade is valid.
         if process.contains_program(program_id) {
-            Self::check_upgrade_is_valid(process, program)?;
+            // Get the old program.
+            let stack = process.get_stack(program_id)?;
+            let old_program = stack.program();
+            Self::check_upgrade_is_valid(old_program, program)?;
         }
 
         // Serialize the program into bytes.
@@ -339,6 +344,19 @@ impl<N: Network> StackProgram<N> for Stack<N> {
     #[inline]
     fn program_edition(&self) -> &U16<N> {
         &self.program_edition
+    }
+
+    /// Returns the program owner.
+    #[inline]
+    fn program_owner(&self) -> &Option<Address<N>> {
+        &self.program_owner
+    }
+
+    /// Sets the program owner.
+    /// The program owner should only be set for programs that were deployed after `ConsensusVersion::V5`
+    /// when the program owner was enforced by consensus.
+    fn set_program_owner(&mut self, program_owner: Option<Address<N>>) {
+        self.program_owner = program_owner;
     }
 
     /// Returns the external stack for the given program ID.

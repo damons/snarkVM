@@ -103,7 +103,7 @@ impl<N: Network> ToBytes for Deployment<N> {
             certificate.write_le(&mut writer)?;
         }
         // If the deployment version is 2, write the program checksum and program owner.
-        // Note: The unwraps are safe because `Deployment::version` only returns `V2` if the checksum and owner is present.
+        // Note: The unwraps are safe because `Deployment::version` only returns `V2` if both the checksum and owner is present.
         if version == DeploymentVersion::V2 {
             // Write the bytes of the checksum.
             for byte in &self.program_checksum.unwrap() {

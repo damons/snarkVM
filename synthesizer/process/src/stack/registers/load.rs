@@ -57,6 +57,8 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoad<N> for Registers<N
                 };
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))));
             }
+            // If the operand is the program owner, throw an error.
+            Operand::ProgramOwner(_) => bail!("Cannot load the program owner in a non-finalize context"),
         };
 
         // Retrieve the stack value.
@@ -160,6 +162,8 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoadCircuit<N, A> for R
                     Literal::U16(edition),
                 ))));
             }
+            // If the operand is the program owner, throw an error.
+            Operand::ProgramOwner(_) => bail!("Cannot load the program owner in a non-finalize context"),
         };
 
         // Retrieve the circuit value.
