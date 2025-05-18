@@ -20,9 +20,10 @@ impl<N: Network> Serialize for Deployment<N> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match serializer.is_human_readable() {
             true => {
-                let len = match self.version() {
+                // Note: `Deployment::version` checks that either both or neither of the program checksum and program owner are present.
+                let len = match self.version().map_err(ser::Error::custom)? {
                     DeploymentVersion::V1 => 3,
-                    DeploymentVersion::V2 => 4,
+                    DeploymentVersion::V2 => 5,
                 };
                 let mut deployment = serializer.serialize_struct("Deployment", len)?;
                 deployment.serialize_field("edition", &self.edition)?;
@@ -30,6 +31,9 @@ impl<N: Network> Serialize for Deployment<N> {
                 deployment.serialize_field("verifying_keys", &self.verifying_keys)?;
                 if let Some(program_checksum) = &self.program_checksum {
                     deployment.serialize_field("program_checksum", program_checksum)?;
+                }
+                if let Some(program_owner) = &self.program_owner {
+                    deployment.serialize_field("program_owner", program_owner)?;
                 }
                 deployment.end()
             }
@@ -57,6 +61,11 @@ impl<'de, N: Network> Deserialize<'de> for Deployment<N> {
                     // Retrieve the program checksum, if it exists.
                     serde_json::from_value(
                         deployment.get_mut("program_checksum").unwrap_or(&mut serde_json::Value::Null).take(),
+                    )
+                    .map_err(de::Error::custom)?,
+                    // Retrieve the owner, if it exists.
+                    serde_json::from_value(
+                        deployment.get_mut("program_owner").unwrap_or(&mut serde_json::Value::Null).take(),
                     )
                     .map_err(de::Error::custom)?,
                 )

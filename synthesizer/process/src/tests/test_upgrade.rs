@@ -16,7 +16,7 @@
 /// The purpose of these tests are to ensure that an upgrade made to a program is syntactically correct.
 /// These rules are defined in `check_upgrade_is_valid`.
 /// These tests *DO NOT*: check the semantic correctness of the upgrades.
-use crate::Process;
+use crate::{Process, Stack};
 use console::network::{MainnetV0, prelude::*};
 use synthesizer_program::{Program, StackProgram};
 
@@ -77,6 +77,7 @@ function foo:
         r"
 program test.aleo;
 function foo:
+function bar:
     ",
     )?;
     // Verify that the upgrade was not successful.
@@ -95,6 +96,7 @@ program test.aleo;
 constructor:
     assert.eq true true;
 function foo:
+function bar:
     ",
     )?;
     // Verify that the upgrade was successful.
@@ -991,5 +993,19 @@ constructor:
     )?;
     // Verify that the upgrade was not successful.
     assert!(process.add_program(&new_program).is_err());
+    Ok(())
+}
+
+#[test]
+fn test_credits_is_not_upgradable() -> Result<()> {
+    // Sample the default process.
+    let process = sample_process()?;
+    // Define the new credits program.
+    let credits_program = Program::<CurrentNetwork>::credits()?;
+    let program = Program::from_str(&format!("{credits_program}\nfunction dummy:"))?;
+    // Attempt to add the new credits program.
+    let result = Stack::check_upgrade_is_valid(&process, &program);
+    // Verify that the upgrade was not successful.
+    assert!(result.is_err(), "Upgrading 'credits.aleo' should not be allowed");
     Ok(())
 }

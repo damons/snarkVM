@@ -155,6 +155,8 @@ function compute:
             let mut deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
             // Unset the checksum.
             deployment.set_program_checksum_raw(None);
+            // Unset the owner.
+            deployment.set_program_owner_raw(None);
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -189,6 +191,8 @@ function compute:
             let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
             // Verify that the checksum is set.
             assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
+            // Verify that the owner is set.
+            assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -396,8 +400,14 @@ pub fn sample_deployment_transaction(
     let private_key = PrivateKey::new(rng).unwrap();
     // Sample a deployment.
     let deployment = match version {
-        1 => crate::sample_deployment_v1(rng),
-        2 => crate::sample_deployment_v2(rng),
+        1 => sample_deployment_v1(rng),
+        2 => {
+            let mut deployment = sample_deployment_v2(rng);
+            // Set the program owner to the address of the private key.
+            deployment.set_program_owner_raw(Some(Address::try_from(&private_key).unwrap()));
+            // Return the deployment.
+            deployment
+        }
         _ => panic!("Invalid deployment version: {version}"),
     };
 

@@ -651,10 +651,10 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
-    /// Returns `true` if a program uses constructors, `Operand::Edition`, and `Operand::Checksum`.
+    /// Returns `true` if a program contains a constructor, `Operand::Edition`, or `Operand::Checksum`.
     /// This is enforced to be `false` for programs before `ConsensusVersion::V5`.
     #[inline]
-    pub fn uses_constructor_checksum_or_edition(&self) -> bool {
+    pub fn contains_constructor_checksum_or_edition(&self) -> bool {
         // Check if the program contains a constructor.
         if self.contains_constructor() {
             return true;

@@ -91,7 +91,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Compute the Merkle root of the transaction.
         // Debug-mode only, as the `Transaction` constructor recomputes the transaction ID at initialization.
-        #[cfg(debug_assertions)]
+        // Attention - This check is mandatory. This is the only way to ensure that the transaction ID is well-formed.
         match transaction.to_root() {
             // Ensure the transaction ID is correct.
             Ok(root) if *transaction.id() != root => bail!("Incorrect transaction ID ({})", transaction.id()),
@@ -147,17 +147,38 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Next, verify the deployment or execution.
         match transaction {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
+                // Sanity check that the program is not `credits.aleo`.
+                ensure!(
+                    deployment.program_id() != &ProgramID::from_str("credits.aleo")?,
+                    "Cannot deploy 'credits.aleo'"
+                );
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
-                // If the `CONSENSUS_VERSION` is `V5` or greater, then verify that the program checksum is present.
-                // Otherwise, verify that the deployment edition is zero, that the program checksum is **not** present in the deployment,
-                // and that the program does not use constructors, `Operand::Checksum`, or `Operand::Edition`.
+                // If the `CONSENSUS_VERSION` is `V5` or greater, then verify that:
+                //   - the program checksum is present in the deployment
+                //   - the program owner is present in the deployment
+                //   - that it has a constructor
+                // Otherwise, verify that:
+                //   - the deployment edition is zero
+                //   - the program checksum is **not** present in the deployment,
+                //   - the program owner is **not** present in the deployment
+                //   - the program does not use constructors, `Operand::Checksum`, or `Operand::Edition`.
                 let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
                 match consensus_version >= ConsensusVersion::V5 {
-                    true => ensure!(
-                        deployment.program_checksum().is_some(),
-                        "Invalid deployment transaction '{id}' - missing program checksum"
-                    ),
+                    true => {
+                        ensure!(
+                            deployment.program_checksum().is_some(),
+                            "Invalid deployment transaction '{id}' - missing program checksum"
+                        );
+                        ensure!(
+                            deployment.program_owner().is_some(),
+                            "Invalid deployment transaction '{id}' - missing program owner"
+                        );
+                        ensure!(
+                            deployment.program().contains_constructor(),
+                            "Invalid deployment transaction '{id}' - program does not contain a constructor"
+                        );
+                    }
                     false => {
                         ensure!(
                             deployment.edition().is_zero(),
@@ -168,8 +189,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             "Invalid deployment transaction '{id}' - should not contain program checksum"
                         );
                         ensure!(
-                            !deployment.program().uses_constructor_checksum_or_edition(),
-                            "Invalid deployment transaction '{id}' - should not use 'constructor's, the 'checksum' operand, or 'edition' operand "
+                            deployment.program_owner().is_none(),
+                            "Invalid deployment transaction '{id}' - should not contain program owner"
+                        );
+                        ensure!(
+                            !deployment.program().contains_constructor_checksum_or_edition(),
+                            "Invalid deployment transaction '{id}' - program should not use 'constructor's, the 'checksum' operand, or 'edition' operand "
                         );
                     }
                 }
@@ -184,12 +209,23 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         expected_checksum.iter().join(", ")
                     );
                 }
+                // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
+                if let Some(given_owner) = deployment.program_owner() {
+                    // Ensure the program owner matches the owner in the transaction.
+                    ensure!(
+                        given_owner == &owner.address(),
+                        "The program owner in the deployment did not match the owner in the transaction\n('[{}]' != '[{}]')",
+                        given_owner,
+                        owner.address()
+                    );
+                }
                 // If the edition is zero, then check that:
                 //  - The program does not exist in the store or process.
                 // Otherwise, check that:
                 //  - The program exists in the store and process.
+                //  - The new edition increments the old edition by 1.
                 //  - The existing program is upgradable, meaning that it has a constructor.
-                //  - The new edition increments the old edition.
+                //    This is to prevent programs deployed before `ConsensusVersion::V5` (which do not have constructors) from being upgraded.
                 let is_program_in_storage = self.transaction_store().contains_program_id(deployment.program_id())?;
                 let is_program_in_process = self.contains_program(deployment.program_id());
                 match deployment.edition() {
@@ -212,12 +248,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         // Get the existing program.
                         // It should be the case that the stored program matches the process program.
                         let stack = self.process().read().get_stack(deployment.program_id())?;
-                        // Check that the program is upgradable, meaning that it has a constructor.
-                        ensure!(
-                            stack.program().contains_constructor(),
-                            "Invalid deployment transaction '{id}' - program is not upgradable because it does not contain a constructor"
-                        );
-                        // Check that the new edition increments the old edition.
+                        // Check that the new edition increments the old edition by 1.
                         let old_edition = **stack.program_edition();
                         let expected_edition = old_edition
                             .checked_add(1)
@@ -225,6 +256,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         ensure!(
                             expected_edition == new_edition,
                             "Invalid deployment transaction '{id}' - next edition ('{new_edition}') does not match the expected edition ('{expected_edition}')",
+                        );
+                        // Check that the program is upgradable.
+                        ensure!(
+                            stack.program().contains_constructor(),
+                            "Invalid deployment transaction '{id}' - program is not upgradable"
                         );
                     }
                 }

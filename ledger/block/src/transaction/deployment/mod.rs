@@ -22,7 +22,7 @@ mod string;
 use crate::Transaction;
 use console::{
     network::prelude::*,
-    program::{Identifier, ProgramID},
+    program::{Address, Identifier, ProgramID},
     types::{Field, U8},
 };
 use synthesizer_program::Program;
@@ -41,6 +41,11 @@ pub struct Deployment<N: Network> {
     /// Before the migration height where this feature is enabled, the checksum will **not** be allowed.
     /// After the migration height where this feature is enabled, the checksum will be required.
     program_checksum: Option<[U8<N>; 32]>,
+    /// An optional owner for the program.
+    /// This field creates a backwards-compatible implicit versioning mechanism for deployments.
+    /// Before the migration height where this feature is enabled, the owner will **not** be allowed.
+    /// After the migration height where this feature is enabled, the owner will be required.
+    program_owner: Option<Address<N>>,
 }
 
 impl<N: Network> PartialEq for Deployment<N> {
@@ -58,9 +63,10 @@ impl<N: Network> Deployment<N> {
         program: Program<N>,
         verifying_keys: Vec<(Identifier<N>, (VerifyingKey<N>, Certificate<N>))>,
         program_checksum: Option<[U8<N>; 32]>,
+        program_owner: Option<Address<N>>,
     ) -> Result<Self> {
         // Construct the deployment.
-        let deployment = Self { edition, program, verifying_keys, program_checksum };
+        let deployment = Self { edition, program, verifying_keys, program_checksum, program_owner };
         // Ensure the deployment is ordered.
         deployment.check_is_ordered()?;
         // Return the deployment.
@@ -71,6 +77,9 @@ impl<N: Network> Deployment<N> {
     pub fn check_is_ordered(&self) -> Result<()> {
         let program_id = self.program.id();
 
+        // Ensure that either the both the program checksum and owner are present, or both are absent.
+        // The call to `Deployment::version` implicitly performs this check.
+        self.version()?;
         // Ensure that if the program checksum is absent, then the edition is zero.
         if self.program_checksum.is_none() {
             ensure!(
@@ -140,6 +149,11 @@ impl<N: Network> Deployment<N> {
         self.program_checksum.as_ref()
     }
 
+    /// Returns the program owner, if it was stored.
+    pub const fn program_owner(&self) -> Option<&Address<N>> {
+        self.program_owner.as_ref()
+    }
+
     /// Returns the program.
     pub const fn program_id(&self) -> &ProgramID<N> {
         self.program.id()
@@ -198,17 +212,33 @@ impl<N: Network> Deployment<N> {
         self.program_checksum = program_checksum;
     }
 
+    /// Sets the program owner.
+    /// Note: This method is intended to be used by the synthesizer **only**, and should not be called by the user.
+    #[doc(hidden)]
+    pub fn set_program_owner_raw(&mut self, program_owner: Option<Address<N>>) {
+        self.program_owner = program_owner;
+    }
+
     /// An internal function to return the implicit deployment version.
-    fn version(&self) -> DeploymentVersion {
-        match self.program_checksum {
-            None => DeploymentVersion::V1,
-            Some(_) => DeploymentVersion::V2,
+    /// This function implicitly checks that the deployment checksum and owner is well-formed.
+    #[doc(hidden)]
+    pub(super) fn version(&self) -> Result<DeploymentVersion> {
+        match (self.program_checksum.is_some(), self.program_owner.is_some()) {
+            (false, false) => Ok(DeploymentVersion::V1),
+            (true, true) => Ok(DeploymentVersion::V2),
+            (true, false) => {
+                bail!("The program checksum is present, but the program owner is absent.")
+            }
+            (false, true) => {
+                bail!("The program owner is present, but the program checksum is absent.")
+            }
         }
     }
 }
 
 // An internal enum to represent the deployment version.
-enum DeploymentVersion {
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub(super) enum DeploymentVersion {
     V1 = 1,
     V2 = 2,
 }
@@ -251,6 +281,8 @@ function compute:
                 let mut deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
                 // Unset the checksum.
                 deployment.set_program_checksum_raw(None);
+                // Unset the owner.
+                deployment.set_program_owner_raw(None);
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()
@@ -285,6 +317,8 @@ function compute:
                 let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
                 // Assert that the deployment has a checksum.
                 assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
+                // Assert that the deployment has an owner.
+                assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()

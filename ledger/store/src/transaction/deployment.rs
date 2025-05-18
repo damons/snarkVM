@@ -591,6 +591,16 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         // Retrieve the checksum.
         let program_checksum =
             self.checksum_map().get_confirmed(&(program_id, edition))?.map(|checksum| cow_to_copied!(checksum));
+        // If the checksum is present, then retrieve the owner address.
+        // Note: This is done to ensure that `Deployment` is consistent. Both the checksum and owner must be present or absent.
+        // This invariant is also enforced in `check_transaction`.
+        let program_owner = match program_checksum.is_some() {
+            false => None,
+            true => match self.owner_map().get_confirmed(&(program_id, edition))? {
+                Some(owner) => Some(cow_to_copied!(owner).address()),
+                None => bail!("Failed to get the owner for program '{program_id}' (edition {edition})"),
+            },
+        };
 
         // Initialize a vector for the verifying keys and certificates.
         let mut verifying_keys = Vec::with_capacity(program.functions().len());
@@ -612,7 +622,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         }
 
         // Return the deployment.
-        Ok(Some(Deployment::new(edition, program, verifying_keys, program_checksum)?))
+        Ok(Some(Deployment::new(edition, program, verifying_keys, program_checksum, program_owner)?))
     }
 
     /// Returns the fee for the given `transaction ID`.
@@ -839,6 +849,16 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
     /// Returns the fee for the given `transaction ID`.
     pub fn get_fee(&self, transaction_id: &N::TransactionID) -> Result<Option<Fee<N>>> {
         self.storage.get_fee(transaction_id)
+    }
+
+    /// Returns the latest owner for the given `program ID`.
+    pub fn get_latest_owner(&self, program_id: &ProgramID<N>) -> Result<Option<ProgramOwner<N>>> {
+        self.storage.get_latest_owner(program_id)
+    }
+
+    /// Returns the owner for the given `program ID` and `edition`.
+    pub fn get_owner_with_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<ProgramOwner<N>>> {
+        self.storage.get_owner_with_edition(program_id, edition)
     }
 }
 

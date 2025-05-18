@@ -63,17 +63,30 @@ impl<N: Network> FromBytes for Deployment<N> {
                 Some(checksum)
             }
         };
+        // If the deployment version is 2, read the program owner.
+        let program_owner = match version {
+            DeploymentVersion::V1 => None,
+            DeploymentVersion::V2 => {
+                // Read the program owner.
+                let owner = Address::<N>::read_le(&mut reader)?;
+                Some(owner)
+            }
+        };
 
         // Return the deployment.
-        Self::new(edition, program, verifying_keys, program_checksum).map_err(|err| error(format!("{err}")))
+        Self::new(edition, program, verifying_keys, program_checksum, program_owner)
+            .map_err(|err| error(format!("{err}")))
     }
 }
 
 impl<N: Network> ToBytes for Deployment<N> {
     /// Writes the deployment to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
+        // Determine the version.
+        // Note: This method checks that either both or neither of the program checksum and program owner are present.
+        let version = self.version().map_err(error)?;
         // Write the version.
-        (self.version() as u8).write_le(&mut writer)?;
+        (version as u8).write_le(&mut writer)?;
         // Write the edition.
         self.edition.write_le(&mut writer)?;
         // Write the program.
@@ -89,11 +102,15 @@ impl<N: Network> ToBytes for Deployment<N> {
             // Write the certificate.
             certificate.write_le(&mut writer)?;
         }
-        // Write the checksum, if it exists.
-        if let Some(program_checksum) = &self.program_checksum {
-            for byte in program_checksum {
+        // If the deployment version is 2, write the program checksum and program owner.
+        // Note: The unwraps are safe because `Deployment::version` only returns `V2` if the checksum and owner is present.
+        if version == DeploymentVersion::V2 {
+            // Write the bytes of the checksum.
+            for byte in &self.program_checksum.unwrap() {
                 byte.write_le(&mut writer)?;
             }
+            // Write the bytes of the owner.
+            self.program_owner.unwrap().write_le(&mut writer)?;
         }
         Ok(())
     }

@@ -70,6 +70,15 @@ impl<N: Network> Transaction<N> {
         let transaction_id = *Self::transaction_tree(deployment_tree, Some(&fee))?.root();
         // Ensure the owner signed the correct transaction ID.
         ensure!(owner.verify(deployment_id), "Attempted to create a deployment transaction with an invalid owner");
+        // Ensure the owner matches the program owner in the deployment, if it exists.
+        if let Some(program_owner) = deployment.program_owner() {
+            ensure!(
+                owner.address() == *program_owner,
+                "Attempted to create a deployment transaction with an provided owner '{}' and deployment owner '{}'",
+                owner.address(),
+                program_owner
+            )
+        }
         // Construct the deployment transaction.
         Ok(Self::Deploy(transaction_id.into(), deployment_id, owner, Box::new(deployment), fee))
     }
@@ -427,7 +436,7 @@ impl<N: Network> Transaction<N> {
 #[cfg(test)]
 pub mod test_helpers {
     use super::*;
-    use console::{account::PrivateKey, network::MainnetV0, program::ProgramOwner};
+    use console::{account::PrivateKey, network::MainnetV0, program::ProgramOwner, types::Address};
 
     type CurrentNetwork = MainnetV0;
 
@@ -442,7 +451,13 @@ pub mod test_helpers {
         // Sample a deployment.
         let deployment = match version {
             1 => crate::transaction::deployment::test_helpers::sample_deployment_v1(rng),
-            2 => crate::transaction::deployment::test_helpers::sample_deployment_v2(rng),
+            2 => {
+                let mut deployment = crate::transaction::deployment::test_helpers::sample_deployment_v2(rng);
+                // Set the program owner to the address of the private key.
+                deployment.set_program_owner_raw(Some(Address::try_from(&private_key).unwrap()));
+                // Return the deployment.
+                deployment
+            }
             _ => panic!("Invalid deployment version."),
         };
 

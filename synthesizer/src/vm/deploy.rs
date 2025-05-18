@@ -35,11 +35,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let mut deployment = self.deploy_raw(program, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
-        // Unset the checksum if the `CONSENSUS_VERSION` is less than `V5`.
+        // If the `CONSENSUS_VERSION` is less than `V5`, unset the program checksum and the owner.
+        // Otherwise, swap the default owner with the address of the private key.
         let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
         if consensus_version < ConsensusVersion::V5 {
-            deployment.set_program_checksum_raw(None)
+            deployment.set_program_checksum_raw(None);
+            deployment.set_program_owner_raw(None)
+        } else {
+            deployment.set_program_owner_raw(Some(Address::try_from(private_key)?));
         }
         // Compute the deployment ID.
         let deployment_id = deployment.to_deployment_id()?;

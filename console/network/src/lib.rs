@@ -77,6 +77,7 @@ pub enum ConsensusVersion {
     V2 = 2,
     V3 = 3,
     V4 = 4,
+    // TODO (@d0cd): Update uses of V5 for program upgrades.
     V5 = 5,
 }
 

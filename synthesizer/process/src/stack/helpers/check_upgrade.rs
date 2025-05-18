@@ -37,14 +37,11 @@ impl<N: Network> Stack<N> {
     pub(crate) fn check_upgrade_is_valid(process: &Process<N>, new_program: &Program<N>) -> Result<()> {
         // Get the new program ID.
         let program_id = new_program.id();
+        // Ensure the program is not `credits.aleo`.
+        ensure!(program_id != &ProgramID::from_str("credits.aleo")?, "Cannot upgrade 'credits.aleo'");
         // Get the old program.
         let stack = process.get_stack(program_id)?;
         let old_program = stack.program();
-        // Check that the old program is upgradable, meaning that it has a constructor.
-        ensure!(
-            old_program.constructor().is_some(),
-            "Cannot upgrade '{program_id}' because it does not have a constructor"
-        );
         // Ensure the program ID matches.
         ensure!(old_program.id() == new_program.id(), "Cannot upgrade '{program_id}' with different program ID");
         // Ensure that the old program is not the same as the new program.
@@ -56,10 +53,17 @@ impl<N: Network> Stack<N> {
             }
         }
         // Ensure that the constructors in both programs are exactly the same.
-        ensure!(
-            old_program.constructor() == new_program.constructor(),
-            "Cannot upgrade '{program_id}' because the constructor does not match"
-        );
+        // Note: Programs without constructors are not allowed to be upgraded.
+        match (old_program.constructor(), new_program.constructor()) {
+            (_, None) => bail!("A program cannot be upgraded to a program without a constructor"),
+            (None, _) => bail!("A program without a constructor cannot be upgraded"),
+            (Some(old_constructor), Some(new_constructor)) => {
+                ensure!(
+                    old_constructor == new_constructor,
+                    "Cannot upgrade '{program_id}' because the constructor does not match"
+                );
+            }
+        }
         // Ensure that all of the mappings in the old program exist in the new program.
         for (old_mapping_id, old_mapping_type) in old_program.mappings() {
             let new_mapping_type = new_program.get_mapping(old_mapping_id)?;

@@ -22,7 +22,11 @@ use synthesizer_program::{Program, StackProgram};
 
 use std::panic::AssertUnwindSafe;
 
-// This test checks that a program with a constructor cannot be deployed before the V5 consensus height.
+// This test checks that:
+//   - programs without constructors can be deployed before V5
+//   - programs with constructors cannot be deployed before V5
+//   - programs without constructor cannot be deployed after V5
+//   - program with constructors can be deployed after V5
 #[test]
 fn test_constructor_requires_v5() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -31,12 +35,12 @@ fn test_constructor_requires_v5() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)? - 1, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)? - 2, rng);
 
     // Initialize the program.
     let program = Program::from_str(
         r"
-program constructor_test.aleo;
+program constructor_test_0.aleo;
 
 constructor:
     assert.eq true true;
@@ -53,12 +57,62 @@ function dummy:
     assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
-    // Verify that the program can now be deployed.
-    let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
-    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    // Initialize the program.
+    let program = Program::from_str(
+        r"
+program no_constructor_test_0.aleo;
+
+function dummy:
+    ",
+    )?;
+
+    // Attempt to deploy the program.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Verify that the VM is at the V5 height.
+    assert_eq!(vm.block_store().current_block_height(), CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?);
+
+    // Initialize the program.
+    let program = Program::from_str(
+        r"
+program constructor_test_1.aleo;
+
+constructor:
+    assert.eq true true;
+
+function dummy:
+    ",
+    )?;
+
+    // Attempt to deploy the program.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Initialize the program.
+    let program = Program::from_str(
+        r"
+program no_constructor_test_1.aleo;
+
+function dummy:
+    ",
+    )?;
+
+    // Attempt to deploy the program.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
 
     Ok(())
 }
@@ -66,6 +120,7 @@ function dummy:
 // This test checks that:
 //  - the logic of a simple transition without records can be upgraded.
 //  - once a program is upgraded, the old executions are no longer valid.
+//  - a constructor with an "allow any" policy can be upgraded by anyone.
 #[test]
 fn test_simple_upgrade() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -124,7 +179,27 @@ constructor:
     };
     assert_eq!(output, 2u8);
 
-    // Update the program.
+    // Initialize a new caller.
+    let user_private_key = PrivateKey::new(rng).unwrap();
+    let user_address = Address::try_from(&user_private_key)?;
+
+    // Fund the user with a `transfer_public` transaction.
+    let transaction = vm.execute(
+        &caller_private_key,
+        ("credits.aleo", "transfer_public"),
+        vec![Value::from_str(&format!("{user_address}"))?, Value::from_str("1_000_000_000_000u64")?].into_iter(),
+        None,
+        0,
+        None,
+        rng,
+    )?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Upgrade the program.
     let upgraded_program = Program::from_str(
         r"
 program adder.aleo;
@@ -141,7 +216,7 @@ constructor:
     )?;
 
     // Deploy the upgraded program.
-    let transaction = vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng)?;
+    let transaction = vm.deploy(&user_private_key, &upgraded_program, None, 0, None, rng)?;
     assert_eq!(transaction.deployment().unwrap().edition(), 1);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
@@ -160,7 +235,7 @@ constructor:
 
     // Execute the upgraded program.
     let new_execution = vm.execute(
-        &caller_private_key,
+        &user_private_key,
         ("adder.aleo", "binary_add"),
         vec![Value::from_str("1u8")?, Value::from_str("1u8")?].into_iter(),
         None,
@@ -176,78 +251,6 @@ constructor:
         output => bail!(format!("Unexpected output: {output}")),
     };
     assert_eq!(output, 2u8);
-
-    Ok(())
-}
-
-#[test]
-fn test_program_without_constructor_is_not_upgradable() -> Result<()> {
-    let rng = &mut TestRng::default();
-
-    // Initialize a new caller.
-    let caller_private_key = sample_genesis_private_key(rng);
-
-    // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
-
-    // Initialize the program.
-    let program = Program::from_str(
-        r"
-program basic.aleo;
-function foo:
-    ",
-    )?;
-
-    // Initialize the upgraded program.
-    let upgraded_program = Program::from_str(
-        r"
-program basic.aleo;
-function foo:
-function bar:
-    ",
-    )?;
-
-    // Deploy the program.
-    let transaction_0 = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
-    let transaction_1 = vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng)?;
-    let block = sample_next_block(&vm, &caller_private_key, &[transaction_0], rng)?;
-    vm.add_next_block(&block)?;
-
-    // Attempt to deploy the upgraded program.
-    assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
-    let block = sample_next_block(&vm, &caller_private_key, &[transaction_1], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
-    vm.add_next_block(&block)?;
-
-    // Initialize the upgraded program.
-    let upgraded_program = Program::from_str(
-        r"
-program basic.aleo;
-function foo:
-function bar:
-constructor:
-    assert.eq true true;
-    ",
-    )?;
-
-    // Attempt to deploy the upgraded program using `VM::deploy`.
-    assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
-
-    // Initialize the upgraded program.
-    let upgraded_program = Program::from_str(
-        r"
-program basic.aleo;
-function foo:
-function bar:
-constructor:
-    assert.eq true true;
-    ",
-    )?;
-
-    // Attempt to deploy the upgraded program using `VM::deploy`.
-    assert!(vm.deploy(&caller_private_key, &upgraded_program, None, 0, None, rng).is_err());
 
     Ok(())
 }
@@ -1411,31 +1414,6 @@ fn test_non_upgradable_programs() -> Result<()> {
     // Initialize the VM.
     let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
 
-    // Define the programs.
-    let program_0_v0 = Program::from_str(
-        r"
-program non_upgradable_0.aleo;
-function foo:
-    ",
-    )?;
-
-    let program_0_v1 = Program::from_str(
-        r"
-program non_upgradable_0.aleo;
-function foo:
-function bar:
-    ",
-    )?;
-
-    // Deploy the programs and then attempt to upgrade. The upgrade should fail.
-    let transaction = vm.deploy(&caller_private_key, &program_0_v0, None, 0, None, rng)?;
-    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 1);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 0);
-    vm.add_next_block(&block)?;
-    assert!(vm.deploy(&caller_private_key, &program_0_v1, None, 0, None, rng).is_err());
-
     let program_1_v0 = Program::from_str(
         r"
 program non_upgradable_1.aleo;
@@ -1849,6 +1827,7 @@ function dummy:",
         deployment.program().clone(),
         deployment.verifying_keys().clone(),
         deployment.program_checksum().cloned(),
+        deployment.program_owner().copied(),
     )?;
     let transaction_second = Transaction::from_deployment(owner, deployment, fee)?;
     let transaction_id_second = transaction_second.id();
@@ -1865,6 +1844,7 @@ function dummy:",
         deployment.program().clone(),
         deployment.verifying_keys().clone(),
         deployment.program_checksum().cloned(),
+        deployment.program_owner().copied(),
     )?;
     let transaction_third = Transaction::from_deployment(owner, deployment, fee)?;
     let transaction_id_third = transaction_third.id();
@@ -1897,6 +1877,134 @@ function dummy:",
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
+
+    Ok(())
+}
+
+// This test verifies that the `credits` program is not upgradable.
+#[test]
+fn test_credits_is_not_upgradable() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5).unwrap(), rng);
+
+    // Add a function to the credits program.
+    let credits_program = Program::<CurrentNetwork>::credits().unwrap();
+    let program = Program::from_str(&format!("{credits_program}\nfunction dummy:")).unwrap();
+
+    // Attempt to deploy the program.
+    assert!(vm.deploy(&caller_private_key, &program, None, 0, None, rng).is_err());
+}
+
+// This test verifies that programs that were deployed before the upgrade cannot be upgraded.
+#[test]
+fn test_existing_programs_cannot_be_upgraded() -> Result<()> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)? - 2, rng);
+
+    // Define the programs.
+    let program_0_v0 = Program::from_str(
+        r"
+program test_program_one.aleo;
+function dummy:",
+    )?;
+
+    let program_1_v0 = Program::from_str(
+        r"
+program test_program_two.aleo;
+function dummy:",
+    )?;
+
+    let program_0_v1_without_constructor = Program::from_str(
+        r"
+program test_program_one.aleo;
+function dummy:
+function dummy_2:",
+    )?;
+
+    let program_0_v1_with_failing_constructor = Program::from_str(
+        r"
+program test_program_one.aleo;
+function dummy:
+function dummy_2:
+constructor:
+    assert.eq edition 0u16;",
+    )?;
+
+    let program_0_v1_valid = Program::from_str(
+        r"
+program test_program_one.aleo;
+function dummy:
+function dummy_2:
+constructor:
+    assert.eq edition 1u16;",
+    )?;
+
+    let program_0_v2_fails = Program::from_str(
+        r"
+program test_program_one.aleo;
+function dummy:
+function dummy_2:
+function dummy_3:
+constructor:
+    assert.eq edition 1u16;",
+    )?;
+
+    let program_1_v1_valid = Program::from_str(
+        r"
+program test_program_two.aleo;
+function dummy:
+function dummy_2:
+constructor:
+    assert.eq true true;",
+    )?;
+
+    // Deploy the v0 versions of the programs.
+    let transaction = vm.deploy(&caller_private_key, &program_0_v0, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    let transaction = vm.deploy(&caller_private_key, &program_1_v0, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Assert that the VM is after the V5 height.
+    assert_eq!(vm.block_store().current_block_height(), CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?);
+
+    // Attempt to upgrade the first program.
+    let result = vm.deploy(&caller_private_key, &program_0_v1_without_constructor, None, 0, None, rng);
+    assert!(result.is_err());
+
+    // Attempt to upgrade the first program.
+    let result = vm.deploy(&caller_private_key, &program_0_v1_with_failing_constructor, None, 0, None, rng);
+    assert!(result.is_err());
+
+    // Attempt to upgrade the first program.
+    let result = vm.deploy(&caller_private_key, &program_0_v1_valid, None, 0, None, rng);
+    assert!(result.is_err());
+
+    // Attempt to upgrade the first program.
+    let result = vm.deploy(&caller_private_key, &program_0_v2_fails, None, 0, None, rng);
+    assert!(result.is_err());
+
+    // Attempt to upgrade the second program.
+    let result = vm.deploy(&caller_private_key, &program_1_v1_valid, None, 0, None, rng);
+    assert!(result.is_err());
 
     Ok(())
 }

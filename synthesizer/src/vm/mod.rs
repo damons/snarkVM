@@ -1486,6 +1486,7 @@ function do:
             deployment.program().clone(),
             vks_with_overreport,
             deployment.program_checksum().cloned(),
+            deployment.program_owner().copied(),
         )
         .unwrap();
         let adjusted_transaction = Transaction::from_deployment(program_owner, adjusted_deployment, fee).unwrap();
@@ -1546,6 +1547,7 @@ function do:
             deployment.program().clone(),
             vks_with_underreport,
             deployment.program_checksum().cloned(),
+            deployment.program_owner().copied(),
         )
         .unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
@@ -1626,6 +1628,7 @@ function do:
             deployment.program().clone(),
             vks_with_underreport,
             deployment.program_checksum().cloned(),
+            deployment.program_owner().copied(),
         )
         .unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
@@ -3424,10 +3427,12 @@ function baz:
         // Note that we are attempting to upgrade twice with consecutive editions.
         let mut process = Process::load().unwrap();
         process.add_program(&program_v0).unwrap();
-        let deployment_v1 = process.deploy::<CurrentAleo, _>(&program_v1, rng).unwrap();
+        let mut deployment_v1 = process.deploy::<CurrentAleo, _>(&program_v1, rng).unwrap();
+        deployment_v1.set_program_owner_raw(Some(Address::try_from(&private_key_1).unwrap()));
         assert_eq!(deployment_v1.edition(), 1);
         process.add_program(&program_v1).unwrap();
-        let deployment_v2 = process.deploy::<CurrentAleo, _>(&program_v2, rng).unwrap();
+        let mut deployment_v2 = process.deploy::<CurrentAleo, _>(&program_v2, rng).unwrap();
+        deployment_v2.set_program_owner_raw(Some(Address::try_from(&private_key_2).unwrap()));
         assert_eq!(deployment_v2.edition(), 2);
 
         // Construct the transactions.
@@ -3502,9 +3507,11 @@ function fly:
         .unwrap();
 
         // Generate the deployments.
-        let deployment_v3 = process.deploy::<CurrentAleo, _>(&program_v3, rng).unwrap();
+        let mut deployment_v3 = process.deploy::<CurrentAleo, _>(&program_v3, rng).unwrap();
+        deployment_v3.set_program_owner_raw(Some(Address::try_from(&private_key_1).unwrap()));
         assert_eq!(deployment_v3.edition(), 2);
-        let deployment_v4 = process.deploy::<CurrentAleo, _>(&program_v4, rng).unwrap();
+        let mut deployment_v4 = process.deploy::<CurrentAleo, _>(&program_v4, rng).unwrap();
+        deployment_v4.set_program_owner_raw(Some(Address::try_from(&private_key_2).unwrap()));
         assert_eq!(deployment_v4.edition(), 2);
 
         // Construct the transactions.

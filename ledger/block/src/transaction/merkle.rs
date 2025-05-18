@@ -139,12 +139,14 @@ impl<N: Network> Transaction<N> {
 
     /// Returns the Merkle tree for the given deployment.
     pub fn deployment_tree(deployment: &Deployment<N>) -> Result<DeploymentTree<N>> {
-        // Use the V1 or V2 deployment tree based on whether or not the program checksum exists.
-        // Note: `ConsensusVersion::V5` requires the program checksum to be present, while prior versions require it to be absent.
-        // Note: After `ConsensusVersion::V5`, the program checksum is used in the header of the hash instead of the program ID.
-        match deployment.program_checksum().is_some() {
-            false => Self::deployment_tree_v1(deployment),
-            true => Self::deployment_tree_v2(deployment),
+        // Use the V1 or V2 deployment tree based on implicit deployment version.
+        // Note: `ConsensusVersion::V5` requires the program checksum and program owner to be present, while prior versions require it to be absent.
+        //   `Deployment::version` checks that this is the case.
+        // Note: After `ConsensusVersion::V5`, the program checksum and owner are used in the header of the hash instead of the program ID.
+        match deployment.version() {
+            Ok(DeploymentVersion::V1) => Self::deployment_tree_v1(deployment),
+            Ok(DeploymentVersion::V2) => Self::deployment_tree_v2(deployment),
+            Err(e) => bail!("Malformed deployment - {e}"),
         }
     }
 
@@ -250,11 +252,16 @@ impl<N: Network> Transaction<N> {
     pub fn deployment_tree_v2(deployment: &Deployment<N>) -> Result<DeploymentTree<N>> {
         // Ensure the number of leaves is within the Merkle tree size.
         Self::check_deployment_size(deployment)?;
-        // Prepare the header for the hash.
-        let header = match deployment.program_checksum() {
-            None => deployment.program().to_checksum().to_bits_le(),
-            Some(program_checksum) => program_checksum.to_bits_le(),
+        // Get the program checksum.
+        let Some(program_checksum) = deployment.program_checksum() else {
+            bail!("Program checksum is required for V2 deployment tree");
         };
+        // Get the program owner.
+        let Some(program_owner) = deployment.program_owner() else {
+            bail!("Program owner is required for V2 deployment tree");
+        };
+        // Prepare the header for the hash.
+        let header = to_bits_le![program_checksum, program_owner];
         // Prepare the leaves.
         let leaves = deployment.program().functions().values().enumerate().map(|(index, function)| {
             // Construct the transaction leaf.
