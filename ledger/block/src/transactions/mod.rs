@@ -27,7 +27,16 @@ mod string;
 use crate::{Transaction, Transition};
 use console::{
     network::prelude::*,
-    program::{Ciphertext, ProgramOwner, Record},
+    program::{
+        Ciphertext,
+        FINALIZE_ID_DEPTH,
+        FINALIZE_OPERATIONS_DEPTH,
+        ProgramOwner,
+        Record,
+        TRANSACTIONS_DEPTH,
+        TransactionsPath,
+        TransactionsTree,
+    },
     types::{Field, Group, U64},
 };
 use ledger_committee::Committee;

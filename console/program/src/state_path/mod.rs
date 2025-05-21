@@ -13,6 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod configuration;
+pub use configuration::*;
+
 mod header_leaf;
 pub use header_leaf::*;
 
@@ -230,35 +233,12 @@ impl<N: Network> StatePath<N> {
     pub const fn transition_leaf(&self) -> &TransitionLeaf<N> {
         &self.transition_leaf
     }
-
-    /// Returns the calculated record index based on the record's position in the global tree.
-    /// Note: This number assumes all leaves are filled.
-    pub fn record_index(&self) -> u64 {
-        // Calculate the number of bottom-level leaves in each tree.
-        let num_leaves_in_transitions_tree = 2u64.pow(TRANSITION_DEPTH as u32);
-        let num_leaves_in_transactions_tree = 2u64.pow(TRANSACTIONS_DEPTH as u32) * num_leaves_in_transitions_tree;
-        let num_leaves_in_header_tree = 2u64.pow(HEADER_DEPTH as u32) * num_leaves_in_transactions_tree;
-
-        // Calculate the number of previous leaves in each tree based on the index.
-        let num_previous_leaves_from_block_tree =
-            num_leaves_in_header_tree.saturating_mul(*self.block_path.leaf_index());
-        let num_previous_leaves_from_header_tree =
-            num_leaves_in_transactions_tree.saturating_mul(self.header_leaf().index() as u64);
-        let num_previous_leaves_from_transactions_tree =
-            num_leaves_in_transitions_tree.saturating_mul(self.transaction_leaf().index() as u64);
-
-        // Calculate the global record index.
-        num_previous_leaves_from_block_tree
-            .saturating_add(num_previous_leaves_from_header_tree)
-            .saturating_add(num_previous_leaves_from_transactions_tree)
-            .saturating_add(self.transition_leaf.index() as u64)
-    }
 }
 
 #[cfg(any(test, feature = "test"))]
 pub mod test_helpers {
     use super::*;
-    use snarkvm_console_network::{TransactionTree, TransitionTree, prelude::TestRng};
+    use snarkvm_console_network::prelude::TestRng;
 
     /// Randomly sample a state path to a global state root.
     /// If a `commitment` is given, it is used. Otherwise, a `commitment` is randomly sampled.
@@ -397,53 +377,5 @@ pub mod test_helpers {
             transition_path,
             transition_leaf,
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use snarkvm_console_network::{MainnetV0, get_maximum_leaf_index_for_height, prelude::TestRng};
-
-    type CurrentNetwork = MainnetV0;
-
-    const ITERATIONS: usize = 100;
-
-    #[test]
-    fn test_record_index() {
-        let rng = &mut TestRng::default();
-
-        let num_leaves_in_transitions_tree = 2u64.pow(TRANSITION_DEPTH as u32);
-        let num_leaves_in_transactions_tree = 2u64.pow(TRANSACTIONS_DEPTH as u32) * num_leaves_in_transitions_tree;
-
-        for _ in 0..ITERATIONS {
-            // Sample the state path.
-            let state_path =
-                crate::state_path::test_helpers::sample_global_state_path::<CurrentNetwork>(None, rng).unwrap();
-
-            // Get the record index of the state path.
-            let record_index = state_path.record_index();
-
-            // Check that the index is within the correct bounds.
-            let block_height = u32::try_from(*state_path.block_path.leaf_index()).unwrap();
-            let lower_bound = match block_height {
-                0 => 0, // If the state path is part of block 0, then there is are existing leaf indexes.
-                height => get_maximum_leaf_index_for_height(height.saturating_sub(1)),
-            };
-            let upper_bound = get_maximum_leaf_index_for_height(block_height);
-            println!(
-                "block leaf index: {}, lower_bound: {lower_bound}, upper_bound: {upper_bound}, record_index: {record_index}",
-                u32::try_from(*state_path.block_path.leaf_index()).unwrap()
-            );
-            assert!(lower_bound < record_index);
-            assert!(upper_bound > record_index);
-
-            // Check that index matches the expected value.
-            let expected_index = lower_bound
-                + (num_leaves_in_transactions_tree * state_path.header_leaf.index() as u64)
-                + (num_leaves_in_transitions_tree * state_path.transaction_leaf.index() as u64)
-                + state_path.transition_leaf.index() as u64;
-            assert_eq!(expected_index, record_index);
-        }
     }
 }

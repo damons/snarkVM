@@ -144,7 +144,7 @@ mapping withdraw:
 mapping pool:
     // The key represents the index at which the count is stored.
     //    - This address (aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc) stores the number of microcredits
-    //      that have been migrated into the pool for records after the global record index.
+    //      that have been migrated into the pool for records after the inclusion upgrade.
     key as address.public;
     // The value represents the amount of microcredits in the pool.
     value as u64.public;
@@ -1047,7 +1047,7 @@ finalize fee_public:
 
 /**********************************************************************************************************************/
 
-// The `upgrade` function migrates the input record to the pool of records after the global record index.
+// The `upgrade` function migrates the input record to the pool of records after the inclusion upgrade.
 // The original record will be spent and the new record will be created with the same amount of credits.
 // If the caller executes a transaction that contains only a call to this function, then the transaction does not
 // require a fee, unless the caller wishes to provide an additional fee. Transactions that contain multiple transitions
@@ -1064,7 +1064,7 @@ function upgrade:
     // Construct a record for the specified receiver.
     cast r0.owner r0.microcredits into r2 as credits.record;
 
-    // Decrement the private pool of records before the global record index.
+    // Decrement the private pool of records before the inclusion upgrade.
     async upgrade r0.microcredits into r3;
     // Output the upgraded record.
     output r2 as credits.record;
@@ -1079,9 +1079,9 @@ finalize upgrade:
     get.or_use pool[aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc] 0u64 into r1;
     // Increment the pool by the record amount.
     add r1 r0 into r2;
-    // Determine if the total number of migrated credits is less than or equal to 2_000_000 credits.
-    lte r2 2_000_000_000_000u64 into r3;  // TODO (raychu86): Determine starting value. Currently set to 2_000_000 credits.
-    // Enforce that the total number of migrated credits is less than or equal to 2_000_000 credits.
+    // Determine if the total number of migrated credits is less than or equal to 3_000_000 credits.
+    lte r2 3_000_000_000_000u64 into r3;  // TODO (raychu86): Determine starting value. Currently set to 3_000_000 credits.
+    // Enforce that the total number of migrated credits is less than or equal to 3_000_000 credits.
     assert.eq r3 true;
 
     // Set the new pool size.

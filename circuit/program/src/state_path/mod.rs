@@ -23,18 +23,18 @@ use snarkvm_circuit_types::environment::assert_scope;
 
 use snarkvm_circuit_collections::merkle_tree::MerklePath;
 use snarkvm_circuit_network::Aleo;
-use snarkvm_circuit_types::{Boolean, Field, U8, U32, U64, environment::prelude::*};
+use snarkvm_circuit_types::{Boolean, Field, U8, environment::prelude::*};
 
 /// The depth of the Merkle tree for the blocks.
-const BLOCKS_DEPTH: u8 = console_network::BLOCKS_DEPTH;
+const BLOCKS_DEPTH: u8 = console::BLOCKS_DEPTH;
 /// The depth of the Merkle tree for the block header.
-const HEADER_DEPTH: u8 = console_network::HEADER_DEPTH;
+const HEADER_DEPTH: u8 = console::HEADER_DEPTH;
 /// The depth of the Merkle tree for transactions in a block.
-const TRANSACTIONS_DEPTH: u8 = console_network::TRANSACTIONS_DEPTH;
+const TRANSACTIONS_DEPTH: u8 = console::TRANSACTIONS_DEPTH;
 /// The depth of the Merkle tree for the transaction.
-const TRANSACTION_DEPTH: u8 = console_network::TRANSACTION_DEPTH;
+const TRANSACTION_DEPTH: u8 = console::TRANSACTION_DEPTH;
 /// The depth of the Merkle tree for the transition.
-const TRANSITION_DEPTH: u8 = console_network::TRANSITION_DEPTH;
+const TRANSITION_DEPTH: u8 = console::TRANSITION_DEPTH;
 
 type BlockPath<A> = MerklePath<A, BLOCKS_DEPTH>;
 type HeaderPath<A> = MerklePath<A, HEADER_DEPTH>;
@@ -85,34 +85,6 @@ impl<A: Aleo> StatePath<A> {
     /// Returns the block path.
     pub const fn block_path(&self) -> &BlockPath<A> {
         &self.block_path
-    }
-
-    /// Returns the calculated record index based on the record's position in the global tree.
-    pub fn record_index(&self) -> U64<A> {
-        // Instantiate the constants.
-        let two = U64::<A>::new(Mode::Constant, console::U64::new(2u64));
-        let transitions_depth = U32::<A>::new(Mode::Constant, console::U32::new(TRANSITION_DEPTH as u32));
-        let transactions_depth = U32::<A>::new(Mode::Constant, console::U32::new(TRANSACTIONS_DEPTH as u32));
-        let header_depth = U32::<A>::new(Mode::Constant, console::U32::new(HEADER_DEPTH as u32));
-
-        // Calculate the number of bottom-level leaves in each tree.
-        let num_leaves_in_transitions_tree = two.clone().pow(transitions_depth);
-        let num_leaves_in_transactions_tree = two.clone().pow(transactions_depth).mul(&num_leaves_in_transitions_tree);
-        let num_leaves_in_header_tree = two.clone().pow(header_depth).mul(&num_leaves_in_transactions_tree);
-
-        // Calculate the number of previous leaves in each tree based on the index.
-        let header_leaf_index = U64::<A>::from_bits_le(&self.header_leaf.index().to_bits_le());
-        let transaction_leaf_index = U64::<A>::from_bits_le(&self.transaction_leaf.index().to_bits_le());
-        let transition_leaf_index = U64::<A>::from_bits_le(&self.transition_leaf.index().to_bits_le());
-        let num_previous_leaves_from_block_tree = num_leaves_in_header_tree.mul(self.block_path.leaf_index());
-        let num_previous_leaves_from_header_tree = num_leaves_in_transactions_tree.mul(header_leaf_index);
-        let num_previous_leaves_from_transactions_tree = num_leaves_in_transitions_tree.mul(transaction_leaf_index);
-
-        // Calculate the global record index.
-        num_previous_leaves_from_block_tree
-            .add(num_previous_leaves_from_header_tree)
-            .add(num_previous_leaves_from_transactions_tree)
-            .add(transition_leaf_index)
     }
 }
 

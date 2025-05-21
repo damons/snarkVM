@@ -18,7 +18,11 @@ mod serialize;
 mod string;
 
 use crate::Ratify;
-use console::{network::prelude::*, types::Field};
+use console::{
+    network::prelude::*,
+    program::{RATIFICATIONS_DEPTH, RatificationsPath, RatificationsTree},
+    types::Field,
+};
 
 use indexmap::IndexMap;
 

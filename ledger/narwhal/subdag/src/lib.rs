@@ -20,7 +20,7 @@ mod bytes;
 mod serialize;
 mod string;
 
-use console::{account::Address, network::SUBDAG_CERTIFICATES_DEPTH, prelude::*, types::Field};
+use console::{account::Address, prelude::*, program::SUBDAG_CERTIFICATES_DEPTH, types::Field};
 use ledger_committee::Committee;
 use narwhal_batch_certificate::BatchCertificate;
 use narwhal_batch_header::BatchHeader;

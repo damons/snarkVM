@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::BHPMerkleTree;
 use snarkvm_console_collections::merkle_tree::MerklePath;
+use snarkvm_console_network::BHPMerkleTree;
 
 /// The depth of the Merkle tree for the blocks.
 pub const BLOCKS_DEPTH: u8 = 32;
@@ -71,25 +71,12 @@ pub type TransitionTree<N> = BHPMerkleTree<N, TRANSITION_DEPTH>;
 /// The Merkle path for an input or output ID in the transition.
 pub type TransitionPath<N> = MerklePath<N, TRANSITION_DEPTH>;
 
-/// Returns the maximum leaf index of the network at the given block height.
-pub fn get_maximum_leaf_index_for_height(block_height: u32) -> u64 {
-    // Calculate the number of total blocks including the genesis block.
-    let num_blocks = block_height.saturating_add(1) as u64;
-    // Calculate the number of bottom-level leaves in each tree.
-    let num_leaves_in_transitions_tree = 2u64.pow(TRANSITION_DEPTH as u32);
-    let num_leaves_in_transactions_tree = 2u64.pow(TRANSACTIONS_DEPTH as u32) * num_leaves_in_transitions_tree;
-    let num_leaves_in_header_tree = 2u64.pow(HEADER_DEPTH as u32) * num_leaves_in_transactions_tree;
-
-    // Calculate the maximum number of leaves that the global tree could have produced.
-    num_leaves_in_header_tree.saturating_mul(num_blocks)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Network;
+    use snarkvm_console_network::Network;
 
-    type CurrentNetwork = crate::MainnetV0;
+    type CurrentNetwork = snarkvm_console_network::MainnetV0;
 
     #[test]
     fn test_transaction_depth_is_correct() {

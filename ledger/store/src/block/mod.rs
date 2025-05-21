@@ -28,7 +28,7 @@ use crate::{
 };
 use console::{
     network::prelude::*,
-    program::{HeaderLeaf, ProgramID, StatePath},
+    program::{BlockTree, HeaderLeaf, ProgramID, StatePath},
     types::Field,
 };
 use ledger_authority::Authority;
@@ -1219,11 +1219,6 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     /// Returns a state path for the given `commitment`.
     pub fn get_state_path_for_commitment(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         self.storage.get_state_path_for_commitment(commitment, &self.tree.read())
-    }
-
-    /// Returns the current maximum leaf index assuming all leaves are filled.
-    pub fn get_current_maximum_leaf_index(&self) -> u64 {
-        get_maximum_leaf_index_for_height(self.current_block_height())
     }
 
     /// Returns the previous block hash of the given `block height`.

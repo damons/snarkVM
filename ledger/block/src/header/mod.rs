@@ -25,8 +25,8 @@ mod verify;
 
 use crate::{Ratifications, Transactions};
 use console::{
-    network::{HEADER_DEPTH, HeaderPath, HeaderTree, prelude::*},
-    program::HeaderLeaf,
+    network::prelude::*,
+    program::{HEADER_DEPTH, HeaderLeaf, HeaderPath, HeaderTree},
     types::Field,
 };
 use synthesizer_program::FinalizeOperation;

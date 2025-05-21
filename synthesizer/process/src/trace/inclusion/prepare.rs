@@ -99,13 +99,13 @@ macro_rules! prepare_impl {
 
                             InclusionAssignmentWrapper::V0(assignment)
                         } else {
-                            // Enforce the record index based on the conditions:
+                            // Enforce the record block height based on the conditions:
                             //     1. If the function is an `upgrade` then check that the record block height is before the upgrade block height.
                             //     2. If the function is a `credits.aleo` and not an `upgrade` then check that the record height is after the upgrade block height.
                             //     3. If the function is neither, do not perform any height checks.
 
-                            // Determine the `is_record_index_reached` and `upgrade_block_height` flags.
-                            let (is_record_index_reached, upgrade_block_height) = match  transition.is_credits() {
+                            // Determine the `is_record_block_height_reached` and `upgrade_block_height` flags.
+                            let (is_record_block_height_reached, upgrade_block_height) = match  transition.is_credits() {
                                 // If the transition is `credits.aleo`, then determine if the call is to `upgrade`.
                                 true => (!transition.is_upgrade(), N::INCLUSION_UPGRADE_HEIGHT()?),
                                 // If the record is not `credits.aleo`, then perform a null enforcement.
@@ -118,7 +118,7 @@ macro_rules! prepare_impl {
                                 task.commitment,
                                 task.gamma,
                                 task.serial_number,
-                                is_record_index_reached,
+                                is_record_block_height_reached,
                                 upgrade_block_height,
                                 local_state_root,
                                 task.local.is_none(), // Equivalent to 'is_global'

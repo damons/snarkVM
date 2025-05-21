@@ -30,7 +30,7 @@ use circuit::{
 };
 use console::{
     network::prelude::*,
-    program::{InputID, StatePath, TransactionLeaf, TransitionLeaf},
+    program::{InputID, StatePath, TRANSACTION_DEPTH, TransactionLeaf, TransitionLeaf, TransitionPath},
     types::{Field, Group},
 };
 use ledger_block::{Input, Output, Transaction, Transition};
@@ -155,8 +155,8 @@ impl<N: Network> Inclusion<N> {
         for (transition_index, transition) in transitions.enumerate() {
             // Retrieve the local state root.
             let local_state_root = *transaction_tree.root();
-            // Determine the `is_record_index_reached` and `upgrade_block_height` flags.
-            let (is_record_index_reached, upgrade_block_height) = match transition.is_credits() {
+            // Determine the `is_record_block_height_reached` and `upgrade_block_height` flags.
+            let (is_record_block_height_reached, upgrade_block_height) = match transition.is_credits() {
                 // If the transition is `credits.aleo`, then determine if the call is to `upgrade`.
                 true => (!transition.is_upgrade(), N::INCLUSION_UPGRADE_HEIGHT()?),
                 // If the record is not `credits.aleo`, then perform a null enforcement.
@@ -176,7 +176,7 @@ impl<N: Network> Inclusion<N> {
                         InclusionVersion::V1 => {
                             // This should be consistent with `Inclusion::prepare`
                             // Add the additional verifier inputs.
-                            verifier_inputs.push(*Field::<N>::from_bits_le(&[is_record_index_reached])?);
+                            verifier_inputs.push(*Field::<N>::from_bits_le(&[is_record_block_height_reached])?);
                             verifier_inputs.push(*Field::<N>::from_u32(upgrade_block_height));
                         }
                     }

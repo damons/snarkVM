@@ -36,7 +36,7 @@ mod testnet_v0;
 pub use testnet_v0::*;
 
 pub mod prelude {
-    pub use crate::{ConsensusVersion, Network, consensus_config_value, environment::prelude::*, helpers::*};
+    pub use crate::{ConsensusVersion, Network, consensus_config_value, environment::prelude::*};
 }
 
 use crate::environment::prelude::*;
