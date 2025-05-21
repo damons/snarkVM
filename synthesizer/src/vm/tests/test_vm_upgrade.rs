@@ -500,7 +500,7 @@ constructor:
             None,
             rng
         )
-            .is_err()
+        .is_err()
     );
 
     // Get the first record and execute the convert function.
@@ -554,7 +554,7 @@ constructor:
             None,
             rng
         )
-            .is_err()
+        .is_err()
     );
 
     Ok(())
@@ -1234,7 +1234,7 @@ constructor:
             None,
             rng,
         )
-            .is_err()
+        .is_err()
     );
 
     Ok(())
@@ -2032,7 +2032,7 @@ fn test_simple_admin_upgrade() {
                 Value::from_str(&format!("{}", separate_caller_address)).unwrap(),
                 Value::from_str("10_000_000_000_000u64").unwrap(),
             ]
-                .into_iter(),
+            .into_iter(),
             None,
             0,
             None,
@@ -2054,7 +2054,7 @@ constructor:
     assert.eq program_owner {caller_address};
     "
     ))
-        .unwrap();
+    .unwrap();
 
     let program_v1 = Program::from_str(&format!(
         r"
@@ -2065,7 +2065,7 @@ constructor:
     assert.eq program_owner {caller_address};
     "
     ))
-        .unwrap();
+    .unwrap();
 
     // Attempt to deploy the first version of the program with the wrong admin.
     let transaction = vm.deploy(&separate_caller_private_key, &program_v0, None, 0, None, rng).unwrap();
@@ -2122,7 +2122,7 @@ constructor:
    assert.eq true true;
    ",
     )
-        .unwrap();
+    .unwrap();
 
     let program_v1 = Program::from_str(
         r"
@@ -2134,7 +2134,7 @@ constructor:
     assert.eq true true;
     ",
     )
-        .unwrap();
+    .unwrap();
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
@@ -2200,7 +2200,7 @@ fn test_program_deployed_before_v5_do_not_have_owner() {
 program test_program_0.aleo;
 function foo:",
     )
-        .unwrap();
+    .unwrap();
 
     let program_after_v5 = Program::from_str(
         r"
@@ -2210,7 +2210,7 @@ constructor:
     assert.eq true true;
 ",
     )
-        .unwrap();
+    .unwrap();
 
     // Deploy the first program.
     let transaction = vm.deploy(&caller_private_key, &program_before_v5, None, 0, None, rng).unwrap();
@@ -2266,7 +2266,7 @@ constructor:
     assert.eq true true;
 function dummy:",
     )
-        .unwrap();
+    .unwrap();
 
     let program_v1 = Program::from_str(
         r"
@@ -2276,7 +2276,7 @@ constructor:
 function dummy:
 function dummy2:",
     )
-        .unwrap();
+    .unwrap();
 
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng).unwrap();
@@ -2298,7 +2298,7 @@ function dummy2:",
                 None,
                 rng,
             )
-                .unwrap()
+            .unwrap()
         })
         .collect::<Vec<_>>();
 

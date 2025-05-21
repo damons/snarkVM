@@ -293,7 +293,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if self.block_store().contains_rejected_deployment_or_execution_id(execution_id)? {
                     bail!("Transaction '{id}' contains a previously rejected execution")
                 }
-
                 // Verify the execution.
                 match try_vm_runtime!(|| self.check_execution_internal(execution, is_partially_verified)) {
                     Ok(result) => result?,
