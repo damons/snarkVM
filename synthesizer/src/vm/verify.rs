@@ -137,13 +137,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Construct the transaction checksum.
         let checksum = Data::<Transaction<N>>::Buffer(transaction.to_bytes_le()?.into()).to_checksum::<N>()?;
 
+        // We first acquire a read lock on the process to ensure that the programs are not updated while we are verifying the transaction.
+        // This lock is held for the duration of the transaction verification.
+        // Note: The calls to `check_deployment_internal` and `check_execution_internal` will also acquire a read lock on the process.
+        let process = self.process.read();
+
         // A helper function to get the program editions for each transition in a transaction, in order.
         let get_program_editions = |transaction: &Transaction<N>| {
-            // We first acquire a read lock on the process to ensure that the editions are not updated while we are reading them.
-            // Note: After the editions are read, another thread may update them making this check obsolete.
-            //   However, this is safe because when `check_transaction` is called again, a different cache key
-            //   will be used, and the transaction will verified against the updated editions.
-            let process = self.process.read();
             // Get the program editions for each transition in the transaction.
             transaction
                 .transitions()
