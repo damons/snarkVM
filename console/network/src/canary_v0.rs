@@ -193,11 +193,10 @@ impl Network for CanaryV0 {
     const NAME: &'static str = "Aleo Canary (v0)";
 
     // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
-    /// Returns the global record index used for the inclusion proof.
+    /// Returns the block height where the the inclusion proof will be updated.
     #[allow(non_snake_case)]
-    fn UPGRADE_RECORD_INDEX() -> Result<u64> {
-        let block_height = Self::CONSENSUS_HEIGHT(ConsensusVersion::V6)?;
-        Ok(get_maximum_leaf_index_for_height(block_height))
+    fn INCLUSION_UPGRADE_HEIGHT() -> Result<u32> {
+        Self::CONSENSUS_HEIGHT(ConsensusVersion::V6)
     }
 
     /// Returns the genesis block bytes.

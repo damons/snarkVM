@@ -21,9 +21,8 @@ pub struct InclusionAssignment<N: Network> {
     commitment: Field<N>,
     gamma: Group<N>,
     serial_number: Field<N>,
-    enforce_record_index_check: bool,
-    is_record_index_reached: bool,
-    upgrade_record_index: u64,
+    is_record_block_height_reached: bool,
+    upgrade_block_height: u32,
     local_state_root: N::TransactionID,
     is_global: bool,
 }
@@ -35,9 +34,8 @@ impl<N: Network> InclusionAssignment<N> {
         commitment: Field<N>,
         gamma: Group<N>,
         serial_number: Field<N>,
-        enforce_record_index_check: bool,
-        is_record_index_reached: bool,
-        upgrade_record_index: u64,
+        is_record_block_height_reached: bool,
+        upgrade_block_height: u32,
         local_state_root: N::TransactionID,
         is_global: bool,
     ) -> Self {
@@ -46,9 +44,8 @@ impl<N: Network> InclusionAssignment<N> {
             commitment,
             gamma,
             serial_number,
-            enforce_record_index_check,
-            is_record_index_reached,
-            upgrade_record_index,
+            is_record_block_height_reached,
+            upgrade_block_height,
             local_state_root,
             is_global,
         }
@@ -59,14 +56,14 @@ impl<N: Network> InclusionAssignment<N> {
     /// # Diagram
     /// The `[[ ]]` notation is used to denote public inputs.
     /// ```ignore
-    ///             [[ global_state_root ]] || [[ local_state_root ]]  [[ is_record_index_reached ]]
-    ///                        |                          |                         |
-    ///                        -------- is_global --------                          |
-    ///                                     |                                       |
-    ///                                state_path ---------- record_index ------ compare ------ [[ upgrade_record_index ]]
-    ///                                    |                                        |
-    ///                                    |                                        |
-    ///                                    |                     is_global ------ check ------ [[ enforce_record_index_check ]]
+    ///             [[ global_state_root ]] || [[ local_state_root ]] [[ is_record_block_height_reached ]]
+    ///                        |                          |                            |
+    ///                        -------- is_global --------                             |
+    ///                                     |                                          |
+    ///                                state_path ------- record_block_height ------ compare ------ [[ upgrade_block_height ]]
+    ///                                    |                                           |
+    ///                                    |                                           |
+    ///                                    |                        is_global ------ check
     ///                                    |
     /// [[ serial_number ]] := Commit( commitment || Hash( COFACTOR * gamma ) )
     /// ```
@@ -92,18 +89,16 @@ impl<N: Network> InclusionAssignment<N> {
         // Inject the serial number as `Mode::Public`.
         let serial_number = circuit::Field::<A>::new(circuit::Mode::Public, self.serial_number);
 
-        // Inject the `enforce_record_index_check` flag as `Mode::Public`.
-        let enforce_record_index_check =
-            circuit::Boolean::<A>::new(circuit::Mode::Public, self.enforce_record_index_check);
-        // Inject the `is_record_index_reached` flag as `Mode::Public`.
-        let is_record_index_reached = circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_record_index_reached);
-        // Inject the `upgrade_record_index` as `Mode::Public`.
-        // This is cast into a u64 to prevent requiring 64 field elements as input.
-        let upgrade_record_index_field = circuit::Field::<A>::new(
+        // Inject the `is_record_block_height_reached` flag as `Mode::Public`.
+        let is_record_block_height_reached =
+            circuit::Boolean::<A>::new(circuit::Mode::Public, self.is_record_block_height_reached);
+        // Inject the `upgrade_block_height` as `Mode::Public`.
+        // This is cast into a u32 to prevent requiring 32 field elements as input.
+        let upgrade_block_height_field = circuit::Field::<A>::new(
             circuit::Mode::Public,
-            console::types::Field::<N>::from_u64(self.upgrade_record_index),
+            console::types::Field::<N>::from_u32(self.upgrade_block_height),
         );
-        let upgrade_record_index = circuit::U64::from_field(upgrade_record_index_field);
+        let upgrade_block_height = circuit::U32::from_field(upgrade_block_height_field);
 
         // Compute the candidate serial number.
         let candidate_serial_number =
@@ -116,16 +111,16 @@ impl<N: Network> InclusionAssignment<N> {
         // Enforce the state path from leaf to root is correct.
         A::assert(state_path.verify(&is_global, &local_state_root));
 
-        // Fetch the record index from the state path.
-        let record_index = state_path.record_index();
-        // Determine if the record index is at or past the upgrade index.
-        let is_record_index_past_upgrade_index = record_index.is_greater_than_or_equal(&upgrade_record_index);
-        // Determine if the record index is correctly evaluated.
-        let is_record_index_check_valid = is_record_index_reached.is_equal(&is_record_index_past_upgrade_index);
-        // Determine if the index check is valid.
-        let is_global_index_check_valid = enforce_record_index_check.bitand(is_record_index_check_valid);
-        // Check that the index is valid if the record is from a global state path.
-        A::assert(is_global.not().bitor(is_global_index_check_valid));
+        // Fetch the record block height from the state path.
+        let record_block_height = U32::<A>::from_bits_le(&state_path.block_path().leaf_index().to_bits_le());
+        // Determine if the record block height is at or past the upgrade height.
+        let is_record_block_height_past_upgrade_block_height =
+            record_block_height.is_greater_than_or_equal(&upgrade_block_height);
+        // Determine if the record block height is correctly evaluated.
+        let is_block_height_check_valid =
+            is_record_block_height_reached.is_equal(&is_record_block_height_past_upgrade_block_height);
+        // Check that the height is valid if the record is from a global state path.
+        A::assert(is_global.not().bitor(is_block_height_check_valid));
 
         #[cfg(debug_assertions)]
         Stack::log_circuit::<A, _>(&format!("State Path for {}", self.serial_number));

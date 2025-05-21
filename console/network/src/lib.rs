@@ -268,9 +268,9 @@ pub trait Network:
     #[cfg(feature = "test")]
     const UPGRADE_WINDOW_NUM_BLOCKS: u32 = 10_u32;
 
-    /// Returns the global record index used for the inclusion proof.
+    /// Returns the block height where the the inclusion proof will be updated.
     #[allow(non_snake_case)]
-    fn UPGRADE_RECORD_INDEX() -> Result<u64>;
+    fn INCLUSION_UPGRADE_HEIGHT() -> Result<u32>;
 
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8];

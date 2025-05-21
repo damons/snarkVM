@@ -119,7 +119,7 @@ pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assig
 /// Returns the assignment for verifying the state path.
 #[allow(clippy::type_complexity)]
 pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
--> Result<(Assignment<N::Field>, StatePath<N>, Field<N>, bool, bool, u64)> {
+-> Result<(Assignment<N::Field>, StatePath<N>, Field<N>, bool, u32)> {
     // Initialize the consensus store.
     let store = ConsensusStore::<N, LedgerType<N>>::open(StorageMode::new_test(None))?;
     // Initialize a new VM.
@@ -147,12 +147,10 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
     // Compute the serial number.
     let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, *commitment)?;
 
-    // Set the `enforce_record_index_check` flag.
-    let enforce_record_index_check = true;
-    // Set the `is_record_index_reached` flag.
-    let is_record_index_reached = true;
-    // Initialize the `upgrade_record_index`.
-    let upgrade_record_index = 0;
+    // Set the `is_record_block_height_reached` flag.
+    let is_record_block_height_reached = true;
+    // Initialize the `upgrade_block_height`.
+    let upgrade_block_height = 0;
 
     // Construct the assignment for the inclusion circuit.
     let assignment = InclusionAssignment::new(
@@ -160,22 +158,14 @@ pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
         *commitment,
         gamma,
         serial_number,
-        enforce_record_index_check,
-        is_record_index_reached,
-        upgrade_record_index,
+        is_record_block_height_reached,
+        upgrade_block_height,
         Default::default(),
         true,
     )
     .to_circuit_assignment::<A>()?;
 
-    Ok((
-        assignment,
-        state_path,
-        serial_number,
-        enforce_record_index_check,
-        is_record_index_reached,
-        upgrade_record_index,
-    ))
+    Ok((assignment, state_path, serial_number, is_record_block_height_reached, upgrade_block_height))
 }
 
 /// Synthesizes the circuit keys for the inclusion circuit. (cargo run --release --example inclusion [network])
@@ -184,14 +174,8 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
     let universal_srs = UniversalSRS::<N>::load()?;
 
     // Sample the assignment for the inclusion circuit.
-    let (
-        assignment,
-        state_path,
-        serial_number,
-        enforce_record_index_check,
-        is_record_index_reached,
-        upgrade_record_index,
-    ) = sample_assignment::<N, A>()?;
+    let (assignment, state_path, serial_number, is_record_block_height_reached, upgrade_block_height) =
+        sample_assignment::<N, A>()?;
 
     // Synthesize the proving and verifying key.
     let inclusion_function_name = N::INCLUSION_FUNCTION_NAME;
@@ -208,9 +192,8 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
                 **state_path.global_state_root(),
                 *Field::<N>::zero(),
                 *serial_number,
-                *Field::<N>::from_bits_le(&[enforce_record_index_check])?,
-                *Field::<N>::from_bits_le(&[is_record_index_reached])?,
-                *Field::<N>::from_u64(upgrade_record_index)
+                *Field::<N>::from_bits_le(&[is_record_block_height_reached])?,
+                *Field::<N>::from_u32(upgrade_block_height)
             ],
             &proof
         ));
@@ -225,9 +208,8 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
                 **state_path.global_state_root(),
                 *Field::<N>::zero(),
                 *serial_number,
-                *Field::<N>::from_bits_le(&[enforce_record_index_check])?,
-                *Field::<N>::from_bits_le(&[is_record_index_reached])?,
-                *Field::<N>::from_u64(upgrade_record_index)
+                *Field::<N>::from_bits_le(&[is_record_block_height_reached])?,
+                *Field::<N>::from_u32(upgrade_block_height)
             ],
             &proof
         ));

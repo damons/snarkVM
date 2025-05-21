@@ -24,7 +24,10 @@ pub use assignment::*;
 #[cfg(debug_assertions)]
 use crate::Stack;
 
-use circuit::traits::FromField;
+use circuit::{
+    U32,
+    traits::{FromBits as _, FromField, ToBits as _},
+};
 use console::{
     network::prelude::*,
     program::{InputID, StatePath, TransactionLeaf, TransitionLeaf},
@@ -152,10 +155,13 @@ impl<N: Network> Inclusion<N> {
         for (transition_index, transition) in transitions.enumerate() {
             // Retrieve the local state root.
             let local_state_root = *transaction_tree.root();
-            // Determine if the record index check should be enforced.
-            let enforce_record_index_check = transition.is_credits();
-            // Determine if the record index should be reached.
-            let is_record_index_reached = !transition.is_upgrade();
+            // Determine the `is_record_index_reached` and `upgrade_block_height` flags.
+            let (is_record_index_reached, upgrade_block_height) = match transition.is_credits() {
+                // If the transition is `credits.aleo`, then determine if the call is to `upgrade`.
+                true => (!transition.is_upgrade(), N::INCLUSION_UPGRADE_HEIGHT()?),
+                // If the record is not `credits.aleo`, then perform a null enforcement.
+                false => (true, 0),
+            };
 
             // Iterate through the inputs.
             for input in transition.inputs() {
@@ -170,9 +176,8 @@ impl<N: Network> Inclusion<N> {
                         InclusionVersion::V1 => {
                             // This should be consistent with `Inclusion::prepare`
                             // Add the additional verifier inputs.
-                            verifier_inputs.push(*Field::<N>::from_bits_le(&[enforce_record_index_check])?);
                             verifier_inputs.push(*Field::<N>::from_bits_le(&[is_record_index_reached])?);
-                            verifier_inputs.push(*Field::<N>::from_u64(N::UPGRADE_RECORD_INDEX()?));
+                            verifier_inputs.push(*Field::<N>::from_u32(upgrade_block_height));
                         }
                     }
                     batch_verifier_inputs.push(verifier_inputs);

@@ -82,6 +82,11 @@ impl<A: Aleo> StatePath<A> {
         &self.transition_leaf
     }
 
+    /// Returns the block path.
+    pub const fn block_path(&self) -> &BlockPath<A> {
+        &self.block_path
+    }
+
     /// Returns the calculated record index based on the record's position in the global tree.
     pub fn record_index(&self) -> U64<A> {
         // Instantiate the constants.

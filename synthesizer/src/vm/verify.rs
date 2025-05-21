@@ -323,10 +323,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
-        let is_network_behind_upgrade_record_index =
-            self.block_store().get_current_maximum_leaf_index() < N::UPGRADE_RECORD_INDEX()?;
+        let is_network_behind_upgrade_height =
+            self.block_store().current_block_height() < N::INCLUSION_UPGRADE_HEIGHT()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
-            || is_network_behind_upgrade_record_index
+            || is_network_behind_upgrade_height
         {
             InclusionVersion::V0
         } else {
@@ -348,7 +348,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             }
 
             // Do not allow upgrades to be callable by other programs.
-            // This is to prevent local records from being upgraded, which would ignore the record index checks.
+            // This is to prevent local records from being upgraded, which would ignore the record block height checks.
             if execution.transitions().len() > 1 {
                 bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called by another program");
             }
@@ -404,10 +404,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
-        let is_network_behind_upgrade_record_index =
-            self.block_store().get_current_maximum_leaf_index() < N::UPGRADE_RECORD_INDEX()?;
+        let is_network_behind_upgrade_height =
+            self.block_store().current_block_height() < N::INCLUSION_UPGRADE_HEIGHT()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
-            || is_network_behind_upgrade_record_index
+            || is_network_behind_upgrade_height
         {
             InclusionVersion::V0
         } else {
@@ -1023,12 +1023,11 @@ mod credits_migration_tests {
     fn test_inclusion_migration() {
         // 1. Check that `upgrade` is not callable before migration
         // 2. Construct blocks until migration occurs
-        // 3. Check that network has reached the `upgrade_record_index`
-        // 4. Check that records from before the `upgrade_record_index` can't be spent.
-        // 5. Check that `upgrade` works on the above record.
-        // 6. Check that `upgrade` does not work on already upgraded records.
-        // 7. Check that the upgraded records can now be spent.
-        // 8. Check that `upgrade` no longer works after the the window expires.
+        // 3. Check that records from before the `upgrade_block_height` can't be spent.
+        // 4. Check that `upgrade` works on the above record.
+        // 5. Check that `upgrade` does not work on already upgraded records.
+        // 6. Check that the upgraded records can now be spent.
+        // 7. Check that `upgrade` no longer works after the the window expires.
 
         let rng = &mut TestRng::default();
 
@@ -1104,20 +1103,14 @@ mod credits_migration_tests {
         // 2. Construct blocks until migration occurs
         // ----------------------------------------------------------------------------------------
 
-        while vm.block_store().current_block_height() < inclusion_migration_height() {
+        while vm.block_store().current_block_height() < CurrentNetwork::INCLUSION_UPGRADE_HEIGHT().unwrap() {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
         }
 
         // ----------------------------------------------------------------------------------------
-        // 3. Check that network has reached the `upgrade_record_index`
-        // ----------------------------------------------------------------------------------------
-
-        assert_eq!(vm.block_store().get_current_maximum_leaf_index(), CurrentNetwork::UPGRADE_RECORD_INDEX().unwrap());
-
-        // ----------------------------------------------------------------------------------------
-        // 4. Check that records from before the `upgrade_record_index` can't be spent.
+        // 3. Check that records from before the `upgrade_block_height` can't be spent.
         // ----------------------------------------------------------------------------------------
 
         let record_to_spend = split_records[0].clone();
@@ -1130,7 +1123,7 @@ mod credits_migration_tests {
         assert!(vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 5. Check that `upgrade` works on the above record.
+        // 4. Check that `upgrade` works on the above record.
         // ----------------------------------------------------------------------------------------
 
         let upgrade_2 = {
@@ -1150,7 +1143,7 @@ mod credits_migration_tests {
         assert_eq!(next_block.transactions().len(), 1);
 
         // ----------------------------------------------------------------------------------------
-        // 6. Check that `upgrade` does not work on already upgraded records.
+        // 5. Check that `upgrade` does not work on already upgraded records.
         // ----------------------------------------------------------------------------------------
 
         // Fetch the records from the new block.
@@ -1164,7 +1157,7 @@ mod credits_migration_tests {
         assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 7. Check that the upgraded records can now be spent.
+        // 6. Check that the upgraded records can now be spent.
         // ----------------------------------------------------------------------------------------
 
         let transfer_private = {
@@ -1181,11 +1174,13 @@ mod credits_migration_tests {
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
 
         // ----------------------------------------------------------------------------------------
-        // 8. Check that `upgrade` no longer works after the the window expires.
+        // 7. Check that `upgrade` no longer works after the the window expires.
         // ----------------------------------------------------------------------------------------
 
         while vm.block_store().current_block_height()
-            <= inclusion_migration_height().saturating_add(CurrentNetwork::UPGRADE_WINDOW_NUM_BLOCKS)
+            <= CurrentNetwork::INCLUSION_UPGRADE_HEIGHT()
+                .unwrap()
+                .saturating_add(CurrentNetwork::UPGRADE_WINDOW_NUM_BLOCKS)
         {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
@@ -1207,7 +1202,7 @@ mod credits_migration_tests {
 
     #[cfg(feature = "test")]
     #[test]
-    fn test_inclusion_local_indexes() {
+    fn test_inclusion_local_records() {
         // 1. Check that records that have not been upgraded can't be spent via calls
         // 2. Check that upgrades can be called via another program
         // 3. Check that local records can be spent and checked properly.
@@ -1384,5 +1379,129 @@ function local_transfer:
         };
 
         assert!(vm.check_transaction(&local_transfer, None, rng).is_ok());
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_inclusion_for_custom_records() {
+        // 1. Deploy a program with custom records
+        // 2. Mint the records
+        // 3. Check that the records can be spent prior to migration
+        // 4. Construct blocks until migration occurs
+        // 5. Check that the records are be spent after migration
+
+        let rng = &mut TestRng::default();
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fetch the private key.
+        let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+        let view_key = ViewKey::try_from(&private_key).unwrap();
+        let address = Address::try_from(&private_key).unwrap();
+
+        // ----------------------------------------------------------------------------------------
+        // 1. Deploy a program with custom records
+        // ----------------------------------------------------------------------------------------
+
+        // Deploy the program.
+        let program = Program::from_str(
+            r"
+program token.aleo;
+
+record token:
+    owner as address.private;
+    amount as u64.private;
+
+function mint:
+    input r0 as address.private;
+    input r1 as u64.private;
+    cast r0 r1 into r2 as token.record;
+    output r2 as token.record;
+
+function transfer:
+    input r0 as token.record;
+    input r1 as address.private;
+    input r2 as u64.private;
+    sub r0.amount r2 into r3;
+    cast r1 r2 into r4 as token.record;
+    cast r0.owner r3 into r5 as token.record;
+    output r4 as token.record;
+    output r5 as token.record;
+    ",
+        )
+        .unwrap();
+
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
+        vm.add_next_block(&crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap())
+            .unwrap();
+
+        // ----------------------------------------------------------------------------------------
+        // 2. Mint the records
+        // ----------------------------------------------------------------------------------------
+
+        let mint = {
+            let inputs = [
+                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("100000u64").unwrap(),
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("token.aleo", "mint"), inputs, None, 0, None, rng).unwrap()
+        };
+        assert!(vm.check_transaction(&mint, None, rng).is_ok());
+
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[mint], rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+        assert_eq!(next_block.transactions().len(), 1);
+
+        // Fetch the records from the new block.
+        let minted_records =
+            next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
+        let minted_records =
+            minted_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        // ----------------------------------------------------------------------------------------
+        // 3. Check that the records can be spent prior to migration
+        // ----------------------------------------------------------------------------------------
+
+        let transfer_1 = {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(minted_records[0].clone()),
+                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("1000u64").unwrap(),
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("token.aleo", "transfer"), inputs, None, 0, None, rng).unwrap()
+        };
+        assert!(vm.check_transaction(&transfer_1, None, rng).is_ok());
+
+        // ----------------------------------------------------------------------------------------
+        // 4. Construct blocks until migration occurs
+        // ----------------------------------------------------------------------------------------
+
+        while vm.block_store().current_block_height() < CurrentNetwork::INCLUSION_UPGRADE_HEIGHT().unwrap() {
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // ----------------------------------------------------------------------------------------
+        // 5. Check that the records can be spent after migration
+        // ----------------------------------------------------------------------------------------
+
+        let transfer_2 = {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(minted_records[0].clone()),
+                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("1000u64").unwrap(),
+            ]
+            .into_iter();
+            vm.execute(&private_key, ("token.aleo", "transfer"), inputs, None, 0, None, rng).unwrap()
+        };
+        assert!(vm.check_transaction(&transfer_2, None, rng).is_ok());
     }
 }
