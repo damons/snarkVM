@@ -339,13 +339,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
             }
 
-            // Do not allow upgrades to occur if the block height is past the upgrade window.
-            if block_height > N::CONSENSUS_HEIGHT(ConsensusVersion::V6)?.saturating_add(N::UPGRADE_WINDOW_NUM_BLOCKS) {
-                bail!(
-                    "Execution verification failed - `credits.aleo/upgrade` cannot be called after the upgrade window"
-                );
-            }
-
             // Do not allow upgrades to be callable by other programs.
             // This is to prevent local records from being upgraded, which would ignore the record block height checks.
             if execution.transitions().len() > 1 {
@@ -1020,7 +1013,6 @@ mod credits_migration_tests {
         // 5. Check that `upgrade` works on the above record.
         // 6. Check that `upgrade` does not work on already upgraded records.
         // 7. Check that the upgraded records can now be spent.
-        // 8. Check that `upgrade` no longer works after the the window expires.
 
         let rng = &mut TestRng::default();
 
@@ -1230,32 +1222,6 @@ mod credits_migration_tests {
         };
 
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
-
-        // ----------------------------------------------------------------------------------------
-        // 8. Check that `upgrade` no longer works after the the window expires.
-        // ----------------------------------------------------------------------------------------
-
-        while vm.block_store().current_block_height()
-            <= CurrentNetwork::INCLUSION_UPGRADE_HEIGHT()
-                .unwrap()
-                .saturating_add(CurrentNetwork::UPGRADE_WINDOW_NUM_BLOCKS)
-        {
-            // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
-            vm.add_next_block(&next_block).unwrap();
-        }
-
-        let upgrade_3 = {
-            let record_to_spend = split_records[2].clone();
-            let amount = match record_to_spend.data().get(&microcredits) {
-                Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
-                _ => panic!("Invalid record"),
-            };
-            assert!(amount <= 500_000_000_000u64);
-            let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
-        };
-        assert!(vm.check_transaction(&upgrade_3, None, rng).is_err());
     }
 
     #[cfg(feature = "test")]
