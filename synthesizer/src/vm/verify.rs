@@ -323,8 +323,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
-        let is_network_behind_upgrade_height =
-            self.block_store().current_block_height() < N::INCLUSION_UPGRADE_HEIGHT()?;
+        let is_network_behind_upgrade_height = block_height < N::INCLUSION_UPGRADE_HEIGHT()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
             || is_network_behind_upgrade_height
         {
@@ -335,8 +334,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Perform checks if the execution contains `credits.aleo/upgrade`.
         if execution.transitions().any(|t| t.is_upgrade()) {
-            // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version.
-            if matches!(inclusion_version, InclusionVersion::V0) {
+            // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version or until after the migration block has passed.
+            if matches!(inclusion_version, InclusionVersion::V0) || block_height <= N::INCLUSION_UPGRADE_HEIGHT()? {
                 bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
             }
 
@@ -404,8 +403,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
-        let is_network_behind_upgrade_height =
-            self.block_store().current_block_height() < N::INCLUSION_UPGRADE_HEIGHT()?;
+        let is_network_behind_upgrade_height = block_height < N::INCLUSION_UPGRADE_HEIGHT()?;
         let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
             || is_network_behind_upgrade_height
         {
@@ -1012,22 +1010,17 @@ mod credits_migration_tests {
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
-    // Returns the migration height that enables the new inclusion assignment.
-    fn inclusion_migration_height() -> u32 {
-        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
-        CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap()
-    }
-
     #[cfg(feature = "test")]
     #[test]
     fn test_inclusion_migration() {
         // 1. Check that `upgrade` is not callable before migration
         // 2. Construct blocks until migration occurs
-        // 3. Check that records from before the `upgrade_block_height` can't be spent.
-        // 4. Check that `upgrade` works on the above record.
-        // 5. Check that `upgrade` does not work on already upgraded records.
-        // 6. Check that the upgraded records can now be spent.
-        // 7. Check that `upgrade` no longer works after the the window expires.
+        // 3. Check that records generated at exactly the migration block requires `upgrade`.
+        // 4. Check that records from before the `upgrade_block_height` can't be spent.
+        // 5. Check that `upgrade` works on the above record.
+        // 6. Check that `upgrade` does not work on already upgraded records.
+        // 7. Check that the upgraded records can now be spent.
+        // 8. Check that `upgrade` no longer works after the the window expires.
 
         let rng = &mut TestRng::default();
 
@@ -1103,14 +1096,79 @@ mod credits_migration_tests {
         // 2. Construct blocks until migration occurs
         // ----------------------------------------------------------------------------------------
 
-        while vm.block_store().current_block_height() < CurrentNetwork::INCLUSION_UPGRADE_HEIGHT().unwrap() {
+        let upgrade_height = CurrentNetwork::INCLUSION_UPGRADE_HEIGHT().unwrap();
+
+        while vm.block_store().current_block_height() <= upgrade_height {
+            let mut transactions = vec![];
+            // Add the split transaction to the block created at exactly `INCLUSION_UPGRADE_HEIGHT`
+            if vm.block_store().current_block_height() == upgrade_height - 1 {
+                let split_transaction_3 = {
+                    let inputs = [
+                        Value::<CurrentNetwork>::Record(genesis_records[2].clone()),
+                        Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
+                    ]
+                    .into_iter();
+                    vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+                };
+
+                transactions.push(split_transaction_3.clone());
+            }
             // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+
+            if vm.block_store().current_block_height() == upgrade_height - 1 {
+                println!("\n\n NUM ACCEPTED TRANSACTIONS: {}\n\n", next_block.transactions().num_accepted());
+                println!("\n\n NUM REJECTED TRANSACTIONS: {}\n\n", next_block.transactions().num_rejected());
+                println!("\n\n NUM ABORTED TRANSACTIONS: {}\n\n", next_block.aborted_transaction_ids().len());
+            }
+
             vm.add_next_block(&next_block).unwrap();
         }
 
         // ----------------------------------------------------------------------------------------
-        // 3. Check that records from before the `upgrade_block_height` can't be spent.
+        // 3. Check that records generated at exactly the migration block requires `upgrade`.
+        // ----------------------------------------------------------------------------------------
+
+        // Fetch the records created at the migration block.
+        let migration_block_hash = vm.block_store().get_block_hash(upgrade_height).unwrap().unwrap();
+        let migration_block_transactions =
+            vm.block_store().get_block_transactions(&migration_block_hash).unwrap().unwrap();
+        let split_records_2 = migration_block_transactions
+            .transitions()
+            .cloned()
+            .flat_map(Transition::into_records)
+            .collect::<IndexMap<_, _>>();
+        let split_records_2 =
+            split_records_2.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        // Check that a `transfer_private` is invalid.
+        {
+            let inputs = [
+                Value::<CurrentNetwork>::Record(split_records_2[0].clone()),
+                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("1u64").unwrap(),
+            ]
+            .into_iter();
+            assert!(
+                vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err()
+            );
+        }
+
+        // Check that an `upgrade` is valid.
+        {
+            let record_to_spend = split_records_2[0].clone();
+            let amount = match record_to_spend.data().get(&microcredits) {
+                Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
+                _ => panic!("Invalid record"),
+            };
+            assert!(amount <= 500_000_000_000u64);
+            let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
+            let upgrade = vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap();
+            assert!(vm.check_transaction(&upgrade, None, rng).is_ok());
+        }
+
+        // ----------------------------------------------------------------------------------------
+        // 4. Check that records from before the `upgrade_block_height` can't be spent.
         // ----------------------------------------------------------------------------------------
 
         let record_to_spend = split_records[0].clone();
@@ -1123,7 +1181,7 @@ mod credits_migration_tests {
         assert!(vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 4. Check that `upgrade` works on the above record.
+        // 5. Check that `upgrade` works on the above record.
         // ----------------------------------------------------------------------------------------
 
         let upgrade_2 = {
@@ -1143,7 +1201,7 @@ mod credits_migration_tests {
         assert_eq!(next_block.transactions().len(), 1);
 
         // ----------------------------------------------------------------------------------------
-        // 5. Check that `upgrade` does not work on already upgraded records.
+        // 6. Check that `upgrade` does not work on already upgraded records.
         // ----------------------------------------------------------------------------------------
 
         // Fetch the records from the new block.
@@ -1157,7 +1215,7 @@ mod credits_migration_tests {
         assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 6. Check that the upgraded records can now be spent.
+        // 7. Check that the upgraded records can now be spent.
         // ----------------------------------------------------------------------------------------
 
         let transfer_private = {
@@ -1174,7 +1232,7 @@ mod credits_migration_tests {
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
 
         // ----------------------------------------------------------------------------------------
-        // 7. Check that `upgrade` no longer works after the the window expires.
+        // 8. Check that `upgrade` no longer works after the the window expires.
         // ----------------------------------------------------------------------------------------
 
         while vm.block_store().current_block_height()
@@ -1309,7 +1367,7 @@ function local_transfer:
         // Construct blocks until migration occurs
         // ----------------------------------------------------------------------------------------
 
-        while vm.block_store().current_block_height() < inclusion_migration_height() {
+        while vm.block_store().current_block_height() <= CurrentNetwork::INCLUSION_UPGRADE_HEIGHT().unwrap() {
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[], rng).unwrap();
             vm.add_next_block(&next_block).unwrap();

@@ -158,7 +158,9 @@ impl<N: Network> Inclusion<N> {
             // Determine the `is_record_block_height_reached` and `upgrade_block_height` flags.
             let (is_record_block_height_reached, upgrade_block_height) = match transition.is_credits() {
                 // If the transition is `credits.aleo`, then determine if the call is to `upgrade`.
-                true => (!transition.is_upgrade(), N::INCLUSION_UPGRADE_HEIGHT()?),
+                // This checks against `INCLUSION_UPGRADE_HEIGHT + 1` because any records produced for
+                // block `INCLUSION_UPGRADE_HEIGHT` would be using the old inclusion version.
+                true => (!transition.is_upgrade(), N::INCLUSION_UPGRADE_HEIGHT()?.saturating_add(1)),
                 // If the record is not `credits.aleo`, then perform a null enforcement.
                 false => (true, 0),
             };
