@@ -413,15 +413,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Unpause the atomic writes, executing the ones queued from block insertion and finalization.
                 #[cfg(feature = "rocks")]
                 self.block_store().unpause_atomic_writes::<false>()?;
-                // If the block advances to `ConsensusVersion::V4`, clear the partial verification cache.
-                if N::CONSENSUS_HEIGHT(ConsensusVersion::V4).unwrap_or_default() == block.height() {
-                    self.partially_verified_transactions().write().clear();
-                }
-                // If the block advances to `ConsensusVersion::V6`, clear the partial verification cache.
-                if N::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap_or_default() == block.height() {
-                    self.partially_verified_transactions().write().clear();
-                }
-
                 // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
                 // If the block advances to `ConsensusVersion::V4` or `ConsensusVersion::V6`, clear the partial verification cache.
                 let cache_clear_heights = [
