@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -137,7 +137,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Check that leaves in the subdag point to batches in other blocks that are valid.
     ///
     /// This does not verify that the batches are signed correctly or that the edges are valid
-    /// (only point to the previous round), as those checks already happend when the node received the batch.
+    /// (only point to the previous round), as those checks already happened when the node received the batch.
     fn check_block_subdag_leaves(&self, block: &Block<N>) -> Result<()> {
         // Check if the block has a subdag.
         let Authority::Quorum(subdag) = block.authority() else {
@@ -166,7 +166,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             }
 
             // Ensure that the certificate is associated with a previous block.
-            if self.vm.block_store().get_block_for_certificate(prev_id)?.is_none() {
+            if !self.vm.block_store().contains_block_for_certificate(prev_id)? {
                 bail!(
                     "Batch(es) in the block point(s) to a certificate {prev_id} in round {prev_round} that is not associated with a previous block"
                 )

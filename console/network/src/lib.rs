@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -85,6 +85,8 @@ pub enum ConsensusVersion {
     V5 = 5,
     /// V6: Update to the number of validators.
     V6 = 6,
+    /// V7: Update to program rules.
+    V7 = 7,
 }
 
 pub trait Network:
@@ -226,7 +228,7 @@ pub trait Network:
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 7];
     ///  A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: This value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit

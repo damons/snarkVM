@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -135,25 +135,27 @@ impl Network for CanaryV0 {
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(not(any(test, feature = "test")))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6] = [
+    #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 7] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 2_900_000),
         (ConsensusVersion::V3, 4_560_000),
         (ConsensusVersion::V4, 5_730_000),
         (ConsensusVersion::V5, 5_780_000),
         (ConsensusVersion::V6, 6_240_000),
+        (ConsensusVersion::V7, 6_895_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(any(test, feature = "test"))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 6] = [
+    #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 7] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 10),
         (ConsensusVersion::V3, 11),
         (ConsensusVersion::V4, 12),
         (ConsensusVersion::V5, 13),
         (ConsensusVersion::V6, 14),
+        (ConsensusVersion::V7, 15),
     ];
     /// The network edition.
     const EDITION: u16 = 0;
