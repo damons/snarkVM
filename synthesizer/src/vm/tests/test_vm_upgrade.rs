@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,16 +22,16 @@ use synthesizer_program::{Program, StackProgram};
 
 use std::panic::AssertUnwindSafe;
 
-// This test checks that a program with a constructor cannot be deployed before the V5 consensus height.
+// This test checks that a program with a constructor cannot be deployed before the V8 consensus height.
 #[test]
-fn test_constructor_requires_v5() -> Result<()> {
+fn test_constructor_requires_v8() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)? - 1, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 1, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -74,7 +74,7 @@ fn test_simple_upgrade() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -188,7 +188,7 @@ fn test_program_without_constructor_is_not_upgradable() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -263,8 +263,8 @@ fn test_editions_are_sequential() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize two VMs.
-    let off_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
-    let on_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let off_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let on_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the three versions of the program.
     let program_v0 = Program::from_str(
@@ -389,7 +389,7 @@ fn test_upgrade_with_records() -> Result<()> {
     let caller_view_key = ViewKey::try_from(&caller_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -570,7 +570,7 @@ fn test_upgrade_with_mappings() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -783,7 +783,7 @@ fn test_upgrade_with_dependents() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the two versions of the dependency program.
     let dependency_v0 = Program::from_str(
@@ -1078,7 +1078,7 @@ fn test_upgrade_with_cycles() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the programs.
     let first_v0 = Program::from_str(
@@ -1248,7 +1248,7 @@ fn test_failing_init_block() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the programs.
     let passing_program = Program::from_str(
@@ -1311,7 +1311,7 @@ fn test_anyone_can_upgrade() -> Result<()> {
     let unrelated_caller_address_1 = Address::try_from(&unrelated_caller_private_key_1)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Fund the unrelated callers.
     let transfer_1 = vm.execute(
@@ -1409,7 +1409,7 @@ fn test_non_upgradable_programs() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the programs.
     let program_0_v0 = Program::from_str(
@@ -1482,7 +1482,7 @@ fn test_downgrade_upgradable_program() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(
@@ -1596,7 +1596,7 @@ fn test_lock_upgrade_to_checksum() -> Result<()> {
     let caller_address = Address::try_from(&caller_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(&format!(
@@ -1810,7 +1810,7 @@ fn test_upgrade_without_changing_contents_fails() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V5)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
 
     // Define the program.
     let program_v0 = Program::from_str(
