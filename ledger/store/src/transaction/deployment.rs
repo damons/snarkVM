@@ -222,7 +222,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             // Store the program.
             self.program_map().insert((program_id, edition), program.clone())?;
             // If the checksum exists, then store it and also store the edition into the `IDEditionMap`.
-            // This is done because the existence of the checksum implies a migration at the V5 consensus height.
+            // This is done because the existence of the checksum implies a migration at the V8 consensus height.
             // This migration enables program upgrades.
             if let Some(checksum) = checksum {
                 self.id_edition_map().insert(*transaction_id, edition)?;
@@ -420,7 +420,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
                     None => return Ok(None),
                 };
                 // Verify that the latest edition is zero.
-                // Prior to `ConsensusVersion::V5`, this must be the case because if a program is not in the `IDEditionMap` but exists,
+                // Prior to `ConsensusVersion::V8`, this must be the case because if a program is not in the `IDEditionMap` but exists,
                 // then it must have been deployed before program upgrades were introduced.
                 ensure!(latest_edition == 0, "Failed to get the edition for transaction '{transaction_id}'");
                 // Return the edition.

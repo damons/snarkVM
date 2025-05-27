@@ -140,8 +140,8 @@ impl<N: Network> Transaction<N> {
     /// Returns the Merkle tree for the given deployment.
     pub fn deployment_tree(deployment: &Deployment<N>) -> Result<DeploymentTree<N>> {
         // Use the V1 or V2 deployment tree based on whether or not the program checksum exists.
-        // Note: `ConsensusVersion::V5` requires the program checksum to be present, while prior versions require it to be absent.
-        // Note: After `ConsensusVersion::V5`, the program checksum is used in the header of the hash instead of the program ID.
+        // Note: `ConsensusVersion::V8` requires the program checksum to be present, while prior versions require it to be absent.
+        // Note: After `ConsensusVersion::V8`, the program checksum is used in the header of the hash instead of the program ID.
         match deployment.program_checksum().is_some() {
             false => Self::deployment_tree_v1(deployment),
             true => Self::deployment_tree_v2(deployment),

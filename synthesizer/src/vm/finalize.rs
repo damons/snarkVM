@@ -849,7 +849,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // If the transaction is an execution, ensure that its corresponding program(s)
         // have not been deployed or redeployed prior to this transaction in this block.
-        // Note: This logic is compatible with deployments prior to `ConsensusVersion::V5`.
+        // Note: This logic is compatible with deployments prior to `ConsensusVersion::V8`.
         if let Transaction::Execute(_, _, execution, _) = transaction {
             // If one of the component programs have been deployed or upgraded in this block, abort the transaction.
             for program_id in execution.transitions().map(|t| t.program_id()) {

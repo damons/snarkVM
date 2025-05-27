@@ -149,11 +149,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
-                // If the `CONSENSUS_VERSION` is `V5` or greater, then verify that the program checksum is present.
+                // If the `CONSENSUS_VERSION` is `V8` or greater, then verify that the program checksum is present.
                 // Otherwise, verify that the deployment edition is zero, that the program checksum is **not** present in the deployment,
                 // and that the program does not use constructors, `Operand::Checksum`, or `Operand::Edition`.
                 let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
-                match consensus_version >= ConsensusVersion::V5 {
+                match consensus_version >= ConsensusVersion::V8 {
                     true => ensure!(
                         deployment.program_checksum().is_some(),
                         "Invalid deployment transaction '{id}' - missing program checksum"

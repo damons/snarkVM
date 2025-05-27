@@ -656,7 +656,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
     /// Returns `true` if a program uses constructors, `Operand::Edition`, and `Operand::Checksum`.
-    /// This is enforced to be `false` for programs before `ConsensusVersion::V5`.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V8`.
     #[inline]
     pub fn uses_constructor_checksum_or_edition(&self) -> bool {
         // Check if the program contains a constructor.
@@ -709,7 +709,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
                 }
             }
         }
-        // Return `false` since no V5 syntax was found.
+        // Return `false` since no V8 syntax was found.
         false
     }
 }
