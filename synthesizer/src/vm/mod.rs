@@ -3693,7 +3693,7 @@ function fly:
 
         // Initialize the VM at a specific height.
         // We subtract by 7 to deploy the 7 invalid programs.
-        let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap() - 7, rng);
+        let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V6).unwrap() - 7, rng);
 
         // Define the invalid program bodies.
         let invalid_program_bodies = [

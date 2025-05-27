@@ -3195,7 +3195,7 @@ program upgradable.aleo;
 function foo:
 constructor:
     branch.eq edition 0u16 to end;
-    gt block.height 15u32 into r0;
+    gt block.height 18u32 into r0;
     assert.eq r0 true;
     position end;
     ",
@@ -3208,7 +3208,7 @@ function foo:
 function bar:
 constructor:
     branch.eq edition 0u16 to end;
-    gt block.height 15u32 into r0;
+    gt block.height 18u32 into r0;
     assert.eq r0 true;
     position end;
     ",
@@ -3218,27 +3218,27 @@ constructor:
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-        assert_eq!(block.height(), 14);
+        assert_eq!(block.height(), 17);
         assert_eq!(block.transactions().num_accepted(), 1);
         assert_eq!(block.transactions().num_rejected(), 0);
         assert_eq!(block.aborted_transaction_ids().len(), 0);
         ledger.advance_to_next_block(&block)?;
 
-        // Attempt to deploy the second version of the program before block height 15.
+        // Attempt to deploy the second version of the program before block height 18.
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-        assert_eq!(block.height(), 15);
+        assert_eq!(block.height(), 18);
         assert_eq!(block.transactions().num_accepted(), 0);
         assert_eq!(block.transactions().num_rejected(), 1);
         assert_eq!(block.aborted_transaction_ids().len(), 0);
         ledger.advance_to_next_block(&block)?;
 
-        // Attempt to deploy the second version of the program at block height 15.
+        // Attempt to deploy the second version of the program at block height 18.
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-        assert_eq!(block.height(), 16);
+        assert_eq!(block.height(), 19);
         assert_eq!(block.transactions().num_accepted(), 1);
         assert_eq!(block.transactions().num_rejected(), 0);
         assert_eq!(block.aborted_transaction_ids().len(), 0);
