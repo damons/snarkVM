@@ -137,7 +137,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Check that leaves in the subdag point to batches in other blocks that are valid.
     ///
     /// This does not verify that the batches are signed correctly or that the edges are valid
-    /// (only point to the previous round), as those checks already happend when the node received the batch.
+    /// (only point to the previous round), as those checks already happened when the node received the batch.
     fn check_block_subdag_leaves(&self, block: &Block<N>) -> Result<()> {
         // Check if the block has a subdag.
         let Authority::Quorum(subdag) = block.authority() else {
