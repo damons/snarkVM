@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -790,7 +790,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is an execution for a program following its deployment or redeployment in this block.
     /// - The transaction is an execution with a state root whose corresponding block height is greater than or
     ///     equal to the latest block at which any of the execution's programs were deployed or upgraded. This
-    ///     check is enforced only after `ConsensusVersion::V5` when program upgrades were introduced.
+    ///     check is enforced only after `ConsensusVersion::V8` when program upgrades were introduced.
     ///
     /// - Note: If a transaction is a deployment for a program following its deployment or redeployment in this block,
     ///     it is not aborted. Instead, it will be rejected and its fee will be consumed.
@@ -853,21 +853,21 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         if let Transaction::Execute(_, id, execution, _) = transaction {
             // If the transaction is an execution, ensure that its corresponding program(s)
             // have not been deployed or redeployed prior to this transaction in this block.
-            // Note: This logic is compatible with deployments prior to `ConsensusVersion::V5`.
+            // Note: This logic is compatible with deployments prior to `ConsensusVersion::V8`.
             for program_id in execution.transitions().map(|t| t.program_id()) {
                 if deployments.contains(program_id) {
                     return Some(format!("Program {program_id} has been deployed or upgraded in this block"));
                 }
             }
 
-            // If the current height is at `ConsensusVersion::V5` or higher, then enforce that the execution's
+            // If the current height is at `ConsensusVersion::V8` or higher, then enforce that the execution's
             // state root is from a block whose height is greater than the latest block height at which any of
             // the execution's programs were deployed or upgraded.
             let current_height = self.block_store().current_block_height();
             let Ok(current_version) = N::CONSENSUS_VERSION(current_height) else {
                 return Some(format!("Failed to get consensus version for the current height: '{current_height}'"));
             };
-            if current_version >= ConsensusVersion::V5 {
+            if current_version >= ConsensusVersion::V8 {
                 // Track the maximum block height and the associated program ID.
                 let mut max_block_height = 0;
                 let mut latest_program = None;
@@ -1493,16 +1493,19 @@ mod tests {
     };
     use ledger_block::{Block, Header, Metadata, Transaction, Transition};
     use ledger_committee::{MAX_DELEGATORS, MIN_VALIDATOR_STAKE};
-    use ledger_store::helpers::memory::ConsensusMemory;
     use synthesizer_program::Program;
 
     use rand::distributions::DistString;
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
+    #[cfg(not(feature = "rocks"))]
+    type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
+    #[cfg(feature = "rocks")]
+    type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
     /// Sample a new program and deploy it to the VM. Returns the program name.
     fn new_program_deployment<R: Rng + CryptoRng>(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
         previous_block: &Block<CurrentNetwork>,
         unspent_records: &mut Vec<Record<CurrentNetwork, Ciphertext<CurrentNetwork>>>,
@@ -1570,7 +1573,7 @@ finalize transfer_public:
 
     /// Construct a new block based on the given transactions.
     fn sample_next_block<R: Rng + CryptoRng>(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
         transactions: &[Transaction<CurrentNetwork>],
         previous_block: &Block<CurrentNetwork>,
@@ -1640,7 +1643,7 @@ finalize transfer_public:
 
     /// Generate split transactions for the unspent records.
     fn generate_splits<R: Rng + CryptoRng>(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
         previous_block: &Block<CurrentNetwork>,
         unspent_records: &mut Vec<Record<CurrentNetwork, Ciphertext<CurrentNetwork>>>,
@@ -1679,7 +1682,7 @@ finalize transfer_public:
 
     /// Create an execution transaction.
     fn create_execution(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
         program_id: &str,
         function_name: &str,
@@ -1706,7 +1709,7 @@ finalize transfer_public:
 
     /// Sample a public mint transaction.
     fn sample_mint_public(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
         program_id: &str,
         recipient: Address<CurrentNetwork>,
@@ -1724,7 +1727,7 @@ finalize transfer_public:
 
     /// Sample a public transfer transaction.
     fn sample_transfer_public(
-        vm: &VM<CurrentNetwork, ConsensusMemory<CurrentNetwork>>,
+        vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
         program_id: &str,
         recipient: Address<CurrentNetwork>,
@@ -2023,6 +2026,7 @@ finalize transfer_public:
         assert!(Committee::new_genesis(committee_map).is_err());
     }
 
+    #[cfg(not(feature = "test"))]
     #[test]
     #[allow(clippy::assertions_on_constants)]
     fn test_migration_v3_maximum_validator_increase() {
@@ -2637,11 +2641,11 @@ finalize compute:
         let mut transactions = Vec::new();
         let mut excess_transaction_ids = Vec::new();
 
-        for _ in 0..VM::<CurrentNetwork, ConsensusMemory<_>>::MAXIMUM_CONFIRMED_TRANSACTIONS + 1 {
+        for _ in 0..VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS + 1 {
             let transaction =
                 sample_mint_public(&vm, caller_private_key, &program_id, caller_address, 10, &mut unspent_records, rng);
             // Abort the transaction if the block is full.
-            if transactions.len() >= VM::<CurrentNetwork, ConsensusMemory<_>>::MAXIMUM_CONFIRMED_TRANSACTIONS {
+            if transactions.len() >= VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS {
                 excess_transaction_ids.push(transaction.id());
             }
 
@@ -2655,10 +2659,7 @@ finalize compute:
 
         // Ensure that the excess transactions were aborted.
         assert_eq!(next_block.aborted_transaction_ids(), &excess_transaction_ids);
-        assert_eq!(
-            next_block.transactions().len(),
-            VM::<CurrentNetwork, ConsensusMemory<_>>::MAXIMUM_CONFIRMED_TRANSACTIONS
-        );
+        assert_eq!(next_block.transactions().len(), VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS);
     }
 
     #[test]
