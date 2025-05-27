@@ -877,8 +877,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     let program_id = transition.program_id();
                     // If the program is `credits.aleo`, set the appropriate state and continue.
                     if program_id.to_string() == "credits.aleo" {
-                        // Note: This unwrap is safe as `credits.aleo` is known to be a valid program ID.
-                        latest_program = Some(ProgramID::from_str("credits.aleo").unwrap());
+                        latest_program = Some(*program_id);
                         continue;
                     }
                     // Get the transaction ID of the transaction that last deployed or upgraded the program.
