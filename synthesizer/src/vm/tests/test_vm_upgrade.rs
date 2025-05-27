@@ -20,6 +20,8 @@ use crate::vm::test_helpers::*;
 use console::{account::ViewKey, program::Value};
 use synthesizer_program::{Program, StackProgram};
 
+use crate::vm::test_helpers::sample_vm_at_height;
+use console::network::ConsensusVersion;
 use std::panic::AssertUnwindSafe;
 
 // This test checks that:
@@ -2329,16 +2331,18 @@ function dummy2:",
     vm.add_next_block(&block).unwrap();
 }
 
+// This test verifies that `credits.aleo` transactions can be executed and added to blocks after the upgrade to V8.
 #[test]
-fn test_credits_execution_with_genesis_state_root() {
+fn test_credits_executions() {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
     let caller_address = Address::try_from(&caller_private_key).unwrap();
 
-    // Initialize the VM at height 0.
-    let vm = sample_vm_at_height(0, rng);
+    // Initialize the VM.
+    let vm: crate::VM<CurrentNetwork, LedgerType> =
+        sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap() - 1, rng);
 
     // Generate two executions of `transfer_public`.
     let transfer_1 = vm
