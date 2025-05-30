@@ -37,6 +37,7 @@ pub use helpers::*;
 
 mod advance;
 mod check_next_block;
+mod check_solution_limit;
 mod check_transaction_basic;
 mod contains;
 mod find;
@@ -142,6 +143,8 @@ pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     /// If `L` is the lookback round distance, `C` is the active committee at round `R + L`
     /// (i.e. the committee in charge of running consensus at round `R + L`).
     committee_cache: Arc<Mutex<LruCache<u64, Committee<N>>>>,
+    /// The cache that holds the provers and the number of solutions they have submitted for the current epoch.
+    epoch_provers_cache: Arc<RwLock<IndexMap<Address<N>, u32>>>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
@@ -207,6 +210,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             current_committee: Arc::new(RwLock::new(current_committee)),
             current_block: Arc::new(RwLock::new(genesis_block.clone())),
             committee_cache,
+            epoch_provers_cache: Default::default(),
         };
 
         // If the block store is empty, add the genesis block.
@@ -230,6 +234,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         ledger.current_committee = Arc::new(RwLock::new(Some(ledger.latest_committee()?)));
         // Set the current epoch hash.
         ledger.current_epoch_hash = Arc::new(RwLock::new(Some(ledger.get_epoch_hash(latest_height)?)));
+        // Set the epoch prover cache.
+        ledger.epoch_provers_cache = ledger.get_epoch_provers();
 
         finish!(timer, "Initialize ledger");
         Ok(ledger)
