@@ -71,7 +71,10 @@ pub fn staking_rewards<N: Network>(
         .collect();
 
     // Track validators not in committee.
-    let missing_validators = std::sync::Mutex::new(std::collections::HashSet::<Address<N>>::new());
+    // Pre-allocating with an expected capacity prevents reallocation while the mutex is held.
+    let hashset_capacity = committee.members().len();
+    let missing_validators =
+        std::sync::Mutex::new(std::collections::HashSet::<Address<N>>::with_capacity(hashset_capacity));
 
     // Compute the updated stakers.
     cfg_iter!(stakers)
