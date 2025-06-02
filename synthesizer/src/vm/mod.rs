@@ -328,7 +328,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let aborted_solution_ids = vec![];
         // Prepare the transactions.
         let transactions = (0..Block::<N>::NUM_GENESIS_TRANSACTIONS)
-            .map(|_| self.execute(private_key, locator, inputs.iter(), None, 0, None, rng))
+            .map(|_| self.execute(private_key, locator, inputs.iter(), None, 0, None::<Query<N, C::BlockStorage>>, rng))
             .collect::<Result<Vec<_>, _>>()?;
 
         // Construct the finalize state.

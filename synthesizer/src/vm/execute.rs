@@ -24,14 +24,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// otherwise, a public fee will be included in the transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the execution fee.
-    pub fn execute<R: Rng + CryptoRng>(
+    pub fn execute<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         (program_id, function_name): (impl TryInto<ProgramID<N>>, impl TryInto<Identifier<N>>),
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         let (execution, _) = self.execute_with_response(
@@ -74,8 +74,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let fee = match is_fee_required || is_priority_fee_declared {
             true => {
                 // Compute the minimum execution cost.
-                let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
-                let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+                let consensus_version = if let Some(query) = &query {
+                    N::CONSENSUS_VERSION(query.current_block_height()?)?
+                } else {
+                    N::CONSENSUS_VERSION(self.block_store().max_height().unwrap_or_default())?
+                };
                 let (minimum_execution_cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
                     execution_cost_v1(&self.process().read(), &execution)?
                 } else {
@@ -102,7 +105,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     )?,
                 };
                 // Execute the fee.
-                Some(self.execute_fee_authorization_raw(authorization, Some(query), rng)?)
+                if query.is_some() {
+                    Some(self.execute_fee_authorization_raw(authorization, query, rng)?)
+                } else {
+                    Some(self.execute_fee_authorization_raw(
+                        authorization,
+                        Some(Query::VM(self.block_store().clone())),
+                        rng,
+                    )?)
+                }
             }
             false => None,
         };
@@ -114,11 +125,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     ///
     /// This is identical to `execute_authorization_with_response` except that it
     /// discards the `Response`.
-    pub fn execute_authorization<R: Rng + CryptoRng>(
+    pub fn execute_authorization<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         execute_authorization: Authorization<N>,
         fee_authorization: Option<Authorization<N>>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         let (execution, _) =
@@ -127,11 +138,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Returns a new execute transaction and response for the given authorization.
-    pub fn execute_authorization_with_response<R: Rng + CryptoRng>(
+    pub fn execute_authorization_with_response<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         execute_authorization: Authorization<N>,
         fee_authorization: Option<Authorization<N>>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<(Transaction<N>, Response<N>)> {
         // Compute the execution.
@@ -147,10 +158,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Returns a new fee for the given authorization.
-    pub fn execute_fee_authorization<R: Rng + CryptoRng>(
+    pub fn execute_fee_authorization<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         authorization: Authorization<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Fee<N>> {
         debug_assert!(authorization.is_fee_private() || authorization.is_fee_public(), "Expected a fee authorization");
@@ -162,10 +173,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Executes a call to the program function for the given authorization.
     /// Returns the execution.
     #[inline]
-    fn execute_authorization_raw<R: Rng + CryptoRng>(
+    fn execute_authorization_raw<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         authorization: Authorization<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<(Execution<N>, Response<N>)> {
         let timer = timer!("VM::execute_authorization_raw");
@@ -175,15 +186,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let request = authorization.peek_next()?;
             Locator::new(*request.program_id(), *request.function_name()).to_string()
         };
-        // Prepare the query.
-        let query = match query {
-            Some(query) => query,
-            None => Query::VM(self.block_store().clone()),
-        };
-        lap!(timer, "Prepare the query");
 
         // Determine which Varuna version to use.
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        let consensus_version = if let Some(query) = &query {
+            N::CONSENSUS_VERSION(query.current_block_height()?)?
+        } else {
+            N::CONSENSUS_VERSION(self.block_store().max_height().unwrap_or_default())?
+        };
         let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             VarunaVersion::V1
         } else {
@@ -199,7 +208,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 lap!(timer, "Execute the call");
 
                 // Prepare the assignments.
-                cast_mut_ref!(trace as Trace<N>).prepare(query)?;
+                if let Some(query) = query {
+                    cast_mut_ref!(trace as Trace<N>).prepare(query)?;
+                } else {
+                    cast_mut_ref!(trace as Trace<N>).prepare(Query::VM(self.block_store().clone()))?;
+                }
                 lap!(timer, "Prepare the assignments");
 
                 // Compute the proof and construct the execution.
@@ -220,23 +233,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Executes a call to the program function for the given fee authorization.
     /// Returns the fee.
     #[inline]
-    fn execute_fee_authorization_raw<R: Rng + CryptoRng>(
+    fn execute_fee_authorization_raw<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         authorization: Authorization<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Fee<N>> {
         let timer = timer!("VM::execute_fee_authorization_raw");
 
-        // Prepare the query.
-        let query = match query {
-            Some(query) => query,
-            None => Query::VM(self.block_store().clone()),
-        };
-        lap!(timer, "Prepare the query");
-
         // Determine which Varuna version to use.
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        let consensus_version = if let Some(query) = &query {
+            N::CONSENSUS_VERSION(query.current_block_height()?)?
+        } else {
+            N::CONSENSUS_VERSION(self.block_store().max_height().unwrap_or_default())?
+        };
         let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             VarunaVersion::V1
         } else {
@@ -252,7 +262,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 lap!(timer, "Execute the call");
 
                 // Prepare the assignments.
-                cast_mut_ref!(trace as Trace<N>).prepare(query)?;
+                if let Some(query) = query {
+                    cast_mut_ref!(trace as Trace<N>).prepare(query)?;
+                } else {
+                    cast_mut_ref!(trace as Trace<N>).prepare(Query::VM(self.block_store().clone()))?;
+                }
                 lap!(timer, "Prepare the assignments");
 
                 // Compute the proof and construct the fee.

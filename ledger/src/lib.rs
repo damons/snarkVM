@@ -56,7 +56,7 @@ use ledger_authority::Authority;
 use ledger_committee::Committee;
 use ledger_narwhal::{BatchCertificate, Subdag, Transmission, TransmissionID};
 use ledger_puzzle::{Puzzle, PuzzleSolutions, Solution, SolutionID};
-use ledger_query::Query;
+use ledger_query::QueryTrait;
 use ledger_store::{ConsensusStorage, ConsensusStore};
 use synthesizer::{
     program::{FinalizeGlobalState, Program},
@@ -362,12 +362,12 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Creates a deploy transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the deployment fee.
-    pub fn create_deploy<R: Rng + CryptoRng>(
+    pub fn create_deploy<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         program: &Program<N>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.
@@ -385,13 +385,13 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Creates a transfer transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the execution fee.
-    pub fn create_transfer<R: Rng + CryptoRng>(
+    pub fn create_transfer<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         to: Address<N>,
         amount_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.
