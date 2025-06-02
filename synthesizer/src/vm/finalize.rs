@@ -1470,7 +1470,14 @@ finalize transfer_public:
         let credits = Some(unspent_records.pop().unwrap().decrypt(&view_key)?);
 
         // Deploy.
-        let transaction = vm.deploy(private_key, &program, credits, 10, None, rng)?;
+        let transaction = vm.deploy(
+            private_key,
+            &program,
+            credits,
+            10,
+            None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
+            rng,
+        )?;
 
         // Construct the new block.
         let next_block = sample_next_block(vm, private_key, &[transaction], previous_block, unspent_records, rng)?;
@@ -1578,7 +1585,17 @@ finalize transfer_public:
             .into_iter();
 
             // Execute.
-            let transaction = vm.execute(private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap();
+            let transaction = vm
+                .execute(
+                    private_key,
+                    ("credits.aleo", "split"),
+                    inputs,
+                    None,
+                    0,
+                    None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
+                    rng,
+                )
+                .unwrap();
 
             transactions.push(transaction);
         }
@@ -1605,7 +1622,15 @@ finalize transfer_public:
 
         // Execute.
         let transaction = vm
-            .execute(&caller_private_key, (program_id, function_name), inputs.into_iter(), credits, 1, None, rng)
+            .execute(
+                &caller_private_key,
+                (program_id, function_name),
+                inputs.into_iter(),
+                credits,
+                1,
+                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
+                rng,
+            )
             .unwrap();
         // Verify.
         vm.check_transaction(&transaction, None, rng).unwrap();
@@ -1881,7 +1906,7 @@ finalize transfer_public:
                 inputs.into_iter(),
                 None,
                 1,
-                None,
+                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
                 rng,
             )
             .unwrap();
@@ -2006,7 +2031,7 @@ finalize transfer_public:
                 inputs.clone().into_iter(),
                 None,
                 1,
-                None,
+                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
                 rng,
             )
             .unwrap();
@@ -2320,7 +2345,16 @@ function ped_hash:
             let credits = Some(unspent_records.pop().unwrap().decrypt(&caller_view_key).unwrap());
 
             // Deploy the program.
-            let deployment_transaction = vm.deploy(&caller_private_key, &program, credits, 10, None, rng).unwrap();
+            let deployment_transaction = vm
+                .deploy(
+                    &caller_private_key,
+                    &program,
+                    credits,
+                    10,
+                    None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
+                    rng,
+                )
+                .unwrap();
 
             // Construct the deployment block.
             let deployment_block = sample_next_block(
@@ -2435,7 +2469,16 @@ finalize compute:
             let credits = Some(unspent_records.pop().unwrap().decrypt(&view_key).unwrap());
 
             // Deploy.
-            let transaction = vm.deploy(&private_key, &program, credits, 10, None, rng).unwrap();
+            let transaction = vm
+                .deploy(
+                    &private_key,
+                    &program,
+                    credits,
+                    10,
+                    None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
+                    rng,
+                )
+                .unwrap();
 
             // Construct the new block.
             sample_next_block(&vm, &private_key, &[transaction], &splits_block, &mut unspent_records, rng).unwrap()
@@ -2965,7 +3008,7 @@ finalize compute:
                     .into_iter(),
                     None,
                     0,
-                    None,
+                    None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
                     rng,
                 )
                 .unwrap();
@@ -3370,7 +3413,7 @@ finalize compute:
                 .into_iter(),
                 None,
                 0,
-                None,
+                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
                 rng,
             )
             .unwrap();
@@ -3409,7 +3452,7 @@ finalize compute:
                 .into_iter(),
                 None,
                 0,
-                None,
+                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
                 rng,
             )
             .unwrap();
