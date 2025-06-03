@@ -73,7 +73,7 @@ mod tests {
     type Aleo = crate::circuit::AleoV0;
 
     fn temp_dir() -> PathBuf {
-        tempfile::tempdir().expect("Failed to open temporary directory").into_path()
+        tempfile::tempdir().expect("Failed to open temporary directory").keep()
     }
 
     fn initialize_unbuilt_package(valid: bool) -> Result<Package<MainnetV0>> {

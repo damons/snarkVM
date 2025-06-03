@@ -90,7 +90,7 @@ version = "0.2.1"
 optional = true
 
 [dependencies.hashbrown]
-version = "0.14.0"
+version = "0.15"
 
 [dependencies.hex]
 version = "0.4"
