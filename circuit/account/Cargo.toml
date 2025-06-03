@@ -14,10 +14,6 @@ path = "../../console/account"
 version = "=3.7.1"
 optional = true
 
-[dependencies.snarkvm-circuit-algorithms]
-path = "../algorithms"
-version = "=3.7.1"
-
 [dependencies.snarkvm-circuit-network]
 path = "../network"
 version = "=3.7.1"
