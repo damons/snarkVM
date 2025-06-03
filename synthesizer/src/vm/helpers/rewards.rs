@@ -74,7 +74,7 @@ pub fn staking_rewards<N: Network>(
     // Pre-allocating with an expected capacity prevents reallocation while the mutex is held.
     let hashset_capacity = committee.members().len();
     let missing_validators =
-        std::sync::Mutex::new(std::collections::HashSet::<Address<N>>::with_capacity(hashset_capacity));
+        parking_lot::Mutex::new(std::collections::HashSet::<Address<N>>::with_capacity(hashset_capacity));
 
     // Compute the updated stakers.
     cfg_iter!(stakers)
@@ -83,7 +83,7 @@ pub fn staking_rewards<N: Network>(
             let Some((validator_stake, commission_rate)) = valid_validators.get(validator) else {
                 // Log validator not in committe.
                 if !committee.members().contains_key(validator) {
-                    let mut logged = missing_validators.lock().unwrap();
+                    let mut logged = missing_validators.lock();
                     if logged.insert(*validator) {
                         trace!("Validator {validator} is not in the committee - skipping all stakers");
                     }
