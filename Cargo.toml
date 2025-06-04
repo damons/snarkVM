@@ -136,7 +136,6 @@ save_r1cs_hashes = [ "snarkvm-circuit/save_r1cs_hashes" ]
 history = [ "snarkvm-synthesizer/history" ]
 parameters_no_std_out = [ "snarkvm-parameters/no_std_out" ]
 locktick = [
-  "dep:locktick",
   "snarkvm-algorithms?/locktick",
   "snarkvm-ledger?/locktick",
   "snarkvm-parameters?/locktick",
@@ -238,30 +237,12 @@ optional = true
 version = "0.15"
 optional = true
 
-[dependencies.indexmap]
-version = "2.0"
-features = [ "rayon" ]
-
-[dependencies.locktick]
-version = "0.3"
-features = [ "parking_lot" ]
-optional = true
-
 [dependencies.num-format]
 version = "0.4.4"
-
-[dependencies.once_cell]
-version = "1.18"
-
-[dependencies.parking_lot]
-version = "0.12"
 
 [dependencies.rand]
 version = "0.8"
 optional = true
-
-[dependencies.rayon]
-version = "1"
 
 [dependencies.self_update]
 version = "0.38"
