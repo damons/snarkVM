@@ -438,6 +438,8 @@ mod tests {
     #[cfg(feature = "rocks")]
     type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
+    type NoQuery = Query<CurrentNetwork, <LedgerType as ConsensusStorage<CurrentNetwork>>::BlockStorage>;
+
     #[test]
     fn test_verify() {
         let rng = &mut TestRng::default();
@@ -621,16 +623,8 @@ mod tests {
 
         // Deploy.
         let program = crate::vm::test_helpers::sample_program();
-        let deployment_transaction = vm
-            .deploy(
-                &caller_private_key,
-                &program,
-                Some(credits),
-                10,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
-            .unwrap();
+        let deployment_transaction =
+            vm.deploy(&caller_private_key, &program, Some(credits), 10, None::<NoQuery>, rng).unwrap();
 
         // Construct the new block header.
         let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
@@ -705,15 +699,7 @@ mod tests {
 
         // Execute.
         let transaction = vm
-            .execute(
-                &caller_private_key,
-                ("testing.aleo", "initialize"),
-                inputs,
-                credits,
-                10,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
+            .execute(&caller_private_key, ("testing.aleo", "initialize"), inputs, credits, 10, None::<NoQuery>, rng)
             .unwrap();
 
         // Verify.
@@ -815,13 +801,7 @@ function compute:
             )
             .unwrap();
         // Compute the fee.
-        let fee = vm
-            .execute_fee_authorization(
-                authorization,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
-            .unwrap();
+        let fee = vm.execute_fee_authorization(authorization, None::<NoQuery>, rng).unwrap();
 
         // Construct the transaction.
         let mutated_transaction = Transaction::from_execution(mutated_execution, Some(fee)).unwrap();
@@ -890,15 +870,7 @@ function compute:
 
             // Execute.
             let transaction_without_fee = vm
-                .execute(
-                    &private_key,
-                    ("credits.aleo", "transfer_public"),
-                    inputs,
-                    None,
-                    0,
-                    None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                    rng,
-                )
+                .execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None::<NoQuery>, rng)
                 .unwrap();
             let execution = transaction_without_fee.execution().unwrap().clone();
 
@@ -907,13 +879,7 @@ function compute:
                 .authorize_fee_public(&private_key, 10_000_000, 100, execution.to_execution_id().unwrap(), rng)
                 .unwrap();
             // Compute the fee.
-            let fee = vm
-                .execute_fee_authorization(
-                    authorization,
-                    None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                    rng,
-                )
-                .unwrap();
+            let fee = vm.execute_fee_authorization(authorization, None::<NoQuery>, rng).unwrap();
 
             // Construct the transaction.
             Transaction::from_execution(execution, Some(fee)).unwrap()
@@ -964,15 +930,7 @@ function compute:
         ]
         .into_iter();
         let transaction_v1 = vm
-            .execute(
-                &private_key,
-                ("credits.aleo", "transfer_public"),
-                inputs,
-                None,
-                0,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None::<NoQuery>, rng)
             .unwrap();
 
         // Advance the ledger past ConsensusV4
@@ -996,15 +954,7 @@ function compute:
         ]
         .into_iter();
         let transaction_v2 = vm
-            .execute(
-                &private_key,
-                ("credits.aleo", "transfer_public"),
-                inputs,
-                None,
-                0,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None::<NoQuery>, rng)
             .unwrap();
 
         // Check that the v2 transaction is valid
@@ -1121,52 +1071,16 @@ function compute:
         .unwrap();
 
         // Create a deployment transaction for the first program.
-        let deploy_1 = vm
-            .deploy(
-                &private_key,
-                &program_1,
-                None,
-                0,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
-            .unwrap();
+        let deploy_1 = vm.deploy(&private_key, &program_1, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Create a deployment transaction for the second program.
-        let deploy_2 = vm
-            .deploy(
-                &private_key,
-                &program_2,
-                None,
-                0,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
-            .unwrap();
+        let deploy_2 = vm.deploy(&private_key, &program_2, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Create a deployment transaction for the third program.
-        let deploy_3 = vm
-            .deploy(
-                &private_key,
-                &program_3,
-                None,
-                0,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
-            .unwrap();
+        let deploy_3 = vm.deploy(&private_key, &program_3, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Create a deployment transaction for the fourth program.
-        let deploy_4 = vm
-            .deploy(
-                &private_key,
-                &program_4,
-                None,
-                0,
-                None::<Query<CurrentNetwork, <LedgerType as ConsensusStorage<_>>::BlockStorage>>,
-                rng,
-            )
-            .unwrap();
+        let deploy_4 = vm.deploy(&private_key, &program_4, None, 0, None::<NoQuery>, rng).unwrap();
 
         // // Ensure that the deployments are valid.
         assert!(vm.check_transaction(&deploy_1, None, rng).is_ok());
