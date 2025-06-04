@@ -34,6 +34,34 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         query: Option<Query<N, C::BlockStorage>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
+        let (execution, _) = self.execute_with_response(
+            private_key,
+            (program_id, function_name),
+            inputs,
+            fee_record,
+            priority_fee_in_microcredits,
+            query,
+            rng,
+        )?;
+        Ok(execution)
+    }
+
+    /// Returns a new execute transaction and response.
+    ///
+    /// If a `fee_record` is provided, then a private fee will be included in the transaction;
+    /// otherwise, a public fee will be included in the transaction.
+    ///
+    /// The `priority_fee_in_microcredits` is an additional fee **on top** of the execution fee.
+    pub fn execute_with_response<R: Rng + CryptoRng>(
+        &self,
+        private_key: &PrivateKey<N>,
+        (program_id, function_name): (impl TryInto<ProgramID<N>>, impl TryInto<Identifier<N>>),
+        inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
+        fee_record: Option<Record<N, Plaintext<N>>>,
+        priority_fee_in_microcredits: u64,
+        query: Option<Query<N, C::BlockStorage>>,
+        rng: &mut R,
+    ) -> Result<(Transaction<N>, Response<N>)> {
         // Compute the authorization.
         let authorization = self.authorize(private_key, program_id, function_name, inputs, rng)?;
         // Determine if a fee is required.
@@ -41,7 +69,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Determine if a priority fee is declared.
         let is_priority_fee_declared = priority_fee_in_microcredits > 0;
         // Compute the execution.
-        let (execution, _) = self.execute_authorization_raw(authorization, query.clone(), rng)?;
+        let (execution, response) = self.execute_authorization_raw(authorization, query.clone(), rng)?;
         // Compute the fee.
         let fee = match is_fee_required || is_priority_fee_declared {
             true => {
@@ -78,8 +106,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             }
             false => None,
         };
-        // Return the execute transaction.
-        Transaction::from_execution(execution, fee)
+        // Return the execute transaction and response.
+        Ok((Transaction::from_execution(execution, fee)?, response))
     }
 
     /// Returns a new execute transaction for the given authorization.
