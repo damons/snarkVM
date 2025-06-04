@@ -15,7 +15,6 @@
 
 use super::*;
 
-// TODO (raychu86): Finalize these values.
 /// The stake required to land one solution per epoch at various points in time.
 ///
 /// Each entry represents a threshold where, starting from the given timestamp,
@@ -25,15 +24,15 @@ use super::*;
 ///
 /// Format: `(timestamp, stake_required_per_solution)`
 pub const STAKE_REQUIREMENTS_PER_SOLUTION: [(i64, u64); 9] = [
-    (1751328000i64, 100_000u64),   /* 2025-07-01 00:00:00 UTC */
-    (1759276800i64, 250_000u64),   /* 2025-10-01 00:00:00 UTC */
-    (1767225600i64, 500_000u64),   /* 2026-01-01 00:00:00 UTC */
-    (1775001600i64, 750_000u64),   /* 2026-04-01 00:00:00 UTC */
-    (1782864000i64, 1_000_000u64), /* 2026-07-01 00:00:00 UTC */
-    (1790812800i64, 1_250_000u64), /* 2026-10-01 00:00:00 UTC */
-    (1798761600i64, 1_500_000u64), /* 2027-01-01 00:00:00 UTC */
-    (1806537600i64, 2_000_000u64), /* 2027-04-01 00:00:00 UTC */
-    (1814400000i64, 2_500_000u64), /* 2027-07-01 00:00:00 UTC */
+    (1754006399i64, 100_000u64),   /* 2025-07-31 23:59:59 UTC */
+    (1761955199i64, 250_000u64),   /* 2025-10-31 23:59:59 UTC */
+    (1769903999i64, 500_000u64),   /* 2026-01-31 23:59:59 UTC */
+    (1777593599i64, 750_000u64),   /* 2026-04-30 23:59:59 UTC */
+    (1785542399i64, 1_000_000u64), /* 2026-07-31 23:59:59 UTC */
+    (1793491199i64, 1_250_000u64), /* 2026-10-31 23:59:59 UTC */
+    (1801439999i64, 1_500_000u64), /* 2027-01-31 23:59:59 UTC */
+    (1809129599i64, 2_000_000u64), /* 2027-04-30 23:59:59 UTC */
+    (1817078399i64, 2_500_000u64), /* 2027-07-31 23:59:59 UTC */
 ];
 
 /// Returns the maximum number of allowed solutions per epoch based on the provided stake and timestamp.
