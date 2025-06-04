@@ -52,14 +52,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// otherwise, a public fee will be included in the transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the execution fee.
-    pub fn execute_with_response<R: Rng + CryptoRng>(
+    pub fn execute_with_response<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         (program_id, function_name): (impl TryInto<ProgramID<N>>, impl TryInto<Identifier<N>>),
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<(Transaction<N>, Response<N>)> {
         // Compute the authorization.
