@@ -57,7 +57,7 @@ pub fn maximum_allowed_solutions_per_epoch(prover_stake: u64, current_time: i64)
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Determine if the given prover address has reached their solution limit for the current epoch.
-    pub fn has_reached_solution_limit(&self, prover_address: &Address<N>, additional_solutions_in_block: u64) -> bool {
+    pub fn is_solution_limit_reached(&self, prover_address: &Address<N>, additional_solutions_in_block: u64) -> bool {
         // Fetch the prover's stake.
         let prover_stake = self.get_bonded_amount(prover_address).unwrap_or(0);
 

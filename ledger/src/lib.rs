@@ -37,11 +37,11 @@ pub use helpers::*;
 
 mod advance;
 mod check_next_block;
-mod check_solution_limit;
 mod check_transaction_basic;
 mod contains;
 mod find;
 mod get;
+mod is_solution_limit_reached;
 mod iterators;
 
 #[cfg(test)]

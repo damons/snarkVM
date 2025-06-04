@@ -116,7 +116,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 let prover_address = solution.address();
                 let num_accepted_solutions = *accepted_solutions.get(&prover_address).unwrap_or(&0);
                 // Check if the prover has reached their solution limit.
-                if self.has_reached_solution_limit(&prover_address, num_accepted_solutions) {
+                if self.is_solution_limit_reached(&prover_address, num_accepted_solutions) {
                     bail!("Prover '{prover_address}' has reached their solution limit for the current epoch");
                 }
                 // Track the already accepted solutions.
