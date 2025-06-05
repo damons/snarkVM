@@ -61,7 +61,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             bail!("Block hash '{}' already exists in the ledger", block.hash())
         }
 
-        // First check that the pending set and block height are correct.
+        // First check that the heights of the pending block sequence and of the new block are correct.
         {
             let mut expected_height = latest_block.height() + 1;
             for pending in pending_blocks {
