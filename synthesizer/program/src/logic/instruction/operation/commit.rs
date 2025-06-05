@@ -116,7 +116,7 @@ impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {
 //
 // The `$q` parameter allows us to wrap a value in `Result::Ok`, since
 // the `Aleo` functions don't return a `Result` but the `Network` ones do.
-macro_rules! docommit {
+macro_rules! do_commit {
     ($N: ident, $variant: expr, $destination_type: expr, $input: expr, $randomizer: expr, $ty: ty, $q: expr) => {{
         let func = match $variant {
             0 => $N::commit_to_group_bhp256,
@@ -152,7 +152,7 @@ fn evaluate_commit_private<N: Network>(
     randomizer: &Scalar<N>,
     destination_type: LiteralType,
 ) -> Result<Literal<N>> {
-    Ok(docommit!(N, variant, destination_type, input, randomizer, Literal<N>, |x| x))
+    Ok(do_commit!(N, variant, destination_type, input, randomizer, Literal<N>, |x| x))
 }
 
 impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {
@@ -213,7 +213,7 @@ impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {
         };
 
         let output =
-            docommit!(A, VARIANT, self.destination_type, &input, &randomizer, circuit::Literal<A>, Result::<_>::Ok);
+            do_commit!(A, VARIANT, self.destination_type, &input, &randomizer, circuit::Literal<A>, Result::<_>::Ok);
 
         // Convert the output to a stack value.
         let output = circuit::Value::Plaintext(circuit::Plaintext::Literal(output, Default::default()));

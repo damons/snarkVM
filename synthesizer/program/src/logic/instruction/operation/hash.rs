@@ -202,7 +202,7 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
 //
 // The `$q` parameter allows us to wrap a value in `Result::Ok`, since
 // the `Aleo` functions don't return a `Result` but the `Network` ones do.
-macro_rules! dohash {
+macro_rules! do_hash {
     ($N: ident, $variant: expr, $destination_type: expr, $input: expr, $ty: ty, $q: expr) => {{
         let bits = || $input.to_bits_le();
 
@@ -260,7 +260,7 @@ fn evaluate_hash_private<N: Network>(
     input: &Value<N>,
     destination_type: &PlaintextType<N>,
 ) -> Result<Literal<N>> {
-    Ok(dohash!(N, variant, destination_type, input, Literal<N>, |x| x))
+    Ok(do_hash!(N, variant, destination_type, input, Literal<N>, |x| x))
 }
 
 impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
@@ -302,7 +302,7 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load_circuit(stack, &self.operands[0])?;
 
-        let output = dohash!(A, VARIANT, &self.destination_type, input, circuit::Literal<A>, Result::<_>::Ok);
+        let output = do_hash!(A, VARIANT, &self.destination_type, input, circuit::Literal<A>, Result::<_>::Ok);
 
         // Convert the output to a stack value.
         let output = circuit::Value::Plaintext(circuit::Plaintext::Literal(output, Default::default()));
