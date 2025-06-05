@@ -20,19 +20,19 @@
 
 ## 1. Overview
 
-|       Package       | Crate.io                                                                         |        `std`       |       `wasm`       |
-|:-------------------:|----------------------------------------------------------------------------------|:------------------:|:------------------:|
-|       snarkvm       | ![crates.io](https://img.shields.io/crates/v/snarkvm.svg?color=neon)             | :white_check_mark: | :white_check_mark: |
-| snarkvm-algorithms  | ![crates.io](https://img.shields.io/crates/v/snarkvm-algorithms.svg?color=neon)  | :white_check_mark: | :white_check_mark: |
-|   snarkvm-circuit   | ![crates.io](https://img.shields.io/crates/v/snarkvm-circuit.svg?color=neon)     | :white_check_mark: | :white_check_mark: |
-|   snarkvm-console   | ![crates.io](https://img.shields.io/crates/v/snarkvm-console.svg?color=neon)     | :white_check_mark: | :white_check_mark: |
-|   snarkvm-curves    | ![crates.io](https://img.shields.io/crates/v/snarkvm-curves.svg?color=neon)      | :white_check_mark: | :white_check_mark: |
-|   snarkvm-fields    | ![crates.io](https://img.shields.io/crates/v/snarkvm-fields.svg?color=neon)      | :white_check_mark: | :white_check_mark: |
-|   snarkvm-ledger    | ![crates.io](https://img.shields.io/crates/v/snarkvm-ledger.svg?color=neon)      | :white_check_mark: | :white_check_mark: |
-| snarkvm-parameters  | ![crates.io](https://img.shields.io/crates/v/snarkvm-parameters.svg?color=neon)  | :white_check_mark: | :white_check_mark: |
-| snarkvm-synthesizer | ![crates.io](https://img.shields.io/crates/v/snarkvm-synthesizer.svg?color=neon) | :white_check_mark: | :white_check_mark: |
-|  snarkvm-utilities  | ![crates.io](https://img.shields.io/crates/v/snarkvm-utilities.svg?color=neon)   | :white_check_mark: | :white_check_mark: |
-|    snarkvm-wasm     | ![crates.io](https://img.shields.io/crates/v/snarkvm-wasm.svg?color=neon)        | :white_check_mark: | :white_check_mark: |
+| Package             | crates.io                                                                                                         | docs.rs                                                                                              |       `std`        |       `wasm`       | Description                                 |
+|:-------------------:|------------------------------------------------------------------------------------------------------------------ |:-----------------------------------------------------------------------------------------------------|:------------------:|:------------------:|:--------------------------------------------|
+| snarkvm             | [![crates.io](https://img.shields.io/crates/v/snarkvm)            ](https://crates.io/crates/snarkvm)             | [![docs.rs](https://img.shields.io/docsrs/snarkvm)            ](https://docs.rs/snarkvm)             | :white_check_mark: | :white_check_mark: | Meta-package that contains all other crates |
+| snarkvm-algorithms  | [![crates.io](https://img.shields.io/crates/v/snarkvm-algorithms) ](https://crates.io/crates/snarkvm-algorithms)  | [![docs.rs](https://img.shields.io/docsrs/snarkvm-algorithms) ](https://docs.rs/snarkvm-algorithms)  | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-circuit     | [![crates.io](https://img.shields.io/crates/v/snarkvm-circuit)    ](https://crates.io/crates/snarkvm-circuit)     | [![docs.rs](https://img.shields.io/docsrs/snarkvm-circuit)    ](https://docs.rs/snarkvm-circuit)     | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-console     | [![crates.io](https://img.shields.io/crates/v/snarkvm-console)    ](https://crates.io/crates/snarkvm-console)     | [![docs.rs](https://img.shields.io/docsrs/snarkvm-console)    ](https://docs.rs/snarkvm-console)     | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-curves      | [![crates.io](https://img.shields.io/crates/v/snarkvm-curves)     ](https://crates.io/crates/snarkvm-curves)      | [![docs.rs](https://img.shields.io/docsrs/snarkvm-curves)     ](https://docs.rs/snarkvm-curves)      | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-fields      | [![crates.io](https://img.shields.io/crates/v/snarkvm-fields)     ](https://crates.io/crates/snarkvm-fields)      | [![docs.rs](https://img.shields.io/docsrs/snarkvm-fields)     ](https://docs.rs/snarkvm-fields)      | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-ledger      | [![crates.io](https://img.shields.io/crates/v/snarkvm-ledger)     ](https://crates.io/crates/snarkvm-ledger)      | [![docs.rs](https://img.shields.io/docsrs/snarkvm-ledger)     ](https://docs.rs/snarkvm-ledger)      | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-paramters   | [![crates.io](https://img.shields.io/crates/v/snarkvm-parameters) ](https://crates.io/crates/snarkvm-parameters)  | [![docs.rs](https://img.shields.io/docsrs/snarkvm-parameters) ](https://docs.rs/snarkvm-parameters)  | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-synthesizer | [![crates.io](https://img.shields.io/crates/v/snarkvm-synthesizer)](https://crates.io/crates/snarkvm-synthesizer) | [![docs.rs](https://img.shields.io/docsrs/snarkvm-synthesizer)](https://docs.rs/snarkvm-synthesizer) | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-utilities   | [![crates.io](https://img.shields.io/crates/v/snarkvm-utilities)  ](https://crates.io/crates/snarkvm-utilities)   | [![docs.rs](https://img.shields.io/docsrs/snarkvm-utilities)  ](https://docs.rs/snarkvm-utilities)   | :white_check_mark: | :white_check_mark: |                                             |
+| snarkvm-wasm        | [![crates.io](https://img.shields.io/crates/v/snarkvm-wasm)       ](https://crates.io/crates/snarkvm-wasm)        | [![docs.rs](https://img.shields.io/docsrs/snarkvm-wasm)       ](https://docs.rs/snarkvm-wasm)        | :white_check_mark: | :white_check_mark: |                                             |
 
 For more information, visit [Welcome to Aleo](https://github.com/AleoNet/welcome) to get started.
 
