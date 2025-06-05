@@ -233,18 +233,20 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                     split_candidate_solutions(candidate_solutions, N::MAX_SOLUTIONS, |solution| {
                         let prover_address = solution.address();
                         let num_accepted_solutions = accepted_solutions.get(&prover_address).copied().unwrap_or(0);
-                        // Determine the the prover has reached their solution limit.
+                        // Check if the prover has reached their solution limit.
                         if self.is_solution_limit_reached(&prover_address, num_accepted_solutions) {
                             return false;
                         }
-                        // Check if the solution is valid.
-                        let is_valid =
-                            self.puzzle().check_solution_mut(solution, latest_epoch_hash, latest_proof_target).is_ok();
-                        // Add the solution to the accepted solutions if it is valid.
-                        if is_valid {
-                            *accepted_solutions.entry(prover_address).or_insert(0) += 1;
+                        // Check if the solution is valid and update the number of accepted solutions.
+                        match self.puzzle().check_solution_mut(solution, latest_epoch_hash, latest_proof_target) {
+                            // Increment the number of accepted solutions for the prover.
+                            Ok(()) => {
+                                *accepted_solutions.entry(prover_address).or_insert(0) += 1;
+                                true
+                            }
+                            // The solution is invalid, so we do not increment the number of accepted solutions.
+                            Err(_) => false,
                         }
-                        is_valid
                     });
 
                 // Check if there are any valid solutions.
