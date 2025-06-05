@@ -78,13 +78,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 bail!("Block has invalid height. Expected {expected_height}, but got {height}.");
             }
         }
-
-        // Ensure the block height does not already exist.
-        // TODO(kaimast): consider removing this as we already check the height beforehand.
-        if self.contains_block_height(block.height())? {
-            bail!("Block height '{height}' already exists in the ledger")
-        }
-
         // Ensure the certificates in the block subdag have met quorum requirements.
         self.check_block_subdag_quorum(block)?;
 

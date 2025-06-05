@@ -35,7 +35,7 @@ pub type LedgerType<N> = ledger_store::helpers::memory::ConsensusMemory<N>;
 #[cfg(feature = "rocks")]
 pub type LedgerType<N> = ledger_store::helpers::rocksdb::ConsensusDB<N>;
 
-/// Helper to build chains with custom structures for testing
+/// Helper to build chains with custom structures for testing.
 pub struct TestChainBuilder {
     /// The keys of all validators.
     private_keys: Vec<PrivateKey<CurrentNetwork>>,
@@ -47,14 +47,12 @@ pub struct TestChainBuilder {
     round_to_certificates: HashMap<u64, IndexMap<usize, BatchCertificate<CurrentNetwork>>>,
     /// The batch certificate of the last leader (if any).
     previous_leader_certificate: Option<BatchCertificate<CurrentNetwork>>,
-    /// The height of the last block we created.
-    current_height: u64,
-    /// The last batch for each committee member that was included in a block.
-    /// Maps the author's index to a round number.
-    last_batch: HashMap<usize, u64>,
-    /// The last batch of a validator that was included in a block
-    last_committed_batch: HashMap<usize, u64>,
-    /// The start of the test chain
+    /// The last round for each committee member where they created a batch.
+    /// Invariant: for any validator i, last_batch[i] <= last_committed_batch[i]
+    last_batch_round: HashMap<usize, u64>,
+    /// The last batch of a validator that was included in a block.
+    last_committed_batch_round: HashMap<usize, u64>,
+    /// The start of the test chain.
     genesis_block: Block<CurrentNetwork>,
 }
 
@@ -99,10 +97,9 @@ impl TestChainBuilder {
             ledger,
 
             genesis_block,
-            current_height: 1,
-            last_batch: Default::default(),
-            last_committed_batch: Default::default(),
-            last_block_round: 1,
+            last_batch_round: Default::default(),
+            last_committed_batch_round: Default::default(),
+            last_block_round: 0,
             round_to_certificates: Default::default(),
             previous_leader_certificate: Default::default(),
         }
@@ -114,7 +111,7 @@ impl TestChainBuilder {
         self.generate_blocks_with_opts(num_blocks, &BlockOptions::default(), rng)
     }
 
-    /// Create multiple blocks, with additional parameters
+    /// Create multiple blocks, with additional parameters.
     pub fn generate_blocks_with_opts(
         &mut self,
         num_blocks: usize,
@@ -128,30 +125,35 @@ impl TestChainBuilder {
 
     /// Create a new block, with a fully-connected DAG.
     ///
-    /// This will "fill in " any gaps left in earlier rounds from non participating nodes.
+    /// This will "fill in" any gaps left in earlier rounds from non participating nodes.
     pub fn generate_block(&mut self, rng: &mut TestRng) -> Block<CurrentNetwork> {
         self.generate_block_with_opts(&BlockOptions::default(), rng)
     }
 
     /// Same as `generate_block` but with additional options/parameters.
     pub fn generate_block_with_opts(&mut self, options: &BlockOptions, rng: &mut TestRng) -> Block<CurrentNetwork> {
-        assert!(self.current_height > 0);
-        assert!(options.skip_nodes.len() * 3 < self.private_keys.len());
+        assert!(
+            options.skip_nodes.len() * 3 < self.private_keys.len(),
+            "Cannot mark more than f nodes as unavailable/skipped"
+        );
 
-        let block_height = self.current_height + 1;
+        let next_block_round = self.last_block_round + 2;
 
-        // SubDAGs can be at most GC roudns long.
-        let mut round = if self.last_block_round < BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 {
+        // SubDAGs can be at most GC rounds long.
+        let mut round = if next_block_round < BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 {
+            // Batches from genesis round cannot be included in any block that isn't genesis
             1
         } else {
-            self.last_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 + 2
+            next_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64
         };
 
-        // Create certificates for each round.
+        // =======================================
+        // Create certificates for the new block.
+        // =======================================
         loop {
             let mut created_anchor = false;
 
-            let previous_certificate_ids = if round <= 1 {
+            let previous_certificate_ids = if round == 1 {
                 IndexSet::default()
             } else {
                 self.round_to_certificates
@@ -180,7 +182,7 @@ impl TestChainBuilder {
                     continue;
                 }
                 // Don't recreate batches that already exist.
-                if self.last_batch.get(&key1_idx).unwrap_or(&0) >= &round {
+                if self.last_batch_round.get(&key1_idx).unwrap_or(&0) >= &round {
                     continue;
                 }
 
@@ -195,7 +197,7 @@ impl TestChainBuilder {
                 )
                 .unwrap();
 
-                // Add signatures for the batch headers. This creates a fully connected DAG.
+                // Add signatures for the batch header.
                 let signatures = self
                     .private_keys
                     .iter()
@@ -204,12 +206,16 @@ impl TestChainBuilder {
                     .map(|(_, private_key_2)| private_key_2.sign(&[batch_header.batch_id()], rng).unwrap())
                     .collect();
 
-                self.last_batch.insert(key1_idx, round);
+                // Update the round at which this validator last created a batch.
+                self.last_batch_round.insert(key1_idx, round);
+
+                // Insert certificate into the round_to_certificates mapping.
                 self.round_to_certificates
                     .entry(round)
                     .or_default()
                     .insert(key1_idx, BatchCertificate::from(batch_header, signatures).unwrap());
 
+                // Check if this batch was an anchor.
                 if round % 2 == 0 {
                     let leader = committee.get_leader(round).unwrap();
                     if leader == Address::try_from(private_key_1).unwrap() {
@@ -227,9 +233,11 @@ impl TestChainBuilder {
             round += 1;
         }
 
+        // ==============================================================
+        // Build a subdag from the new certificates and create the block.
+        // ==============================================================
         let commit_round = round;
 
-        // Construct the block
         let leader_committee = self.ledger.get_committee_lookback_for_round(round).unwrap().unwrap();
         let leader = leader_committee.get_leader(commit_round).unwrap();
         let (leader_idx, leader_certificate) =
@@ -237,7 +245,7 @@ impl TestChainBuilder {
         let leader_idx = *leader_idx;
         let leader_certificate = leader_certificate.clone();
 
-        // Construct the subdag for the block.
+        // Construct the subdag for the new block.
         let mut subdag_map = BTreeMap::new();
 
         // Figure out what the earliest round for the subDAG could be.
@@ -250,7 +258,9 @@ impl TestChainBuilder {
         for round in start_round..commit_round {
             let mut to_insert = IndexSet::new();
             for idx in 0..self.private_keys.len() {
-                let cround = self.last_committed_batch.entry(idx).or_default();
+                // Some of the batches we in previous rounds might not be new,
+                // and already included in a previous block.
+                let cround = self.last_committed_batch_round.entry(idx).or_default();
                 // Batch already included in another block
                 if *cround >= round {
                     continue;
@@ -267,18 +277,18 @@ impl TestChainBuilder {
         }
 
         // Add the leader certificate.
+        // (special case, because it is the only cert included from the commit round)
         subdag_map.insert(commit_round, [leader_certificate.clone()].into());
-        self.last_committed_batch.insert(leader_idx, commit_round);
+        self.last_committed_batch_round.insert(leader_idx, commit_round);
 
         // Construct the block.
         let subdag = Subdag::from(subdag_map).unwrap();
         let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, Default::default(), rng).unwrap();
         self.ledger.check_next_block(&block, rng).unwrap();
 
-        // Update state.
+        // Update th ledger state.
         self.ledger.advance_to_next_block(&block).unwrap();
         self.previous_leader_certificate = Some(leader_certificate.clone());
-        self.current_height = block_height;
 
         block
     }
