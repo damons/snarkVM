@@ -24,14 +24,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// otherwise, a public fee will be included in the transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the execution fee.
-    pub fn execute<R: Rng + CryptoRng>(
+    pub fn execute<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         (program_id, function_name): (impl TryInto<ProgramID<N>>, impl TryInto<Identifier<N>>),
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         let (execution, _) = self.execute_with_response(
@@ -52,14 +52,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// otherwise, a public fee will be included in the transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the execution fee.
-    pub fn execute_with_response<R: Rng + CryptoRng>(
+    pub fn execute_with_response<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         (program_id, function_name): (impl TryInto<ProgramID<N>>, impl TryInto<Identifier<N>>),
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<(Transaction<N>, Response<N>)> {
         // Compute the authorization.
@@ -69,13 +69,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Determine if a priority fee is declared.
         let is_priority_fee_declared = priority_fee_in_microcredits > 0;
         // Compute the execution.
-        let (execution, response) = self.execute_authorization_raw(authorization, query.clone(), rng)?;
+        let (execution, response) = if let Some(query) = &query {
+            self.execute_authorization_raw(authorization, query.clone(), rng)?
+        } else {
+            self.execute_authorization_raw(authorization, Query::VM(self.block_store().clone()), rng)?
+        };
         // Compute the fee.
         let fee = match is_fee_required || is_priority_fee_declared {
             true => {
                 // Compute the minimum execution cost.
-                let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
-                let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+                let consensus_version = if let Some(query) = &query {
+                    N::CONSENSUS_VERSION(query.current_block_height()?)?
+                } else {
+                    N::CONSENSUS_VERSION(self.block_store().max_height().unwrap_or_default())?
+                };
                 let (minimum_execution_cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
                     execution_cost_v1(&self.process().read(), &execution)?
                 } else {
@@ -102,7 +109,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     )?,
                 };
                 // Execute the fee.
-                Some(self.execute_fee_authorization_raw(authorization, Some(query), rng)?)
+                if let Some(query) = query {
+                    Some(self.execute_fee_authorization_raw(authorization, query, rng)?)
+                } else {
+                    Some(self.execute_fee_authorization_raw(
+                        authorization,
+                        Query::VM(self.block_store().clone()),
+                        rng,
+                    )?)
+                }
             }
             false => None,
         };
@@ -114,11 +129,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     ///
     /// This is identical to `execute_authorization_with_response` except that it
     /// discards the `Response`.
-    pub fn execute_authorization<R: Rng + CryptoRng>(
+    pub fn execute_authorization<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         execute_authorization: Authorization<N>,
         fee_authorization: Option<Authorization<N>>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         let (execution, _) =
@@ -127,19 +142,31 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Returns a new execute transaction and response for the given authorization.
-    pub fn execute_authorization_with_response<R: Rng + CryptoRng>(
+    pub fn execute_authorization_with_response<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         execute_authorization: Authorization<N>,
         fee_authorization: Option<Authorization<N>>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<(Transaction<N>, Response<N>)> {
         // Compute the execution.
-        let (execution, response) = self.execute_authorization_raw(execute_authorization, query.clone(), rng)?;
-        // Compute the fee.
-        let fee = match fee_authorization {
-            Some(authorization) => Some(self.execute_fee_authorization_raw(authorization, query, rng)?),
-            None => None,
+        let (execution, response, fee) = if let Some(query) = query {
+            let (execution, response) = self.execute_authorization_raw(execute_authorization, query.clone(), rng)?;
+            let fee = match fee_authorization {
+                Some(authorization) => Some(self.execute_fee_authorization_raw(authorization, query, rng)?),
+                None => None,
+            };
+
+            (execution, response, fee)
+        } else {
+            let query = Query::VM(self.block_store().clone());
+            let (execution, response) = self.execute_authorization_raw(execute_authorization, query.clone(), rng)?;
+            let fee = match fee_authorization {
+                Some(authorization) => Some(self.execute_fee_authorization_raw(authorization, query, rng)?),
+                None => None,
+            };
+
+            (execution, response, fee)
         };
         // Return the execute transaction and response.
         let transaction = Transaction::from_execution(execution, fee)?;
@@ -147,14 +174,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Returns a new fee for the given authorization.
-    pub fn execute_fee_authorization<R: Rng + CryptoRng>(
+    pub fn execute_fee_authorization<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         authorization: Authorization<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<Q>,
         rng: &mut R,
     ) -> Result<Fee<N>> {
         debug_assert!(authorization.is_fee_private() || authorization.is_fee_public(), "Expected a fee authorization");
-        self.execute_fee_authorization_raw(authorization, query, rng)
+        if let Some(query) = query {
+            self.execute_fee_authorization_raw(authorization, query, rng)
+        } else {
+            self.execute_fee_authorization_raw(authorization, Query::VM(self.block_store().clone()), rng)
+        }
     }
 }
 
@@ -162,10 +193,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Executes a call to the program function for the given authorization.
     /// Returns the execution.
     #[inline]
-    fn execute_authorization_raw<R: Rng + CryptoRng>(
+    fn execute_authorization_raw<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         authorization: Authorization<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Q,
         rng: &mut R,
     ) -> Result<(Execution<N>, Response<N>)> {
         let timer = timer!("VM::execute_authorization_raw");
@@ -175,12 +206,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let request = authorization.peek_next()?;
             Locator::new(*request.program_id(), *request.function_name()).to_string()
         };
-        // Prepare the query.
-        let query = match query {
-            Some(query) => query,
-            None => Query::VM(self.block_store().clone()),
-        };
-        lap!(timer, "Prepare the query");
 
         // Determine which Varuna version to use.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
@@ -220,20 +245,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Executes a call to the program function for the given fee authorization.
     /// Returns the fee.
     #[inline]
-    fn execute_fee_authorization_raw<R: Rng + CryptoRng>(
+    fn execute_fee_authorization_raw<Q: QueryTrait<N>, R: Rng + CryptoRng>(
         &self,
         authorization: Authorization<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Q,
         rng: &mut R,
     ) -> Result<Fee<N>> {
         let timer = timer!("VM::execute_fee_authorization_raw");
-
-        // Prepare the query.
-        let query = match query {
-            Some(query) => query,
-            None => Query::VM(self.block_store().clone()),
-        };
-        lap!(timer, "Prepare the query");
 
         // Determine which Varuna version to use.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
@@ -293,6 +311,8 @@ mod tests {
     #[cfg(feature = "rocks")]
     type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
+    type NoQuery = Query<CurrentNetwork, <LedgerType as ConsensusStorage<CurrentNetwork>>::BlockStorage>;
+
     fn prepare_vm(
         rng: &mut TestRng,
     ) -> Result<(
@@ -337,8 +357,9 @@ mod tests {
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&validator_private_key, ("credits.aleo", "bond_validator"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&validator_private_key, ("credits.aleo", "bond_validator"), inputs, None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // Ensure the transaction is a bond public transition.
         assert_eq!(transaction.transitions().count(), 2);
@@ -378,8 +399,9 @@ mod tests {
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&delegator_private_key, ("credits.aleo", "bond_public"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&delegator_private_key, ("credits.aleo", "bond_public"), inputs, None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // Ensure the transaction is a bond public transition.
         assert_eq!(transaction.transitions().count(), 2);
@@ -418,7 +440,8 @@ mod tests {
 
         let authorization = vm.authorize(&caller_private_key, credits_program, function_name, inputs, rng).unwrap();
 
-        let (execution, _) = vm.execute_authorization_raw(authorization, None, rng).unwrap();
+        let query = Query::VM(vm.block_store().clone());
+        let (execution, _) = vm.execute_authorization_raw(authorization, query, rng).unwrap();
         let (cost, _) = execution_cost_v2(&vm.process().read(), &execution).unwrap();
         let (old_cost, _) = execution_cost_v1(&vm.process().read(), &execution).unwrap();
 
@@ -449,8 +472,9 @@ mod tests {
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone(), None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone(), None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         assert_eq!(51_060, *transaction.base_fee_amount().unwrap());
 
@@ -461,8 +485,9 @@ mod tests {
             vm.add_next_block(&next_block).unwrap();
         }
 
-        let transaction =
-            vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone(), None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone(), None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         assert_eq!(34_060, *transaction.base_fee_amount().unwrap());
     }
@@ -499,7 +524,7 @@ finalize test:
         .unwrap();
 
         // Deploy the program.
-        let transaction = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+        let transaction = vm.deploy(&private_key, &program, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Construct the next block.
         let next_block = crate::test_helpers::sample_next_block(&vm, &private_key, &[transaction], rng).unwrap();
@@ -511,8 +536,9 @@ finalize test:
         let inputs = [Value::<CurrentNetwork>::from_str("1_000_000u64").unwrap()].into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&private_key, ("nested_call.aleo", "test"), inputs.clone(), None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&private_key, ("nested_call.aleo", "test"), inputs.clone(), None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // This fee should be at least the old credits.aleo/transfer_public fee, 51_060
         assert_eq!(62_776, *transaction.base_fee_amount().unwrap());
@@ -524,8 +550,9 @@ finalize test:
             vm.add_next_block(&next_block).unwrap();
         }
 
-        let transaction =
-            vm.execute(&private_key, ("nested_call.aleo", "test"), inputs.clone(), None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&private_key, ("nested_call.aleo", "test"), inputs.clone(), None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // The difference in old vs new fees is 8_500 * 3 = 25_500 for the three get/get.or_use's
         // There are two get.or_use's in transfer_public and an additional one in the nested_call.aleo/test
@@ -554,7 +581,8 @@ finalize test:
 
         let authorization = vm.authorize(&caller_private_key, credits_program, function_name, inputs, rng).unwrap();
 
-        let (execution, _) = vm.execute_authorization_raw(authorization, None, rng).unwrap();
+        let query = Query::VM(vm.block_store().clone());
+        let (execution, _) = vm.execute_authorization_raw(authorization, query, rng).unwrap();
         let (cost, _) = execution_cost_v1(&vm.process().read(), &execution).unwrap();
         println!("Cost: {}", cost);
     }
@@ -578,8 +606,9 @@ finalize test:
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&caller_private_key, ("credits.aleo", "unbond_public"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&caller_private_key, ("credits.aleo", "unbond_public"), inputs, None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // Ensure the transaction is an unbond public transition.
         assert_eq!(transaction.transitions().count(), 2);
@@ -621,8 +650,9 @@ finalize test:
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&caller_private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&caller_private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
@@ -655,8 +685,9 @@ finalize test:
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&caller_private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&caller_private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
@@ -689,8 +720,9 @@ finalize test:
         .into_iter();
 
         // Execute.
-        let transaction =
-            vm.execute(&signer, ("credits.aleo", "transfer_public_as_signer"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm
+            .execute(&signer, ("credits.aleo", "transfer_public_as_signer"), inputs, None, 0, None::<NoQuery>, rng)
+            .unwrap();
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
@@ -725,7 +757,7 @@ finalize test:
 
         // Execute.
         let transaction =
-            vm.execute(&caller_private_key, ("credits.aleo", "join"), inputs, None, 0, None, rng).unwrap();
+            vm.execute(&caller_private_key, ("credits.aleo", "join"), inputs, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
@@ -759,7 +791,7 @@ finalize test:
 
         // Execute.
         let transaction =
-            vm.execute(&caller_private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap();
+            vm.execute(&caller_private_key, ("credits.aleo", "split"), inputs, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Ensure the transaction is a split transition.
         assert_eq!(transaction.transitions().count(), 1);
@@ -850,7 +882,7 @@ finalize test:
         .unwrap();
 
         // Deploy the program.
-        let transaction = vm.deploy(&caller_private_key, &child_program, None, 0, None, rng).unwrap();
+        let transaction = vm.deploy(&caller_private_key, &child_program, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Construct the next block.
         let next_block = crate::test_helpers::sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
@@ -919,7 +951,7 @@ finalize test:
         .unwrap();
 
         // Deploy the program.
-        let transaction = vm.deploy(&caller_private_key, &parent_program, None, 0, None, rng).unwrap();
+        let transaction = vm.deploy(&caller_private_key, &parent_program, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Construct the next block.
         let next_block = crate::test_helpers::sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
@@ -929,7 +961,15 @@ finalize test:
 
         // Execute the parent program.
         let Transaction::Execute(_, _, execution, _) = vm
-            .execute(&caller_private_key, ("parent.aleo", "test"), Vec::<Value<_>>::new().iter(), None, 0, None, rng)
+            .execute(
+                &caller_private_key,
+                ("parent.aleo", "test"),
+                Vec::<Value<_>>::new().iter(),
+                None,
+                0,
+                None::<NoQuery>,
+                rng,
+            )
             .unwrap()
         else {
             unreachable!("VM::execute always produces an `Execution`")
@@ -1007,7 +1047,7 @@ finalize test:
         .unwrap();
 
         // Deploy the program.
-        let transaction = vm.deploy(&caller_private_key, &base_program, None, 0, None, rng).unwrap();
+        let transaction = vm.deploy(&caller_private_key, &base_program, None, 0, None::<NoQuery>, rng).unwrap();
 
         // Construct the next block.
         let next_block = crate::test_helpers::sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
@@ -1046,7 +1086,7 @@ finalize test:
             .unwrap();
 
             // Deploy the program.
-            let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+            let transaction = vm.deploy(&caller_private_key, &program, None, 0, None::<NoQuery>, rng).unwrap();
 
             // Construct the next block.
             let next_block =
@@ -1064,7 +1104,7 @@ finalize test:
                 vec![Value::from_str("0field").unwrap(), Value::from_str("1field").unwrap()].iter(),
                 None,
                 0,
-                None,
+                None::<NoQuery>,
                 rng,
             )
             .unwrap()
