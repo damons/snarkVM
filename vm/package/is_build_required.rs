@@ -173,7 +173,7 @@ function compute:
         let package = initialize_unbuilt_package(true).unwrap();
         assert!(package.is_build_required::<Aleo>());
 
-        package.build::<Aleo>(None).unwrap();
+        package.build::<Aleo>().unwrap();
         assert!(!package.is_build_required::<Aleo>());
     }
 }
