@@ -143,10 +143,10 @@ pub fn evaluate_commit<N: Network>(
     randomizer: &Scalar<N>,
     destination_type: LiteralType,
 ) -> Result<Literal<N>> {
-    evaluate_commit_private(variant as u8, input, randomizer, destination_type)
+    evaluate_commit_internal(variant as u8, input, randomizer, destination_type)
 }
 
-fn evaluate_commit_private<N: Network>(
+fn evaluate_commit_internal<N: Network>(
     variant: u8,
     input: &Value<N>,
     randomizer: &Scalar<N>,
@@ -179,7 +179,7 @@ impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {
             _ => bail!("Invalid randomizer type for the commit evaluation, expected a scalar"),
         };
 
-        let output = evaluate_commit_private(VARIANT, &input, &randomizer, self.destination_type)?;
+        let output = evaluate_commit_internal(VARIANT, &input, &randomizer, self.destination_type)?;
 
         // Store the output.
         registers.store(stack, &self.destination, Value::Plaintext(Plaintext::from(output)))

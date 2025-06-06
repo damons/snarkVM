@@ -252,10 +252,10 @@ pub fn evaluate_hash<N: Network>(
     input: &Value<N>,
     destination_type: &PlaintextType<N>,
 ) -> Result<Literal<N>> {
-    evaluate_hash_private(variant as u8, input, destination_type)
+    evaluate_hash_internal(variant as u8, input, destination_type)
 }
 
-fn evaluate_hash_private<N: Network>(
+fn evaluate_hash_internal<N: Network>(
     variant: u8,
     input: &Value<N>,
     destination_type: &PlaintextType<N>,
@@ -279,7 +279,7 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load(stack, &self.operands[0])?;
 
-        let output = evaluate_hash_private(VARIANT, &input, &self.destination_type)?;
+        let output = evaluate_hash_internal(VARIANT, &input, &self.destination_type)?;
 
         // Store the output.
         registers.store(stack, &self.destination, Value::Plaintext(Plaintext::from(output)))
