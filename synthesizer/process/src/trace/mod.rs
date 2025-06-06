@@ -123,7 +123,7 @@ impl<N: Network> Trace<N> {
 
 impl<N: Network> Trace<N> {
     /// Returns the inclusion assignments and global state root for the current transition(s).
-    pub fn prepare(&mut self, query: impl QueryTrait<N>) -> Result<()> {
+    pub fn prepare(&mut self, query: &dyn QueryTrait<N>) -> Result<()> {
         // Compute the inclusion assignments.
         let (inclusion_assignments, global_state_root) = self.inclusion_tasks.prepare(&self.transitions, query)?;
         // Store the inclusion assignments and global state root.
@@ -136,7 +136,7 @@ impl<N: Network> Trace<N> {
 
     /// Returns the inclusion assignments and global state root for the current transition(s).
     #[cfg(feature = "async")]
-    pub async fn prepare_async(&mut self, query: impl QueryTrait<N>) -> Result<()> {
+    pub async fn prepare_async(&mut self, query: &dyn QueryTrait<N>) -> Result<()> {
         // Compute the inclusion assignments.
         let (inclusion_assignments, global_state_root) =
             self.inclusion_tasks.prepare_async(&self.transitions, query).await?;

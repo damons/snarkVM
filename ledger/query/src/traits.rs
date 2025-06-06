@@ -16,7 +16,7 @@
 use console::{network::Network, prelude::Result, program::StatePath, types::Field};
 
 #[cfg_attr(feature = "async", async_trait(?Send))]
-pub trait QueryTrait<N: Network>: Clone {
+pub trait QueryTrait<N: Network> {
     /// Returns the current state root.
     fn current_state_root(&self) -> Result<N::StateRoot>;
 

@@ -22,13 +22,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// otherwise, a public fee will be included in the transaction.
     ///
     /// The `priority_fee_in_microcredits` is an additional fee **on top** of the deployment fee.
-    pub fn deploy<Q: QueryTrait<N>, R: Rng + CryptoRng>(
+    pub fn deploy<R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         program: &Program<N>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        query: Option<Q>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the deployment.
