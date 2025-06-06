@@ -80,8 +80,12 @@ pub fn execute_with_max_available_threads<T>(f: impl FnOnce() -> T + Send) -> T 
 #[cfg(not(any(feature = "serial", feature = "wasm")))]
 #[inline(always)]
 fn execute_with_threads<T: Sync + Send>(f: impl FnOnce() -> T + Send, num_threads: usize) -> T {
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
-    pool.install(f)
+    if rayon::current_thread_index().is_none() {
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
+        pool.install(f)
+    } else {
+        f()
+    }
 }
 
 /// Creates parallel iterator over refs if `parallel` feature is enabled.
