@@ -261,7 +261,7 @@ impl<N: Network> Transaction<N> {
             bail!("Program owner is required for V2 deployment tree");
         };
         // Prepare the header for the hash.
-        let header = to_bits_le![program_checksum, program_owner];
+        let header = to_bits_le![program_checksum, program_owner, deployment.edition()];
         // Prepare the leaves.
         let leaves = deployment.program().functions().values().enumerate().map(|(index, function)| {
             // Construct the transaction leaf.
