@@ -38,7 +38,8 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         }
 
         // Initialize the registers.
-        let mut registers = Registers::<N, A>::new(call_stack, self.get_register_types(closure.name())?.clone());
+        let mut registers =
+            Registers::<N, A>::new(call_stack.clone(), self.get_register_types(closure.name())?.clone());
         // Set the transition signer.
         registers.set_signer(signer);
         // Set the transition caller.
@@ -148,6 +149,11 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
             None => (true, signer),
         };
         let tvk = *request.tvk();
+        // Retrieve the program checksum, if the program has a constructor.
+        let program_checksum = match self.program().contains_constructor() {
+            true => Some(self.program_checksum_as_field()?),
+            false => None,
+        };
 
         // Ensure the number of inputs matches.
         if function.inputs().len() != inputs.len() {
@@ -172,7 +178,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         lap!(timer, "Initialize the registers");
 
         // Ensure the request is well-formed.
-        ensure!(request.verify(&function.input_types(), is_root), "Request is invalid");
+        ensure!(request.verify(&function.input_types(), is_root, program_checksum), "[Evaluate] Request is invalid");
         lap!(timer, "Verify the request");
 
         // Store the inputs.

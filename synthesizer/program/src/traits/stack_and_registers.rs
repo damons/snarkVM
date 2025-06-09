@@ -98,6 +98,9 @@ pub trait StackProgram<N: Network> {
     /// Returns the program checksum.
     fn program_checksum(&self) -> &[U8<N>; 32];
 
+    /// Returns the program checksum as a field element.
+    fn program_checksum_as_field(&self) -> Result<Field<N>>;
+
     /// Returns the program edition.
     fn program_edition(&self) -> &U16<N>;
 

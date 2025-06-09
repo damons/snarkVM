@@ -81,14 +81,34 @@ use rayon::prelude::*;
 
 pub type Assignments<N> = Arc<RwLock<Vec<(circuit::Assignment<<N as Environment>::Field>, CallMetrics<N>)>>>;
 
+/// The `CallStack` is used to track the current state of the program execution.
 #[derive(Clone)]
 pub enum CallStack<N: Network> {
+    /// Authorize an `Execute` transaction.
     Authorize(Vec<Request<N>>, PrivateKey<N>, Authorization<N>),
+    /// Synthesize a function circuit before a `Deploy` transaction.
     Synthesize(Vec<Request<N>>, PrivateKey<N>, Authorization<N>),
+    /// Validate a `Deploy` transaction's function circuit.
     CheckDeployment(Vec<Request<N>>, PrivateKey<N>, Assignments<N>, Option<u64>, Option<u64>),
+    /// Evaluate a function.
     Evaluate(Authorization<N>),
+    /// Execute a function and produce a proof.
     Execute(Authorization<N>, Arc<RwLock<Trace<N>>>),
+    /// Execute a function and create the circuit assignment.
     PackageRun(Vec<Request<N>>, PrivateKey<N>, Assignments<N>),
+}
+
+impl<N: Network> CallStack<N> {
+    fn variant_as_str(&self) -> &str {
+        match &self {
+            CallStack::Authorize(..) => "Authorize",
+            CallStack::Synthesize(..) => "Synthesize",
+            CallStack::CheckDeployment(..) => "CheckDeployment",
+            CallStack::Evaluate(..) => "Evaluate",
+            CallStack::Execute(..) => "Execute",
+            CallStack::PackageRun(..) => "PackageRun",
+        }
+    }
 }
 
 impl<N: Network> CallStack<N> {
@@ -341,6 +361,20 @@ impl<N: Network> StackProgram<N> for Stack<N> {
     #[inline]
     fn program_checksum(&self) -> &[U8<N>; 32] {
         &self.program_checksum
+    }
+
+    /// Returns the program checksum as a field element.
+    #[inline]
+    fn program_checksum_as_field(&self) -> Result<Field<N>> {
+        // Get the bits of the program checksum, truncated to the field size.
+        let bits = self
+            .program_checksum
+            .iter()
+            .flat_map(|byte| byte.to_bits_le())
+            .take(Field::<N>::SIZE_IN_DATA_BITS)
+            .collect::<Vec<_>>();
+        // Return the field element from the bits.
+        Field::from_bits_le(&bits)
     }
 
     /// Returns the program edition.
