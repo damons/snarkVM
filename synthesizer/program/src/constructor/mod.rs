@@ -94,7 +94,7 @@ impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
             // Ensure the position is not yet defined.
             ensure!(!self.positions.contains_key(position), "Cannot redefine position '{position}'");
             // Ensure that there are less than `u8::MAX` positions.
-            ensure!(self.positions.len() < u8::MAX as usize, "Cannot add more than {} positions", u8::MAX);
+            ensure!(self.positions.len() < N::MAX_POSITIONS, "Cannot add more than {} positions", N::MAX_POSITIONS);
             // Insert the position.
             self.positions.insert(*position, self.commands.len());
         }

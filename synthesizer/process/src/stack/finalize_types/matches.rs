@@ -69,11 +69,20 @@ impl<N: Network> FinalizeTypes<N> {
                         "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{plaintext_type}' in the operand '{operand}'.",
                     )
                 }
-                // Ensure the program ID type (address) matches the member type.
-                Operand::ProgramID(..) => {
-                    // Retrieve the program ID type.
-                    let program_ref_type = PlaintextType::Literal(LiteralType::Address);
-                    // Ensure the program ID type matches the member type.
+                // Ensure the program ID, block height, network ID, checksum, edition, and program owner types matches the member type.
+                Operand::ProgramID(..)
+                | Operand::BlockHeight
+                | Operand::NetworkID
+                | Operand::Checksum(_)
+                | Operand::Edition(_)
+                | Operand::ProgramOwner(_) => {
+                    // Retrieve the operand type.
+                    let FinalizeType::Plaintext(program_ref_type) = self.get_type_from_operand(stack, operand)? else {
+                        bail!(
+                            "Expected a plaintext type for the operand '{operand}' in struct member '{struct_name}.{member_name}'"
+                        )
+                    };
+                    // Ensure the operand type matches the member type.
                     ensure!(
                         &program_ref_type == member_type,
                         "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{program_ref_type}' in the operand '{operand}'.",
@@ -87,59 +96,6 @@ impl<N: Network> FinalizeTypes<N> {
                 Operand::Caller => bail!(
                     "Struct member '{struct_name}.{member_name}' cannot be cast from a caller in a finalize scope."
                 ),
-                // Ensure the block height type (u32) matches the member type.
-                Operand::BlockHeight => {
-                    // Retrieve the block height type.
-                    let block_height_type = PlaintextType::Literal(LiteralType::U32);
-                    // Ensure the block height type matches the member type.
-                    ensure!(
-                        &block_height_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{block_height_type}' in the operand '{operand}'.",
-                    )
-                }
-                // Ensure the network ID type (u16) matches the member type.
-                Operand::NetworkID => {
-                    // Retrieve the network ID type.
-                    let network_id_type = PlaintextType::Literal(LiteralType::U16);
-                    // Ensure the network ID type matches the member type.
-                    ensure!(
-                        &network_id_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{network_id_type}' in the operand '{operand}'.",
-                    )
-                }
-                // Ensure the checksum type (field) matches the member type.
-                Operand::Checksum(_) => {
-                    // Retrieve the checksum type.
-                    let checksum_type = PlaintextType::Array(ArrayType::new(
-                        PlaintextType::Literal(LiteralType::U8),
-                        vec![U32::new(32)],
-                    )?);
-                    // Ensure the checksum type matches the member type.
-                    ensure!(
-                        &checksum_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{checksum_type}' in the operand '{operand}'.",
-                    )
-                }
-                // Ensure the edition type (u16) matches the member type.
-                Operand::Edition(_) => {
-                    // Retrieve the edition type.
-                    let edition_type = PlaintextType::Literal(LiteralType::U16);
-                    // Ensure the edition type matches the member type.
-                    ensure!(
-                        &edition_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{edition_type}' in the operand '{operand}'.",
-                    )
-                }
-                // Ensure the program owner type (address) matches the member type.
-                Operand::ProgramOwner(_) => {
-                    // Retrieve the program owner type.
-                    let program_owner_type = PlaintextType::Literal(LiteralType::Address);
-                    // Ensure the program owner type matches the member type.
-                    ensure!(
-                        &program_owner_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{program_owner_type}' in the operand '{operand}'.",
-                    )
-                }
             }
         }
         Ok(())
@@ -171,7 +127,7 @@ impl<N: Network> FinalizeTypes<N> {
         // Ensure the operand types match the element type.
         for operand in operands.iter() {
             match operand {
-                // Ensure the literal type matches the member type.
+                // Ensure the literal type matches the element type.
                 Operand::Literal(literal) => {
                     ensure!(
                         &PlaintextType::Literal(literal.to_type()) == array_type.next_element_type(),
@@ -179,7 +135,7 @@ impl<N: Network> FinalizeTypes<N> {
                         array_type.next_element_type()
                     )
                 }
-                // Ensure the type of the register matches the member type.
+                // Ensure the type of the register matches the element type.
                 Operand::Register(register) => {
                     // Retrieve the type.
                     let plaintext_type = match self.get_type(stack, register)? {
@@ -188,18 +144,25 @@ impl<N: Network> FinalizeTypes<N> {
                         // If the register is a future, throw an error.
                         FinalizeType::Future(..) => bail!("Array element cannot be a future"),
                     };
-                    // Ensure the register type matches the member type.
+                    // Ensure the register type matches the element type.
                     ensure!(
                         &plaintext_type == array_type.next_element_type(),
                         "Array element expects {}, but found '{plaintext_type}' in the operand '{operand}'.",
                         array_type.next_element_type()
                     )
                 }
-                // Ensure the program ID type (address) matches the member type.
-                Operand::ProgramID(..) => {
-                    // Retrieve the program ID type.
-                    let program_ref_type = PlaintextType::Literal(LiteralType::Address);
-                    // Ensure the program ID type matches the member type.
+                // Ensure the program ID, block height, network ID, checksum, edition, and program owner types matches the element type.
+                Operand::ProgramID(..)
+                | Operand::BlockHeight
+                | Operand::NetworkID
+                | Operand::Checksum(_)
+                | Operand::Edition(_)
+                | Operand::ProgramOwner(_) => {
+                    // Retrieve the operand type.
+                    let FinalizeType::Plaintext(program_ref_type) = self.get_type_from_operand(stack, operand)? else {
+                        bail!("Expected a plaintext type for the operand '{operand}' in array element '{array_type}'")
+                    };
+                    // Ensure the operand type matches the element type.
                     ensure!(
                         &program_ref_type == array_type.next_element_type(),
                         "Array element expects {}, but found '{program_ref_type}' in the operand '{operand}'.",
@@ -210,64 +173,6 @@ impl<N: Network> FinalizeTypes<N> {
                 Operand::Signer => bail!("Array element cannot be cast from a signer in a finalize scope."),
                 // If the operand is a caller, throw an error.
                 Operand::Caller => bail!("Array element cannot be cast from a caller in a finalize scope."),
-                // Ensure the block height type (u32) matches the member type.
-                Operand::BlockHeight => {
-                    // Retrieve the block height type.
-                    let block_height_type = PlaintextType::Literal(LiteralType::U32);
-                    // Ensure the block height type matches the member type.
-                    ensure!(
-                        &block_height_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{block_height_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
-                // Ensure the network ID type (u16) matches the member type.
-                Operand::NetworkID => {
-                    // Retrieve the network ID type.
-                    let network_id_type = PlaintextType::Literal(LiteralType::U16);
-                    // Ensure the network ID type matches the member type.
-                    ensure!(
-                        &network_id_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{network_id_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
-                // Ensure the checksum type (field) matches the member type.
-                Operand::Checksum(_) => {
-                    // Retrieve the checksum type.
-                    let checksum_type = PlaintextType::Array(ArrayType::new(
-                        PlaintextType::Literal(LiteralType::U8),
-                        vec![U32::new(32)],
-                    )?);
-                    // Ensure the checksum type matches the member type.
-                    ensure!(
-                        &checksum_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{checksum_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
-                // Ensure the edition type (u16) matches the member type.
-                Operand::Edition(_) => {
-                    // Retrieve the edition type.
-                    let edition_type = PlaintextType::Literal(LiteralType::U16);
-                    // Ensure the edition type matches the member type.
-                    ensure!(
-                        &edition_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{edition_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
-                // Ensure the program owner type (address) matches the member type.
-                Operand::ProgramOwner(_) => {
-                    // Retrieve the program owner type.
-                    let program_owner_type = PlaintextType::Literal(LiteralType::Address);
-                    // Ensure the program owner type matches the member type.
-                    ensure!(
-                        &program_owner_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{program_owner_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
             }
         }
         Ok(())

@@ -287,22 +287,6 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
                 // Otherwise, decrement the edition.
                 false => self.edition_map().insert(program_id, edition.saturating_sub(1))?,
             }
-            match (edition, latest_edition) {
-                // If the removed and latest edition are 0, remove the program ID from the latest edition map.
-                (0, 0) => self.edition_map().remove(&program_id)?,
-                // If the removed edition is the latest one, update the latest edition map by decrementing the edition.
-                // Note: It is safe to remove in this manner instead of walking backwards through the editions for the
-                // following reasons:
-                //  - The VM enforces that exactly one deployment or upgrade is allowed per program per block.
-                //  - The only time a transaction is removed is when `remove_last_n` is invoked when finalization fails.
-                //  - `remove_last_n` is only invoked with the parameter `1`.
-                // If any of these conditions are changed, then this method is no longer safe.
-                (edition, latest_edition) if edition == latest_edition => {
-                    self.edition_map().insert(program_id, edition.saturating_sub(1))?
-                }
-                // Otherwise, do nothing.
-                _ => {}
-            }
 
             // Remove the reverse program ID.
             self.reverse_id_map().remove(&(program_id, edition))?;

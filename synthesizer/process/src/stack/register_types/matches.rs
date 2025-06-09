@@ -75,10 +75,18 @@ impl<N: Network> RegisterTypes<N> {
                         }
                     }
                 }
-                // Ensure the program ID, signer, and caller types (address) match the member type.
-                Operand::ProgramID(..) | Operand::Signer | Operand::Caller => {
+                // Ensure the program ID, signer, caller, checksum, and edition types match the member type.
+                Operand::ProgramID(..)
+                | Operand::Signer
+                | Operand::Caller
+                | Operand::Checksum(_)
+                | Operand::Edition(_) => {
                     // Retrieve the operand type.
-                    let operand_type = PlaintextType::Literal(LiteralType::Address);
+                    let RegisterType::Plaintext(operand_type) = self.get_type_from_operand(stack, operand)? else {
+                        bail!(
+                            "Expected a plaintext type for the operand '{operand}' in struct member '{struct_name}.{member_name}'"
+                        )
+                    };
                     // Ensure the operand type matches the member type.
                     ensure!(
                         &operand_type == member_type,
@@ -93,29 +101,6 @@ impl<N: Network> RegisterTypes<N> {
                 Operand::NetworkID => bail!(
                     "Struct member '{struct_name}.{member_name}' cannot be from a network ID in a non-finalize scope"
                 ),
-                // Ensure the checksum type (field) matches the member type.
-                Operand::Checksum(_) => {
-                    // Retrieve the operand type.
-                    let operand_type = PlaintextType::Array(ArrayType::new(
-                        PlaintextType::Literal(LiteralType::U8),
-                        vec![U32::new(32)],
-                    )?);
-                    // Ensure the operand type matches the member type.
-                    ensure!(
-                        &operand_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{operand_type}' in the operand '{operand}'.",
-                    )
-                }
-                // Ensure the edition type (u16) matches the member type.
-                Operand::Edition(_) => {
-                    // Retrieve the operand type.
-                    let operand_type = PlaintextType::Literal(LiteralType::U16);
-                    // Ensure the operand type matches the member type.
-                    ensure!(
-                        &operand_type == member_type,
-                        "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{operand_type}' in the operand '{operand}'.",
-                    )
-                }
                 // If the operand is a program owner type, throw an error.
                 Operand::ProgramOwner(_) => {
                     bail!(
@@ -183,10 +168,16 @@ impl<N: Network> RegisterTypes<N> {
                         }
                     }
                 }
-                // Ensure the program ID type, signer type, and caller types (address) match the element type.
-                Operand::ProgramID(..) | Operand::Signer | Operand::Caller => {
+                // Ensure the program ID, signer, caller, checksum, and edition types match the element type.
+                Operand::ProgramID(..)
+                | Operand::Signer
+                | Operand::Caller
+                | Operand::Checksum(_)
+                | Operand::Edition(..) => {
                     // Retrieve the operand type.
-                    let operand_type = PlaintextType::Literal(LiteralType::Address);
+                    let RegisterType::Plaintext(operand_type) = self.get_type_from_operand(stack, operand)? else {
+                        bail!("Expected a plaintext type for the operand '{operand}' in array element '{array_type}'")
+                    };
                     // Ensure the operand type matches the element type.
                     ensure!(
                         &operand_type == array_type.next_element_type(),
@@ -198,31 +189,6 @@ impl<N: Network> RegisterTypes<N> {
                 Operand::BlockHeight => bail!("Array element cannot be from a block height in a non-finalize scope"),
                 // If the operand is a network ID type, throw an error.
                 Operand::NetworkID => bail!("Array element cannot be from a network ID in a non-finalize scope"),
-                // Ensure the checksum type (field) matches the element type.
-                Operand::Checksum(_) => {
-                    // Retrieve the operand type.
-                    let operand_type = PlaintextType::Array(ArrayType::new(
-                        PlaintextType::Literal(LiteralType::U8),
-                        vec![U32::new(32)],
-                    )?);
-                    // Ensure the operand type matches the element type.
-                    ensure!(
-                        &operand_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{operand_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
-                // Ensure the edition type (u16) matches the element type.
-                Operand::Edition(_) => {
-                    // Retrieve the operand type.
-                    let operand_type = PlaintextType::Literal(LiteralType::U16);
-                    // Ensure the operand type matches the element type.
-                    ensure!(
-                        &operand_type == array_type.next_element_type(),
-                        "Array element expects {}, but found '{operand_type}' in the operand '{operand}'.",
-                        array_type.next_element_type()
-                    )
-                }
                 // If the operand is a program owner type, throw an error.
                 Operand::ProgramOwner(_) => {
                     bail!("Array element cannot be from a program owner in a non-finalize scope")
@@ -340,13 +306,22 @@ impl<N: Network> RegisterTypes<N> {
                                 }
                             }
                         }
-                        // Ensure the program ID, signer, and caller types (address) match the entry type.
-                        Operand::ProgramID(..) | Operand::Signer | Operand::Caller => {
+                        // Ensure the program ID, signer, caller, checksum, and edition types match the entry type.
+                        Operand::ProgramID(..)
+                        | Operand::Signer
+                        | Operand::Caller
+                        | Operand::Checksum(_)
+                        | Operand::Edition(_) => {
                             // Retrieve the operand type.
-                            let operand_type = &PlaintextType::Literal(LiteralType::Address);
+                            let RegisterType::Plaintext(operand_type) = self.get_type_from_operand(stack, operand)?
+                            else {
+                                bail!(
+                                    "Expected a plaintext type for the operand '{operand}' in record entry '{record_name}.{entry_name}'"
+                                )
+                            };
                             // Ensure the operand type matches the entry type.
                             ensure!(
-                                operand_type == plaintext_type,
+                                &operand_type == plaintext_type,
                                 "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found '{operand_type}' in the operand '{operand}'.",
                             )
                         }
@@ -360,29 +335,6 @@ impl<N: Network> RegisterTypes<N> {
                         Operand::NetworkID => {
                             bail!(
                                 "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found a network ID in the operand '{operand}'."
-                            )
-                        }
-                        // Ensure the checksum type (field) matches the entry type.
-                        Operand::Checksum(_) => {
-                            // Retrieve the operand type.
-                            let operand_type =
-                                &PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![
-                                    U32::new(32),
-                                ])?);
-                            // Ensure the operand type matches the entry type.
-                            ensure!(
-                                operand_type == plaintext_type,
-                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found '{operand_type}' in the operand '{operand}'.",
-                            )
-                        }
-                        // Ensure the edition type (u16) matches the entry type.
-                        Operand::Edition(_) => {
-                            // Retrieve the operand type.
-                            let operand_type = &PlaintextType::Literal(LiteralType::U16);
-                            // Ensure the operand type matches the entry type.
-                            ensure!(
-                                operand_type == plaintext_type,
-                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found '{operand_type}' in the operand '{operand}'.",
                             )
                         }
                         // Fail if the operand is a program owner.
