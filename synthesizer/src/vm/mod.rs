@@ -129,16 +129,23 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
         let mut deployment_ids = cfg_into_iter!(deployment_ids)
             .map(|transaction_id| {
+                // Retrieve the block hash for the deployment transaction ID.
+                let Some(hash) = block_store.find_block_hash(&transaction_id)? else {
+                    bail!("Deployment transaction '{transaction_id}' is not found in storage.")
+                };
                 // Retrieve the height.
-                let height =
-                    match block_store.find_block_hash(&transaction_id)?.map(|hash| block_store.get_block_height(&hash))
-                    {
-                        Some(Ok(Some(height))) => height,
-                        _ => {
-                            bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
-                        }
-                    };
-                Ok((transaction_id, height))
+                let Some(height) = block_store.get_block_height(&hash)? else {
+                    bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
+                };
+                // Get the corresponding block's transactions.
+                let Some(transactions) = block_store.get_block_transactions(&hash)? else {
+                    bail!("Transactions for deployment transaction '{hash}' is not found in storage.")
+                };
+                // Find the index of the deployment transaction ID in the block's transactions.
+                let Some(index) = transactions.transactions().get_index_of(transaction_id.deref()) else {
+                    bail!("Transaction for deployment transaction '{transaction_id}' is not found in storage.")
+                };
+                Ok((transaction_id, (height, index)))
             })
             .collect::<Result<Vec<_>>>()?;
         // Sort the deployment transaction IDs by their block heights.
