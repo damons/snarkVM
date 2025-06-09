@@ -335,7 +335,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Perform checks if the execution contains `credits.aleo/upgrade`.
         if execution.transitions().any(|t| t.is_upgrade()) {
             // Do not allow `credits.aleo/upgrade` calls on the previous inclusion version or until after the migration block has passed.
-            if matches!(inclusion_version, InclusionVersion::V0) || block_height <= N::INCLUSION_UPGRADE_HEIGHT()? {
+            if matches!(inclusion_version, InclusionVersion::V0) {
                 bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
             }
 

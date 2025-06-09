@@ -1058,7 +1058,7 @@ function upgrade:
 
     // Check if the record amount is at most 500,000 credits.
     lte r0.microcredits 500_000_000_000u64 into r1;
-    // Ensure that the record amount is at most 250,000 credits.
+    // Ensure that the record amount is at most 500,000 credits.
     assert.eq r1 true;
 
     // Construct a record for the specified receiver.
