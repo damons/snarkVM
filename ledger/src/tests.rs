@@ -342,6 +342,27 @@ fn test_get_block() {
 }
 
 #[test]
+fn test_get_bonded_balances() {
+    // Initialize an RNG.
+    let rng = &mut TestRng::default();
+
+    // Initialize the test environment.
+    let crate::test_helpers::TestEnv { ledger, .. } = crate::test_helpers::sample_test_env(rng);
+
+    // Fetch the bonded mapping.
+    let credits_program_id = ProgramID::from_str("credits.aleo").unwrap();
+    let bonded_mapping = Identifier::from_str("bonded").unwrap();
+    let bonded_mapping =
+        ledger.vm().finalize_store().get_mapping_confirmed(credits_program_id, bonded_mapping).unwrap();
+    // Deserialize the bonded stakers.
+    let stakers = synthesizer::vm::bonded_map_into_stakers(bonded_mapping).unwrap();
+    // Check that the bonded amounts match the bonded mapping.
+    for (staker, (_, amount)) in stakers {
+        assert_eq!(amount, ledger.get_bonded_amount(&staker).unwrap());
+    }
+}
+
+#[test]
 fn test_state_path() {
     let rng = &mut TestRng::default();
 
@@ -2797,6 +2818,9 @@ mod valid_solutions {
         // Start a local counter of proof targets.
         let mut combined_targets = 0;
 
+        // Track the total number of solutions in the current epoch.
+        let mut total_epoch_solutions = 0;
+
         // Run through 25 blocks of target adjustment.
         while block_height < NUM_BLOCKS {
             // Get coinbase puzzle data from the latest block.
@@ -2863,6 +2887,23 @@ mod valid_solutions {
 
             // Set the latest block height.
             block_height = ledger.latest_height();
+
+            // Update the epoch solutions count.
+            total_epoch_solutions += num_solutions;
+        }
+
+        // Fetch the epoch provers cache.
+        let epoch_provers = ledger.epoch_provers_cache.read();
+        // Fetch the epoch provers from DB.
+        let expected_epoch_provers = ledger.get_epoch_provers();
+        // Check that the epoch solutions are correct
+        assert_eq!(epoch_provers.values().sum::<u32>(), u32::try_from(total_epoch_solutions).unwrap());
+        assert_eq!(epoch_provers.len(), expected_epoch_provers.len());
+        for ((expected_address, expected_count), (address, count)) in
+            expected_epoch_provers.iter().zip(epoch_provers.iter())
+        {
+            assert_eq!(expected_address, address);
+            assert_eq!(expected_count, count);
         }
     }
 

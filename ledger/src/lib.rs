@@ -235,7 +235,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Set the current epoch hash.
         ledger.current_epoch_hash = Arc::new(RwLock::new(Some(ledger.get_epoch_hash(latest_height)?)));
         // Set the epoch prover cache.
-        ledger.epoch_provers_cache = ledger.get_epoch_provers();
+        ledger.epoch_provers_cache = Arc::new(RwLock::new(ledger.get_epoch_provers()));
 
         finish!(timer, "Initialize ledger");
         Ok(ledger)

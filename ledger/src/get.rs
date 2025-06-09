@@ -88,23 +88,33 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Returns the provers and the number of solutions they have submitted for the current epoch.
-    pub fn get_epoch_provers(&self) -> Arc<RwLock<IndexMap<Address<N>, u32>>> {
-        // Fetch the blocks that have been created in the current epoch.
+    pub fn get_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
+        // Fetch the block heights that belong to the current epoch.
         let current_block_height = self.vm().block_store().current_block_height();
         let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
         let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
-
-        // Create the epoch provers cache.
-        let epoch_provers = Arc::new(RwLock::new(IndexMap::new()));
-        cfg_iter!(existing_epoch_blocks).for_each(|height| {
-            if let Ok(Some(solutions)) = self.get_solutions(*height).as_deref() {
-                for (_, s) in solutions.iter() {
-                    epoch_provers.write().entry(s.address()).and_modify(|e| *e += 1).or_insert(1);
+        // Count the prover occurrences across epoch blocks using parallel map-reduce.
+        cfg_reduce!(
+            cfg_iter!(existing_epoch_blocks).filter_map(|height| {
+                match self.get_solutions(*height).as_deref() {
+                    Ok(Some(solutions)) => {
+                        let mut local = IndexMap::new();
+                        for (_, s) in solutions.iter() {
+                            *local.entry(s.address()).or_insert(0) += 1;
+                        }
+                        Some(local)
+                    }
+                    _ => None,
                 }
+            }),
+            IndexMap::new,
+            |mut acc, local| {
+                for (addr, count) in local {
+                    *acc.entry(addr).or_insert(0) += count;
+                }
+                acc
             }
-        });
-
-        epoch_provers
+        )
     }
 
     /// Returns the block for the given block height.
