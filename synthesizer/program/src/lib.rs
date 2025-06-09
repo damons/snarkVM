@@ -399,6 +399,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Ensure the program does not already have a constructor.
         ensure!(self.constructor.is_none(), "Program already has a constructor.");
         // Ensure the number of commands is within the allowed range.
+        ensure!(constructor.commands().len() > 0, "Constructor must have at least one command");
         ensure!(constructor.commands().len() <= N::MAX_COMMANDS, "Constructor exceeds maximum number of commands");
         // Add the constructor to the components.
         if self.components.insert(ProgramLabel::Constructor, ProgramDefinition::Constructor).is_some() {

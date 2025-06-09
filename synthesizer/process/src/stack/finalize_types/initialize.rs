@@ -28,10 +28,12 @@ impl<N: Network> FinalizeTypes<N> {
 
         // Check the commands are well-formed.
         for command in constructor.commands() {
-            // Verify that the command is not an await.
-            if command.is_await() {
-                bail!("`await` commands are not allowed in constructors.")
-            }
+            // Ensure the command is not a call instruction.
+            ensure!(!command.is_call(), "`call` commands are not allowed in constructors.");
+            // Ensure the command is not a cast to record instruction.
+            ensure!(!command.is_cast_to_record(), "`cast` (to record) commands are not allowed in constructors.");
+            // Ensure the command is not an await command.
+            ensure!(!command.is_await(), "`await` commands are not allowed in constructors.");
             // Check the command opcode, operands, and destinations.
             finalize_types.check_command(stack, constructor.positions(), command)?;
         }
