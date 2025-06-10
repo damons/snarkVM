@@ -18,21 +18,21 @@ use super::*;
 /// The stake required to land one solution per epoch at various points in time.
 ///
 /// Each entry represents a threshold where, starting from the given timestamp,
-/// a prover must have at least the specified amount of stake to land one solution.
+/// a prover must have at least the specified amount of stake (in microcredits) to land one solution.
 ///
 /// A prover with `n * stake` may land up to `n` solutions per epoch.
 ///
 /// Format: `(timestamp, stake_required_per_solution)`
 pub const STAKE_REQUIREMENTS_PER_SOLUTION: [(i64, u64); 9] = [
-    (1754006399i64, 100_000u64),   /* 2025-07-31 23:59:59 UTC */
-    (1761955199i64, 250_000u64),   /* 2025-10-31 23:59:59 UTC */
-    (1769903999i64, 500_000u64),   /* 2026-01-31 23:59:59 UTC */
-    (1777593599i64, 750_000u64),   /* 2026-04-30 23:59:59 UTC */
-    (1785542399i64, 1_000_000u64), /* 2026-07-31 23:59:59 UTC */
-    (1793491199i64, 1_250_000u64), /* 2026-10-31 23:59:59 UTC */
-    (1801439999i64, 1_500_000u64), /* 2027-01-31 23:59:59 UTC */
-    (1809129599i64, 2_000_000u64), /* 2027-04-30 23:59:59 UTC */
-    (1817078399i64, 2_500_000u64), /* 2027-07-31 23:59:59 UTC */
+    (1754006399i64, 100_000_000_000u64),   /* 2025-07-31 23:59:59 UTC */
+    (1761955199i64, 250_000_000_000u64),   /* 2025-10-31 23:59:59 UTC */
+    (1769903999i64, 500_000_000_000u64),   /* 2026-01-31 23:59:59 UTC */
+    (1777593599i64, 750_000_000_000u64),   /* 2026-04-30 23:59:59 UTC */
+    (1785542399i64, 1_000_000_000_000u64), /* 2026-07-31 23:59:59 UTC */
+    (1793491199i64, 1_250_000_000_000u64), /* 2026-10-31 23:59:59 UTC */
+    (1801439999i64, 1_500_000_000_000u64), /* 2027-01-31 23:59:59 UTC */
+    (1809129599i64, 2_000_000_000_000u64), /* 2027-04-30 23:59:59 UTC */
+    (1817078399i64, 2_500_000_000_000u64), /* 2027-07-31 23:59:59 UTC */
 ];
 
 /// Returns the maximum number of allowed solutions per epoch based on the provided stake and timestamp.
@@ -56,8 +56,8 @@ pub fn maximum_allowed_solutions_per_epoch(prover_stake: u64, current_time: i64)
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
-    /// Returns `true` if the given prover address has reached their solution limit for the current epoch.
-    pub fn is_solution_limit_reached(&self, prover_address: &Address<N>, additional_solutions_in_block: u64) -> bool {
+    /// Returns the number of remaining solutions a prover can submit in the current epoch.
+    pub fn num_remaining_solutions(&self, prover_address: &Address<N>, additional_solutions_in_block: u64) -> u64 {
         // Fetch the prover's stake.
         let prover_stake = self.get_bonded_amount(prover_address).unwrap_or(0);
 
@@ -67,9 +67,20 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Fetch the number of solutions the prover has earned rewards for in the current epoch.
         let prover_num_solutions_in_epoch = *self.epoch_provers_cache.read().get(prover_address).unwrap_or(&0);
 
-        // Determine if the prover has reached their solution limit.
-        (prover_num_solutions_in_epoch as u64).saturating_add(additional_solutions_in_block)
-            >= maximum_allowed_solutions
+        // Calculate the total number of solutions the prover has submitted in the current epoch including the current block.
+        let num_solutions = (prover_num_solutions_in_epoch as u64).saturating_add(additional_solutions_in_block);
+
+        // Return the number of remaining solutions.
+        maximum_allowed_solutions.saturating_sub(num_solutions)
+    }
+
+    /// Returns `true` if the given prover address has reached their solution limit for the current epoch.
+    pub fn is_solution_limit_reached(&self, prover_address: &Address<N>, additional_solutions_in_block: u64) -> bool {
+        // Calculate the number of remaining solutions for the prover.
+        let num_remaining_solutions = self.num_remaining_solutions(prover_address, additional_solutions_in_block);
+
+        // If the number of remaining solutions is zero, the limit is reached.
+        num_remaining_solutions == 0
     }
 }
 

@@ -87,36 +87,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         Ok(epoch_hash)
     }
 
-    /// Returns the provers and the number of solutions they have submitted for the current epoch.
-    pub fn get_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
-        // Fetch the block heights that belong to the current epoch.
-        let current_block_height = self.vm().block_store().current_block_height();
-        let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
-        let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
-        // Count the prover occurrences across epoch blocks using parallel map-reduce.
-        cfg_reduce!(
-            cfg_iter!(existing_epoch_blocks).filter_map(|height| {
-                match self.get_solutions(*height).as_deref() {
-                    Ok(Some(solutions)) => {
-                        let mut local = IndexMap::new();
-                        for (_, s) in solutions.iter() {
-                            *local.entry(s.address()).or_insert(0) += 1;
-                        }
-                        Some(local)
-                    }
-                    _ => None,
-                }
-            }),
-            IndexMap::new,
-            |mut acc, local| {
-                for (addr, count) in local {
-                    *acc.entry(addr).or_insert(0) += count;
-                }
-                acc
-            }
-        )
-    }
-
     /// Returns the block for the given block height.
     pub fn get_block(&self, height: u32) -> Result<Block<N>> {
         // If the height is 0, return the genesis block.

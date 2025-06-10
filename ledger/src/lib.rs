@@ -235,10 +235,40 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Set the current epoch hash.
         ledger.current_epoch_hash = Arc::new(RwLock::new(Some(ledger.get_epoch_hash(latest_height)?)));
         // Set the epoch prover cache.
-        ledger.epoch_provers_cache = Arc::new(RwLock::new(ledger.get_epoch_provers()));
+        ledger.epoch_provers_cache = Arc::new(RwLock::new(ledger.load_epoch_provers()));
 
         finish!(timer, "Initialize ledger");
         Ok(ledger)
+    }
+
+    /// Loads the provers and the number of solutions they have submitted for the current epoch.
+    pub fn load_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
+        // Fetch the block heights that belong to the current epoch.
+        let current_block_height = self.vm().block_store().current_block_height();
+        let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
+        let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
+        // Count the prover occurrences across epoch blocks using parallel map-reduce.
+        cfg_reduce!(
+            cfg_iter!(existing_epoch_blocks).filter_map(|height| {
+                match self.get_solutions(*height).as_deref() {
+                    Ok(Some(solutions)) => {
+                        let mut local = IndexMap::new();
+                        for (_, s) in solutions.iter() {
+                            *local.entry(s.address()).or_insert(0) += 1;
+                        }
+                        Some(local)
+                    }
+                    _ => None,
+                }
+            }),
+            IndexMap::new,
+            |mut acc, local| {
+                for (addr, count) in local {
+                    *acc.entry(addr).or_insert(0) += count;
+                }
+                acc
+            }
+        )
     }
 
     /// Returns the VM.
@@ -249,6 +279,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Returns the puzzle.
     pub const fn puzzle(&self) -> &Puzzle<N> {
         self.vm.puzzle()
+    }
+
+    /// Returns the provers and the number of solutions they have submitted for the current epoch.
+    pub fn epoch_provers(&self) -> Arc<RwLock<IndexMap<Address<N>, u32>>> {
+        self.epoch_provers_cache.clone()
     }
 
     /// Returns the latest committee,
