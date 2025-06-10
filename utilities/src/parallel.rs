@@ -229,29 +229,37 @@ macro_rules! cfg_values {
     }};
 }
 
-/// Finds the first element that satisfies the predicate function
+/// Find an element `e` where `lambda(e)` evalutes to true (if any).
+///
+/// # Notes
+/// - This returns at most one entry that satisfies the given condition, not necessarily the first one.
+/// - `closure` must be a lambda function returning a boolean, e.g., `|e| e > 0`.
 #[macro_export]
 macro_rules! cfg_find {
-    ($self:expr, $object:expr, $func:ident) => {{
+    ($object:expr, $closure:expr) => {{
         #[cfg(not(feature = "serial"))]
-        let result = $self.par_values().find_any(|tx| tx.$func($object));
+        let result = $object.par_values().find_any($closure);
 
         #[cfg(feature = "serial")]
-        let result = $self.values().find(|tx| tx.$func($object));
+        let result = $object.values().find($closure);
 
         result
     }};
 }
 
-/// Applies a function and returns the first value that is not None
+/// Applies a function and returns an entry where `lambda(e)` is not None.
+///
+/// # Notes
+/// - This returns at most one entry that satisfies the given condition, not necessarily the first one.
+/// - `closure` must be a lambda function returning Option, e.g., `|e| Some(e)`.
 #[macro_export]
 macro_rules! cfg_find_map {
-    ($self:expr, $object:expr, $func:ident) => {{
+    ($object:expr, $closure:expr) => {{
         #[cfg(not(feature = "serial"))]
-        let result = $self.par_values().filter_map(|tx| tx.$func($object)).find_any(|_| true);
+        let result = $object.par_values().filter_map($closure).find_any(|_| true);
 
         #[cfg(feature = "serial")]
-        let result = $self.values().find_map(|tx| tx.$func($object));
+        let result = $object.values().find_map($closure);
 
         result
     }};
