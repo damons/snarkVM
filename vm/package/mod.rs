@@ -191,7 +191,7 @@ pub(crate) mod test_helpers {
     type CurrentNetwork = MainnetV0;
 
     fn temp_dir() -> PathBuf {
-        tempfile::tempdir().expect("Failed to open temporary directory").into_path()
+        tempfile::tempdir().expect("Failed to open temporary directory").keep()
     }
 
     /// Samples a (temporary) package containing a `token.aleo` program.
