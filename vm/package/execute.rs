@@ -118,7 +118,7 @@ impl<N: Network> Package<N> {
             VarunaVersion::V2
         };
         // Prepare the trace.
-        trace.prepare(query)?;
+        trace.prepare(&query)?;
 
         // Prove the execution.
         let execution = trace.prove_execution::<A, R>(&locator.to_string(), varuna_version, rng)?;
