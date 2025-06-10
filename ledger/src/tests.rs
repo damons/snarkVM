@@ -150,18 +150,6 @@ impl TestChainBuilder {
         )
     }
 
-    /// Create a new unchecked block, with a fully-connected DAG, a specified timestamp, and custom transmissions.
-    ///
-    /// This will "fill in " any gaps left in earlier rounds from non participating nodes.
-    fn generate_custom_block_unchecked(
-        &mut self,
-        timestamp: i64,
-        transmissions: IndexMap<TransmissionID<CurrentNetwork>, Transmission<CurrentNetwork>>,
-        rng: &mut TestRng,
-    ) -> Block<CurrentNetwork> {
-        self.generate_block_with_partition(&Default::default(), timestamp, transmissions, true, rng)
-    }
-
     /// Same as `generate_block` but with some nodes not participating in batch generation.
     ///
     /// This can result in blocks covering more than two rounds, because an anchor block might be skipped.
@@ -3023,9 +3011,11 @@ mod valid_solutions {
         );
         // Create a block that advances the ledger past the first solution limit timestamp.
         let timestamp_1 = STAKE_REQUIREMENTS_PER_SOLUTION[0].0;
-        let next_block = chain_builder.generate_custom_block_unchecked(
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
             timestamp_1,
             IndexMap::from([(transmission_id, transfer_transmission)]),
+            true,
             rng,
         );
         // Advance to the next block.
@@ -3036,9 +3026,11 @@ mod valid_solutions {
         assert!(ledger.is_solution_limit_reached(&prover_address, 0));
 
         // Create a block with a solution.
-        let next_block = chain_builder.generate_custom_block_unchecked(
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
             timestamp_1,
             IndexMap::from([(valid_solution_1_transmission_id, valid_solution_1_transmission.clone())]),
+            true,
             rng,
         );
         // Check that the solution is aborted.
@@ -3062,9 +3054,11 @@ mod valid_solutions {
         let bond_transmission = Transmission::from(bond_transaction.clone());
         let bond_transmission_transmission_id =
             TransmissionID::Transaction(bond_transaction.id(), bond_transmission.to_checksum().unwrap().unwrap());
-        let next_block = chain_builder.generate_custom_block_unchecked(
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
             timestamp_1,
             IndexMap::from([(bond_transmission_transmission_id, bond_transmission)]),
+            true,
             rng,
         );
         // Advance to the next block.
@@ -3078,12 +3072,14 @@ mod valid_solutions {
 
         // 5. Check that the next block will accept the solution and abort any excess.
 
-        let next_block = chain_builder.generate_custom_block_unchecked(
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
             timestamp_1,
             IndexMap::from([
                 (valid_solution_1_transmission_id, valid_solution_1_transmission.clone()),
                 (valid_solution_2_transmission_id, valid_solution_2_transmission.clone()),
             ]),
+            true,
             rng,
         );
 

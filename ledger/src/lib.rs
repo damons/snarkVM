@@ -247,28 +247,21 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         let current_block_height = self.vm().block_store().current_block_height();
         let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
         let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
-        // Count the prover occurrences across epoch blocks using parallel map-reduce.
-        cfg_reduce!(
-            cfg_iter!(existing_epoch_blocks).filter_map(|height| {
-                match self.get_solutions(*height).as_deref() {
-                    Ok(Some(solutions)) => {
-                        let mut local = IndexMap::new();
-                        for (_, s) in solutions.iter() {
-                            *local.entry(s.address()).or_insert(0) += 1;
-                        }
-                        Some(local)
-                    }
-                    _ => None,
-                }
-            }),
-            IndexMap::new,
-            |mut acc, local| {
-                for (addr, count) in local {
-                    *acc.entry(addr).or_insert(0) += count;
-                }
-                acc
-            }
-        )
+
+        // Collect the addresses of the solutions submitted in the current epoch.
+        let solution_addresses = cfg_iter!(existing_epoch_blocks)
+            .flat_map(|height| match self.get_solutions(*height).as_deref() {
+                Ok(Some(solutions)) => solutions.iter().map(|(_, s)| s.address()).collect::<Vec<_>>(),
+                _ => vec![],
+            })
+            .collect::<Vec<_>>();
+
+        // Count the number of occurrences of each address in the epoch blocks.
+        let mut epoch_provers = IndexMap::new();
+        for address in solution_addresses {
+            epoch_provers.entry(address).and_modify(|e| *e += 1).or_insert(1);
+        }
+        epoch_provers
     }
 
     /// Returns the VM.
