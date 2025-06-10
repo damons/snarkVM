@@ -213,7 +213,6 @@ impl<N: Network> BlockStorage<N> for BlockMemory<N> {
     }
 
     #[cfg(feature = "rocks")]
-    #[allow(unreachable_code)]
     fn backup_database<P: AsRef<std::path::Path>>(&self, _path: P) -> Result<(), String> {
         Err("Unavailable in memory-only mode".to_owned())
     }
