@@ -81,8 +81,8 @@ pub fn staking_rewards<N: Network>(
         .map(|(staker, (validator, stake))| {
             // If the validator is not in the valid validators list, skip the staker.
             let Some((validator_stake, commission_rate)) = valid_validators.get(validator) else {
-                // Log validator not in committe.
-                if !committee.members().contains_key(validator) {
+                // Log validator not in committee.
+                if tracing::enabled!(tracing::Level::TRACE) && !committee.members().contains_key(validator) {
                     let mut logged = missing_validators.lock();
                     if logged.insert(*validator) {
                         trace!("Validator {validator} is not in the committee - skipping all stakers");
