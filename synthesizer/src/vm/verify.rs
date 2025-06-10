@@ -1003,6 +1003,9 @@ mod credits_migration_tests {
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
+    const RECORD_UPGRADE_LIMIT: u64 = 500_000_000_000u64;
+    const TOTAL_UPGRADE_LIMIT: u64 = 3_000_000_000_000u64;
+
     #[cfg(feature = "test")]
     #[test]
     fn test_inclusion_migration() {
@@ -1013,6 +1016,7 @@ mod credits_migration_tests {
         // 5. Check that `upgrade` works on the above record.
         // 6. Check that `upgrade` does not work on already upgraded records.
         // 7. Check that the upgraded records can now be spent.
+        // 8. Check that the records above 500,000 credits are properly aborted.
 
         let rng = &mut TestRng::default();
 
@@ -1028,44 +1032,56 @@ mod credits_migration_tests {
         let view_key = ViewKey::try_from(&private_key).unwrap();
         let address = Address::try_from(&private_key).unwrap();
 
+        // Track the total upgraded amount.
+        let mut total_upgraded = 0;
+
         // Fetch the unspent record.
         let records = genesis.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
         let genesis_records = records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
 
-        // Create a split transaction before the migration.
-        let split_transaction = {
-            let inputs = [
-                Value::<CurrentNetwork>::Record(genesis_records[0].clone()),
-                Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
-            ]
-            .into_iter();
-            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
-        };
-
-        // Create a split transaction before the migration.
-        let split_transaction_2 = {
-            let inputs = [
-                Value::<CurrentNetwork>::Record(genesis_records[1].clone()),
-                Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
-            ]
-            .into_iter();
-            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
-        };
+        let split_transactions: Vec<_> = (0..4)
+            .map(|i| {
+                let inputs = [
+                    Value::<CurrentNetwork>::Record(genesis_records[i].clone()),
+                    Value::<CurrentNetwork>::from_str(&format!("{RECORD_UPGRADE_LIMIT}u64")).unwrap(),
+                ]
+                .into_iter();
+                vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+            })
+            .collect();
 
         // Create a new block that includes the split.
-        let next_block = crate::vm::test_helpers::sample_next_block(
-            &vm,
-            &private_key,
-            &[split_transaction, split_transaction_2],
-            rng,
-        )
-        .unwrap();
+        let next_block =
+            crate::vm::test_helpers::sample_next_block(&vm, &private_key, &split_transactions, rng).unwrap();
         vm.add_next_block(&next_block).unwrap();
 
         // Fetch the records from the new block.
         let split_records =
             next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
         let split_records = split_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
+
+        // Create more splits
+        let more_split_transactions: Vec<_> = (0..4)
+            .map(|i| {
+                let inputs = [
+                    Value::<CurrentNetwork>::Record(split_records[2 * i + 1].clone()),
+                    Value::<CurrentNetwork>::from_str(&format!("{RECORD_UPGRADE_LIMIT}u64")).unwrap(),
+                ]
+                .into_iter();
+                vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+            })
+            .collect();
+
+        // Create a new block that includes the split.
+        let next_block =
+            crate::vm::test_helpers::sample_next_block(&vm, &private_key, &more_split_transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+
+        // Fetch the records from the new block.
+        let additional_split_records =
+            next_block.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
+        let additional_split_records =
+            additional_split_records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
 
         // ----------------------------------------------------------------------------------------
         // 1. Check that `upgrade` is not callable before migration
@@ -1078,7 +1094,8 @@ mod credits_migration_tests {
                 Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                 _ => panic!("Invalid record"),
             };
-            assert!(amount <= 500_000_000_000u64);
+            assert!(amount <= RECORD_UPGRADE_LIMIT);
+            total_upgraded += amount;
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
             vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
         };
@@ -1096,8 +1113,8 @@ mod credits_migration_tests {
             if vm.block_store().current_block_height() == upgrade_height - 1 {
                 let split_transaction_3 = {
                     let inputs = [
-                        Value::<CurrentNetwork>::Record(genesis_records[2].clone()),
-                        Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
+                        Value::<CurrentNetwork>::Record(additional_split_records[1].clone()),
+                        Value::<CurrentNetwork>::from_str(&format!("{RECORD_UPGRADE_LIMIT}u64")).unwrap(),
                     ]
                     .into_iter();
                     vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
@@ -1107,13 +1124,6 @@ mod credits_migration_tests {
             }
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-
-            if vm.block_store().current_block_height() == upgrade_height - 1 {
-                println!("\n\n NUM ACCEPTED TRANSACTIONS: {}\n\n", next_block.transactions().num_accepted());
-                println!("\n\n NUM REJECTED TRANSACTIONS: {}\n\n", next_block.transactions().num_rejected());
-                println!("\n\n NUM ABORTED TRANSACTIONS: {}\n\n", next_block.aborted_transaction_ids().len());
-            }
-
             vm.add_next_block(&next_block).unwrap();
         }
 
@@ -1153,7 +1163,7 @@ mod credits_migration_tests {
                 Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                 _ => panic!("Invalid record"),
             };
-            assert!(amount <= 500_000_000_000u64);
+            assert!(amount <= RECORD_UPGRADE_LIMIT);
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
             let upgrade = vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap();
             assert!(vm.check_transaction(&upgrade, None, rng).is_ok());
@@ -1182,7 +1192,7 @@ mod credits_migration_tests {
                 Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                 _ => panic!("Invalid record"),
             };
-            assert!(amount <= 500_000_000_000u64);
+            assert!(amount <= RECORD_UPGRADE_LIMIT);
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
             vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
         };
@@ -1222,6 +1232,51 @@ mod credits_migration_tests {
         };
 
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
+
+        // ----------------------------------------------------------------------------------------
+        // 8. Check that the upgrades will abort if we are past the upgrade limit.
+        // ----------------------------------------------------------------------------------------
+
+        let upgrades: Vec<_> = (1..4)
+            .map(|i| {
+                let record_to_spend = split_records[2 * i].clone();
+                let amount = match record_to_spend.data().get(&microcredits) {
+                    Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
+                    _ => panic!("Invalid record"),
+                };
+                assert!(amount <= 500_000_000_000u64);
+                total_upgraded += amount;
+                let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
+                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+            })
+            .collect();
+
+        let additional_upgrades: Vec<_> = (0..4)
+            .map(|i| {
+                let record_to_spend = additional_split_records[2 * i].clone();
+                let amount = match record_to_spend.data().get(&microcredits) {
+                    Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
+                    _ => panic!("Invalid record"),
+                };
+                assert!(amount <= RECORD_UPGRADE_LIMIT);
+                total_upgraded += amount;
+                let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
+                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+            })
+            .collect();
+
+        let combined_upgrades = [upgrades, additional_upgrades].concat();
+
+        let next_block =
+            crate::vm::test_helpers::sample_next_block(&vm, &private_key, &combined_upgrades, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+        // Ensure that the total upgraded amount is properly bound.
+        assert!(total_upgraded > TOTAL_UPGRADE_LIMIT);
+        println!("\n\n TOTAL UPGRADED: {total_upgraded}\n\n");
+        let num_aborted = usize::try_from((total_upgraded - TOTAL_UPGRADE_LIMIT) / RECORD_UPGRADE_LIMIT).unwrap();
+        assert_eq!(next_block.transactions().len() + num_aborted, combined_upgrades.len());
+        assert_eq!(next_block.aborted_transaction_ids().len(), num_aborted);
+        assert!(num_aborted > 0);
     }
 
     #[cfg(feature = "test")]

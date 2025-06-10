@@ -430,8 +430,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                 // This is a foundational bug - the caller is violating protocol rules.
                                 // It is possible that a `credits.aleo/split` transaction has no fee. However, it
                                 // is a simple transition without finalize operations and should not fail here.
+                                // If a `credits.aleo/upgrade` transaction has no fee and fails, we simply abort it.
                                 // Note: This will abort the entire atomic batch.
-                                None => Err("Rejected execute transaction has no fee".to_string()),
+                                None => {
+                                    // Abort the upgrade transaction.
+                                    if transaction.contains_upgrade() && execution.len() == 1 {
+                                        aborted.push((
+                                            transaction.clone(),
+                                            "Failed to finalize a `credits.aleo/upgrade` call with no fee".to_string(),
+                                        ));
+                                        // Continue to the next transaction.
+                                        continue 'outer;
+                                    }
+                                    Err("Rejected execute transaction has no fee".to_string())
+                                }
                             },
                         }
                     }
