@@ -85,9 +85,8 @@ macro_rules! prepare_impl {
                             bail!("Inclusion expected the global state root to be the same across iterations")
                         }
 
-                        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
                         // Construct the assignment for the state path based on the consensus version
-                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version) {
+                        let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
                             let assignment = InclusionV0Assignment::new(
                                 state_path,
                                 task.commitment,

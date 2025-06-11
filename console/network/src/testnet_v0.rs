@@ -136,7 +136,7 @@ impl Network for TestnetV0 {
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 7] = [
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 2_950_000),
         (ConsensusVersion::V3, 4_800_000),
@@ -144,11 +144,12 @@ impl Network for TestnetV0 {
         (ConsensusVersion::V5, 6_765_000),
         (ConsensusVersion::V6, 7_600_000),
         (ConsensusVersion::V7, 8_365_000),
+        (ConsensusVersion::V8, 8_950_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 7] = [
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 10),
         (ConsensusVersion::V3, 11),
@@ -156,6 +157,7 @@ impl Network for TestnetV0 {
         (ConsensusVersion::V5, 13),
         (ConsensusVersion::V6, 14),
         (ConsensusVersion::V7, 15),
+        (ConsensusVersion::V8, 16),
     ];
     /// The network edition.
     const EDITION: u16 = 0;
@@ -194,11 +196,10 @@ impl Network for TestnetV0 {
     /// The network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
 
-    // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
     /// Returns the block height where the the inclusion proof will be updated.
     #[allow(non_snake_case)]
     fn INCLUSION_UPGRADE_HEIGHT() -> Result<u32> {
-        Self::CONSENSUS_HEIGHT(ConsensusVersion::V6)
+        Self::CONSENSUS_HEIGHT(ConsensusVersion::V8)
     }
 
     /// Returns the genesis block bytes.

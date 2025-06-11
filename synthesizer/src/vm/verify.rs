@@ -329,10 +329,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         } else {
             VarunaVersion::V2
         };
-        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_upgrade_height = block_height < N::INCLUSION_UPGRADE_HEIGHT()?;
-        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
+        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version)
             || is_network_behind_upgrade_height
         {
             InclusionVersion::V0
@@ -402,10 +401,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         } else {
             VarunaVersion::V2
         };
-        // TODO (raychu86): Updated Inclusion - Set the proper consensus version.
         // Determine the inclusion version to use.
         let is_network_behind_upgrade_height = block_height < N::INCLUSION_UPGRADE_HEIGHT()?;
-        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V5).contains(&consensus_version)
+        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version)
             || is_network_behind_upgrade_height
         {
             InclusionVersion::V0

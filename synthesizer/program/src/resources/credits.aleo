@@ -1080,7 +1080,7 @@ finalize upgrade:
     // Increment the pool by the record amount.
     add r1 r0 into r2;
     // Determine if the total number of migrated credits is less than or equal to 3_000_000 credits.
-    lte r2 3_000_000_000_000u64 into r3;  // TODO (raychu86): Determine starting value. Currently set to 3_000_000 credits.
+    lte r2 3_000_000_000_000u64 into r3;
     // Enforce that the total number of migrated credits is less than or equal to 3_000_000 credits.
     assert.eq r3 true;
 
