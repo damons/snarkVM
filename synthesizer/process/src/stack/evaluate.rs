@@ -85,22 +85,10 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a closure scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a closure scope."),
-                    // If the operand is the program checksum, retrieve the checksum from the stack.
-                    Operand::Checksum(program_id) => {
-                        let checksum = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
-                            None => *self.program_checksum(),
-                        };
-                        Ok(Value::Plaintext(Plaintext::from(checksum)))
-                    }
-                    // If the operand is the program edition, retrieve the edition from the stack.
-                    Operand::Edition(program_id) => {
-                        let edition = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
-                            None => *self.program_edition(),
-                        };
-                        Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))))
-                    }
+                    // If the operand is the program checksum, throw an error.
+                    Operand::Checksum(_) => bail!("Cannot retrieve the program checksum from a closure scope."),
+                    // If the operand is the program edition, throw an error.
+                    Operand::Edition(_) => bail!("Cannot retrieve the edition from a closure scope."),
                     // If the operand is the program owner, throw an error.
                     Operand::ProgramOwner(_) => bail!("Cannot retrieve the program owner from a closure scope."),
                 }
@@ -236,22 +224,10 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a function scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a function scope."),
-                    // If the operand is the program checksum, retrieve the checksum from the stack.
-                    Operand::Checksum(program_id) => {
-                        let checksum = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
-                            None => *self.program_checksum(),
-                        };
-                        Ok(Value::Plaintext(Plaintext::from(checksum)))
-                    }
-                    // If the operand is the program edition, retrieve the edition from the stack.
-                    Operand::Edition(program_id) => {
-                        let edition = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
-                            None => *self.program_edition(),
-                        };
-                        Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))))
-                    }
+                    // If the operand is the program checksum, throw an error.
+                    Operand::Checksum(_) => bail!("Cannot retrieve the program checksum from a function scope."),
+                    // If the operand is the program edition, throw an error.
+                    Operand::Edition(_) => bail!("Cannot retrieve the edition from a function scope."),
                     // If the operand is the program owner, throw an error.
                     Operand::ProgramOwner(_) => bail!("Cannot retrieve the program owner from a function scope."),
                 }

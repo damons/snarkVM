@@ -41,22 +41,10 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoad<N> for Registers<N
             Operand::BlockHeight => bail!("Cannot load the block height in a non-finalize context"),
             // If the operand is the network ID, throw an error.
             Operand::NetworkID => bail!("Cannot load the network ID in a non-finalize context"),
-            // If the operand is the checksum, load the value of the checksum.
-            Operand::Checksum(program_id) => {
-                let checksum = match program_id {
-                    Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
-                    None => *stack.program_checksum(),
-                };
-                return Ok(Value::Plaintext(Plaintext::from(checksum)));
-            }
-            // If the operand is the edition, load the value of the edition.
-            Operand::Edition(program_id) => {
-                let edition = match program_id {
-                    Some(program_id) => *stack.get_external_stack(program_id)?.program_edition(),
-                    None => *stack.program_edition(),
-                };
-                return Ok(Value::Plaintext(Plaintext::from(Literal::U16(edition))));
-            }
+            // If the operand is the checksum, throw an error.
+            Operand::Checksum(_) => bail!("Cannot load the checksum in a non-finalize context."),
+            // If the operand is the edition, throw an error.
+            Operand::Edition(_) => bail!("Cannot load the edition in a non-finalize context"),
             // If the operand is the program owner, throw an error.
             Operand::ProgramOwner(_) => bail!("Cannot load the program owner in a non-finalize context"),
         };
@@ -144,24 +132,10 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersLoadCircuit<N, A> for R
             Operand::BlockHeight => bail!("Cannot load the block height in a non-finalize context"),
             // If the operand is the network ID, throw an error.
             Operand::NetworkID => bail!("Cannot load the network ID in a non-finalize context"),
-            // If the operand is the checksum, load the value of the checksum.
-            Operand::Checksum(program_id) => {
-                let checksum = match program_id {
-                    Some(program_id) => *stack.get_external_stack(program_id)?.program_checksum(),
-                    None => *stack.program_checksum(),
-                };
-                return Ok(circuit::Value::Plaintext(circuit::Plaintext::from(checksum.map(circuit::U8::constant))));
-            }
-            // If the operand is the edition, load the value of the edition.
-            Operand::Edition(program_id) => {
-                let edition = match program_id {
-                    Some(program_id) => *stack.get_external_stack(program_id)?.program_edition(),
-                    None => *stack.program_edition(),
-                };
-                return Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::constant(
-                    Literal::U16(edition),
-                ))));
-            }
+            // If the operand is the checksum, throw an error.
+            Operand::Checksum(_) => bail!("Cannot load the checksum in a non-finalize context."),
+            // If the operand is the edition, throw an error.
+            Operand::Edition(_) => bail!("Cannot load the edition in a non-finalize context"),
             // If the operand is the program owner, throw an error.
             Operand::ProgramOwner(_) => bail!("Cannot load the program owner in a non-finalize context"),
         };

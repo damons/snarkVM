@@ -120,24 +120,10 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                     Operand::NetworkID => {
                         bail!("Illegal operation: cannot retrieve the network id in a closure scope")
                     }
-                    // If the operand is the checksum, retrieve the checksum from the stack.
-                    Operand::Checksum(program_id) => {
-                        let checksum = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
-                            None => *self.program_checksum(),
-                        };
-                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(checksum.map(circuit::U8::constant))))
-                    }
-                    // If the operand is the edition, retrieve the edition from the stack.
-                    Operand::Edition(program_id) => {
-                        let edition = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
-                            None => *self.program_edition(),
-                        };
-                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::U16(
-                            circuit::U16::new(circuit::Mode::Constant, edition),
-                        ))))
-                    }
+                    // If the operand is the checksum, throw an error.
+                    Operand::Checksum(_) => bail!("Illegal operation: cannot retrieve the checksum in a closure scope"),
+                    // If the operand is the edition, throw an error.
+                    Operand::Edition(_) => bail!("Illegal operation: cannot retrieve the edition in a closure scope"),
                     // If the operand is the program owner, throw an error.
                     Operand::ProgramOwner(_) => {
                         bail!("Illegal operation: cannot retrieve the program owner in a closure scope")
@@ -377,23 +363,13 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                     Operand::NetworkID => {
                         bail!("Illegal operation: cannot retrieve the network id in a function scope")
                     }
-                    // If the operand is the checksum, retrieve the checksum from the stack.
+                    // If the operand is the checksum, throw an error.
                     Operand::Checksum(program_id) => {
-                        let checksum = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_checksum(),
-                            None => *self.program_checksum(),
-                        };
-                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(checksum.map(circuit::U8::constant))))
+                        bail!("Illegal operation: cannot retrieve the checksum in a function scope")
                     }
-                    // If the operand is the edition, retrieve the edition from the stack.
+                    // If the operand is the edition, throw an error.
                     Operand::Edition(program_id) => {
-                        let edition = match program_id {
-                            Some(program_id) => *self.get_external_stack(program_id)?.program_edition(),
-                            None => *self.program_edition(),
-                        };
-                        Ok(circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::U16(
-                            circuit::U16::new(circuit::Mode::Constant, edition),
-                        ))))
+                        bail!("Illegal operation: cannot retrieve the edition in a function scope")
                     }
                     // If the operand is the program owner, throw an error.
                     Operand::ProgramOwner(_) => {

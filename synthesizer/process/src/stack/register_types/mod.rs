@@ -102,12 +102,9 @@ impl<N: Network> RegisterTypes<N> {
             }
             Operand::BlockHeight => bail!("'block.height' is not a valid operand in a non-finalize context."),
             Operand::NetworkID => bail!("'network.id' is not a valid operand in a non-finalize context."),
-            Operand::Checksum(_) => RegisterType::Plaintext(PlaintextType::Array(ArrayType::new(
-                PlaintextType::Literal(LiteralType::U8),
-                vec![U32::new(32)],
-            )?)),
-            Operand::Edition(_) => RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
-            Operand::ProgramOwner(_) => bail!("'program.owner' is not a valid operand in a non-finalize context."),
+            Operand::Checksum(_) => bail!("'checksum' is not a valid operand in a non-finalize context."),
+            Operand::Edition(_) => bail!("'edition' is not a valid operand in a non-finalize context."),
+            Operand::ProgramOwner(_) => bail!("'program_owner' is not a valid operand in a non-finalize context."),
         })
     }
 

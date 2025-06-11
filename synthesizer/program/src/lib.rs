@@ -665,40 +665,9 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         if self.contains_constructor() {
             return true;
         }
-        // Check each instruction and output in each closure for the use of `Operand::Checksum`, `Operand::Edition`, or `Operand::ProgramOwner`.
-        for closure in self.closures().values() {
-            // Check the instruction operands.
-            for instruction in closure.instructions() {
-                for operand in instruction.operands() {
-                    if matches!(operand, Operand::Checksum(_) | Operand::Edition(_) | Operand::ProgramOwner(_)) {
-                        return true;
-                    }
-                }
-            }
-            // Check the output operands.
-            for output in closure.outputs() {
-                if matches!(output.operand(), Operand::Checksum(_) | Operand::Edition(_) | Operand::ProgramOwner(_)) {
-                    return true;
-                }
-            }
-        }
-        // Check each instruction and output in each function for the use of `Operand::Checksum`, `Operand::Edition` or `Operand::ProgramOwner`.
-        // If the function has an associated finalize scope, then check its commands as well.
+        // Check each instruction and output in each function's finalize scope for the use of
+        // `Operand::Checksum`, `Operand::Edition` or `Operand::ProgramOwner`.
         for function in self.functions().values() {
-            // Check the instruction oeprands.
-            for instruction in function.instructions() {
-                for operand in instruction.operands() {
-                    if matches!(operand, Operand::Checksum(_) | Operand::Edition(_) | Operand::ProgramOwner(_)) {
-                        return true;
-                    }
-                }
-            }
-            // Check the output operands.
-            for output in function.outputs() {
-                if matches!(output.operand(), Operand::Checksum(_) | Operand::Edition(_) | Operand::ProgramOwner(_)) {
-                    return true;
-                }
-            }
             // Check the finalize scope if it exists.
             if let Some(finalize_logic) = function.finalize_logic() {
                 // Check the command operands.

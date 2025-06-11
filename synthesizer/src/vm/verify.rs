@@ -177,7 +177,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //   - the deployment edition is zero
                 //   - the program checksum is **not** present in the deployment,
                 //   - the program owner is **not** present in the deployment
-                //   - the program does not use constructors, `Operand::Checksum`, or `Operand::Edition`.
+                //   - the program does not use constructors, `Operand::Checksum`, `Operand::Edition`, or `Operand::ProgramOwner`
                 let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
                 match consensus_version >= ConsensusVersion::V8 {
                     true => {

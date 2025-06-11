@@ -75,12 +75,8 @@ impl<N: Network> RegisterTypes<N> {
                         }
                     }
                 }
-                // Ensure the program ID, signer, caller, checksum, and edition types match the member type.
-                Operand::ProgramID(..)
-                | Operand::Signer
-                | Operand::Caller
-                | Operand::Checksum(_)
-                | Operand::Edition(_) => {
+                // Ensure the program ID, signer, and caller types match the member type.
+                Operand::ProgramID(..) | Operand::Signer | Operand::Caller => {
                     // Retrieve the operand type.
                     let RegisterType::Plaintext(operand_type) = self.get_type_from_operand(stack, operand)? else {
                         bail!(
@@ -101,6 +97,18 @@ impl<N: Network> RegisterTypes<N> {
                 Operand::NetworkID => bail!(
                     "Struct member '{struct_name}.{member_name}' cannot be from a network ID in a non-finalize scope"
                 ),
+                // If the operand is a checksum type, throw an error.
+                Operand::Checksum(_) => {
+                    bail!(
+                        "Struct member '{struct_name}.{member_name}' cannot be from a checksum in a non-finalize scope"
+                    )
+                }
+                // If the operand is an edition type, throw an error.
+                Operand::Edition(_) => {
+                    bail!(
+                        "Struct member '{struct_name}.{member_name}' cannot be from an edition in a non-finalize scope"
+                    )
+                }
                 // If the operand is a program owner type, throw an error.
                 Operand::ProgramOwner(_) => {
                     bail!(
@@ -168,12 +176,8 @@ impl<N: Network> RegisterTypes<N> {
                         }
                     }
                 }
-                // Ensure the program ID, signer, caller, checksum, and edition types match the element type.
-                Operand::ProgramID(..)
-                | Operand::Signer
-                | Operand::Caller
-                | Operand::Checksum(_)
-                | Operand::Edition(..) => {
+                // Ensure the program ID, signer, and caller types match the element type.
+                Operand::ProgramID(..) | Operand::Signer | Operand::Caller => {
                     // Retrieve the operand type.
                     let RegisterType::Plaintext(operand_type) = self.get_type_from_operand(stack, operand)? else {
                         bail!("Expected a plaintext type for the operand '{operand}' in array element '{array_type}'")
@@ -189,6 +193,14 @@ impl<N: Network> RegisterTypes<N> {
                 Operand::BlockHeight => bail!("Array element cannot be from a block height in a non-finalize scope"),
                 // If the operand is a network ID type, throw an error.
                 Operand::NetworkID => bail!("Array element cannot be from a network ID in a non-finalize scope"),
+                // If the operand is a checksum type, throw an error.
+                Operand::Checksum(_) => {
+                    bail!("Array element cannot be from a checksum in a non-finalize scope")
+                }
+                // If the operand is an edition type, throw an error.
+                Operand::Edition(_) => {
+                    bail!("Array element cannot be from an edition in a non-finalize scope")
+                }
                 // If the operand is a program owner type, throw an error.
                 Operand::ProgramOwner(_) => {
                     bail!("Array element cannot be from a program owner in a non-finalize scope")
@@ -306,12 +318,8 @@ impl<N: Network> RegisterTypes<N> {
                                 }
                             }
                         }
-                        // Ensure the program ID, signer, caller, checksum, and edition types match the entry type.
-                        Operand::ProgramID(..)
-                        | Operand::Signer
-                        | Operand::Caller
-                        | Operand::Checksum(_)
-                        | Operand::Edition(_) => {
+                        // Ensure the program ID, signer, and caller types match the entry type.
+                        Operand::ProgramID(..) | Operand::Signer | Operand::Caller => {
                             // Retrieve the operand type.
                             let RegisterType::Plaintext(operand_type) = self.get_type_from_operand(stack, operand)?
                             else {
@@ -335,6 +343,18 @@ impl<N: Network> RegisterTypes<N> {
                         Operand::NetworkID => {
                             bail!(
                                 "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found a network ID in the operand '{operand}'."
+                            )
+                        }
+                        // Fail if the operand is a checksum.
+                        Operand::Checksum(_) => {
+                            bail!(
+                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found a checksum in the operand '{operand}'."
+                            )
+                        }
+                        // Fail if the operand is an edition.
+                        Operand::Edition(_) => {
+                            bail!(
+                                "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found an edition in the operand '{operand}'."
                             )
                         }
                         // Fail if the operand is a program owner.
