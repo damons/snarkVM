@@ -33,7 +33,6 @@ use console::{
         StructType,
         ValueType,
     },
-    types::U32,
 };
 use synthesizer_program::{
     CallOperator,

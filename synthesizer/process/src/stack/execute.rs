@@ -364,11 +364,11 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                         bail!("Illegal operation: cannot retrieve the network id in a function scope")
                     }
                     // If the operand is the checksum, throw an error.
-                    Operand::Checksum(program_id) => {
+                    Operand::Checksum(_) => {
                         bail!("Illegal operation: cannot retrieve the checksum in a function scope")
                     }
                     // If the operand is the edition, throw an error.
-                    Operand::Edition(program_id) => {
+                    Operand::Edition(_) => {
                         bail!("Illegal operation: cannot retrieve the edition in a function scope")
                     }
                     // If the operand is the program owner, throw an error.
