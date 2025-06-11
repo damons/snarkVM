@@ -1945,6 +1945,7 @@ finalize transfer_public:
         assert!(Committee::new_genesis(committee_map).is_err());
     }
 
+    #[cfg(not(feature = "test"))]
     #[test]
     #[allow(clippy::assertions_on_constants)]
     fn test_migration_v3_maximum_validator_increase() {

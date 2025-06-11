@@ -77,7 +77,6 @@ commands:
             mv $CIRCLE_WORKING_DIRECTORY/.bin/sccache-v0.3.0-x86_64-unknown-linux-musl/sccache /home/circleci/bin/sccache
             rm -rf "/home/circleci/.cargo/registry"
             DEBIAN_FRONTEND=noninteractive sudo apt-get update
-            DEBIAN_FRONTEND=noninteractive sudo apt-get dist-upgrade -y -o DPkg::Options::=--force-confold
             DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends clang llvm-dev llvm pkg-config xz-utils make libssl-dev libssl-dev
       - restore_cache:
           keys:
@@ -696,6 +695,16 @@ jobs:
           workspace_member: synthesizer
           cache_key: v1.3.0-rust-1.83.0-snarkvm-synthesizer-cache
 
+  synthesizer-test:
+    docker:
+      - image: cimg/rust:1.83.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+    resource_class: << pipeline.parameters.twoxlarge >>
+    steps:
+      - run_serial:
+          flags: --lib --bins --features test
+          workspace_member: synthesizer
+          cache_key: v1.3.0-rust-1.83.0-snarkvm-synthesizer-test-cache
+
   synthesizer-mem-heavy:
     docker:
       - image: cimg/rust:1.83.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
@@ -994,6 +1003,7 @@ workflows:
       - parameters-large
       - parameters-uncached
       - synthesizer
+      - synthesizer-test
       - synthesizer-mem-heavy
       - synthesizer-integration
       - synthesizer-process
