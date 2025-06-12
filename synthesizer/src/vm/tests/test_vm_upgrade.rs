@@ -1813,66 +1813,22 @@ function dummy:",
 
     // Construct the first deployment.
     let transaction_first = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
-    let transaction_id_first = transaction_first.id();
-    let deployment_id_first = transaction_first.deployment().unwrap().to_deployment_id()?;
-
-    // Construct the second deployment.
-    let Transaction::Deploy(_, _, owner, deployment, fee) =
-        vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?
-    else {
-        bail!("Expected deployment");
-    };
-    let deployment = Deployment::new(
-        1,
-        deployment.program().clone(),
-        deployment.verifying_keys().clone(),
-        deployment.program_checksum().cloned(),
-        deployment.program_owner().copied(),
-    )?;
-    let transaction_second = Transaction::from_deployment(owner, deployment, fee)?;
-    let transaction_id_second = transaction_second.id();
-    let deployment_id_second = transaction_second.deployment().unwrap().to_deployment_id()?;
-
-    // Construct the third deployment.
-    let Transaction::Deploy(_, _, owner, deployment, fee) =
-        vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?
-    else {
-        bail!("Expected deployment");
-    };
-    let deployment = Deployment::new(
-        1,
-        deployment.program().clone(),
-        deployment.verifying_keys().clone(),
-        deployment.program_checksum().cloned(),
-        deployment.program_owner().copied(),
-    )?;
-    let transaction_third = Transaction::from_deployment(owner, deployment, fee)?;
-    let transaction_id_third = transaction_third.id();
-    let deployment_id_third = transaction_third.deployment().unwrap().to_deployment_id()?;
-
-    // Check that the first and second deployment IDs are the same.
-    assert_eq!(deployment_id_first, deployment_id_second);
-    // Check that the first and third deployment IDs are different.
-    assert_ne!(deployment_id_first, deployment_id_third);
-    // Check that the first, second, and third transaction IDs are different.
-    assert_ne!(transaction_id_first, transaction_id_second);
-    assert_ne!(transaction_id_first, transaction_id_third);
-
-    // Add the first deployment to the chain.
+    let deployment_first = transaction_first.deployment().unwrap();
+    assert_eq!(deployment_first.edition(), 0);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_first], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Deploy the program again as an upgrade.
-    let block = sample_next_block(&vm, &caller_private_key, &[transaction_second], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
-    vm.add_next_block(&block)?;
+    // Attempt to deploy the program again without changing its contents.
+    let result = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng);
+    assert!(result.is_err());
 
     // Deploy the program with an extra mapping as an upgrade.
+    let transaction_third = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    let deployment_third = transaction_third.deployment().unwrap();
+    assert_eq!(deployment_third.edition(), 1);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_third], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);

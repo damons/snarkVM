@@ -85,7 +85,7 @@ pub struct Process<N: Network> {
     /// The mapping of program IDs to stacks.
     stacks: Arc<RwLock<IndexMap<ProgramID<N>, Arc<Stack<N>>>>>,
     /// The mapping of program IDs to old stacks.
-    old_stacks: Arc<RwLock<IndexMap<ProgramID<N>, Arc<Stack<N>>>>>,
+    old_stacks: Arc<RwLock<IndexMap<ProgramID<N>, Option<Arc<Stack<N>>>>>>,
 }
 
 impl<N: Network> Process<N> {
@@ -159,11 +159,13 @@ impl<N: Network> Process<N> {
         let program_id = *stack.program_id();
         // Arc the stack first to limit the scope of the write lock.
         let stack = Arc::new(stack);
-        // If the stack already exists, move it to `old_stacks`.
-        if let Some(old_stack) = self.stacks.write().insert(program_id, stack.clone()) {
-            // Insert the old stack into the old_stacks.
-            self.old_stacks.write().insert(program_id, old_stack);
-        };
+        // If no entry in `old_stacks` exists for `program_id`, store the old stack.
+        // Note: If `old_stack` is `None`, it means that we are adding a new program to the process.
+        let old_stack = self.stacks.write().insert(program_id, stack);
+        let mut old_stacks = self.old_stacks.write();
+        if !old_stacks.contains_key(&program_id) {
+            old_stacks.insert(program_id, old_stack);
+        }
     }
 
     /// Commits the staged stacks to the process.
@@ -180,7 +182,13 @@ impl<N: Network> Process<N> {
     pub fn revert_stacks(&self) {
         // Restore the old stacks.
         for (program_id, stack) in self.old_stacks.write().drain(..) {
-            self.stacks.write().insert(program_id, stack);
+            // If the stack is `None`, remove the program from the process.
+            // Otherwise, insert the old stack back into the process.
+            if let Some(stack) = stack {
+                self.stacks.write().insert(program_id, stack);
+            } else {
+                self.stacks.write().shift_remove(&program_id);
+            }
         }
     }
 }

@@ -1011,3 +1011,64 @@ fn test_credits_is_not_upgradable() -> Result<()> {
     assert!(result.is_err(), "Upgrading 'credits.aleo' should not be allowed");
     Ok(())
 }
+
+#[test]
+fn test_edition_and_checksum_and_program_owner_operands() -> Result<()> {
+    // Sample the default process.
+    let process = sample_process()?;
+
+    // A helper to sample a test program with an operand in the function.
+    let sample_program_with_operand_in_function = |operand: &str| -> Result<Program<CurrentNetwork>> {
+        Program::from_str(&format!(
+            r"
+program test.aleo;
+
+constructor:
+    assert.eq true true;
+    
+function foo:
+    assert.eq {operand} {operand};
+            ",
+        ))
+    };
+
+    // A helper to sample a test program with an operand in the closure.
+    let sample_program_with_operand_in_closure = |operand: &str| -> Result<Program<CurrentNetwork>> {
+        Program::from_str(&format!(
+            r"
+program test.aleo;
+
+constructor:
+    assert.eq true true;
+    
+function dummy:
+    
+closure foo:
+    input r0 as u8;
+    assert.eq {operand} {operand};
+            ",
+        ))
+    };
+
+    // Check that the below programs are invalid.
+
+    let program = sample_program_with_operand_in_function("edition")?;
+    assert!(process.add_program(&program).is_err());
+
+    let program = sample_program_with_operand_in_function("checksum")?;
+    assert!(process.add_program(&program).is_err());
+
+    let program = sample_program_with_operand_in_function("program_owner")?;
+    assert!(process.add_program(&program).is_err());
+
+    let program = sample_program_with_operand_in_closure("edition")?;
+    assert!(process.add_program(&program).is_err());
+
+    let program = sample_program_with_operand_in_closure("checksum")?;
+    assert!(process.add_program(&program).is_err());
+
+    let program = sample_program_with_operand_in_closure("program_owner")?;
+    assert!(process.add_program(&program).is_err());
+
+    Ok(())
+}

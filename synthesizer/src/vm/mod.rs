@@ -3420,35 +3420,15 @@ finalize set_first:
 
         // Add the upgrade and execution to the VM.
         let block = sample_next_block(&vm, &caller_private_key, &[deployment_v1, transaction], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_accepted(), 2);
         assert_eq!(block.transactions().num_rejected(), 0);
-        assert_eq!(block.aborted_transaction_ids().len(), 1);
+        assert_eq!(block.aborted_transaction_ids().len(), 0);
         vm.add_next_block(&block).unwrap();
 
         // Check that the program was upgraded.
         let program =
             vm.process().read().get_stack(ProgramID::from_str("test_one.aleo").unwrap()).unwrap().program().clone();
         assert_eq!(&program_v1, &program);
-
-        // Attempt to execute the program again.
-        let transaction = vm
-            .execute(
-                &caller_private_key,
-                ("test_one.aleo", "set_first"),
-                [Value::from_str("1field").unwrap(), Value::from_str("1field").unwrap()].iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-
-        // Add the transaction to a block and update the VM.
-        let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 1);
-        assert_eq!(block.transactions().num_rejected(), 0);
-        assert_eq!(block.aborted_transaction_ids().len(), 0);
-        vm.add_next_block(&block).unwrap();
 
         // Verify that the entry exists in the first mapping.
         let Some(Value::Plaintext(Plaintext::Literal(Literal::Field(field), _))) = vm

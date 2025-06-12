@@ -280,6 +280,22 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // we choose to acquire the write lock for the entire duration of this atomic batch.
             let process = self.process.write();
 
+            // A helper function abort an atomic batch with an error message while rolling back changes to the stacks in `Process`.
+            let abort_with_error = |error: String| -> Result<
+                (
+                    Ratifications<N>,
+                    Vec<ConfirmedTransaction<N>>,
+                    Vec<(Transaction<N>, String)>,
+                    Vec<FinalizeOperation<N>>,
+                ),
+                String,
+            > {
+                // Rollback the stacks in the process.
+                process.revert_stacks();
+                // Note: This will abort the entire atomic batch.
+                Err(error)
+            };
+
             // Initialize a list of the confirmed transactions.
             let mut confirmed = Vec::with_capacity(num_transactions);
             // Initialize a list of the aborted transactions.
@@ -367,7 +383,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             // If the program has not yet been deployed, attempt to deploy it.
                             false => match process.finalize_deployment(state, store, deployment, fee) {
                                 // Construct the accepted deploy transaction.
-                                Ok((_, finalize)) => {
+                                Ok((stack, finalize)) => {
+                                    // Stage the stack in the process.
+                                    process.stage_stack(stack);
                                     // Add the program id to the list of deployments.
                                     deployments.insert(*deployment.program_id());
                                     ConfirmedTransaction::accepted_deploy(counter, transaction.clone(), finalize)
@@ -465,7 +483,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     Err(error) => {
                         eprintln!("Critical bug in speculate: {error}\n\n{transaction}");
                         // Note: This will abort the entire atomic batch.
-                        return Err(format!("Failed to speculate on transaction - {error}"));
+                        return abort_with_error(format!("Failed to speculate on transaction - {error}"));
                     }
                 }
             }
@@ -473,7 +491,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // Ensure all transactions were processed.
             if confirmed.len() + aborted.len() != num_transactions {
                 // Note: This will abort the entire atomic batch.
-                return Err("Not all transactions were processed in 'VM::atomic_speculate'".to_string());
+                return abort_with_error("Not all transactions were processed in 'VM::atomic_speculate'".to_string());
             }
 
             /* Perform the ratifications after finalize. */
@@ -489,7 +507,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         confirmed.iter().map(|tx| Ok(*tx.priority_fee_amount()?)).sum::<Result<u64>>()
                     else {
                         // Note: This will abort the entire atomic batch.
-                        return Err("Failed to calculate the transaction fees during speculation".to_string());
+                        return abort_with_error(
+                            "Failed to calculate the transaction fees during speculation".to_string(),
+                        );
                     };
 
                     // Compute the block reward.
@@ -518,7 +538,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Store the finalize operations from the post-ratify.
                 Ok(operations) => ratified_finalize_operations.extend(operations),
                 // Note: This will abort the entire atomic batch.
-                Err(e) => return Err(format!("Failed to post-ratify - {e}")),
+                Err(e) => return abort_with_error(format!("Failed to post-ratify - {e}")),
             }
 
             /* Construct the ratifications after speculation. */
@@ -527,8 +547,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 Ratifications::try_from_iter(reward_ratifications.into_iter().chain(ratifications.into_iter()))
             else {
                 // Note: This will abort the entire atomic batch.
-                return Err("Failed to construct the ratifications after speculation".to_string());
+                return abort_with_error("Failed to construct the ratifications after speculation".to_string());
             };
+
+            // Revert the changes to the stacks in the process, as this is a dry-run.
+            process.revert_stacks();
 
             finish!(timer);
 
