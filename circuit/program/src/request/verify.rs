@@ -226,7 +226,7 @@ impl<A: Aleo> Request<A> {
                             _ => A::halt(format!("Expected a record input at input {index}")),
                         };
                         // Compute the record commitment.
-                        let candidate_commitment = record.to_commitment(program_id, &record_name);
+                        let candidate_commitment = record.to_commitment(program_id, &record_name, tvk.clone());
                         // Compute the `candidate_serial_number` from `gamma`.
                         let candidate_serial_number =
                             Record::<A, Plaintext<A>>::serial_number_from_gamma(gamma, candidate_commitment.clone());

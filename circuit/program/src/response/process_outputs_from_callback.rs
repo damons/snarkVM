@@ -120,7 +120,8 @@ impl<A: Aleo> Response<A> {
                             Value::Future(..) => A::halt("Expected a record output, found a future output"),
                         };
                         // Compute the record commitment.
-                        let commitment = record.to_commitment(program_id, &Identifier::constant(*record_name));
+                        let commitment =
+                            record.to_commitment(program_id, &Identifier::constant(*record_name), tvk.clone());
 
                         // Return the output ID.
                         // Note: Because this is a callback, the output ID is an **external record** ID.

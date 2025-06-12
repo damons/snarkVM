@@ -176,7 +176,7 @@ impl<N: Network> Request<N> {
                     ensure!(**record.owner() == signer, "Input record for '{program_id}' must belong to the signer");
 
                     // Compute the record commitment.
-                    let commitment = record.to_commitment(&program_id, record_name)?;
+                    let commitment = record.to_commitment(&program_id, record_name, &tvk)?;
 
                     // Compute the generator `H` as `HashToGroup(commitment)`.
                     let h = N::hash_to_group_psd2(&[N::serial_number_domain(), commitment])?;

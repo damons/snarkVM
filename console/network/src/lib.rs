@@ -307,6 +307,9 @@ pub trait Network:
     /// Returns the sponge parameters for Varuna.
     fn varuna_fs_parameters() -> &'static FiatShamirParameters<Self>;
 
+    /// Returns the commitment domain as a constant field element.
+    fn commitment_domain() -> Field<Self>;
+
     /// Returns the encryption domain as a constant field element.
     fn encryption_domain() -> Field<Self>;
 

@@ -151,7 +151,7 @@ impl<N: Network> Request<N> {
                         ensure!(**record.owner() == self.signer, "Input record does not belong to the signer");
 
                         // Compute the record commitment.
-                        let candidate_cm = record.to_commitment(&self.program_id, record_name)?;
+                        let candidate_cm = record.to_commitment(&self.program_id, record_name, &self.tvk)?;
                         // Ensure the commitment matches.
                         ensure!(*commitment == candidate_cm, "Expected a record input with the same commitment");
 

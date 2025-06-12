@@ -153,7 +153,7 @@ impl<N: Network> Response<N> {
                         };
 
                         // Compute the record commitment.
-                        let commitment = record.to_commitment(program_id, record_name)?;
+                        let commitment = record.to_commitment(program_id, record_name, tvk)?;
 
                         // Construct the (console) output index as a field element.
                         let index = Field::from_u64(output_register.locator());

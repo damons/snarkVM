@@ -17,19 +17,19 @@ use super::*;
 
 impl<A: Aleo> Record<A, Plaintext<A>> {
     /// Returns the record commitment.
-    pub fn to_commitment(&self, program_id: &ProgramID<A>, record_name: &Identifier<A>) -> Field<A> {
-        // Construct the input as `(program_id || record_name || record)`.
-        let mut input = program_id.to_bits_le();
-        record_name.write_bits_le(&mut input);
-        self.write_bits_le(&mut input);
-        // Compute the BHP hash of the program record.
-        A::hash_bhp1024(&input)
+    pub fn to_commitment(&self, program_id: &ProgramID<A>, record_name: &Identifier<A>, tvk: Field<A>) -> Field<A> {
+        // Construct the record digest.
+        let digest = self.to_digest(program_id, record_name);
+        // Construct the randomizer.
+        let randomizer = A::hash_to_scalar_psd2(&[A::commitment_domain(), tvk]);
+        // Compute the BHP commitment of the record digest.
+        A::commit_bhp256(&digest.to_bits_le(), &randomizer)
     }
 }
 
 impl<A: Aleo> Record<A, Ciphertext<A>> {
     /// Returns the record commitment.
-    pub fn to_commitment(&self, _program_id: &ProgramID<A>, _record_name: &Identifier<A>) -> Field<A> {
+    pub fn to_commitment(&self, _program_id: &ProgramID<A>, _record_name: &Identifier<A>, _tvk: &Field<A>) -> Field<A> {
         A::halt("Illegal operation: Record::to_commitment() cannot be invoked on the `Ciphertext` variant.")
     }
 }

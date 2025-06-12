@@ -41,6 +41,8 @@ lazy_static! {
     /// The Varuna sponge parameters.
     static ref VARUNA_FS_PARAMETERS: FiatShamirParameters<CanaryV0> = FiatShamir::<CanaryV0>::sample_parameters();
 
+    /// The commitment domain as a constant field element.
+    static ref COMMITMENT_DOMAIN: Field<CanaryV0> = Field::<CanaryV0>::new_domain_separator("AleoCommitment0");
     /// The encryption domain as a constant field element.
     static ref ENCRYPTION_DOMAIN: Field<CanaryV0> = Field::<CanaryV0>::new_domain_separator("AleoSymmetricEncryption0");
     /// The graph key domain as a constant field element.
@@ -304,6 +306,11 @@ impl Network for CanaryV0 {
     /// Returns the sponge parameters used for the sponge in the Varuna SNARK.
     fn varuna_fs_parameters() -> &'static FiatShamirParameters<Self> {
         &VARUNA_FS_PARAMETERS
+    }
+
+    /// Returns the commitment domain as a constant field element.
+    fn commitment_domain() -> Field<Self> {
+        *COMMITMENT_DOMAIN
     }
 
     /// Returns the encryption domain as a constant field element.
