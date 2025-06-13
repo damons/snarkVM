@@ -27,7 +27,19 @@ use algorithms::snark::varuna::VarunaVersion;
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
-    program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Response, Value},
+    program::{
+        Argument,
+        CommitmentVersion,
+        Identifier,
+        Literal,
+        Locator,
+        Plaintext,
+        ProgramID,
+        ProgramOwner,
+        Record,
+        Response,
+        Value,
+    },
     types::{Field, Group, U64},
 };
 use ledger_block::{
@@ -474,6 +486,8 @@ pub(crate) mod test_helpers {
     pub(crate) type CurrentNetwork = MainnetV0;
     type CurrentAleo = AleoV0;
 
+    pub const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
+
     #[cfg(not(feature = "rocks"))]
     type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
     #[cfg(feature = "rocks")]
@@ -645,7 +659,8 @@ function compute:
                         .into_iter();
 
                 // Authorize.
-                let authorization = vm.authorize(&caller_private_key, "credits.aleo", "split", inputs, rng).unwrap();
+                let authorization =
+                    vm.authorize(&caller_private_key, "credits.aleo", "split", inputs, None, rng).unwrap();
                 assert_eq!(authorization.len(), 1);
 
                 // Construct the execute transaction.
@@ -738,6 +753,7 @@ function compute:
                         10_000_000,
                         100,
                         execution.to_execution_id().unwrap(),
+                        None,
                         rng,
                     )
                     .unwrap();
@@ -775,8 +791,9 @@ function compute:
         let execution = transaction.execution().unwrap().clone();
 
         // Authorize the fee.
-        let authorization =
-            vm.authorize_fee_public(&caller_private_key, fee, 100, execution.to_execution_id().unwrap(), rng).unwrap();
+        let authorization = vm
+            .authorize_fee_public(&caller_private_key, fee, 100, execution.to_execution_id().unwrap(), None, rng)
+            .unwrap();
         // Compute the fee.
         let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
 
@@ -1481,7 +1498,14 @@ function do:
         let required_fee = *fee.base_amount().unwrap() + 25;
         // Authorize a new fee.
         let fee_authorization = vm
-            .authorize_fee_public(&private_key, required_fee, 0, deployment.as_ref().to_deployment_id().unwrap(), rng)
+            .authorize_fee_public(
+                &private_key,
+                required_fee,
+                0,
+                deployment.as_ref().to_deployment_id().unwrap(),
+                None,
+                rng,
+            )
             .unwrap();
         // Compute the fee.
         let fee = vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
@@ -2558,7 +2582,14 @@ finalize transfer_public_to_private:
         let proof = Proof::<CurrentNetwork>::from_str(execution.get("proof").unwrap().as_str().unwrap()).unwrap();
         let new_execution = Execution::from(new_transitions.into_iter(), global_state_root, Some(proof)).unwrap();
         let authorization = vm
-            .authorize_fee_public(&caller_private_key, 10_000_000, 0, new_execution.to_execution_id().unwrap(), rng)
+            .authorize_fee_public(
+                &caller_private_key,
+                10_000_000,
+                0,
+                new_execution.to_execution_id().unwrap(),
+                None,
+                rng,
+            )
             .unwrap();
         let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
         let new_transaction = Transaction::from_execution(new_execution, Some(fee)).unwrap();
@@ -2822,7 +2853,14 @@ function add_thrice:
         let proof = Proof::<CurrentNetwork>::from_str(execution.get("proof").unwrap().as_str().unwrap()).unwrap();
         let new_execution = Execution::from(new_transitions.into_iter(), global_state_root, Some(proof)).unwrap();
         let authorization = vm
-            .authorize_fee_public(&caller_private_key, 10_000_000, 0, new_execution.to_execution_id().unwrap(), rng)
+            .authorize_fee_public(
+                &caller_private_key,
+                10_000_000,
+                0,
+                new_execution.to_execution_id().unwrap(),
+                None,
+                rng,
+            )
             .unwrap();
         let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
         let new_transaction = Transaction::from_execution(new_execution, Some(fee)).unwrap();
@@ -3057,6 +3095,7 @@ function check:
                 grandparent_program.id(),
                 &function_name,
                 vec![input].iter(),
+                COMMITMENT_VERSION,
                 rng,
             )
             .unwrap();

@@ -18,7 +18,11 @@ use super::*;
 impl<N: Network> Process<N> {
     /// Evaluates a program function on the given request.
     #[inline]
-    pub fn evaluate<A: circuit::Aleo<Network = N>>(&self, authorization: Authorization<N>) -> Result<Response<N>> {
+    pub fn evaluate<A: circuit::Aleo<Network = N>>(
+        &self,
+        authorization: Authorization<N>,
+        commitment_version: CommitmentVersion,
+    ) -> Result<Response<N>> {
         let timer = timer!("Process::evaluate");
 
         // Retrieve the top-level request (without popping it).
@@ -30,7 +34,7 @@ impl<N: Network> Process<N> {
         // Retrieve the stack.
         let stack = self.get_stack(request.program_id())?;
         // Evaluate the function.
-        let response = stack.evaluate_function::<A>(CallStack::evaluate(authorization)?, None);
+        let response = stack.evaluate_function::<A>(CallStack::evaluate(authorization)?, None, commitment_version);
         lap!(timer, "Evaluate the function");
 
         finish!(timer);

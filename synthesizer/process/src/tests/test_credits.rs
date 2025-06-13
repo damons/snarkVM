@@ -19,7 +19,7 @@ use circuit::network::AleoV0;
 use console::{
     account::{Address, PrivateKey},
     network::{MainnetV0, prelude::*},
-    program::{Identifier, Literal, Plaintext, ProgramID, Value},
+    program::{CommitmentVersion, Identifier, Literal, Plaintext, ProgramID, Value},
     types::U64,
 };
 use ledger_committee::{MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE, MIN_VALIDATOR_STAKE};
@@ -42,6 +42,7 @@ type CurrentAleo = AleoV0;
 
 const NUM_BLOCKS_TO_UNLOCK: u32 = 360;
 const TEST_COMMISSION: u8 = 5;
+const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
 /// Samples a new finalize store.
 macro_rules! sample_finalize_store {
@@ -320,11 +321,17 @@ fn execute_function<F: FinalizeStorage<CurrentNetwork>>(
     rng: &mut TestRng,
 ) -> Result<()> {
     // Construct the authorization.
-    let authorization =
-        process.authorize::<CurrentAleo, _>(caller_private_key, "credits.aleo", function, inputs.iter(), rng)?;
+    let authorization = process.authorize::<CurrentAleo, _>(
+        caller_private_key,
+        "credits.aleo",
+        function,
+        inputs.iter(),
+        COMMITMENT_VERSION,
+        rng,
+    )?;
 
     // Construct the trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng)?;
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng)?;
 
     // Construct the block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None))?;
@@ -2826,7 +2833,10 @@ mod sanity_checks {
     use super::*;
     use crate::{Assignments, CallStack, Stack, StackExecute};
     use circuit::Assignment;
-    use console::{program::Request, types::Field};
+    use console::{
+        program::{CommitmentVersion, Request},
+        types::Field,
+    };
     use synthesizer_program::StackProgram;
 
     fn get_assignment<N: Network, A: circuit::Aleo<Network = N>>(
@@ -2834,6 +2844,7 @@ mod sanity_checks {
         private_key: &PrivateKey<N>,
         function_name: Identifier<N>,
         inputs: &[Value<N>],
+        commitment_version: CommitmentVersion,
         rng: &mut TestRng,
     ) -> Assignment<<N as Environment>::Field> {
         // Retrieve the program.
@@ -2847,15 +2858,24 @@ mod sanity_checks {
         // Sample 'is_root'.
         let is_root = true;
         // Compute the request.
-        let request =
-            Request::sign(private_key, program_id, function_name, inputs.iter(), &input_types, root_tvk, is_root, rng)
-                .unwrap();
+        let request = Request::sign(
+            private_key,
+            program_id,
+            function_name,
+            inputs.iter(),
+            &input_types,
+            root_tvk,
+            is_root,
+            commitment_version,
+            rng,
+        )
+        .unwrap();
         // Initialize the assignments.
         let assignments = Assignments::<N>::default();
         // Initialize the call stack.
         let call_stack = CallStack::CheckDeployment(vec![request], *private_key, assignments.clone(), None, None);
         // Synthesize the circuit.
-        let _response = stack.execute_function::<A, _>(call_stack, None, None, rng).unwrap();
+        let _response = stack.execute_function::<A, _>(call_stack, None, None, commitment_version, rng).unwrap();
         // Retrieve the assignment.
         let assignment = assignments.read().last().unwrap().0.clone();
         assignment
@@ -2887,7 +2907,14 @@ mod sanity_checks {
         let r2 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1, r2], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(
+            &stack,
+            &private_key,
+            function_name,
+            &[r0, r1, r2],
+            CommitmentVersion::V1,
+            rng,
+        );
         assert_eq!(16, assignment.num_public());
         assert_eq!(50956, assignment.num_private());
         assert_eq!(51002, assignment.num_constraints());
@@ -2915,7 +2942,14 @@ mod sanity_checks {
         let r1 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(
+            &stack,
+            &private_key,
+            function_name,
+            &[r0, r1],
+            CommitmentVersion::V1,
+            rng,
+        );
         assert_eq!(11, assignment.num_public());
         assert_eq!(12318, assignment.num_private());
         assert_eq!(12325, assignment.num_constraints());
@@ -2943,7 +2977,14 @@ mod sanity_checks {
         let r1 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(
+            &stack,
+            &private_key,
+            function_name,
+            &[r0, r1],
+            CommitmentVersion::V1,
+            rng,
+        );
         assert_eq!(11, assignment.num_public());
         assert_eq!(12323, assignment.num_private());
         assert_eq!(12330, assignment.num_constraints());
@@ -2977,7 +3018,14 @@ mod sanity_checks {
         let r3 = Value::<CurrentNetwork>::from_str(&Field::<CurrentNetwork>::rand(rng).to_string()).unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1, r2, r3], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(
+            &stack,
+            &private_key,
+            function_name,
+            &[r0, r1, r2, r3],
+            CommitmentVersion::V1,
+            rng,
+        );
         assert_eq!(15, assignment.num_public());
         assert_eq!(38115, assignment.num_private());
         assert_eq!(38151, assignment.num_constraints());
@@ -3005,7 +3053,14 @@ mod sanity_checks {
         let r2 = Value::<CurrentNetwork>::from_str(&Field::<CurrentNetwork>::rand(rng).to_string()).unwrap();
 
         // Compute the assignment.
-        let assignment = get_assignment::<_, CurrentAleo>(&stack, &private_key, function_name, &[r0, r1, r2], rng);
+        let assignment = get_assignment::<_, CurrentAleo>(
+            &stack,
+            &private_key,
+            function_name,
+            &[r0, r1, r2],
+            CommitmentVersion::V1,
+            rng,
+        );
         assert_eq!(12, assignment.num_public());
         assert_eq!(12920, assignment.num_private());
         assert_eq!(12930, assignment.num_constraints());

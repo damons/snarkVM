@@ -28,6 +28,7 @@ use console::{
     network::prelude::*,
     program::{
         Ciphertext,
+        CommitmentVersion,
         Identifier,
         InputID,
         OutputID,
@@ -92,6 +93,7 @@ impl<N: Network> Transition<N> {
         response: &Response<N>,
         output_types: &[ValueType<N>],
         output_registers: &[Option<Register<N>>],
+        commitment_version: CommitmentVersion,
     ) -> Result<Self> {
         let network_id = *request.network_id();
         let program_id = *request.program_id();
@@ -205,8 +207,12 @@ impl<N: Network> Transition<N> {
                             None => bail!("Expected a register to be paired with a record output"),
                         };
 
-                        // Compute the record commitment.
-                        let candidate_cm = record.to_commitment(&program_id, record_name, request.tvk())?;
+                        // Compute the record commitment depending on the commitment version.
+                        let candidate_cm = match commitment_version {
+                            CommitmentVersion::V1 => record.to_digest(&program_id, record_name)?,
+                            CommitmentVersion::V2 => record.to_commitment(&program_id, record_name, request.tvk())?,
+                        };
+
                         // Ensure the commitment matches.
                         ensure!(*commitment == candidate_cm, "The output record commitment is incorrect");
 

@@ -46,10 +46,27 @@ impl<N: Network> Package<N> {
         #[cfg(feature = "aleo-cli")]
         println!("🚀 Executing '{}'...\n", locator.to_string().bold());
 
+        // Prepare the query.
+        let query = Query::<_, BlockMemory<_>>::from(endpoint);
+        // Fetch the consenus version.
+        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Determine which commitment version to use.
+        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            CommitmentVersion::V1
+        } else {
+            CommitmentVersion::V2
+        };
         // Construct the process.
         let process = self.get_process()?;
         // Authorize the function call.
-        let authorization = process.authorize::<A, R>(private_key, program_id, function_name, inputs.iter(), rng)?;
+        let authorization = process.authorize::<A, R>(
+            private_key,
+            program_id,
+            function_name,
+            inputs.iter(),
+            commitment_version,
+            rng,
+        )?;
 
         // Retrieve the program.
         let stack = process.get_stack(program_id)?;
@@ -105,15 +122,12 @@ impl<N: Network> Package<N> {
         process.insert_verifying_key(program_id, &function_name, verifier.verifying_key().clone())?;
 
         // Execute the circuit.
-        let (response, mut trace) = process.execute::<A, R>(authorization, rng)?;
+        let (response, mut trace) = process.execute::<A, R>(authorization, commitment_version, rng)?;
 
         // Retrieve the call metrics.
         let call_metrics = trace.call_metrics().to_vec();
 
-        // Prepare the query.
-        let query = Query::<_, BlockMemory<_>>::from(endpoint);
         // Determine which Varuna version to use.
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
         let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             VarunaVersion::V1
         } else {

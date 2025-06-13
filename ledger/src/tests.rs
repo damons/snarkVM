@@ -23,7 +23,7 @@ use aleo_std::StorageMode;
 use console::{
     account::{Address, PrivateKey},
     network::{MainnetV0, prelude::*},
-    program::{Entry, Identifier, Literal, Plaintext, ProgramID, Value},
+    program::{CommitmentVersion, Entry, Identifier, Literal, Plaintext, ProgramID, Value},
     types::U16,
 };
 use ledger_authority::Authority;
@@ -387,7 +387,7 @@ fn test_insufficient_private_fees() {
     {
         // Prepare a `split` execution without a fee.
         let inputs = [Value::Record(record_1.clone()), Value::from_str("100u64").unwrap()];
-        let authorization = ledger.vm.authorize(&private_key, "credits.aleo", "split", inputs, rng).unwrap();
+        let authorization = ledger.vm.authorize(&private_key, "credits.aleo", "split", inputs, None, rng).unwrap();
         let split_transaction_without_fee = ledger.vm.execute_authorization(authorization, None, None, rng).unwrap();
         assert!(ledger.check_transaction_basic(&split_transaction_without_fee, None, rng).is_ok());
     }
@@ -400,7 +400,8 @@ fn test_insufficient_private_fees() {
             Value::from_str(&format!("{address}")).unwrap(),
             Value::from_str("100u64").unwrap(),
         ];
-        let authorization = ledger.vm.authorize(&private_key, "credits.aleo", "transfer_private", inputs, rng).unwrap();
+        let authorization =
+            ledger.vm.authorize(&private_key, "credits.aleo", "transfer_private", inputs, None, rng).unwrap();
         let transaction_without_fee = ledger.vm.execute_authorization(authorization, None, None, rng).unwrap();
         let execution = transaction_without_fee.execution().unwrap();
 
@@ -413,6 +414,7 @@ fn test_insufficient_private_fees() {
                 10_000_000,
                 1_000,
                 execution.to_execution_id().unwrap(),
+                None,
                 rng,
             )
             .unwrap();
@@ -423,7 +425,15 @@ fn test_insufficient_private_fees() {
         // Check that a transaction with insufficient fee will fail.
         let insufficient_fee_authorization = ledger
             .vm
-            .authorize_fee_private(&private_key, record_2.clone(), 1, 0, execution.to_execution_id().unwrap(), rng)
+            .authorize_fee_private(
+                &private_key,
+                record_2.clone(),
+                1,
+                0,
+                execution.to_execution_id().unwrap(),
+                None,
+                rng,
+            )
             .unwrap();
         let insufficient_fee = ledger.vm.execute_fee_authorization(insufficient_fee_authorization, None, rng).unwrap();
         let insufficient_fee_transaction =
@@ -456,7 +466,7 @@ finalize foo:
         let deployment = transaction.deployment().unwrap();
         let insufficient_fee_authorization = ledger
             .vm
-            .authorize_fee_private(&private_key, record_2, 1, 0, deployment.to_deployment_id().unwrap(), rng)
+            .authorize_fee_private(&private_key, record_2, 1, 0, deployment.to_deployment_id().unwrap(), None, rng)
             .unwrap();
         let insufficient_fee = ledger.vm.execute_fee_authorization(insufficient_fee_authorization, None, rng).unwrap();
         let insufficient_fee_transaction =
@@ -1135,6 +1145,7 @@ finalize foo:
             *executions.last().unwrap().fee_amount().unwrap(),
             0,
             mutated_execution.to_execution_id().unwrap(),
+            None,
             rng,
         )
         .unwrap();
@@ -1321,6 +1332,7 @@ function create_duplicate_record:
                 *transaction.fee_amount().unwrap(),
                 0,
                 execution.to_execution_id().unwrap(),
+                None,
                 rng,
             )
             .unwrap();
@@ -1366,6 +1378,7 @@ function create_duplicate_record:
                 *transaction.fee_amount().unwrap(),
                 0,
                 deployment.to_deployment_id().unwrap(),
+                None,
                 fixed_rng,
             )
             .unwrap();
@@ -1543,6 +1556,7 @@ function empty_function:
                 *transaction.fee_amount().unwrap(),
                 0,
                 execution.to_execution_id().unwrap(),
+                None,
                 rng,
             )
             .unwrap();
@@ -1687,6 +1701,7 @@ function simple_output:
                 *transaction.fee_amount().unwrap(),
                 0,
                 execution.to_execution_id().unwrap(),
+                None,
                 rng,
             )
             .unwrap();
@@ -2687,11 +2702,14 @@ function foo:
             };
             let deployment = deployment_tx.deployment().unwrap().clone();
             for _ in 0..ITERATIONS {
-                let result =
-                    match try_vm_runtime!(|| process.read().verify_deployment::<CurrentAleo, _>(&deployment, rng)) {
-                        Ok(result) => result.is_ok(),
-                        Err(_) => false,
-                    };
+                let result = match try_vm_runtime!(|| process.read().verify_deployment::<CurrentAleo, _>(
+                    &deployment,
+                    CommitmentVersion::V1,
+                    rng
+                )) {
+                    Ok(result) => result.is_ok(),
+                    Err(_) => false,
+                };
                 assert_eq!(result, expected_result);
             }
         };

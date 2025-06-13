@@ -20,7 +20,7 @@ impl<N: Network> Request<N> {
     ///
     /// Verifies (challenge == challenge') && (address == address') && (serial_numbers == serial_numbers') where:
     ///     challenge' := HashToScalar(r * G, pk_sig, pr_sig, signer, \[tvk, tcm, function ID, input IDs\])
-    pub fn verify(&self, input_types: &[ValueType<N>], is_root: bool) -> bool {
+    pub fn verify(&self, input_types: &[ValueType<N>], is_root: bool, commitment_version: CommitmentVersion) -> bool {
         // Verify the transition public key, transition view key, and transition commitment are well-formed.
         {
             // Compute the transition commitment `tcm` as `Hash(tvk)`.
@@ -150,8 +150,11 @@ impl<N: Network> Request<N> {
                         // Ensure the record belongs to the signer.
                         ensure!(**record.owner() == self.signer, "Input record does not belong to the signer");
 
-                        // Compute the record commitment.
-                        let candidate_cm = record.to_commitment(&self.program_id, record_name, &self.tvk)?;
+                        // Compute the record commitment depending on the commitment version.
+                        let candidate_cm = match commitment_version {
+                            CommitmentVersion::V1 => record.to_digest(&self.program_id, record_name)?,
+                            CommitmentVersion::V2 => record.to_commitment(&self.program_id, record_name, &self.tvk)?,
+                        };
                         // Ensure the commitment matches.
                         ensure!(*commitment == candidate_cm, "Expected a record input with the same commitment");
 
@@ -227,6 +230,12 @@ mod tests {
             let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
             let address = Address::try_from(&private_key).unwrap();
 
+            // Randomly select a commitment version.
+            let commitment_version = match rng.gen_range(1..=2) {
+                1 => CommitmentVersion::V1,
+                _ => CommitmentVersion::V2,
+            };
+
             // Construct a program ID and function name.
             let program_id = ProgramID::from_str("token.aleo").unwrap();
             let function_name = Identifier::from_str("transfer").unwrap();
@@ -267,10 +276,11 @@ mod tests {
                 &input_types,
                 root_tvk,
                 is_root,
+                commitment_version,
                 rng,
             )
             .unwrap();
-            assert!(request.verify(&input_types, is_root));
+            assert!(request.verify(&input_types, is_root, commitment_version));
         }
     }
 }

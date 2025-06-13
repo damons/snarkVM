@@ -289,12 +289,19 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// use `VM::check_transaction` instead.
     #[inline]
     fn check_deployment_internal<R: CryptoRng + Rng>(&self, deployment: &Deployment<N>, rng: &mut R) -> Result<()> {
+        // Determine which commitment version to use.
+        let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            CommitmentVersion::V1
+        } else {
+            CommitmentVersion::V2
+        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the deployment.
                 let deployment = cast_ref!(&deployment as Deployment<$network>);
                 // Verify the deployment.
-                $process.verify_deployment::<$aleo, _>(&deployment, rng)
+                $process.verify_deployment::<$aleo, _>(&deployment, commitment_version, rng)
             }};
         }
 
@@ -503,7 +510,7 @@ mod tests {
         let program = crate::vm::test_helpers::sample_program();
 
         // Deploy the program.
-        let deployment = vm.deploy_raw(&program, rng).unwrap();
+        let deployment = vm.deploy_raw(&program, None, rng).unwrap();
 
         // Ensure the deployment is valid.
         vm.check_deployment_internal(&deployment, rng).unwrap();
@@ -742,7 +749,7 @@ mod tests {
         let program = Program::credits().unwrap();
 
         // Ensure that the program can't be deployed.
-        assert!(vm.deploy_raw(&program, rng).is_err());
+        assert!(vm.deploy_raw(&program, None, rng).is_err());
 
         // Create a new `credits.aleo` program.
         let program = Program::from_str(
@@ -761,7 +768,7 @@ function compute:
         .unwrap();
 
         // Ensure that the program can't be deployed.
-        assert!(vm.deploy_raw(&program, rng).is_err());
+        assert!(vm.deploy_raw(&program, None, rng).is_err());
     }
 
     #[test]
@@ -822,6 +829,7 @@ function compute:
                 10_000_000,
                 100,
                 mutated_execution.to_execution_id().unwrap(),
+                None,
                 rng,
             )
             .unwrap();
@@ -900,7 +908,7 @@ function compute:
 
             // Authorize the fee.
             let authorization = vm
-                .authorize_fee_public(&private_key, 10_000_000, 100, execution.to_execution_id().unwrap(), rng)
+                .authorize_fee_public(&private_key, 10_000_000, 100, execution.to_execution_id().unwrap(), None, rng)
                 .unwrap();
             // Compute the fee.
             let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();

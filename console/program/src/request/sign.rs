@@ -27,6 +27,7 @@ impl<N: Network> Request<N> {
         input_types: &[ValueType<N>],
         root_tvk: Option<Field<N>>,
         is_root: bool,
+        commitment_version: CommitmentVersion,
         rng: &mut R,
     ) -> Result<Self> {
         // Ensure the number of inputs matches the number of input types.
@@ -175,8 +176,11 @@ impl<N: Network> Request<N> {
                     // Ensure the record belongs to the signer.
                     ensure!(**record.owner() == signer, "Input record for '{program_id}' must belong to the signer");
 
-                    // Compute the record commitment.
-                    let commitment = record.to_commitment(&program_id, record_name, &tvk)?;
+                    // Compute the record commitment depending on the commitment version.
+                    let commitment = match commitment_version {
+                        CommitmentVersion::V1 => record.to_digest(&program_id, record_name)?,
+                        CommitmentVersion::V2 => record.to_commitment(&program_id, record_name, &tvk)?,
+                    };
 
                     // Compute the generator `H` as `HashToGroup(commitment)`.
                     let h = N::hash_to_group_psd2(&[N::serial_number_domain(), commitment])?;

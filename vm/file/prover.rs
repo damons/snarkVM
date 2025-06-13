@@ -198,6 +198,7 @@ mod tests {
         prelude::{FromStr, Parser, TestRng},
         synthesizer::Process,
     };
+    use snarkvm_console::program::CommitmentVersion;
 
     type CurrentNetwork = snarkvm_console::network::MainnetV0;
     type CurrentAleo = snarkvm_circuit::AleoV0;
@@ -236,7 +237,14 @@ function compute:
         let function_name = Identifier::from_str("compute").unwrap();
 
         // Sample the proving key.
-        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, &mut TestRng::default()).unwrap();
+        process
+            .synthesize_key::<CurrentAleo, _>(
+                program.id(),
+                &function_name,
+                CommitmentVersion::V1,
+                &mut TestRng::default(),
+            )
+            .unwrap();
 
         // Retrieve the proving key.
         let proving_key = process.get_proving_key(program.id(), function_name).unwrap();

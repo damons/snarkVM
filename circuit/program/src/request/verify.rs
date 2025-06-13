@@ -27,6 +27,7 @@ impl<A: Aleo> Request<A> {
         tpk: &Group<A>,
         root_tvk: Option<Field<A>>,
         is_root: Boolean<A>,
+        commitment_version: CommitmentVersion,
     ) -> Boolean<A> {
         // Compute the function ID.
         let function_id = compute_function_id(&self.network_id, &self.program_id, &self.function_name);
@@ -54,6 +55,7 @@ impl<A: Aleo> Request<A> {
             &self.tvk,
             &self.tcm,
             Some(&self.signature),
+            commitment_version,
         );
         // Append the input elements to the message.
         match append_to_message {
@@ -119,6 +121,7 @@ impl<A: Aleo> Request<A> {
         tvk: &Field<A>,
         tcm: &Field<A>,
         signature: Option<&Signature<A>>,
+        commitment_version: CommitmentVersion,
     ) -> (Boolean<A>, Option<Vec<Field<A>>>) {
         // Ensure the signature response matches the `CREATE_MESSAGE` flag.
         match CREATE_MESSAGE {
@@ -226,7 +229,10 @@ impl<A: Aleo> Request<A> {
                             _ => A::halt(format!("Expected a record input at input {index}")),
                         };
                         // Compute the record commitment.
-                        let candidate_commitment = record.to_commitment(program_id, &record_name, tvk.clone());
+                        let candidate_commitment = match commitment_version {
+                            CommitmentVersion::V1 => record.to_digest(program_id, &record_name),
+                            CommitmentVersion::V2 => record.to_commitment(program_id, &record_name, tvk.clone()),
+                        };
                         // Compute the `candidate_serial_number` from `gamma`.
                         let candidate_serial_number =
                             Record::<A, Plaintext<A>>::serial_number_from_gamma(gamma, candidate_commitment.clone());
@@ -312,6 +318,7 @@ impl<A: Aleo> Request<A> {
 mod tests {
     use super::*;
     use crate::Circuit;
+    use rand::Rng;
     use snarkvm_utilities::TestRng;
 
     use anyhow::Result;
@@ -331,6 +338,12 @@ mod tests {
             // Sample a random private key and address.
             let private_key = snarkvm_console_account::PrivateKey::new(rng)?;
             let address = snarkvm_console_account::Address::try_from(&private_key).unwrap();
+
+            // Randomly select a commitment version.
+            let commitment_version = match rng.gen_range(1..=2) {
+                1 => CommitmentVersion::V1,
+                _ => CommitmentVersion::V2,
+            };
 
             // Construct a program ID and function name.
             let program_id = console::ProgramID::from_str("token.aleo")?;
@@ -379,9 +392,10 @@ mod tests {
                 &input_types,
                 root_tvk,
                 is_root,
+                commitment_version,
                 rng,
             )?;
-            assert!(request.verify(&input_types, is_root));
+            assert!(request.verify(&input_types, is_root, commitment_version));
 
             // Inject the request into a circuit.
             let tpk = Group::<Circuit>::new(mode, request.to_tpk());
@@ -390,7 +404,7 @@ mod tests {
 
             Circuit::scope(format!("Request {i}"), || {
                 let root_tvk = None;
-                let candidate = request.verify(&input_types, &tpk, root_tvk, is_root);
+                let candidate = request.verify(&input_types, &tpk, root_tvk, is_root, commitment_version);
                 assert!(candidate.eject_value());
                 match mode.is_constant() {
                     true => assert_scope!(<=num_constants, <=num_public, <=num_private, <=num_constraints),
@@ -411,6 +425,7 @@ mod tests {
                     request.tvk(),
                     request.tcm(),
                     None,
+                    commitment_version,
                 );
                 assert!(candidate.eject_value());
             });

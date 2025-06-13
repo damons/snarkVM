@@ -43,6 +43,7 @@ use console::{
     network::prelude::*,
     program::{
         Argument,
+        CommitmentVersion,
         Entry,
         EntryType,
         FinalizeType,
@@ -478,7 +479,7 @@ impl<N: Network> StackProgramTypes<N> for Stack<N> {
 
 impl<N: Network> Stack<N> {
     /// Inserts the proving key if the program ID is 'credits.aleo'.
-    fn try_insert_credits_function_proving_key(&self, function_name: &Identifier<N>) -> Result<()> {
+    pub fn try_insert_credits_function_proving_key(&self, function_name: &Identifier<N>) -> Result<()> {
         // If the program is 'credits.aleo' and it does not exist yet, load the proving key directly.
         if self.program_id() == &ProgramID::from_str("credits.aleo")?
             && !self.proving_keys.read().contains_key(function_name)

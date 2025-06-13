@@ -111,11 +111,12 @@ fn execute(c: &mut Criterion) {
         .into_iter();
 
         // Authorize the execution.
-        let execute_authorization = vm.authorize(&private_key, "credits.aleo", "transfer_public", inputs, rng).unwrap();
+        let execute_authorization =
+            vm.authorize(&private_key, "credits.aleo", "transfer_public", inputs, None, rng).unwrap();
         // Retrieve the execution ID.
         let execution_id = execute_authorization.to_execution_id().unwrap();
         // Authorize the fee.
-        let fee_authorization = vm.authorize_fee_public(&private_key, 300000, 1000, execution_id, rng).unwrap();
+        let fee_authorization = vm.authorize_fee_public(&private_key, 300000, 1000, execution_id, None, rng).unwrap();
 
         c.bench_function("Transaction::Execute(transfer_public)", |b| {
             b.iter(|| {
@@ -156,11 +157,11 @@ fn execute(c: &mut Criterion) {
 
         // Authorize the execution.
         let execute_authorization =
-            vm.authorize(&private_key, "credits.aleo", "transfer_private", inputs, rng).unwrap();
+            vm.authorize(&private_key, "credits.aleo", "transfer_private", inputs, None, rng).unwrap();
         // Retrieve the execution ID.
         let execution_id = execute_authorization.to_execution_id().unwrap();
         // Authorize the fee.
-        let fee_authorization = vm.authorize_fee_public(&private_key, 300000, 1000, execution_id, rng).unwrap();
+        let fee_authorization = vm.authorize_fee_public(&private_key, 300000, 1000, execution_id, None, rng).unwrap();
 
         // Bench the execution of transfer_private.
         c.bench_function("Transaction::Execute(transfer_private)", |b| {

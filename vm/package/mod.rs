@@ -28,7 +28,7 @@ use crate::{
     console::{
         account::PrivateKey,
         network::{ConsensusVersion, Network},
-        program::{Identifier, Locator, ProgramID, Response, Value},
+        program::{CommitmentVersion, Identifier, Locator, ProgramID, Response, Value},
     },
     file::{AVMFile, AleoFile, Manifest, ProverFile, README, VerifierFile},
     ledger::{
@@ -472,6 +472,7 @@ function main:
 mod tests {
     use super::*;
     use crate::prelude::MainnetV0;
+    use snarkvm_console::program::CommitmentVersion;
     use snarkvm_utilities::TestRng;
 
     type CurrentAleo = snarkvm_circuit::network::AleoV0;
@@ -565,7 +566,8 @@ function bar:
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
 
         // Run the program function.
-        let run_result = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, rng).ok();
+        let run_result =
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).ok();
 
         // Execute the program function.
         let execute_result =

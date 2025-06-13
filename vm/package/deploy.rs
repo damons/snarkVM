@@ -114,6 +114,7 @@ impl<N: Network> Package<N> {
     pub fn deploy<A: crate::circuit::Aleo<Network = N, BaseField = N::Field>>(
         &self,
         endpoint: Option<String>,
+        commitment_version: CommitmentVersion,
     ) -> Result<Deployment<N>> {
         // Retrieve the main program.
         let program = self.program();
@@ -144,7 +145,7 @@ impl<N: Network> Package<N> {
         // Initialize the RNG.
         let rng = &mut rand::thread_rng();
         // Compute the deployment.
-        let deployment = process.deploy::<A, _>(program, rng).unwrap();
+        let deployment = process.deploy::<A, _>(program, commitment_version, rng).unwrap();
 
         match endpoint {
             Some(ref endpoint) => {
@@ -178,7 +179,7 @@ mod tests {
         let (directory, package) = crate::package::test_helpers::sample_token_package();
 
         // Deploy the package.
-        let deployment = package.deploy::<CurrentAleo>(None).unwrap();
+        let deployment = package.deploy::<CurrentAleo>(None, CommitmentVersion::V1).unwrap();
 
         // Ensure the deployment edition matches.
         assert_eq!(<CurrentNetwork as Network>::EDITION, deployment.edition());
@@ -197,7 +198,7 @@ mod tests {
         let (directory, package) = crate::package::test_helpers::sample_wallet_package();
 
         // Deploy the package.
-        let deployment = package.deploy::<CurrentAleo>(None).unwrap();
+        let deployment = package.deploy::<CurrentAleo>(None, CommitmentVersion::V1).unwrap();
 
         // Ensure the deployment edition matches.
         assert_eq!(<CurrentNetwork as Network>::EDITION, deployment.edition());

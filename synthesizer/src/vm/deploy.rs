@@ -32,7 +32,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the deployment.
-        let deployment = self.deploy_raw(program, rng)?;
+        let deployment = self.deploy_raw(program, query.clone(), rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
         // Compute the deployment ID.
@@ -50,6 +50,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 minimum_deployment_cost,
                 priority_fee_in_microcredits,
                 deployment_id,
+                query.clone(),
                 rng,
             )?,
             None => self.authorize_fee_public(
@@ -57,6 +58,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 minimum_deployment_cost,
                 priority_fee_in_microcredits,
                 deployment_id,
+                query.clone(),
                 rng,
             )?,
         };
@@ -71,13 +73,27 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Returns a deployment for the given program.
     #[inline]
-    pub(super) fn deploy_raw<R: Rng + CryptoRng>(&self, program: &Program<N>, rng: &mut R) -> Result<Deployment<N>> {
+    pub(super) fn deploy_raw<R: Rng + CryptoRng>(
+        &self,
+        program: &Program<N>,
+        query: Option<Query<N, C::BlockStorage>>,
+        rng: &mut R,
+    ) -> Result<Deployment<N>> {
+        // Determine the consensus version.
+        let query = query.unwrap_or(Query::VM(self.block_store().clone()));
+        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Determine the commitment version to use.
+        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            CommitmentVersion::V1
+        } else {
+            CommitmentVersion::V2
+        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the program.
                 let program = cast_ref!(&program as Program<$network>);
                 // Compute the deployment.
-                let deployment = $process.deploy::<$aleo, _>(program, rng)?;
+                let deployment = $process.deploy::<$aleo, _>(program, commitment_version, rng)?;
                 // Prepare the deployment.
                 Ok(cast_ref!(deployment as Deployment<N>).clone())
             }};

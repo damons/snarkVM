@@ -185,7 +185,7 @@ impl<N: Network> Deployment<N> {
 #[cfg(test)]
 pub mod test_helpers {
     use super::*;
-    use console::network::MainnetV0;
+    use console::{network::MainnetV0, program::CommitmentVersion};
     use synthesizer_process::Process;
 
     use once_cell::sync::OnceCell;
@@ -217,7 +217,7 @@ function compute:
                 // Construct the process.
                 let process = Process::load().unwrap();
                 // Compute the deployment.
-                let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+                let deployment = process.deploy::<CurrentAleo, _>(&program, CommitmentVersion::V1, rng).unwrap();
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()

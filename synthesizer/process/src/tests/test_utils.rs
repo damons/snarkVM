@@ -19,7 +19,7 @@ use circuit::network::AleoV0;
 use console::{
     account::{Address, PrivateKey},
     network::{MainnetV0, prelude::*},
-    program::{Identifier, Literal, Plaintext, ProgramID, Value},
+    program::{CommitmentVersion, Identifier, Literal, Plaintext, ProgramID, Value},
     types::U64,
 };
 use ledger_query::Query;
@@ -30,6 +30,8 @@ use indexmap::IndexMap;
 
 pub type CurrentNetwork = MainnetV0;
 pub type CurrentAleo = AleoV0;
+
+const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
 /// Samples a new finalize store.
 macro_rules! sample_finalize_store {
@@ -234,11 +236,17 @@ fn execute_function<F: FinalizeStorage<CurrentNetwork>>(
     rng: &mut TestRng,
 ) -> Result<()> {
     // Construct the authorization.
-    let authorization =
-        process.authorize::<CurrentAleo, _>(caller_private_key, "credits.aleo", function, inputs.iter(), rng)?;
+    let authorization = process.authorize::<CurrentAleo, _>(
+        caller_private_key,
+        "credits.aleo",
+        function,
+        inputs.iter(),
+        COMMITMENT_VERSION,
+        rng,
+    )?;
 
     // Construct the trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng)?;
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng)?;
 
     // Construct the block store.
     // Use 0u16 as a valid in-memory StorageMode value instead of None

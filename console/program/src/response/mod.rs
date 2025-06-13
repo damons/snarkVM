@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Identifier, ProgramID, Register, Value, ValueType, compute_function_id};
+use crate::{CommitmentVersion, Identifier, ProgramID, Register, Value, ValueType, compute_function_id};
 use snarkvm_console_network::Network;
 use snarkvm_console_types::prelude::*;
 
@@ -60,6 +60,7 @@ impl<N: Network> Response<N> {
         outputs: Vec<Value<N>>,
         output_types: &[ValueType<N>],
         output_operands: &[Option<Register<N>>],
+        commitment_version: CommitmentVersion,
     ) -> Result<Self> {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name)?;
@@ -152,8 +153,11 @@ impl<N: Network> Response<N> {
                             None => bail!("Expected a register to be paired with a record output"),
                         };
 
-                        // Compute the record commitment.
-                        let commitment = record.to_commitment(program_id, record_name, tvk)?;
+                        // Compute the record commitment depending on the commitment version.
+                        let commitment = match commitment_version {
+                            CommitmentVersion::V1 => record.to_digest(program_id, record_name)?,
+                            CommitmentVersion::V2 => record.to_commitment(program_id, record_name, tvk)?,
+                        };
 
                         // Construct the (console) output index as a field element.
                         let index = Field::from_u64(output_register.locator());

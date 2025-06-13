@@ -20,6 +20,7 @@ mod from_outputs;
 mod process_outputs_from_callback;
 
 use crate::{Identifier, ProgramID, Value, compute_function_id};
+use console::CommitmentVersion;
 use snarkvm_circuit_network::Aleo;
 use snarkvm_circuit_types::{Field, U16, environment::prelude::*};
 

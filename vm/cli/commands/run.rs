@@ -40,7 +40,8 @@ impl Run {
         let rng = &mut rand::thread_rng();
 
         // Execute the request.
-        let (response, metrics) = package.run::<Aleo, _>(&private_key, self.function, &self.inputs, rng)?;
+        let (response, metrics) =
+            package.run::<Aleo, _>(&private_key, self.function, &self.inputs, CommitmentVersion::V2, rng)?;
 
         // Count the number of times a function is called.
         let mut program_frequency = HashMap::<String, usize>::new();

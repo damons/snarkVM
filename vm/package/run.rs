@@ -22,6 +22,7 @@ impl<N: Network> Package<N> {
         private_key: &PrivateKey<N>,
         function_name: Identifier<N>,
         inputs: &[Value<N>],
+        commitment_version: CommitmentVersion,
         rng: &mut R,
     ) -> Result<(Response<N>, Vec<CallMetrics<N>>)> {
         // Retrieve the main program.
@@ -42,7 +43,14 @@ impl<N: Network> Package<N> {
         // Construct the process.
         let process = self.get_process()?;
         // Authorize the function call.
-        let authorization = process.authorize::<A, R>(private_key, program_id, function_name, inputs.iter(), rng)?;
+        let authorization = process.authorize::<A, R>(
+            private_key,
+            program_id,
+            function_name,
+            inputs.iter(),
+            commitment_version,
+            rng,
+        )?;
 
         // TODO (howardwu): Retrieve the value directly from the authorize call.
         // Pop the first request.
@@ -54,7 +62,7 @@ impl<N: Network> Package<N> {
         // Initialize the call stack.
         let call_stack = CallStack::PackageRun(vec![request], *private_key, assignments.clone());
         // Synthesize the circuit.
-        let response = stack.execute_function::<A, R>(call_stack, None, None, rng)?;
+        let response = stack.execute_function::<A, R>(call_stack, None, None, commitment_version, rng)?;
         // Retrieve the call metrics.
         let call_metrics = assignments.read().iter().map(|(_, metrics)| *metrics).collect::<Vec<_>>();
         // Return the response and call metrics.
@@ -87,7 +95,8 @@ mod tests {
         let (private_key, function_name, inputs) =
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
-        let (_response, _metrics) = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, rng).unwrap();
+        let (_response, _metrics) =
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -111,7 +120,8 @@ mod tests {
         let (private_key, function_name, inputs) =
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
-        let (_response, _metrics) = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, rng).unwrap();
+        let (_response, _metrics) =
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -135,7 +145,8 @@ mod tests {
         let (private_key, function_name, inputs) =
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
-        let (_response, _metrics) = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, rng).unwrap();
+        let (_response, _metrics) =
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -161,7 +172,8 @@ mod tests {
         let (private_key, function_name, inputs) =
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
-        let (_response, _metrics) = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, rng).unwrap();
+        let (_response, _metrics) =
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();

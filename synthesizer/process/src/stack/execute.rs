@@ -141,6 +141,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
         mut call_stack: CallStack<N>,
         console_caller: Option<ProgramID<N>>,
         root_tvk: Option<Field<N>>,
+        commitment_version: CommitmentVersion,
         rng: &mut R,
     ) -> Result<Response<N>> {
         let timer = timer!("Stack::execute_function");
@@ -205,7 +206,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
         lap!(timer, "Verify the input types");
 
         // Ensure the request is well-formed.
-        ensure!(console_request.verify(&input_types, console_is_root), "Request is invalid");
+        ensure!(console_request.verify(&input_types, console_is_root, commitment_version), "Request is invalid");
         lap!(timer, "Verify the console request");
 
         // Initialize the registers.
@@ -238,7 +239,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
         let caller = Ternary::ternary(&is_root, request.signer(), &parent);
 
         // Ensure the request has a valid signature, inputs, and transition view key.
-        A::assert(request.verify(&input_types, &tpk, root_tvk, is_root));
+        A::assert(request.verify(&input_types, &tpk, root_tvk, is_root, commitment_version));
         lap!(timer, "Verify the circuit request");
 
         // Set the transition signer.
@@ -289,7 +290,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
                 // Evaluate the instruction.
                 let result = match instruction {
                     // If the instruction is a `call` instruction, we need to handle it separately.
-                    Instruction::Call(call) => CallTrait::evaluate(call, self, &mut registers),
+                    Instruction::Call(call) => CallTrait::evaluate(call, self, &mut registers, commitment_version),
                     // Otherwise, evaluate the instruction normally.
                     _ => instruction.evaluate(self, &mut registers),
                 };
@@ -302,7 +303,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             // Execute the instruction.
             let result = match instruction {
                 // If the instruction is a `call` instruction, we need to handle it separately.
-                Instruction::Call(call) => CallTrait::execute(call, self, &mut registers, rng),
+                Instruction::Call(call) => CallTrait::execute(call, self, &mut registers, commitment_version, rng),
                 // Otherwise, execute the instruction normally.
                 _ => instruction.execute(self, &mut registers),
             };
@@ -392,6 +393,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             outputs,
             &output_types,
             &output_registers,
+            commitment_version,
         );
         lap!(timer, "Construct the response");
 
@@ -441,7 +443,8 @@ impl<N: Network> StackExecute<N> for Stack<N> {
         // If the circuit is in `Authorize` mode, then save the transition.
         if let CallStack::Authorize(_, _, authorization) = registers.call_stack() {
             // Construct the transition.
-            let transition = Transition::from(&console_request, &response, &output_types, &output_registers)?;
+            let transition =
+                Transition::from(&console_request, &response, &output_types, &output_registers, commitment_version)?;
             // Add the transition to the authorization.
             authorization.insert_transition(transition)?;
             lap!(timer, "Save the transition");
@@ -466,7 +469,8 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             registers.ensure_console_and_circuit_registers_match()?;
 
             // Construct the transition.
-            let transition = Transition::from(&console_request, &response, &output_types, &output_registers)?;
+            let transition =
+                Transition::from(&console_request, &response, &output_types, &output_registers, commitment_version)?;
 
             // Retrieve the proving key.
             let proving_key = self.get_proving_key(function.name())?;

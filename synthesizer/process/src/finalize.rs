@@ -533,7 +533,7 @@ function compute:
         // Initialize a new process.
         let mut process = Process::load().unwrap();
         // Deploy the program.
-        let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+        let deployment = process.deploy::<CurrentAleo, _>(&program, CommitmentVersion::V1, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();

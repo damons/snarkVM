@@ -15,7 +15,10 @@
 
 use snarkvm_algorithms::crypto_hash::sha256::sha256;
 use snarkvm_circuit::Aleo;
-use snarkvm_console::network::{CanaryV0, MainnetV0, Network, TestnetV0, prelude::ToBytes};
+use snarkvm_console::{
+    network::{CanaryV0, MainnetV0, Network, TestnetV0, prelude::ToBytes},
+    program::CommitmentVersion,
+};
 use snarkvm_synthesizer::{Process, Program};
 
 use anyhow::Result;
@@ -88,8 +91,9 @@ pub fn usrs() -> Result<()> {
 pub fn credits_program<N: Network, A: Aleo<Network = N>>() -> Result<()> {
     // Initialize an RNG.
     let rng = &mut snarkvm_utilities::TestRng::fixed(1245897092);
+    // TODO (raychu86): Record Commitment - Determine which Commitment Version to use.
     // Initialize the process.
-    let process = Process::setup::<A, _>(rng)?;
+    let process = Process::setup::<A, _>(CommitmentVersion::V2, rng)?;
     // Initialize the program.
     let program = Program::<N>::credits()?;
     let program_id = program.id();

@@ -35,7 +35,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the authorization.
-        let authorization = self.authorize(private_key, program_id, function_name, inputs, rng)?;
+        let authorization = self.authorize(private_key, program_id, function_name, inputs, query.clone(), rng)?;
         // Determine if a fee is required.
         let is_fee_required = !(authorization.is_split() || authorization.is_upgrade());
         // Determine if a priority fee is declared.
@@ -46,8 +46,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let fee = match is_fee_required || is_priority_fee_declared {
             true => {
                 // Compute the minimum execution cost.
-                let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
-                let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+                let query_ = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
+                let consensus_version = N::CONSENSUS_VERSION(query_.current_block_height()?)?;
                 let (minimum_execution_cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
                     execution_cost_v1(&self.process().read(), &execution)?
                 } else {
@@ -63,6 +63,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         minimum_execution_cost,
                         priority_fee_in_microcredits,
                         execution_id,
+                        query.clone(),
                         rng,
                     )?,
                     None => self.authorize_fee_public(
@@ -70,11 +71,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         minimum_execution_cost,
                         priority_fee_in_microcredits,
                         execution_id,
+                        query.clone(),
                         rng,
                     )?,
                 };
                 // Execute the fee.
-                Some(self.execute_fee_authorization_raw(authorization, Some(query), rng)?)
+                Some(self.execute_fee_authorization_raw(authorization, Some(query_), rng)?)
             }
             false => None,
         };
@@ -154,20 +156,27 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         lap!(timer, "Prepare the query");
 
-        // Determine which Varuna version to use.
+        // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Determine which Varuna version to use.
         let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             VarunaVersion::V1
         } else {
             VarunaVersion::V2
         };
-
+        // Determine the commitment version to use.
+        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            CommitmentVersion::V1
+        } else {
+            CommitmentVersion::V2
+        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the authorization.
                 let authorization = cast_ref!(authorization as Authorization<$network>);
                 // Execute the call.
-                let (response, mut trace) = $process.execute::<$aleo, _>(authorization.clone(), rng)?;
+                let (response, mut trace) =
+                    $process.execute::<$aleo, _>(authorization.clone(), commitment_version, rng)?;
                 lap!(timer, "Execute the call");
 
                 // Prepare the assignments.
@@ -207,20 +216,26 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         };
         lap!(timer, "Prepare the query");
 
-        // Determine which Varuna version to use.
+        // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Determine which Varuna version to use.
         let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             VarunaVersion::V1
         } else {
             VarunaVersion::V2
         };
-
+        // Determine the commitment version to use.
+        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            CommitmentVersion::V1
+        } else {
+            CommitmentVersion::V2
+        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the authorization.
                 let authorization = cast_ref!(authorization as Authorization<$network>);
                 // Execute the call.
-                let (_, mut trace) = $process.execute::<$aleo, _>(authorization.clone(), rng)?;
+                let (_, mut trace) = $process.execute::<$aleo, _>(authorization.clone(), commitment_version, rng)?;
                 lap!(timer, "Execute the call");
 
                 // Prepare the assignments.
@@ -388,7 +403,8 @@ mod tests {
 
         // Prepare the inputs.
 
-        let authorization = vm.authorize(&caller_private_key, credits_program, function_name, inputs, rng).unwrap();
+        let authorization =
+            vm.authorize(&caller_private_key, credits_program, function_name, inputs, None, rng).unwrap();
 
         let (execution, _) = vm.execute_authorization_raw(authorization, None, rng).unwrap();
         let (cost, _) = execution_cost_v2(&vm.process().read(), &execution).unwrap();
@@ -524,7 +540,8 @@ finalize test:
 
         // Prepare the inputs.
 
-        let authorization = vm.authorize(&caller_private_key, credits_program, function_name, inputs, rng).unwrap();
+        let authorization =
+            vm.authorize(&caller_private_key, credits_program, function_name, inputs, None, rng).unwrap();
 
         let (execution, _) = vm.execute_authorization_raw(authorization, None, rng).unwrap();
         let (cost, _) = execution_cost_v1(&vm.process().read(), &execution).unwrap();

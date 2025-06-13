@@ -612,7 +612,10 @@ impl<N: Network> Block<N> {
 pub mod test_helpers {
     use super::*;
     use algorithms::snark::varuna::VarunaVersion;
-    use console::account::{Address, PrivateKey};
+    use console::{
+        account::{Address, PrivateKey},
+        program::CommitmentVersion,
+    };
     use ledger_query::Query;
     use ledger_store::{BlockStore, helpers::memory::BlockMemory};
     use synthesizer_process::Process;
@@ -622,6 +625,8 @@ pub mod test_helpers {
 
     type CurrentNetwork = console::network::MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
+
+    const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
     /// Samples a random genesis block.
     pub(crate) fn sample_genesis_block(rng: &mut TestRng) -> Block<CurrentNetwork> {
@@ -668,10 +673,11 @@ pub mod test_helpers {
         // Initialize the process.
         let process = Process::load().unwrap();
         // Authorize the function.
-        let authorization =
-            process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), rng).unwrap();
+        let authorization = process
+            .authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), COMMITMENT_VERSION, rng)
+            .unwrap();
         // Execute the function.
-        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
+        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();

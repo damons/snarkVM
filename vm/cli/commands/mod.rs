@@ -32,7 +32,7 @@ pub mod update;
 pub use update::*;
 
 use crate::{
-    console::program::{Identifier, Locator, ProgramID, Value},
+    console::program::{CommitmentVersion, Identifier, Locator, ProgramID, Value},
     ledger::block::Transaction,
     package::Package,
 };
