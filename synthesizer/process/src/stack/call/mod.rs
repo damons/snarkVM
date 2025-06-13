@@ -35,16 +35,17 @@ use synthesizer_program::{
     StackProgram,
 };
 
-pub trait CallTrait<N: Network> {
+pub trait CallTrait<N: Network, R: CryptoRng + Rng> {
     /// Evaluates the instruction.
     fn evaluate<A: circuit::Aleo<Network = N>>(
         &self,
         stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
         registers: &mut Registers<N, A>,
+        rng: &mut R,
     ) -> Result<()>;
 
     /// Executes the instruction.
-    fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
+    fn execute<A: circuit::Aleo<Network = N>>(
         &self,
         stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
         registers: &mut (
@@ -58,13 +59,14 @@ pub trait CallTrait<N: Network> {
     ) -> Result<()>;
 }
 
-impl<N: Network> CallTrait<N> for Call<N> {
+impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
     /// Evaluates the instruction.
     #[inline]
     fn evaluate<A: circuit::Aleo<Network = N>>(
         &self,
         stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
         registers: &mut Registers<N, A>,
+        rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Call::evaluate");
 
@@ -116,10 +118,39 @@ impl<N: Network> CallTrait<N> for Call<N> {
             if function.inputs().len() != inputs.len() {
                 bail!("Expected {} inputs, found {}", function.inputs().len(), inputs.len())
             }
+
+            // Get the 'root_tvk'.
+            let root_tvk = Some(registers.root_tvk()?);
+
+            let call_stack =
+                if let CallStack::Authorize(mut requests, private_key, authorization) = registers.call_stack() {
+                    // Set 'is_root'.
+                    let is_root = false;
+                    // Compute the request.
+                    let request = Request::sign(
+                        &private_key,
+                        *substack.program_id(),
+                        *function.name(),
+                        inputs.iter(),
+                        &function.input_types(),
+                        root_tvk,
+                        is_root,
+                        rng,
+                    )?;
+                    // Push the request onto the call stack.
+                    requests.push(request.clone());
+                    // Add the request to the authorization.
+                    authorization.push(request.clone())?;
+                    // Return the call stack.
+                    CallStack::Authorize(requests, private_key, authorization)
+                } else {
+                    registers.call_stack()
+                };
+
             // Set the (console) caller.
             let console_caller = Some(*stack.program_id());
             // Evaluate the function.
-            let response = substack.evaluate_function::<A>(registers.call_stack(), console_caller)?;
+            let response = substack.evaluate_function::<A, R>(call_stack, console_caller, root_tvk, rng)?;
             // Load the outputs.
             response.outputs().to_vec()
         }
@@ -141,7 +172,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
 
     /// Executes the instruction.
     #[inline]
-    fn execute<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
+    fn execute<A: circuit::Aleo<Network = N>>(
         &self,
         stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
         registers: &mut (
@@ -399,8 +430,12 @@ impl<N: Network> CallTrait<N> for Call<N> {
                         })?;
 
                         // Evaluate the function, and load the outputs.
-                        let console_response =
-                            substack.evaluate_function::<A>(registers.call_stack().replicate(), console_caller)?;
+                        let console_response = substack.evaluate_function::<A, R>(
+                            registers.call_stack().replicate(),
+                            console_caller,
+                            root_tvk,
+                            rng,
+                        )?;
                         // Execute the request.
                         let response =
                             substack.execute_function::<A, R>(registers.call_stack(), console_caller, root_tvk, rng)?;
