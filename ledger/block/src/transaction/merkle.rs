@@ -252,16 +252,10 @@ impl<N: Network> Transaction<N> {
     pub fn deployment_tree_v2(deployment: &Deployment<N>) -> Result<DeploymentTree<N>> {
         // Ensure the number of leaves is within the Merkle tree size.
         Self::check_deployment_size(deployment)?;
-        // Get the program checksum.
-        let Some(program_checksum) = deployment.program_checksum() else {
-            bail!("Program checksum is required for V2 deployment tree");
-        };
-        // Get the program owner.
-        let Some(program_owner) = deployment.program_owner() else {
-            bail!("Program owner is required for V2 deployment tree");
-        };
+        // Compute a hash of the deployment bytes.
+        let deployment_hash = N::hash_sha3_256(&to_bits_le!(deployment.to_bytes_le()?))?;
         // Prepare the header for the hash.
-        let header = to_bits_le![program_checksum, program_owner, deployment.edition()];
+        let header = to_bits_le![deployment.version()? as u8, deployment_hash];
         // Prepare the leaves.
         let leaves = deployment.program().functions().values().enumerate().map(|(index, function)| {
             // Construct the transaction leaf.
