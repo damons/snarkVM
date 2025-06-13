@@ -824,9 +824,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is producing a duplicate output
     /// - The transaction is producing a duplicate transition public key
     /// - The transaction is another deployment in the block from the same public fee payer.
-    /// - The transaction is an execution with a state root whose corresponding block height is greater than or
-    ///     equal to the latest block at which any of the execution's programs were deployed or upgraded. This
-    ///     check is enforced only after `ConsensusVersion::V8` when program upgrades were introduced.
     ///
     /// - Note: If a transaction is a deployment for a program following its deployment or redeployment in this block,
     ///     it is not aborted. Instead, it will be rejected and its fee will be consumed.
@@ -881,74 +878,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             if let Some(payer) = fee.payer() {
                 if deployment_payers.contains(&payer) {
                     return Some(format!("Another deployment in the block from the same public fee payer {payer}"));
-                }
-            }
-        }
-
-        if let Transaction::Execute(_, id, execution, _) = transaction {
-            // If the current height is at `ConsensusVersion::V8` or higher, then enforce that the execution's
-            // state root is from a block whose height is greater than the latest block height at which any of
-            // the execution's programs were deployed or upgraded.
-            let current_height = self.block_store().current_block_height();
-            let Ok(current_version) = N::CONSENSUS_VERSION(current_height) else {
-                return Some(format!("Failed to get consensus version for the current height: '{current_height}'"));
-            };
-            if current_version >= ConsensusVersion::V8 {
-                // Track the maximum block height and the associated program ID.
-                let mut max_block_height = 0;
-                let mut latest_program = None;
-                // For each transition in the execution, get the block height at which the program was deployed or upgraded and update the maximum block height.
-                for transition in execution.transitions() {
-                    // Get the program ID.
-                    let program_id = transition.program_id();
-                    // If the program is `credits.aleo`, set the appropriate state and continue.
-                    if program_id.to_string() == "credits.aleo" {
-                        latest_program = Some(*program_id);
-                        continue;
-                    }
-                    // Get the transaction ID of the transaction that last deployed or upgraded the program.
-                    let Ok(Some(transaction_id)) =
-                        self.block_store().transaction_store().find_latest_transaction_id_from_program_id(program_id)
-                    else {
-                        return Some(format!(
-                            "Program '{program_id}' does not have a corresponding transaction ID in the store"
-                        ));
-                    };
-                    // Get the block hash associated with the transaction ID.
-                    let Ok(Some(block_hash)) = self.block_store().find_block_hash(&transaction_id) else {
-                        return Some(format!(
-                            "Transaction '{transaction_id}' does not have a corresponding block hash in the store"
-                        ));
-                    };
-                    // Get the block height associated with the block hash.
-                    let Ok(Some(block_height)) = self.block_store().get_block_height(&block_hash) else {
-                        return Some(format!(
-                            "Block hash '{block_hash}' does not have a corresponding block height in the store"
-                        ));
-                    };
-                    // Update the maximum block height.
-                    if max_block_height < block_height {
-                        max_block_height = block_height;
-                        latest_program = Some(*program_id);
-                    }
-                }
-                // Get the block height of the execution.
-                let Ok(Some(block_height)) =
-                    self.block_store().find_block_height_from_state_root(execution.global_state_root())
-                else {
-                    return Some(format!(
-                        "The state root of execution '{id}' does not have a corresponding block height in the store"
-                    ));
-                };
-                // If the block height of the execution is less than the maximum block height, abort the transaction.
-                if block_height < max_block_height {
-                    // Note: This unwrap is safe because `latest_program` must have been set in the loop above.
-                    //  - Either the program was `credits.aleo`, in which case `latest_program` was explicitly set.
-                    //  - Or the program was deployed after the genesis block and `latest_program` was set to the program ID.
-                    return Some(format!(
-                        "Execution '{id}' state root is earlier than the last deployment or upgrade for program '{}'",
-                        latest_program.unwrap()
-                    ));
                 }
             }
         }
