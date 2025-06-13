@@ -96,7 +96,7 @@ impl<N: Network> Process<N> {
             // If the program has a constructor, execute it and extend the finalize operations.
             // This must happen after the mappings are initialized as the constructor may depend on them.
             if deployment.program().contains_constructor() {
-                let operations = finalize_constructor(state, store, &stack, *fee.transition_id())?;
+                let operations = finalize_constructor(state, store, &stack, N::TransitionID::default())?;
                 finalize_operations.extend(operations);
                 lap!(timer, "Execute the constructor");
             }
