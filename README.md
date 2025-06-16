@@ -14,9 +14,8 @@
 
 * [1. Overview](#1-overview)
 * [2. Build Guide](#2-build-guide)
-* [3. Usage Guide](#3-usage-guide)
-* [4. Contributors](#4-contributors)
-* [5. License](#5-license)
+* [3. Contributors](#3-contributors)
+* [4. License](#4-license)
 
 ## 1. Overview
 
@@ -83,9 +82,7 @@ Now to use `snarkvm`, in your terminal, run:
 snarkvm
 ```
 
-## 3. Usage Guide
-
-## 4. Contributors
+## 3. Contributors
 
 Thank you for helping make snarkVM better!  
 [🧐 What do the emojis mean?](https://allcontributors.org/docs/en/emoji-key)
@@ -167,6 +164,6 @@ Thank you for helping make snarkVM better!
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
 
-## 5. License
+## 4. License
 
 [![License: GPL v3](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE.md)
