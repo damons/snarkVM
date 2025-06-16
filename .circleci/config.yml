@@ -722,7 +722,7 @@ jobs:
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_serial:
-          flags: --test '*' --features test -- --test-threads=8
+          flags: --test '*' --features test -- --test-threads=4
           workspace_member: synthesizer
           cache_key: v1.3.0-rust-1.83.0-snarkvm-synthesizer-integration-cache
 
