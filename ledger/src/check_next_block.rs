@@ -33,7 +33,7 @@ impl<N: Network> Deref for PendingBlock<N> {
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
-    /// Checks that the subDAG in a given block is valid, but does not fully verify it.
+    /// Checks that the subDAG in a given block is valid, but does not fully verify the block.
     ///
     /// # Arguments
     /// * `block` - The block to check.
@@ -98,10 +98,14 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         Ok(())
     }
 
-    /// Checks that the header of a block is correct, but does not verify the DAG or certificate signatures.
+    /// Takes a pending block and performs the remaining checks to full verify it.
     ///
-    /// This takes a [`PendingBlock`] as input, which is the output of a successful call to
-    /// [`Self::check_block_.subdag`].
+    /// # Arguments
+    /// This takes a [`PendingBlock`] as input, which is the output of a successful call to [`Self::check_block_subdag`].
+    /// The latter already verified the block's DAG and certificate signatures.
+    ///
+    /// # Return Value
+    /// This returns a [`Block`] on success representing the fully verified block.
     pub fn check_block_content<R: CryptoRng + Rng>(&self, block: PendingBlock<N>, rng: &mut R) -> Result<Block<N>> {
         self.check_block_content_inner(&block.0, rng)?;
         Ok(block.0)
