@@ -121,14 +121,30 @@ impl TestChainBuilder {
     ) -> Vec<Block<CurrentNetwork>> {
         assert!(num_blocks > 0, "Need to build at least one block");
 
-        (0..num_blocks).map(|_| self.generate_block_with_partition(skip_nodes, rng)).collect()
+        (0..num_blocks)
+            .map(|_| {
+                self.generate_block_with_partition(
+                    skip_nodes,
+                    OffsetDateTime::now_utc().unix_timestamp(),
+                    Default::default(),
+                    false,
+                    rng,
+                )
+            })
+            .collect()
     }
 
     /// Create a new block, with a fully-connected DAG.
     ///
     /// This will "fill in " any gaps left in earlier rounds from non participating nodes.
     pub fn generate_block(&mut self, rng: &mut TestRng) -> Block<CurrentNetwork> {
-        self.generate_block_with_partition(&Default::default(), rng)
+        self.generate_block_with_partition(
+            &Default::default(),
+            OffsetDateTime::now_utc().unix_timestamp(),
+            Default::default(),
+            false,
+            rng,
+        )
     }
 
     /// Same as `generate_block` but with some nodes not participating in batch generation.
@@ -137,6 +153,9 @@ impl TestChainBuilder {
     pub fn generate_block_with_partition(
         &mut self,
         skip_nodes: &HashSet<usize>,
+        timestamp: i64,
+        transmissions: IndexMap<TransmissionID<CurrentNetwork>, Transmission<CurrentNetwork>>,
+        skip_verification: bool,
         rng: &mut TestRng,
     ) -> Block<CurrentNetwork> {
         assert!(self.current_height > 0);
@@ -150,6 +169,8 @@ impl TestChainBuilder {
         } else {
             self.last_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 + 2
         };
+
+        let transmission_ids = transmissions.keys().cloned().collect::<IndexSet<_>>();
 
         // Create certificates for each round.
         loop {
@@ -177,9 +198,9 @@ impl TestChainBuilder {
                 let batch_header = BatchHeader::new(
                     private_key_1,
                     round,
-                    OffsetDateTime::now_utc().unix_timestamp(),
+                    timestamp,
                     committee.id(),
-                    Default::default(),
+                    transmission_ids.clone(),
                     previous_certificate_ids.clone(),
                     rng,
                 )
@@ -262,8 +283,10 @@ impl TestChainBuilder {
 
         // Construct the block.
         let subdag = Subdag::from(subdag_map).unwrap();
-        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, Default::default(), rng).unwrap();
-        self.ledger.check_next_block(&block, rng).unwrap();
+        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, transmissions, rng).unwrap();
+        if !skip_verification {
+            self.ledger.check_next_block(&block, rng).unwrap();
+        }
 
         // Update state.
         self.ledger.advance_to_next_block(&block).unwrap();
@@ -336,6 +359,27 @@ fn test_get_block() {
     let candidate = ledger.get_block(0).unwrap();
     // Ensure the genesis block matches.
     assert_eq!(genesis, candidate);
+}
+
+#[test]
+fn test_get_bonded_balances() {
+    // Initialize an RNG.
+    let rng = &mut TestRng::default();
+
+    // Initialize the test environment.
+    let crate::test_helpers::TestEnv { ledger, .. } = crate::test_helpers::sample_test_env(rng);
+
+    // Fetch the bonded mapping.
+    let credits_program_id = ProgramID::from_str("credits.aleo").unwrap();
+    let bonded_mapping = Identifier::from_str("bonded").unwrap();
+    let bonded_mapping =
+        ledger.vm().finalize_store().get_mapping_confirmed(credits_program_id, bonded_mapping).unwrap();
+    // Deserialize the bonded stakers.
+    let stakers = synthesizer::vm::bonded_map_into_stakers(bonded_mapping).unwrap();
+    // Check that the bonded amounts match the bonded mapping.
+    for (staker, (_, amount)) in stakers {
+        assert_eq!(amount, ledger.get_bonded_amount(&staker).unwrap());
+    }
 }
 
 #[test]
@@ -2704,6 +2748,7 @@ function foo:
 #[cfg(feature = "test")]
 mod valid_solutions {
     use super::*;
+    use crate::is_solution_limit_reached::STAKE_REQUIREMENTS_PER_SOLUTION;
     use ledger_puzzle::Solution;
     use rand::prelude::SliceRandom;
     use std::collections::HashSet;
@@ -2793,6 +2838,9 @@ mod valid_solutions {
         // Start a local counter of proof targets.
         let mut combined_targets = 0;
 
+        // Track the total number of solutions in the current epoch.
+        let mut total_epoch_solutions = 0;
+
         // Run through 25 blocks of target adjustment.
         while block_height < NUM_BLOCKS {
             // Get coinbase puzzle data from the latest block.
@@ -2859,7 +2907,188 @@ mod valid_solutions {
 
             // Set the latest block height.
             block_height = ledger.latest_height();
+
+            // Update the epoch solutions count.
+            total_epoch_solutions += num_solutions;
         }
+
+        // Fetch the epoch provers cache.
+        let epoch_provers = ledger.epoch_provers_cache.read();
+        // Load the epoch provers from the blocks in the current epoch.
+        let expected_epoch_provers = ledger.load_epoch_provers();
+        // Check that the epoch solutions are correct
+        assert_eq!(epoch_provers.values().sum::<u32>(), u32::try_from(total_epoch_solutions).unwrap());
+        assert_eq!(epoch_provers.len(), expected_epoch_provers.len());
+        for ((expected_address, expected_count), (address, count)) in
+            expected_epoch_provers.iter().zip(epoch_provers.iter())
+        {
+            assert_eq!(expected_address, address);
+            assert_eq!(expected_count, count);
+        }
+    }
+
+    #[test]
+    fn test_solution_limits() {
+        let rng = &mut TestRng::default();
+
+        // Sample the genesis private key.
+        let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let validator_address = Address::try_from(&private_key).unwrap();
+
+        // Initialize the store.
+        let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+        // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
+        let seed: u64 = rng.gen();
+        let genesis_rng = &mut TestRng::from_seed(seed);
+        let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
+
+        // Extract the private keys from the genesis committee by using the same RNG to sample private keys.
+        let genesis_rng = &mut TestRng::from_seed(seed);
+        let private_keys = [
+            private_key,
+            PrivateKey::new(genesis_rng).unwrap(),
+            PrivateKey::new(genesis_rng).unwrap(),
+            PrivateKey::new(genesis_rng).unwrap(),
+        ];
+
+        // Construct the chain builder.
+        let mut chain_builder = TestChainBuilder::new(private_keys.to_vec(), genesis.clone());
+
+        // Construct the ledger.
+        let ledger =
+            Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+
+        // Retrieve the puzzle parameters.
+        let puzzle = ledger.puzzle();
+        let latest_epoch_hash = ledger.latest_epoch_hash().unwrap();
+        let minimum_proof_target = ledger.latest_proof_target();
+
+        // Create new prover account.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+
+        let mut valid_solutions = Vec::with_capacity(2);
+        // Create solutions that are greater than the minimum proof target.
+        while valid_solutions.len() < 2 {
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
+                valid_solutions.push(solution);
+            }
+        }
+        let valid_solution_1 = valid_solutions.remove(0);
+        let valid_solution_2 = valid_solutions.remove(0);
+        let valid_solution_1_transmission = Transmission::from(valid_solution_1);
+        let valid_solution_1_transmission_id = TransmissionID::Solution(
+            valid_solution_1.id(),
+            valid_solution_1_transmission.to_checksum().unwrap().unwrap(),
+        );
+        let valid_solution_2_transmission = Transmission::from(valid_solution_2);
+        let valid_solution_2_transmission_id = TransmissionID::Solution(
+            valid_solution_2.id(),
+            valid_solution_2_transmission.to_checksum().unwrap().unwrap(),
+        );
+
+        // 1. Advance to the latest timestamp.
+
+        assert!(!ledger.is_solution_limit_reached(&prover_address, 0));
+
+        // Transfer a public balance to the prover address.
+        let inputs =
+            [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10_000_000_000_000u64").unwrap()];
+        let transfer_transaction = ledger
+            .vm
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
+            .unwrap();
+        let transfer_transmission = Transmission::from(transfer_transaction.clone());
+        // Construct the transmission ID.
+        let transmission_id = TransmissionID::Transaction(
+            transfer_transaction.id(),
+            transfer_transmission.to_checksum().unwrap().unwrap(),
+        );
+        // Create a block that advances the ledger past the first solution limit timestamp.
+        let timestamp_1 = STAKE_REQUIREMENTS_PER_SOLUTION[0].0;
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([(transmission_id, transfer_transmission)]),
+            true,
+            rng,
+        );
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // 2. Check that the solution limit is reached because the prover does not have any stake.
+        assert_eq!(ledger.num_remaining_solutions(&prover_address, 0), 0);
+        assert!(ledger.is_solution_limit_reached(&prover_address, 0));
+
+        // Create a block with a solution.
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([(valid_solution_1_transmission_id, valid_solution_1_transmission.clone())]),
+            true,
+            rng,
+        );
+        // Check that the solution is aborted.
+        assert!(next_block.solutions().is_empty());
+        assert_eq!(next_block.aborted_solution_ids().len(), 1);
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // 3. Bond the required stake.
+
+        // Bond the required stake.
+        let inputs = [
+            Value::<CurrentNetwork>::from_str(&validator_address.to_string()).unwrap(),
+            Value::<CurrentNetwork>::from_str(&prover_address.to_string()).unwrap(),
+            Value::<CurrentNetwork>::from_str(&format!("{}u64", STAKE_REQUIREMENTS_PER_SOLUTION[0].1)).unwrap(),
+        ];
+        let bond_transaction = ledger
+            .vm
+            .execute(&prover_private_key, ("credits.aleo", "bond_public"), inputs.iter(), None, 0, None, rng)
+            .unwrap();
+        let bond_transmission = Transmission::from(bond_transaction.clone());
+        let bond_transmission_transmission_id =
+            TransmissionID::Transaction(bond_transaction.id(), bond_transmission.to_checksum().unwrap().unwrap());
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([(bond_transmission_transmission_id, bond_transmission)]),
+            true,
+            rng,
+        );
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // 4. Check that the solution is valid with sufficient stake.
+
+        // Check that the prover can submit solutions.
+        assert_eq!(ledger.num_remaining_solutions(&prover_address, 0), 1);
+        assert!(!ledger.is_solution_limit_reached(&prover_address, 0));
+
+        // 5. Check that the next block will accept the solution and abort any excess.
+
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([
+                (valid_solution_1_transmission_id, valid_solution_1_transmission.clone()),
+                (valid_solution_2_transmission_id, valid_solution_2_transmission.clone()),
+            ]),
+            true,
+            rng,
+        );
+
+        // Check that the first solution is accepted and the second is aborted.
+        assert!(next_block.solutions().solution_ids().contains(&valid_solution_1.id()));
+        assert_eq!(next_block.aborted_solution_ids(), &vec![valid_solution_2.id()]);
+
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // Check that the prover can no longer submit solutions.
+        assert_eq!(ledger.num_remaining_solutions(&prover_address, 0), 0);
+        assert!(ledger.is_solution_limit_reached(&prover_address, 0));
     }
 
     #[test]
