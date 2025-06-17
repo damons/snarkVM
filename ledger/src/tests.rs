@@ -39,6 +39,7 @@ use synthesizer::{
 };
 
 use crate::test_helpers::CurrentConsensusStorage;
+use console::types::Field;
 use indexmap::{IndexMap, IndexSet};
 use rand::seq::SliceRandom;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -286,14 +287,16 @@ impl TestChainBuilder {
 fn create_cache_key(
     vm: &VM<CurrentNetwork, CurrentConsensusStorage>,
     transaction: &Transaction<CurrentNetwork>,
-) -> (<CurrentNetwork as Network>::TransactionID, Vec<u16>) {
+) -> (<CurrentNetwork as Network>::TransactionID, Vec<Field<CurrentNetwork>>) {
     // Acquire a read lock on the process to ensure that the editions are not updated while we are reading them.
     let process_lock = vm.process();
     let process = process_lock.read();
     // Get the program editions.
     let program_editions = transaction
         .transitions()
-        .map(|transition| process.get_stack(transition.program_id()).map(|stack| **stack.program_edition()))
+        .map(|transition| {
+            process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
+        })
         .collect::<Result<Vec<_>>>()
         .unwrap();
     // Return the cache key.

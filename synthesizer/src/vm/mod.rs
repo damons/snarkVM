@@ -83,7 +83,7 @@ use rayon::prelude::*;
 // The key for the partially-verified transactions cache.
 // The key is a tuple of the transaction ID and a list of program editions for the transitions in the transaction.
 // Note: If a program is upgraded, then the program edition will change, effectively invalidating the previously cached result.
-type TransactionCacheKey<N> = (<N as Network>::TransactionID, Vec<u16>);
+type TransactionCacheKey<N> = (<N as Network>::TransactionID, Vec<Field<N>>);
 
 #[derive(Clone)]
 pub struct VM<N: Network, C: ConsensusStorage<N>> {

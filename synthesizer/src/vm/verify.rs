@@ -141,17 +141,19 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Note: The calls to `check_deployment_internal` and `check_execution_internal` will also acquire a read lock on the process.
         let process = self.process.read();
 
-        // A helper function to get the program editions for each transition in a transaction, in order.
-        let get_program_editions = |transaction: &Transaction<N>| {
+        // A helper function to get the program checksums for each transition in a transaction, in order.
+        let get_program_checksums = |transaction: &Transaction<N>| {
             // Get the program editions for each transition in the transaction.
             transaction
                 .transitions()
-                .map(|transition| process.get_stack(transition.program_id()).map(|stack| **stack.program_edition()))
+                .map(|transition| {
+                    process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
+                })
                 .collect::<Result<Vec<_>>>()
         };
 
         // Prepare the cache key.
-        let cache_key = (transaction.id(), get_program_editions(transaction)?);
+        let cache_key = (transaction.id(), get_program_checksums(transaction)?);
 
         // Check if the transaction exists in the partially-verified cache.
         let is_partially_verified = self.partially_verified_transactions.read().peek(&cache_key) == Some(&checksum);
@@ -555,14 +557,16 @@ mod tests {
     fn create_cache_key(
         vm: &VM<CurrentNetwork, LedgerType>,
         transaction: &Transaction<CurrentNetwork>,
-    ) -> (<CurrentNetwork as Network>::TransactionID, Vec<u16>) {
+    ) -> (<CurrentNetwork as Network>::TransactionID, Vec<Field<CurrentNetwork>>) {
         // Acquire a read lock on the process to ensure that the editions are not updated while we are reading them.
         let process_lock = vm.process();
         let process = process_lock.read();
         // Get the program editions.
         let program_editions = transaction
             .transitions()
-            .map(|transition| process.get_stack(transition.program_id()).map(|stack| **stack.program_edition()))
+            .map(|transition| {
+                process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
+            })
             .collect::<Result<Vec<_>>>()
             .unwrap();
         // Return the cache key.
