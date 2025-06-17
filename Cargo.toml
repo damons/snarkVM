@@ -120,7 +120,6 @@ cli = [
   "package",
   "dep:clap",
   "dep:colored",
-  "dep:dotenvy",
   "dep:self_update",
   "dep:thiserror",
   "dep:ureq",
@@ -139,7 +138,8 @@ package = [
   "file",
   "ledger",
   "snarkvm-synthesizer/process",
-  "dep:ureq"
+  "dep:ureq",
+  "dep:dotenvy"
 ]
 aleo-cli = [ "snarkvm-synthesizer/aleo-cli" ]
 async = [ "snarkvm-ledger/async", "snarkvm-synthesizer/async" ]
@@ -271,6 +271,11 @@ optional = true
 workspace = true
 features = ["json"]
 optional = true
+
+# Some cli helper functions are used in the tests.
+[dev-dependencies.snarkvm]
+path = "."
+features = [ "cli" ]
 
 [dev-dependencies.bincode]
 version = "1.3"
