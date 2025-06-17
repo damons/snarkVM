@@ -40,14 +40,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use time::OffsetDateTime;
 
 #[cfg(not(feature = "rocks"))]
-type LedgerType<N> = ledger_store::helpers::memory::ConsensusMemory<N>;
+type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
 #[cfg(feature = "rocks")]
-type LedgerType<N> = ledger_store::helpers::rocksdb::ConsensusDB<N>;
+type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
 /// Initializes a sample VM.
-fn sample_vm() -> VM<CurrentNetwork, LedgerType<CurrentNetwork>> {
-    VM::from(ConsensusStore::<CurrentNetwork, LedgerType<CurrentNetwork>>::open(StorageMode::new_test(None)).unwrap())
-        .unwrap()
+fn sample_vm() -> VM<CurrentNetwork, LedgerType> {
+    VM::from(ConsensusStore::<CurrentNetwork, LedgerType>::open(StorageMode::new_test(None)).unwrap()).unwrap()
 }
 
 /// Extract the transmissions from a block.
@@ -73,7 +72,7 @@ struct TestChainBuilder {
     /// The keys of all validators.
     private_keys: Vec<PrivateKey<CurrentNetwork>>,
 
-    ledger: Ledger<CurrentNetwork, LedgerType<CurrentNetwork>>,
+    ledger: Ledger<CurrentNetwork, LedgerType>,
 
     last_block_round: u64,
 
@@ -94,9 +93,7 @@ impl TestChainBuilder {
     /// Initialize the builder with the specified committee and genesis block
     pub fn new(private_keys: Vec<PrivateKey<CurrentNetwork>>, genesis: Block<CurrentNetwork>) -> Self {
         // Initialize the ledger with the genesis block.
-        let ledger =
-            Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis.clone(), StorageMode::new_test(None))
-                .unwrap();
+        let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis.clone(), StorageMode::new_test(None)).unwrap();
 
         Self {
             private_keys,
@@ -284,7 +281,7 @@ fn test_load() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
@@ -303,7 +300,7 @@ fn test_load_unchecked() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
@@ -329,7 +326,7 @@ fn test_get_block() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
@@ -2117,8 +2114,7 @@ fn test_max_committee_limit_with_bonds() {
         .unwrap();
 
     // Initialize a Ledger from the genesis block.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis_block, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis_block, StorageMode::new_test(None)).unwrap();
 
     // Bond the first validator.
     let bond_first_transaction = ledger
@@ -3179,7 +3175,7 @@ fn test_forged_block_subdags() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3203,8 +3199,7 @@ fn test_forged_block_subdags() {
     let block_3 = quorum_blocks.remove(0);
 
     // Construct the ledger.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
 
     // Advance to block 1.
     ledger.advance_to_next_block(&block_1).unwrap();
@@ -3314,7 +3309,7 @@ fn test_subdag_with_long_branch() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3339,8 +3334,7 @@ fn test_subdag_with_long_branch() {
     );
 
     // Construct the ledger.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
 
     for block in blocks {
         ledger.advance_to_next_block(&block).unwrap();
@@ -3361,7 +3355,7 @@ fn test_subdag_with_gc_length() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3386,8 +3380,7 @@ fn test_subdag_with_gc_length() {
     );
 
     // Construct the ledger.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
 
     for block in blocks {
         ledger.advance_to_next_block(&block).unwrap();

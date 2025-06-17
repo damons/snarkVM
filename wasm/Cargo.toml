@@ -37,7 +37,7 @@ full = [
   "synthesizer",
   "utilities"
 ]
-circuit = [ "snarkvm-circuit-network" ]
+circuit = [ ]
 console = [ "snarkvm-console" ]
 curves = [ "snarkvm-curves" ]
 fields = [ "snarkvm-fields" ]
@@ -48,12 +48,6 @@ ledger = [
 ]
 synthesizer = [ "snarkvm-synthesizer" ]
 utilities = [ "snarkvm-utilities" ]
-
-[dependencies.snarkvm-circuit-network]
-path = "../circuit/network"
-version = "=3.8.0"
-features = [ "wasm" ]
-optional = true
 
 [dependencies.snarkvm-console]
 path = "../console"
@@ -108,3 +102,8 @@ features = [ "js" ]
 
 [dev-dependencies.wasm-bindgen-test]
 version = "0.3.37"
+
+[package.metadata.cargo-machete]
+ignored = [
+  "getrandom", # Needed to enable js feature
+]

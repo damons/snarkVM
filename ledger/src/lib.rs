@@ -56,7 +56,7 @@ use ledger_authority::Authority;
 use ledger_committee::Committee;
 use ledger_narwhal::{BatchCertificate, Subdag, Transmission, TransmissionID};
 use ledger_puzzle::{Puzzle, PuzzleSolutions, Solution, SolutionID};
-use ledger_query::Query;
+use ledger_query::QueryTrait;
 use ledger_store::{ConsensusStorage, ConsensusStore};
 use synthesizer::{
     program::{FinalizeGlobalState, Program},
@@ -367,7 +367,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         private_key: &PrivateKey<N>,
         program: &Program<N>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.
@@ -391,7 +391,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         to: Address<N>,
         amount_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.

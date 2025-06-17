@@ -47,17 +47,8 @@ path = "../../curves"
 version = "=3.8.0"
 default-features = false
 
-[dependencies.snarkvm-fields]
-path = "../../fields"
-version = "=3.8.0"
-default-features = false
-
 [dependencies.snarkvm-parameters]
 path = "../../parameters"
-version = "=3.8.0"
-
-[dependencies.snarkvm-utilities]
-path = "../../utilities"
 version = "=3.8.0"
 
 [dependencies.anyhow]
@@ -66,17 +57,17 @@ version = "1.0.73"
 [dependencies.indexmap]
 version = "2"
 
-[dependencies.itertools]
-version = "0.11.0"
-
 [dependencies.lazy_static]
 version = "1.4"
 
 [dependencies.once_cell]
 version = "1.18"
 
-[dependencies.paste]
-version = "1"
-
 [dependencies.serde]
 version = "1.0"
+
+[dependencies.paste]
+version = "1.0"
+
+[package.metadata.cargo-machete]
+ignored = ["paste"]
