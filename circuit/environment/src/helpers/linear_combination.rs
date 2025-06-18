@@ -436,9 +436,8 @@ impl<F: PrimeField> Mul<&F> for LinearCombination<F> {
         let mut output = self;
         output.constant *= coefficient;
         output.terms.retain_mut(|(_v, current_coefficient)| {
-            let res = *current_coefficient * coefficient;
-            *current_coefficient = res;
-            !res.is_zero()
+            *current_coefficient *= coefficient;
+            !current_coefficient.is_zero()
         });
         output.value *= coefficient;
         output
