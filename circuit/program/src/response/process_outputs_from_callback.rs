@@ -123,11 +123,10 @@ impl<A: Aleo> Response<A> {
                         // Compute the record commitment.
                         let commitment = match &commitment_version {
                             None => record.to_digest(program_id, &Identifier::constant(*record_name)),
-                            Some(commitment_version) => {
-                                let digest = record.to_digest(program_id, &Identifier::constant(*record_name));
-                                let commitment =
-                                    record.to_commitment(program_id, &Identifier::constant(*record_name), tvk.clone());
-                                Ternary::ternary(&commitment_version.deref().is_zero(), &digest, &commitment)
+                            // TODO (raychu86): Record Commitment - Check validity of this.
+                            // If the commitment version was set, always use the latest commitment version for the outputs.
+                            Some(_) => {
+                                record.to_commitment(program_id, &Identifier::constant(*record_name), tvk.clone())
                             }
                         };
 

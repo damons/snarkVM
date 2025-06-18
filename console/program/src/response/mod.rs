@@ -154,10 +154,11 @@ impl<N: Network> Response<N> {
                         };
 
                         // Compute the record commitment depending on the commitment version.
-                        // If no commitment version was supplied, default to `CommitmentVersion::V1`.
+                        // If the commitment version was set, always use the latest commitment version for the outputs.
                         let commitment = match commitment_version {
-                            None | Some(CommitmentVersion::V1) => record.to_digest(program_id, record_name)?,
-                            Some(CommitmentVersion::V2) => record.to_commitment(program_id, record_name, tvk)?,
+                            None => record.to_digest(program_id, record_name)?,
+                            // TODO (raychu86): Record Commitment - Check validity of this.
+                            Some(_) => record.to_commitment(program_id, record_name, tvk)?,
                         };
 
                         // Construct the (console) output index as a field element.
