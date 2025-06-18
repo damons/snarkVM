@@ -83,11 +83,11 @@ function hello:
     .unwrap();
 
     c.bench_function("Transaction::Deploy", |b| {
-        b.iter(|| vm.deploy(&private_key, &program, Some(records[0].clone()), 600000, None, rng).unwrap())
+        b.iter(|| vm.deploy(&private_key, &program, Some(records[0].clone()), 600000, None, None, rng).unwrap())
     });
 
     c.bench_function("Transaction::Deploy - verify", |b| {
-        let transaction = vm.deploy(&private_key, &program, Some(records[0].clone()), 600000, None, rng).unwrap();
+        let transaction = vm.deploy(&private_key, &program, Some(records[0].clone()), 600000, None, None, rng).unwrap();
         b.iter(|| vm.check_transaction(&transaction, None, rng).unwrap())
     });
 }
@@ -124,6 +124,7 @@ fn execute(c: &mut Criterion) {
                     execute_authorization.replicate(),
                     Some(fee_authorization.replicate()),
                     None,
+                    None,
                     rng,
                 )
                 .unwrap();
@@ -131,7 +132,13 @@ fn execute(c: &mut Criterion) {
         });
 
         let transaction = vm
-            .execute_authorization(execute_authorization.replicate(), Some(fee_authorization.replicate()), None, rng)
+            .execute_authorization(
+                execute_authorization.replicate(),
+                Some(fee_authorization.replicate()),
+                None,
+                None,
+                rng,
+            )
             .unwrap();
 
         // Bench the Transaction.write_le method using the LimitedWriter.
@@ -170,6 +177,7 @@ fn execute(c: &mut Criterion) {
                     execute_authorization.replicate(),
                     Some(fee_authorization.replicate()),
                     None,
+                    None,
                     rng,
                 )
                 .unwrap();
@@ -177,7 +185,13 @@ fn execute(c: &mut Criterion) {
         });
 
         let transaction = vm
-            .execute_authorization(execute_authorization.replicate(), Some(fee_authorization.replicate()), None, rng)
+            .execute_authorization(
+                execute_authorization.replicate(),
+                Some(fee_authorization.replicate()),
+                None,
+                None,
+                rng,
+            )
             .unwrap();
 
         // Bench the Transaction.write_le method using the LimitedWriter.
@@ -267,7 +281,7 @@ function main:
         vm.process().write().add_program(&program).unwrap();
 
         // Create an execution transaction that is 164613 bytes in size.
-        let transaction = vm.execute(&private_key, ("too_big.aleo", "main"), inputs, None, 0, None, rng).unwrap();
+        let transaction = vm.execute(&private_key, ("too_big.aleo", "main"), inputs, None, 0, None, None, rng).unwrap();
 
         // Bench the Transaction.write_le method using the LimitedWriter.
         c.bench_function("LimitedWriter::new - too_big.aleo", |b| {

@@ -21,7 +21,7 @@ impl<N: Network> Process<N> {
     pub fn deploy<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         program: &Program<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Deployment<N>> {
         let timer = timer!("Process::deploy");

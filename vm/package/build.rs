@@ -216,7 +216,7 @@ impl<N: Network> Package<N> {
                 None => process.synthesize_key::<A, _>(
                     program_id,
                     function_name,
-                    CommitmentVersion::V2,
+                    Some(CommitmentVersion::V2), // TODO (raychu86): Record Commitment - this should be configurable.
                     &mut rand::thread_rng(),
                 )?,
             }

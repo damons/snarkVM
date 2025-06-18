@@ -22,7 +22,7 @@ impl<N: Network> Package<N> {
         private_key: &PrivateKey<N>,
         function_name: Identifier<N>,
         inputs: &[Value<N>],
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<(Response<N>, Vec<CallMetrics<N>>)> {
         // Retrieve the main program.
@@ -96,7 +96,7 @@ mod tests {
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
         let (_response, _metrics) =
-            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -121,7 +121,7 @@ mod tests {
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
         let (_response, _metrics) =
-            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -146,7 +146,7 @@ mod tests {
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
         let (_response, _metrics) =
-            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -173,7 +173,7 @@ mod tests {
             crate::package::test_helpers::sample_package_run(package.program_id());
         // Run the program function.
         let (_response, _metrics) =
-            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).unwrap();
+            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();

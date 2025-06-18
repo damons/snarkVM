@@ -103,7 +103,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         &self,
         call_stack: CallStack<N>,
         caller: Option<ProgramID<N>>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Response<N>> {
         let timer = timer!("Stack::evaluate_function");
 

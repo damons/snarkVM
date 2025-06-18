@@ -38,7 +38,7 @@ fn prepare_check_deployment<N: Network, A: circuit::Aleo<Network = N>>(
     private_key: &PrivateKey<N>,
     function_name: Identifier<N>,
     inputs: &[Value<N>],
-    commitment_version: CommitmentVersion,
+    commitment_version: Option<CommitmentVersion>,
     rng: &mut TestRng,
 ) {
     // Retrieve the program.
@@ -103,15 +103,7 @@ fn transfer_private(c: &mut Criterion) {
     let r2 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
     // Compute the assignment.
-    prepare_check_deployment::<_, CurrentAleo>(
-        c,
-        &stack,
-        &private_key,
-        function_name,
-        &[r0, r1, r2],
-        CommitmentVersion::V1,
-        rng,
-    );
+    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0, r1, r2], None, rng);
 }
 
 fn transfer_public(c: &mut Criterion) {
@@ -134,15 +126,7 @@ fn transfer_public(c: &mut Criterion) {
     let r1 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
     // Compute the assignment.
-    prepare_check_deployment::<_, CurrentAleo>(
-        c,
-        &stack,
-        &private_key,
-        function_name,
-        &[r0, r1],
-        CommitmentVersion::V1,
-        rng,
-    );
+    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0, r1], None, rng);
 }
 
 fn large_program(c: &mut Criterion) {
@@ -172,15 +156,7 @@ function do:
     let r0 = Value::<CurrentNetwork>::from_str("[[1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128], [1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128]]").unwrap();
 
     // Compute the assignment.
-    prepare_check_deployment::<_, CurrentAleo>(
-        c,
-        &stack,
-        &private_key,
-        function_name,
-        &[r0],
-        CommitmentVersion::V1,
-        rng,
-    );
+    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0], None, rng);
 }
 
 criterion_group! {

@@ -101,7 +101,7 @@ impl<N: Network> Process<N> {
     /// Initializes a new process.
     #[inline]
     pub fn setup<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Self> {
         let timer = timer!("Process:setup");
@@ -303,7 +303,7 @@ impl<N: Network> Process<N> {
         &self,
         program_id: &ProgramID<N>,
         function_name: &Identifier<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         // Synthesize the proving and verifying key.
@@ -326,8 +326,6 @@ pub mod test_helpers {
     type CurrentNetwork = MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
 
-    const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
-
     /// Returns an execution for the given program and function name.
     pub fn get_execution(
         process: &mut Process<CurrentNetwork>,
@@ -347,12 +345,11 @@ pub mod test_helpers {
         }
 
         // Compute the authorization.
-        let authorization = process
-            .authorize::<CurrentAleo, _>(&private_key, program.id(), function_name, inputs, COMMITMENT_VERSION, rng)
-            .unwrap();
+        let authorization =
+            process.authorize::<CurrentAleo, _>(&private_key, program.id(), function_name, inputs, None, rng).unwrap();
 
         // Execute the program.
-        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -399,9 +396,7 @@ function compute:
                 let process = sample_process(&program);
 
                 // Synthesize a proving and verifying key.
-                process
-                    .synthesize_key::<CurrentAleo, _>(program.id(), &function_name, COMMITMENT_VERSION, rng)
-                    .unwrap();
+                process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
 
                 // Get the proving and verifying key.
                 let proving_key = process.get_proving_key(program.id(), function_name).unwrap();
@@ -451,14 +446,13 @@ function compute:
                         program.id(),
                         function_name,
                         ["5u32", "10u32"].into_iter(),
-                        COMMITMENT_VERSION,
+                        None,
                         rng,
                     )
                     .unwrap();
                 assert_eq!(authorization.len(), 1);
                 // Execute the request.
-                let (_response, mut trace) =
-                    process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+                let (_response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
                 assert_eq!(trace.transitions().len(), 1);
 
                 // Prepare the trace.

@@ -292,15 +292,10 @@ fn ensure_request_and_transition_matches<N: Network>(
 pub(crate) mod test_helpers {
     use super::*;
     use crate::{Identifier, Process, ProgramID, Value};
-    use console::{
-        account::{Address, PrivateKey},
-        program::CommitmentVersion,
-    };
+    use console::account::{Address, PrivateKey};
 
     type CurrentNetwork = console::network::MainnetV0;
     type CurrentAleo = circuit::AleoV0;
-
-    const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
     /// Returns a sample authorization.
     pub fn sample_authorization(rng: &mut TestRng) -> Authorization<CurrentNetwork> {
@@ -323,7 +318,7 @@ pub(crate) mod test_helpers {
                 base_fee_in_microcredits,
                 priority_fee_in_microcredits,
                 deployment_or_execution_id,
-                COMMITMENT_VERSION,
+                None,
                 rng,
             )
             .unwrap();
@@ -359,7 +354,7 @@ pub(crate) mod test_helpers {
                 &program_id,
                 &function_name,
                 vec![destination, amount].iter(),
-                COMMITMENT_VERSION,
+                None,
                 rng,
             )
             .unwrap();

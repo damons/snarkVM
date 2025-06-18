@@ -21,7 +21,7 @@ impl<N: Network> Process<N> {
     pub fn verify_deployment<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         deployment: &Deployment<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Process::verify_deployment");
@@ -63,10 +63,10 @@ mod tests {
         let large_program = Program::from_str(include_str!("./resources/large_functions.aleo"))?;
 
         // Create a deployment for the program.
-        let deployment = process.deploy::<CurrentAleo, _>(&large_program, CommitmentVersion::V1, rng)?;
+        let deployment = process.deploy::<CurrentAleo, _>(&large_program, None, rng)?;
 
         // Verify the deployment.
-        assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, CommitmentVersion::V1, rng).is_ok());
+        assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).is_ok());
 
         bail!("\n\nRemember to #[ignore] this test!\n\n")
     }

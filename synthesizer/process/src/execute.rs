@@ -21,7 +21,7 @@ impl<N: Network> Process<N> {
     pub fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         authorization: Authorization<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<(Response<N>, Trace<N>)> {
         let timer = timer!("Process::execute");
@@ -65,8 +65,6 @@ mod tests {
     use super::*;
     use console::types::Address;
 
-    const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
-
     type CurrentNetwork = console::network::MainnetV0;
     type CurrentAleo = circuit::AleoV0;
 
@@ -103,14 +101,14 @@ mod tests {
                 base_fee_in_microcredits,
                 priority_fee_in_microcredits,
                 deployment_or_execution_id,
-                COMMITMENT_VERSION,
+                None,
                 rng,
             )
             .unwrap();
         assert!(authorization.is_fee_private(), "Authorization must be for a call to 'credits.aleo/fee_private'");
 
         // Execute the authorization.
-        let (response, trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+        let (response, trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
         // Ensure the response has 1 output.
         assert_eq!(response.outputs().len(), 1, "Execution of 'credits.aleo/fee_private' must contain 1 output");
         // Ensure the response has 1 output ID.
@@ -146,14 +144,14 @@ mod tests {
                 base_fee_in_microcredits,
                 priority_fee_in_microcredits,
                 deployment_or_execution_id,
-                COMMITMENT_VERSION,
+                None,
                 rng,
             )
             .unwrap();
         assert!(authorization.is_fee_public(), "Authorization must be for a call to 'credits.aleo/fee_public'");
 
         // Execute the authorization.
-        let (response, trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+        let (response, trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
         // Ensure the response has 1 outputs.
         assert_eq!(response.outputs().len(), 1, "Execution of 'credits.aleo/fee_public' must contain 1 output");
         // Ensure the response has 1 output IDs.

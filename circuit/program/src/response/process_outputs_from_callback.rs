@@ -26,7 +26,7 @@ impl<A: Aleo> Response<A> {
         tcm: &Field<A>,
         outputs: Vec<console::Value<A::Network>>,        // Note: Console type
         output_types: &[console::ValueType<A::Network>], // Note: Console type
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion<A>>,
     ) -> Vec<Value<A>> {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name);
@@ -121,10 +121,13 @@ impl<A: Aleo> Response<A> {
                             Value::Future(..) => A::halt("Expected a record output, found a future output"),
                         };
                         // Compute the record commitment.
-                        let commitment = match commitment_version {
-                            CommitmentVersion::V1 => record.to_digest(program_id, &Identifier::constant(*record_name)),
-                            CommitmentVersion::V2 => {
-                                record.to_commitment(program_id, &Identifier::constant(*record_name), tvk.clone())
+                        let commitment = match &commitment_version {
+                            None => record.to_digest(program_id, &Identifier::constant(*record_name)),
+                            Some(commitment_version) => {
+                                let digest = record.to_digest(program_id, &Identifier::constant(*record_name));
+                                let commitment =
+                                    record.to_commitment(program_id, &Identifier::constant(*record_name), tvk.clone());
+                                Ternary::ternary(&commitment_version.deref().is_zero(), &digest, &commitment)
                             }
                         };
 
@@ -225,10 +228,13 @@ mod tests {
             let tcm = <Circuit as Environment>::Network::hash_psd2(&[tvk])?;
 
             // Randomly select a commitment version.
-            let commitment_version = match rng.gen_range(1..=2) {
-                1 => CommitmentVersion::V1,
-                _ => CommitmentVersion::V2,
+            let commitment_version = match rng.gen_range(0..=2) {
+                1 => Some(console::CommitmentVersion::V1),
+                2 => Some(console::CommitmentVersion::V2),
+                _ => None,
             };
+            let commitment_version_circuit =
+                commitment_version.map(|commitment_version| crate::CommitmentVersion::new(mode, commitment_version));
 
             // Compute the nonce.
             let index = console::Field::from_u64(8);
@@ -306,7 +312,7 @@ mod tests {
                     &tcm,
                     response.outputs().to_vec(),
                     &output_types,
-                    commitment_version,
+                    commitment_version_circuit.clone(),
                 );
                 assert_eq!(response.outputs(), outputs.eject_value());
                 match mode.is_constant() {
@@ -327,7 +333,7 @@ mod tests {
                 outputs,
                 &output_types,
                 &output_registers,
-                commitment_version,
+                commitment_version_circuit,
             );
             assert_eq!(response, candidate_b.eject_value());
 

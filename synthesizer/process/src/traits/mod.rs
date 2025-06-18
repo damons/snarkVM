@@ -45,7 +45,7 @@ pub trait StackEvaluate<N: Network>: Clone {
         &self,
         call_stack: CallStack<N>,
         caller: Option<ProgramID<N>>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Response<N>>;
 }
 
@@ -75,7 +75,7 @@ pub trait StackExecute<N: Network> {
         call_stack: CallStack<N>,
         console_caller: Option<ProgramID<N>>,
         root_tvk: Option<Field<N>>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Response<N>>;
 }

@@ -24,7 +24,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program_id: impl TryInto<ProgramID<N>>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = impl TryInto<Value<N>>>>,
-        query: Option<Query<N, C::BlockStorage>>,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("VM::authorize");
@@ -46,7 +46,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         lap!(timer, "Prepare inputs");
 
         // Authorize the call.
-        let result = self.authorize_raw(private_key, program_id, function_name, inputs, query, rng);
+        let result = self.authorize_raw(private_key, program_id, function_name, inputs, commitment_version, rng);
         finish!(timer, "Authorize the call");
         result
     }
@@ -61,18 +61,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
-        // Determine the consensus version.
-        let query = query.unwrap_or(Query::VM(self.block_store().clone()));
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        // Determine the commitment version to use.
-        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-            CommitmentVersion::V1
-        } else {
-            CommitmentVersion::V2
-        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Compute the authorization.
@@ -105,18 +96,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
-        // Determine the consensus version.
-        let query = query.unwrap_or(Query::VM(self.block_store().clone()));
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        // Determine the commitment version to use.
-        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-            CommitmentVersion::V1
-        } else {
-            CommitmentVersion::V2
-        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Compute the authorization.
@@ -150,18 +132,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program_id: ProgramID<N>,
         function_name: Identifier<N>,
         inputs: Vec<Value<N>>,
-        query: Option<Query<N, C::BlockStorage>>,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
-        // Determine the consensus version.
-        let query = query.unwrap_or(Query::VM(self.block_store().clone()));
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        // Determine the commitment version to use.
-        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-            CommitmentVersion::V1
-        } else {
-            CommitmentVersion::V2
-        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Compute the authorization.

@@ -18,7 +18,7 @@ mod utilities;
 use console::{
     account::PrivateKey,
     network::prelude::*,
-    program::{CommitmentVersion, Identifier, Literal, ProgramID, Value},
+    program::{Identifier, Literal, ProgramID, Value},
     types::Boolean,
 };
 use synthesizer_process::Process;
@@ -26,8 +26,6 @@ use utilities::*;
 
 use rayon::prelude::*;
 use std::panic::AssertUnwindSafe;
-
-const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
 #[test]
 fn test_process_execute() {
@@ -133,7 +131,7 @@ fn run_test(process: Process<CurrentNetwork>, test: &ProgramTest) -> serde_yaml:
                             program_id,
                             function_name,
                             inputs.iter(),
-                            COMMITMENT_VERSION,
+                            None,
                             rng,
                         ) {
                             Ok(authorization) => authorization,
@@ -141,7 +139,7 @@ fn run_test(process: Process<CurrentNetwork>, test: &ProgramTest) -> serde_yaml:
                         };
                         // Execute the authorization and extract the output as YAML.
                         std::panic::catch_unwind(AssertUnwindSafe(|| {
-                            match process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng) {
+                            match process.execute::<CurrentAleo, _>(authorization, None, rng) {
                                 Ok((response, _)) => serde_yaml::Value::Sequence(
                                     response
                                         .outputs()

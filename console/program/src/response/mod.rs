@@ -60,7 +60,7 @@ impl<N: Network> Response<N> {
         outputs: Vec<Value<N>>,
         output_types: &[ValueType<N>],
         output_operands: &[Option<Register<N>>],
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Self> {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name)?;
@@ -154,9 +154,10 @@ impl<N: Network> Response<N> {
                         };
 
                         // Compute the record commitment depending on the commitment version.
+                        // If no commitment version was supplied, default to `CommitmentVersion::V1`.
                         let commitment = match commitment_version {
-                            CommitmentVersion::V1 => record.to_digest(program_id, record_name)?,
-                            CommitmentVersion::V2 => record.to_commitment(program_id, record_name, tvk)?,
+                            None | Some(CommitmentVersion::V1) => record.to_digest(program_id, record_name)?,
+                            Some(CommitmentVersion::V2) => record.to_commitment(program_id, record_name, tvk)?,
                         };
 
                         // Construct the (console) output index as a field element.

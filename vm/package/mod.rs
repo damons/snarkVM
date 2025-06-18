@@ -472,7 +472,6 @@ function main:
 mod tests {
     use super::*;
     use crate::prelude::MainnetV0;
-    use snarkvm_console::program::CommitmentVersion;
     use snarkvm_utilities::TestRng;
 
     type CurrentAleo = snarkvm_circuit::network::AleoV0;
@@ -566,12 +565,11 @@ function bar:
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
 
         // Run the program function.
-        let run_result =
-            package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, CommitmentVersion::V1, rng).ok();
+        let run_result = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, None, rng).ok();
 
         // Execute the program function.
         let execute_result =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).ok();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).ok();
 
         match (run_result, execute_result) {
             // If both results are `None`, then they both failed.

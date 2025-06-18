@@ -202,7 +202,7 @@ impl<N: Network> Deref for Fee<N> {
 pub mod test_helpers {
     use super::*;
     use algorithms::snark::varuna::VarunaVersion;
-    use console::{program::CommitmentVersion, types::Field};
+    use console::types::Field;
     use ledger_query::Query;
     use ledger_store::{BlockStore, helpers::memory::BlockMemory};
     use synthesizer_process::Process;
@@ -212,8 +212,6 @@ pub mod test_helpers {
 
     type CurrentNetwork = console::network::MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
-
-    const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
     /// Samples a random hardcoded private fee.
     pub fn sample_fee_private_hardcoded(rng: &mut TestRng) -> Fee<CurrentNetwork> {
@@ -254,13 +252,13 @@ pub mod test_helpers {
                 base_fee_in_microcredits,
                 priority_fee_in_microcredits,
                 deployment_or_execution_id,
-                COMMITMENT_VERSION,
+                None,
                 rng,
             )
             .unwrap();
 
         // Construct the fee trace.
-        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -312,12 +310,12 @@ pub mod test_helpers {
                 base_fee,
                 priority_fee,
                 deployment_or_execution_id,
-                COMMITMENT_VERSION,
+                None,
                 rng,
             )
             .unwrap();
         // Construct the fee trace.
-        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();

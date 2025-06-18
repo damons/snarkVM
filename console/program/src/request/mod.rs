@@ -179,9 +179,10 @@ mod test_helpers {
                 let address = Address::try_from(&private_key).unwrap();
 
                 // Randomly select a commitment version.
-                let commitment_version = match rng.gen_range(1..=2) {
-                    1 => CommitmentVersion::V1,
-                    _ => CommitmentVersion::V2,
+                let commitment_version = match rng.gen_range(0..3) {
+                    1 => Some(CommitmentVersion::V1),
+                    2 => Some(CommitmentVersion::V2),
+                    _ => None,
                 };
 
                 // Construct a program ID and function name.

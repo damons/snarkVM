@@ -41,15 +41,12 @@ use synthesizer_process::Process;
 use synthesizer_program::Program;
 
 use aleo_std::StorageMode;
-use console::program::CommitmentVersion;
 use once_cell::sync::OnceCell;
 
 type CurrentNetwork = console::network::MainnetV0;
 type CurrentAleo = circuit::network::AleoV0;
 
 /****************************************** Transition ********************************************/
-
-const COMMITMENT_VERSION: CommitmentVersion = CommitmentVersion::V1;
 
 /// Samples a random transition.
 pub fn sample_transition(rng: &mut TestRng) -> Transition<CurrentNetwork> {
@@ -157,7 +154,7 @@ function compute:
             // Construct the process.
             let process = Process::load().unwrap();
             // Compute the deployment.
-            let deployment = process.deploy::<CurrentAleo, _>(&program, COMMITMENT_VERSION, rng).unwrap();
+            let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -244,12 +241,12 @@ pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng
             base_fee_in_microcredits,
             priority_fee_in_microcredits,
             deployment_or_execution_id,
-            COMMITMENT_VERSION,
+            None,
             rng,
         )
         .unwrap();
     // Construct the fee trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -298,12 +295,12 @@ pub fn sample_fee_public(deployment_or_execution_id: Field<CurrentNetwork>, rng:
             base_fee_in_microcredits,
             priority_fee_in_microcredits,
             deployment_or_execution_id,
-            COMMITMENT_VERSION,
+            None,
             rng,
         )
         .unwrap();
     // Construct the fee trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -420,12 +417,12 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
                     "testing_large.aleo",
                     "large_transaction",
                     Vec::<Value<CurrentNetwork>>::new().iter(),
-                    COMMITMENT_VERSION,
+                    None,
                     rng,
                 )
                 .unwrap();
             // Execute the function.
-            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
             // Initialize a new block store.
             let block_store =
@@ -530,11 +527,10 @@ fn sample_genesis_block_and_components_raw(
     // Initialize the process.
     let process = Process::load().unwrap();
     // Authorize the function.
-    let authorization = process
-        .authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), COMMITMENT_VERSION, rng)
-        .unwrap();
+    let authorization =
+        process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), None, rng).unwrap();
     // Execute the function.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, COMMITMENT_VERSION, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();

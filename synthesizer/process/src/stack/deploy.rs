@@ -22,7 +22,7 @@ impl<N: Network> Stack<N> {
     #[inline]
     pub fn deploy<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Deployment<N>> {
         let timer = timer!("Stack::deploy");
@@ -63,7 +63,7 @@ impl<N: Network> Stack<N> {
     pub fn verify_deployment<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         deployment: &Deployment<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Stack::verify_deployment");

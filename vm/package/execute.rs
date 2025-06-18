@@ -24,6 +24,7 @@ impl<N: Network> Package<N> {
         private_key: &PrivateKey<N>,
         function_name: Identifier<N>,
         inputs: &[Value<N>],
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<(Response<N>, Execution<N>, Vec<CallMetrics<N>>)> {
         // Retrieve the main program.
@@ -50,12 +51,6 @@ impl<N: Network> Package<N> {
         let query = Query::<_, BlockMemory<_>>::from(endpoint);
         // Fetch the consenus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        // Determine which commitment version to use.
-        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-            CommitmentVersion::V1
-        } else {
-            CommitmentVersion::V2
-        };
         // Construct the process.
         let process = self.get_process()?;
         // Authorize the function call.
@@ -173,7 +168,7 @@ mod tests {
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
         // Run the program function.
         let (_response, _execution, _metrics) =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).unwrap();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -202,7 +197,7 @@ mod tests {
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
         // Run the program function.
         let (_response, _execution, _metrics) =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).unwrap();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -231,7 +226,7 @@ mod tests {
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
         // Run the program function.
         let (_response, _execution, _metrics) =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).unwrap();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();

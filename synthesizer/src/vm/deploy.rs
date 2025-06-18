@@ -28,11 +28,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program: &Program<N>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
+        commitment_version: Option<CommitmentVersion>,
         query: Option<Query<N, C::BlockStorage>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the deployment.
-        let deployment = self.deploy_raw(program, query.clone(), rng)?;
+        let deployment = self.deploy_raw(program, commitment_version, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
         // Compute the deployment ID.
@@ -50,7 +51,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 minimum_deployment_cost,
                 priority_fee_in_microcredits,
                 deployment_id,
-                query.clone(),
+                commitment_version,
                 rng,
             )?,
             None => self.authorize_fee_public(
@@ -58,12 +59,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 minimum_deployment_cost,
                 priority_fee_in_microcredits,
                 deployment_id,
-                query.clone(),
+                commitment_version,
                 rng,
             )?,
         };
         // Compute the fee.
-        let fee = self.execute_fee_authorization(fee_authorization, query, rng)?;
+        let fee = self.execute_fee_authorization(fee_authorization, commitment_version, query.clone(), rng)?;
 
         // Return the deploy transaction.
         Transaction::from_deployment(owner, deployment, fee)
@@ -76,18 +77,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     pub(super) fn deploy_raw<R: Rng + CryptoRng>(
         &self,
         program: &Program<N>,
-        query: Option<Query<N, C::BlockStorage>>,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Deployment<N>> {
-        // Determine the consensus version.
-        let query = query.unwrap_or(Query::VM(self.block_store().clone()));
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        // Determine the commitment version to use.
-        let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-            CommitmentVersion::V1
-        } else {
-            CommitmentVersion::V2
-        };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the program.

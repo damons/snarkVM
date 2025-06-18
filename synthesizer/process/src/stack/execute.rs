@@ -141,7 +141,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
         mut call_stack: CallStack<N>,
         console_caller: Option<ProgramID<N>>,
         root_tvk: Option<Field<N>>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Response<N>> {
         let timer = timer!("Stack::execute_function");
@@ -238,8 +238,12 @@ impl<N: Network> StackExecute<N> for Stack<N> {
         // Determine the caller.
         let caller = Ternary::ternary(&is_root, request.signer(), &parent);
 
+        // Inject the `commitment_version` as `Mode::Private` if one was provided.
+        let commitment_version_circuit = commitment_version
+            .map(|commitment_version| circuit::CommitmentVersion::new(circuit::Mode::Private, commitment_version));
+
         // Ensure the request has a valid signature, inputs, and transition view key.
-        A::assert(request.verify(&input_types, &tpk, root_tvk, is_root, commitment_version));
+        A::assert(request.verify(&input_types, &tpk, root_tvk, is_root, commitment_version_circuit.clone()));
         lap!(timer, "Verify the circuit request");
 
         // Set the transition signer.
@@ -393,7 +397,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             outputs,
             &output_types,
             &output_registers,
-            commitment_version,
+            commitment_version_circuit,
         );
         lap!(timer, "Construct the response");
 

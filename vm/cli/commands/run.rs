@@ -41,7 +41,7 @@ impl Run {
 
         // Execute the request.
         let (response, metrics) =
-            package.run::<Aleo, _>(&private_key, self.function, &self.inputs, CommitmentVersion::V2, rng)?;
+            package.run::<Aleo, _>(&private_key, self.function, &self.inputs, Some(CommitmentVersion::V2), rng)?; // TODO (raychu86): Record Commitment - This should be configurable.
 
         // Count the number of times a function is called.
         let mut program_frequency = HashMap::<String, usize>::new();

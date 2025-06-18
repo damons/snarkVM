@@ -23,11 +23,12 @@ impl<N: Network> Stack<N> {
         private_key: &PrivateKey<N>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("Stack::authorize");
 
+        // TODO (raychu86): Record Commitment - Determine which program the version is on. If old version, we need to pass in None for the commitment version. If new, must use a Some() value.
         // Get the program ID.
         let program_id = *self.program.id();
         // Prepare the function name.

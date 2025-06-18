@@ -292,9 +292,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Determine which commitment version to use.
         let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
         let commitment_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-            CommitmentVersion::V1
+            None
         } else {
-            CommitmentVersion::V2
+            Some(CommitmentVersion::V2)
         };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
@@ -657,7 +657,8 @@ mod tests {
 
         // Deploy.
         let program = crate::vm::test_helpers::sample_program();
-        let deployment_transaction = vm.deploy(&caller_private_key, &program, Some(credits), 10, None, rng).unwrap();
+        let deployment_transaction =
+            vm.deploy(&caller_private_key, &program, Some(credits), 10, None, None, rng).unwrap();
 
         // Construct the new block header.
         let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
@@ -731,8 +732,9 @@ mod tests {
         let credits = Some(records.values().next().unwrap().decrypt(&caller_view_key).unwrap());
 
         // Execute.
-        let transaction =
-            vm.execute(&caller_private_key, ("testing.aleo", "initialize"), inputs, credits, 10, None, rng).unwrap();
+        let transaction = vm
+            .execute(&caller_private_key, ("testing.aleo", "initialize"), inputs, credits, 10, None, None, rng)
+            .unwrap();
 
         // Verify.
         vm.check_transaction(&transaction, None, rng).unwrap();
@@ -834,7 +836,7 @@ function compute:
             )
             .unwrap();
         // Compute the fee.
-        let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
+        let fee = vm.execute_fee_authorization(authorization, None, None, rng).unwrap();
 
         // Construct the transaction.
         let mutated_transaction = Transaction::from_execution(mutated_execution, Some(fee)).unwrap();
@@ -902,8 +904,9 @@ function compute:
             .into_iter();
 
             // Execute.
-            let transaction_without_fee =
-                vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, rng).unwrap();
+            let transaction_without_fee = vm
+                .execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, None, rng)
+                .unwrap();
             let execution = transaction_without_fee.execution().unwrap().clone();
 
             // Authorize the fee.
@@ -911,7 +914,7 @@ function compute:
                 .authorize_fee_public(&private_key, 10_000_000, 100, execution.to_execution_id().unwrap(), None, rng)
                 .unwrap();
             // Compute the fee.
-            let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
+            let fee = vm.execute_fee_authorization(authorization, None, None, rng).unwrap();
 
             // Construct the transaction.
             Transaction::from_execution(execution, Some(fee)).unwrap()
@@ -962,7 +965,7 @@ function compute:
         ]
         .into_iter();
         let transaction_v1 =
-            vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, rng).unwrap();
+            vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, None, rng).unwrap();
 
         // Advance the ledger past ConsensusV4
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
@@ -985,7 +988,7 @@ function compute:
         ]
         .into_iter();
         let transaction_v2 =
-            vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, rng).unwrap();
+            vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, None, rng).unwrap();
 
         // Check that the v2 transaction is valid
         assert!(vm.check_transaction(&transaction_v2, None, rng).is_ok());
@@ -1101,16 +1104,16 @@ function compute:
         .unwrap();
 
         // Create a deployment transaction for the first program.
-        let deploy_1 = vm.deploy(&private_key, &program_1, None, 0, None, rng).unwrap();
+        let deploy_1 = vm.deploy(&private_key, &program_1, None, 0, None, None, rng).unwrap();
 
         // Create a deployment transaction for the second program.
-        let deploy_2 = vm.deploy(&private_key, &program_2, None, 0, None, rng).unwrap();
+        let deploy_2 = vm.deploy(&private_key, &program_2, None, 0, None, None, rng).unwrap();
 
         // Create a deployment transaction for the third program.
-        let deploy_3 = vm.deploy(&private_key, &program_3, None, 0, None, rng).unwrap();
+        let deploy_3 = vm.deploy(&private_key, &program_3, None, 0, None, None, rng).unwrap();
 
         // Create a deployment transaction for the fourth program.
-        let deploy_4 = vm.deploy(&private_key, &program_4, None, 0, None, rng).unwrap();
+        let deploy_4 = vm.deploy(&private_key, &program_4, None, 0, None, None, rng).unwrap();
 
         // // Ensure that the deployments are valid.
         assert!(vm.check_transaction(&deploy_1, None, rng).is_ok());
@@ -1216,7 +1219,7 @@ mod credits_migration_tests {
                     Value::<CurrentNetwork>::from_str(&format!("{RECORD_UPGRADE_LIMIT}u64")).unwrap(),
                 ]
                 .into_iter();
-                vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+                vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, None, rng).unwrap()
             })
             .collect();
 
@@ -1238,7 +1241,7 @@ mod credits_migration_tests {
                     Value::<CurrentNetwork>::from_str(&format!("{RECORD_UPGRADE_LIMIT}u64")).unwrap(),
                 ]
                 .into_iter();
-                vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+                vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, None, rng).unwrap()
             })
             .collect();
 
@@ -1267,7 +1270,7 @@ mod credits_migration_tests {
             assert!(amount <= RECORD_UPGRADE_LIMIT);
             total_upgraded += amount;
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).unwrap()
         };
         assert!(vm.check_transaction(&upgrade_1, None, rng).is_err());
 
@@ -1287,7 +1290,7 @@ mod credits_migration_tests {
                         Value::<CurrentNetwork>::from_str(&format!("{RECORD_UPGRADE_LIMIT}u64")).unwrap(),
                     ]
                     .into_iter();
-                    vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+                    vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, None, rng).unwrap()
                 };
 
                 transactions.push(split_transaction_3.clone());
@@ -1322,7 +1325,8 @@ mod credits_migration_tests {
             ]
             .into_iter();
             assert!(
-                vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err()
+                vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, None, rng)
+                    .is_err()
             );
         }
 
@@ -1335,7 +1339,8 @@ mod credits_migration_tests {
             };
             assert!(amount <= RECORD_UPGRADE_LIMIT);
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-            let upgrade = vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap();
+            let upgrade =
+                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).unwrap();
             assert!(vm.check_transaction(&upgrade, None, rng).is_ok());
         }
 
@@ -1350,7 +1355,9 @@ mod credits_migration_tests {
             Value::<CurrentNetwork>::from_str("1u64").unwrap(),
         ]
         .into_iter();
-        assert!(vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).is_err());
+        assert!(
+            vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, None, rng).is_err()
+        );
 
         // ----------------------------------------------------------------------------------------
         // 5. Check that `upgrade` works on the above record.
@@ -1364,7 +1371,7 @@ mod credits_migration_tests {
             };
             assert!(amount <= RECORD_UPGRADE_LIMIT);
             let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).unwrap()
         };
         assert!(vm.check_transaction(&upgrade_2, None, rng).is_ok());
 
@@ -1384,7 +1391,7 @@ mod credits_migration_tests {
 
         let record_to_spend = upgraded_records[0].clone();
         let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-        assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
+        assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
         // 7. Check that the upgraded records can now be spent.
@@ -1398,7 +1405,7 @@ mod credits_migration_tests {
                 Value::<CurrentNetwork>::from_str("1u64").unwrap(),
             ]
             .into_iter();
-            vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("credits.aleo", "transfer_private"), inputs, None, 0, None, None, rng).unwrap()
         };
 
         assert!(vm.check_transaction(&transfer_private, None, rng).is_ok());
@@ -1417,7 +1424,7 @@ mod credits_migration_tests {
                 assert!(amount <= 500_000_000_000u64);
                 total_upgraded += amount;
                 let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).unwrap()
             })
             .collect();
 
@@ -1431,7 +1438,7 @@ mod credits_migration_tests {
                 assert!(amount <= RECORD_UPGRADE_LIMIT);
                 total_upgraded += amount;
                 let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()
+                vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).unwrap()
             })
             .collect();
 
@@ -1517,7 +1524,7 @@ function local_transfer:
     ",
         )
         .unwrap();
-        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, None, rng).unwrap();
         vm.add_next_block(&crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap())
             .unwrap();
 
@@ -1528,7 +1535,7 @@ function local_transfer:
                 Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
             ]
             .into_iter();
-            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, None, rng).unwrap()
         };
         // Create a split transaction before the migration.
         let split_transaction_2 = {
@@ -1537,7 +1544,7 @@ function local_transfer:
                 Value::<CurrentNetwork>::from_str("500_000_000_000u64").unwrap(), // Use the upgrade limit
             ]
             .into_iter();
-            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("credits.aleo", "split"), inputs, None, 0, None, None, rng).unwrap()
         };
         // Create a new block that includes the split.
         let next_block = crate::vm::test_helpers::sample_next_block(
@@ -1575,7 +1582,8 @@ function local_transfer:
         ]
         .into_iter();
         assert!(
-            vm.execute(&private_key, ("test_local_calls.aleo", "proxy_transfer"), inputs, None, 0, None, rng).is_err()
+            vm.execute(&private_key, ("test_local_calls.aleo", "proxy_transfer"), inputs, None, 0, None, None, rng)
+                .is_err()
         );
 
         // ----------------------------------------------------------------------------------------
@@ -1587,8 +1595,9 @@ function local_transfer:
             Value::<CurrentNetwork>::Record(split_records[2].clone()),
         ]
         .into_iter();
-        let multi_upgrade =
-            vm.execute(&private_key, ("test_local_calls.aleo", "multi_upgrade"), inputs, None, 0, None, rng).unwrap();
+        let multi_upgrade = vm
+            .execute(&private_key, ("test_local_calls.aleo", "multi_upgrade"), inputs, None, 0, None, None, rng)
+            .unwrap();
         assert!(vm.check_transaction(&multi_upgrade, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
@@ -1597,7 +1606,7 @@ function local_transfer:
 
         // Upgrade an old record
         let inputs = [Value::<CurrentNetwork>::Record(split_records[0].clone())].into_iter();
-        let upgrade = vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap();
+        let upgrade = vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).unwrap();
         assert!(vm.check_transaction(&upgrade, None, rng).is_ok());
 
         // Add the upgrade function to a new block
@@ -1614,7 +1623,7 @@ function local_transfer:
         // Check that the upgraded record can't be upgraded again.
         let record_to_spend = upgraded_records[0].clone();
         let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
-        assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
+        assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, None, rng).is_err());
 
         // Create a transaction with local transfers
         let local_transfer = {
@@ -1624,7 +1633,8 @@ function local_transfer:
                 Value::<CurrentNetwork>::from_str("10u64").unwrap(),
             ]
             .into_iter();
-            vm.execute(&private_key, ("test_local_calls.aleo", "local_transfer"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("test_local_calls.aleo", "local_transfer"), inputs, None, 0, None, None, rng)
+                .unwrap()
         };
 
         assert!(vm.check_transaction(&local_transfer, None, rng).is_ok());
@@ -1685,7 +1695,7 @@ function transfer:
         )
         .unwrap();
 
-        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, None, rng).unwrap();
         vm.add_next_block(&crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap())
             .unwrap();
 
@@ -1699,7 +1709,7 @@ function transfer:
                 Value::<CurrentNetwork>::from_str("100000u64").unwrap(),
             ]
             .into_iter();
-            vm.execute(&private_key, ("token.aleo", "mint"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("token.aleo", "mint"), inputs, None, 0, None, None, rng).unwrap()
         };
         assert!(vm.check_transaction(&mint, None, rng).is_ok());
 
@@ -1724,7 +1734,7 @@ function transfer:
                 Value::<CurrentNetwork>::from_str("1000u64").unwrap(),
             ]
             .into_iter();
-            vm.execute(&private_key, ("token.aleo", "transfer"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("token.aleo", "transfer"), inputs, None, 0, None, None, rng).unwrap()
         };
         assert!(vm.check_transaction(&transfer_1, None, rng).is_ok());
 
@@ -1749,7 +1759,7 @@ function transfer:
                 Value::<CurrentNetwork>::from_str("1000u64").unwrap(),
             ]
             .into_iter();
-            vm.execute(&private_key, ("token.aleo", "transfer"), inputs, None, 0, None, rng).unwrap()
+            vm.execute(&private_key, ("token.aleo", "transfer"), inputs, None, 0, None, None, rng).unwrap()
         };
         assert!(vm.check_transaction(&transfer_2, None, rng).is_ok());
     }

@@ -41,7 +41,7 @@ pub trait CallTrait<N: Network> {
         &self,
         stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
         registers: &mut Registers<N, A>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<()>;
 
     /// Executes the instruction.
@@ -55,7 +55,7 @@ pub trait CallTrait<N: Network> {
                  + RegistersLoadCircuit<N, A>
                  + RegistersStoreCircuit<N, A>
              ),
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()>;
 }
@@ -67,7 +67,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
         &self,
         stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
         registers: &mut Registers<N, A>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<()> {
         let timer = timer!("Call::evaluate");
 
@@ -155,7 +155,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                  + RegistersLoadCircuit<N, A>
                  + RegistersStoreCircuit<N, A>
              ),
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Call::execute");
@@ -487,6 +487,10 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 .map(|input_id| circuit::InputID::new(circuit::Mode::Public, *input_id))
                 .collect::<Vec<_>>();
 
+            // Inject the `commitment_version` as `Mode::Private` if one was provided.
+            let commitment_version_circuit = commitment_version
+                .map(|commitment_version| circuit::CommitmentVersion::new(circuit::Mode::Private, commitment_version));
+
             // Ensure the candidate input IDs match their computed inputs.
             let (check_input_ids, _) = circuit::Request::check_input_ids::<false>(
                 &network_id,
@@ -500,7 +504,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 &tvk,
                 &tcm,
                 None,
-                commitment_version,
+                commitment_version_circuit.clone(),
             );
             A::assert(check_input_ids);
             lap!(timer, "Checked the input ids");
@@ -515,7 +519,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 &tcm,
                 response.outputs().to_vec(),
                 &function.output_types(),
-                commitment_version,
+                commitment_version_circuit,
             );
             lap!(timer, "Checked the outputs");
             // Return the circuit outputs.

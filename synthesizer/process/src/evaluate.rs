@@ -21,7 +21,7 @@ impl<N: Network> Process<N> {
     pub fn evaluate<A: circuit::Aleo<Network = N>>(
         &self,
         authorization: Authorization<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Response<N>> {
         let timer = timer!("Process::evaluate");
 

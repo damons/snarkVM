@@ -24,7 +24,7 @@ impl<N: Network> Process<N> {
         program_id: impl TryInto<ProgramID<N>>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         // Authorize the call.
@@ -41,7 +41,7 @@ impl<N: Network> Process<N> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("Process::authorize_fee_private");
@@ -89,7 +89,7 @@ impl<N: Network> Process<N> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("Process::authorize_fee_public");

@@ -93,7 +93,7 @@ impl<N: Network> Transition<N> {
         response: &Response<N>,
         output_types: &[ValueType<N>],
         output_registers: &[Option<Register<N>>],
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Self> {
         let network_id = *request.network_id();
         let program_id = *request.program_id();
@@ -208,9 +208,12 @@ impl<N: Network> Transition<N> {
                         };
 
                         // Compute the record commitment depending on the commitment version.
+                        // If no commitment version was supplied, default to `CommitmentVersion::V1`.
                         let candidate_cm = match commitment_version {
-                            CommitmentVersion::V1 => record.to_digest(&program_id, record_name)?,
-                            CommitmentVersion::V2 => record.to_commitment(&program_id, record_name, request.tvk())?,
+                            None | Some(CommitmentVersion::V1) => record.to_digest(&program_id, record_name)?,
+                            Some(CommitmentVersion::V2) => {
+                                record.to_commitment(&program_id, record_name, request.tvk())?
+                            }
                         };
 
                         // Ensure the commitment matches.

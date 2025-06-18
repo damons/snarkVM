@@ -21,7 +21,7 @@ impl<N: Network> Stack<N> {
     pub fn synthesize_key<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         function_name: &Identifier<N>,
-        commitment_version: CommitmentVersion,
+        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         // If the proving and verifying key already exist, skip the synthesis for this function.
