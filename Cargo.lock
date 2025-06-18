@@ -2686,6 +2686,7 @@ dependencies = [
  "rusty-hook",
  "self_update",
  "serde_json",
+ "snarkvm",
  "snarkvm-algorithms",
  "snarkvm-circuit",
  "snarkvm-console",

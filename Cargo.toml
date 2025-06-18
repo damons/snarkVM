@@ -105,29 +105,41 @@ default = [
   "parameters",
   "synthesizer",
   "utilities",
-  "cli"
+  "package",
+  "file",
 ]
 full = [
-  "algorithms",
-  "circuit",
-  "console",
+  "cli",
+  "default",
   "curves",
   "fields",
-  "ledger",
-  "parameters",
-  "synthesizer",
-  "utilities"
 ]
 cli = [
-  "anyhow",
-  "clap",
-  "colored",
-  "dotenvy",
-  "rand",
-  "self_update",
-  "serde_json",
-  "thiserror",
-  "ureq"
+  "circuit",
+  "utilities",
+  "package",
+  "dep:clap",
+  "dep:colored",
+  "dep:self_update",
+  "dep:thiserror",
+  "dep:ureq",
+  "dep:serde_json",
+]
+file = [
+  "console",
+  "synthesizer",
+  "snarkvm-synthesizer/snark",
+  "snarkvm-synthesizer/program",
+  "dep:serde_json"
+]
+package = [
+  "algorithms",
+  "circuit",
+  "file",
+  "ledger",
+  "snarkvm-synthesizer/process",
+  "dep:ureq",
+  "dep:dotenvy"
 ]
 aleo-cli = [ "snarkvm-synthesizer/aleo-cli" ]
 async = [ "snarkvm-ledger/async", "snarkvm-synthesizer/async" ]
@@ -222,7 +234,6 @@ version = "1"
 
 [dependencies.anyhow]
 version = "1.0.73"
-optional = true
 
 [dependencies.clap]
 version = "4.4"
@@ -242,7 +253,6 @@ version = "0.4.4"
 
 [dependencies.rand]
 version = "0.8"
-optional = true
 
 [dependencies.self_update]
 version = "0.41"
@@ -261,6 +271,11 @@ optional = true
 workspace = true
 features = ["json"]
 optional = true
+
+# Some cli helper functions are used in the tests.
+[dev-dependencies.snarkvm]
+path = "."
+features = [ "cli" ]
 
 [dev-dependencies.bincode]
 version = "1.3"
