@@ -20,8 +20,18 @@ impl<N: Network> Record<N, Plaintext<N>> {
     pub fn to_digest(&self, program_id: &ProgramID<N>, record_name: &Identifier<N>) -> Result<Field<N>> {
         // Construct the input as `(program_id || record_name || record)`.
         let input = to_bits_le![program_id, record_name, self];
+
+        // If the record is non-hiding, then remove the version bits & owner visibility bit (the last 9 bits)
+        // to maintain backwards compatibility.
+        let record_bits = match !self.is_hiding() {
+            // Version 0 - Construct the input without the version bits or owner visibility bit.
+            true => input[..input.len() - 9].to_vec(),
+            // Version 1 - Construct the input with the version bits & owner visibility bit.
+            false => input,
+        };
+
         // Compute the BHP hash of the program record.
-        N::hash_bhp1024(&input)
+        N::hash_bhp1024(&record_bits)
     }
 }
 

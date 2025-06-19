@@ -20,8 +20,11 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_le(vec),
             Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_le(vec),
@@ -43,12 +46,21 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_le(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
+            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
+        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_be(vec),
             Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_be(vec),
@@ -70,6 +82,12 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_be(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
+            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
+        }
     }
 }
 
@@ -78,8 +96,11 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_le(vec),
             Owner::Private(ciphertext) => {
@@ -106,12 +127,21 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_le(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
+            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
+        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_be(vec),
             Owner::Private(ciphertext) => {
@@ -138,5 +168,11 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_be(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
+            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
+        }
     }
 }

@@ -119,6 +119,11 @@ impl<N: Network, Private: Visibility> Record<N, Private> {
     pub const fn version(&self) -> &U8<N> {
         &self.version
     }
+
+    /// Returns `true` if the program record is a hiding variant.
+    pub fn is_hiding(&self) -> bool {
+        self.version.is_zero()
+    }
 }
 
 impl<N: Network, Private: Visibility> Record<N, Private> {

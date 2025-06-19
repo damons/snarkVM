@@ -18,8 +18,11 @@ use super::*;
 impl<N: Network> ToBits for Record<N, Plaintext<N>> {
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_le(vec),
             Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_le(vec),
@@ -39,16 +42,23 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         // Construct the nonce bits.
         self.nonce.write_bits_le(vec);
 
-        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
-        if *self.version > 0 {
-            self.version.write_bits_le(vec);
+        // Construct the version bits.
+        self.version.write_bits_le(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(true),   // Public owner
+            Owner::Private(_) => vec.push(false), // Private owner
         }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_be(vec),
             Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_be(vec),
@@ -68,9 +78,13 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         // Construct the nonce bits.
         self.nonce.write_bits_be(vec);
 
-        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
-        if *self.version > 0 {
-            self.version.write_bits_be(vec);
+        // Construct the version bits.
+        self.version.write_bits_be(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(true),   // Public owner
+            Owner::Private(_) => vec.push(false), // Private owner
         }
     }
 }
@@ -78,8 +92,11 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
 impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_le(vec),
             Owner::Private(ciphertext) => {
@@ -104,16 +121,23 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         // Construct the nonce bits.
         self.nonce.write_bits_le(vec);
 
-        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
-        if *self.version > 0 {
-            self.version.write_bits_le(vec);
+        // Construct the version bits.
+        self.version.write_bits_le(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(true),   // Public owner
+            Owner::Private(_) => vec.push(false), // Private owner
         }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the owner bits.
-        vec.push(self.owner.is_private());
         match &self.owner {
             Owner::Public(public) => public.write_bits_be(vec),
             Owner::Private(ciphertext) => {
@@ -138,9 +162,13 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         // Construct the nonce bits.
         self.nonce.write_bits_be(vec);
 
-        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
-        if *self.version > 0 {
-            self.version.write_bits_be(vec);
+        // Construct the version bits.
+        self.version.write_bits_be(vec);
+
+        // Construct the owner visibility bit.
+        match &self.owner {
+            Owner::Public(_) => vec.push(true),   // Public owner
+            Owner::Private(_) => vec.push(false), // Private owner
         }
     }
 }

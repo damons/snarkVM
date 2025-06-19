@@ -144,6 +144,11 @@ impl<A: Aleo, Private: Visibility<A>> Record<A, Private> {
     pub const fn version(&self) -> &U8<A> {
         &self.version
     }
+
+    /// Returns `true` if the program record is a hiding variant.
+    pub fn is_hiding(&self) -> Boolean<A> {
+        self.version.is_zero()
+    }
 }
 
 #[cfg(feature = "console")]

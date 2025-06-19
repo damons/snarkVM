@@ -19,13 +19,13 @@ impl<N: Network, Private: Visibility> FromBytes for Record<N, Private> {
     /// Reads the record from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Read the version.
-        let version = u8::read_le(&mut reader)?;
+        let version = U8::new(u8::read_le(&mut reader)?);
 
         // Read the owner.
-        let owner = match version {
-            0 => Owner::Public(Address::read_le(&mut reader)?),
-            1 => Owner::Private(Private::read_le(&mut reader)?),
-            2.. => return Err(error(format!("Failed to decode owner variant {index}"))),
+        let owner = match *version {
+            0 | 2 => Owner::Public(Address::read_le(&mut reader)?),
+            1 | 3 => Owner::Private(Private::read_le(&mut reader)?),
+            4.. => return Err(error(format!("Failed to decode record owner variant {version}"))),
         };
 
         // Read the number of entries in the record data.
@@ -60,28 +60,37 @@ impl<N: Network, Private: Visibility> FromBytes for Record<N, Private> {
             return Err(error("Failed to parse record: too many entries"));
         }
 
-        Ok(Self { owner, data, nonce, version: owner.version() })
+        Ok(Self { owner, data, nonce, version })
     }
 }
 
 impl<N: Network, Private: Visibility> ToBytes for Record<N, Private> {
     /// Writes the record to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
-        // Write the owner.
-        match self {
-            Owner::Public(owner) => {
-                // Write the version.
-                0u8.write_le(&mut writer)?;
-                // Write the owner.
-                owner.write_le(&mut writer)?;
-            }
-            Owner::Private(owner) => {
-                // Write the version.
-                1u8.write_le(&mut writer)?;
-                // Write the owner.
-                owner.write_le(&mut writer)?;
-            }
+        // Write the version.
+        self.version.write_le(&mut writer)?;
+
+        // Ensure the version is correct.
+        let is_version_correct = match (!self.is_hiding(), self.owner.is_public()) {
+            (true, true) => *self.version == 0,
+            (true, false) => *self.version == 1,
+            (false, true) => *self.version == 2,
+            (false, false) => *self.version == 3,
+        };
+        if !is_version_correct {
+            return Err(error(format!(
+                "Failed to encode record: version mismatch (version = {}, hiding = {}, owner = {})",
+                self.version,
+                self.is_hiding(),
+                self.owner.is_public()
+            )));
         }
+
+        // Write the owner.
+        match &self.owner {
+            Owner::Public(owner) => owner.write_le(&mut writer)?,
+            Owner::Private(owner) => owner.write_le(&mut writer)?,
+        };
 
         // Write the number of entries in the record data.
         u8::try_from(self.data.len()).or_halt_with::<N>("Record length exceeds u8::MAX").write_le(&mut writer)?;

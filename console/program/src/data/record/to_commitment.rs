@@ -25,16 +25,29 @@ impl<N: Network> Record<N, Plaintext<N>> {
     ) -> Result<Field<N>> {
         // Construct the input as `(program_id || record_name || record)`.
         let input = to_bits_le![program_id, record_name, self];
-        // Match the record version to determine how to compute the commitment.
-        match *self.version {
-            // Compute the BHP hash of the program record.
-            0 => N::hash_bhp1024(&input),
-            // Compute the BHP commitment of the program record.
-            1.. => {
+
+        // If the record is non-hiding, then remove the version bits & owner visibility bit (the last 9 bits)
+        // to maintain backwards compatibility.
+        let record_bits = match !self.is_hiding() {
+            // Version 0 - Construct the input without the version bits or owner visibility bit.
+            true => input[..input.len() - 9].to_vec(),
+            // Version 1 - Construct the input with the version bits & owner visibility bit.
+            false => input,
+        };
+
+        // Compute the BHP hash of the program record.
+        let digest = N::hash_bhp1024(&record_bits);
+
+        // If the record is non-hiding, then return the digest. Otherwise, return the commitment.
+        match !self.is_hiding() {
+            // Version 0 - Compute the BHP hash of the program record.
+            true => digest,
+            // Version 1 - Compute the BHP commitment of the program record.
+            false => {
                 // Construct the commitment nonce.
                 let cm_nonce = N::hash_to_scalar_psd2(&[N::commitment_domain(), *record_view_key])?;
                 // Compute the BHP commitment of the program record using the commitment nonce.
-                N::commit_bhp1024(&input, &cm_nonce)
+                N::commit_bhp256(&digest, &cm_nonce)
             }
         }
     }

@@ -22,8 +22,18 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         let mut input = program_id.to_bits_le();
         record_name.write_bits_le(&mut input);
         self.write_bits_le(&mut input);
+
+        // Version 0 - Construct the input without the version bits or owner visibility bit.
+        let input_v0 = input[..input.len() - 9].to_vec();
+        // Version 1 - Construct the input with the version bits & owner visibility bit.
+        let input_v1 = input;
+
+        // If the record is non-hiding, then remove the version bits & owner visibility bit (the last 9 bits)
+        // to maintain backwards compatibility.
+        let record_bits = Ternary::ternary(&!self.is_hiding(), &input_v0, &input_v1);
+
         // Compute the BHP hash of the program record.
-        A::hash_bhp1024(&input)
+        A::hash_bhp1024(&record_bits)
     }
 }
 
