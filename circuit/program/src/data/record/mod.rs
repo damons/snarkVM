@@ -147,7 +147,7 @@ impl<A: Aleo, Private: Visibility<A>> Record<A, Private> {
 
     /// Returns `true` if the program record is a hiding variant.
     pub fn is_hiding(&self) -> Boolean<A> {
-        self.version.is_zero()
+        !self.version.is_zero()
     }
 }
 

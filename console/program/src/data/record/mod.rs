@@ -122,7 +122,7 @@ impl<N: Network, Private: Visibility> Record<N, Private> {
 
     /// Returns `true` if the program record is a hiding variant.
     pub fn is_hiding(&self) -> bool {
-        self.version.is_zero()
+        !self.version.is_zero()
     }
 }
 
