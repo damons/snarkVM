@@ -73,9 +73,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
             // Set the digest if in `RecordsFilter::Spent` or `RecordsFilter::Unspent` mode.
             let digest = match filter {
-                RecordsFilter::Spent | RecordsFilter::Unspent => {
-                    record.to_digest(&program_id, record_name)?
-                },
+                RecordsFilter::Spent | RecordsFilter::Unspent => record.to_digest(&program_id, record_name)?,
                 RecordsFilter::All | RecordsFilter::SlowSpent(_) | RecordsFilter::SlowUnspent(_) => 0,
             };
 

@@ -572,7 +572,8 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
                 let nonce = A::g_scalar_multiply(&randomizer);
 
                 // Construct the record.
-                let record = circuit::Record::<A, circuit::Plaintext<A>>::from_plaintext(owner, entries, nonce, version)?;
+                let record =
+                    circuit::Record::<A, circuit::Plaintext<A>>::from_plaintext(owner, entries, nonce, version)?;
                 // Store the record.
                 registers.store_circuit(stack, &self.destination, circuit::Value::Record(record))
             }

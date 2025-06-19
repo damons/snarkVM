@@ -229,8 +229,7 @@ mod tests {
   _nonce: 0group.public,
   _version: 0u8.public
 }";
-        let given =
-            "{ owner: aleo1d5hg2z3ma00382pngntdp68e74zv54jdxy249qhaujhks9c72yrs33ddah.private, _nonce: 0group.public, _version: 0u8.public }";
+        let given = "{ owner: aleo1d5hg2z3ma00382pngntdp68e74zv54jdxy249qhaujhks9c72yrs33ddah.private, _nonce: 0group.public, _version: 0u8.public }";
         let (remainder, candidate) = Record::<CurrentNetwork, Plaintext<CurrentNetwork>>::parse(given)?;
         println!("\nExpected: {expected}\n\nFound: {candidate}\n");
         assert_eq!(expected, candidate.to_string());
@@ -242,8 +241,7 @@ mod tests {
   _nonce: 0group.public,
   _version: 1u8.public
 }";
-        let given =
-            "{ owner: aleo1d5hg2z3ma00382pngntdp68e74zv54jdxy249qhaujhks9c72yrs33ddah.private, _nonce: 0group.public, _version: 1u8.public }";
+        let given = "{ owner: aleo1d5hg2z3ma00382pngntdp68e74zv54jdxy249qhaujhks9c72yrs33ddah.private, _nonce: 0group.public, _version: 1u8.public }";
         let (remainder, candidate) = Record::<CurrentNetwork, Plaintext<CurrentNetwork>>::parse(given)?;
         println!("\nExpected: {expected}\n\nFound: {candidate}\n");
         assert_eq!(expected, candidate.to_string());

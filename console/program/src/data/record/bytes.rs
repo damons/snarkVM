@@ -18,8 +18,16 @@ use super::*;
 impl<N: Network, Private: Visibility> FromBytes for Record<N, Private> {
     /// Reads the record from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
+        // Read the version.
+        let version = u8::read_le(&mut reader)?;
+
         // Read the owner.
-        let owner = Owner::read_le(&mut reader)?;
+        let owner = match version {
+            0 => Owner::Public(Address::read_le(&mut reader)?),
+            1 => Owner::Private(Private::read_le(&mut reader)?),
+            2.. => return Err(error(format!("Failed to decode owner variant {index}"))),
+        };
+
         // Read the number of entries in the record data.
         let num_entries = u8::read_le(&mut reader)?;
         // Read the record data.
@@ -37,6 +45,7 @@ impl<N: Network, Private: Visibility> FromBytes for Record<N, Private> {
             // Add the entry.
             data.insert(identifier, entry);
         }
+
         // Read the nonce.
         let nonce = Group::read_le(&mut reader)?;
 
@@ -59,7 +68,21 @@ impl<N: Network, Private: Visibility> ToBytes for Record<N, Private> {
     /// Writes the record to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Write the owner.
-        self.owner.write_le(&mut writer)?;
+        match self {
+            Owner::Public(owner) => {
+                // Write the version.
+                0u8.write_le(&mut writer)?;
+                // Write the owner.
+                owner.write_le(&mut writer)?;
+            }
+            Owner::Private(owner) => {
+                // Write the version.
+                1u8.write_le(&mut writer)?;
+                // Write the owner.
+                owner.write_le(&mut writer)?;
+            }
+        }
+
         // Write the number of entries in the record data.
         u8::try_from(self.data.len()).or_halt_with::<N>("Record length exceeds u8::MAX").write_le(&mut writer)?;
         // Write each entry.
@@ -75,6 +98,7 @@ impl<N: Network, Private: Visibility> ToBytes for Record<N, Private> {
             // Write the bytes.
             bytes.write_le(&mut writer)?;
         }
+
         // Write the nonce.
         self.nonce.write_le(&mut writer)
     }

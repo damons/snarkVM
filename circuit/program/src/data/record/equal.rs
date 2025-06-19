@@ -33,7 +33,9 @@ impl<A: Aleo, Private: Visibility<A>> Equal<Self> for Record<A, Private> {
         }
 
         // Check the `owner`, `data`, `nonce`, and `version`.
-        self.owner.is_equal(&other.owner) & equal & self.nonce.is_equal(&other.nonce)
+        self.owner.is_equal(&other.owner)
+            & equal
+            & self.nonce.is_equal(&other.nonce)
             & self.version.is_equal(&other.version)
     }
 
@@ -52,7 +54,9 @@ impl<A: Aleo, Private: Visibility<A>> Equal<Self> for Record<A, Private> {
         }
 
         // Check the `owner`, `data`, `nonce`, and `version`.
-        self.owner.is_not_equal(&other.owner) | not_equal | self.nonce.is_not_equal(&other.nonce)
+        self.owner.is_not_equal(&other.owner)
+            | not_equal
+            | self.nonce.is_not_equal(&other.nonce)
             | self.version.is_not_equal(&other.version)
     }
 }

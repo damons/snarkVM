@@ -113,7 +113,7 @@ impl<A: Aleo> Response<A> {
                         };
 
                         // Compute the record commitment.
-                        let commitment = record.to_commitment(program_id, &Identifier::constant(*record_name), );
+                        let commitment = record.to_commitment(program_id, &Identifier::constant(*record_name));
 
                         // Prepare the index as a constant field element.
                         let output_index = Field::constant(console::Field::from_u64(output_register.locator()));

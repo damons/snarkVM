@@ -18,17 +18,25 @@ use super::*;
 impl<N: Network> ToBits for Record<N, Plaintext<N>> {
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_le(vec),
+            Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_le(vec),
+            _ => N::halt("Internal error: plaintext to_bits_le corrupted in record owner"),
+        };
+
         // Compute the data bits.
         let mut data_bits_le = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_le(vec);
+        // Construct the data bits.
         u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_le(vec);
 
         // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
@@ -39,17 +47,25 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_be(vec),
+            Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_be(vec),
+            _ => N::halt("Internal error: plaintext to_bits_be corrupted in record owner"),
+        };
+
         // Compute the data bits.
         let mut data_bits_be = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_be(vec);
+        // Construct the data bits.
         u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_be(vec);
 
         // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
@@ -62,17 +78,30 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
 impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_le(vec),
+            Owner::Private(ciphertext) => {
+                // Ensure there is exactly one field element in the ciphertext.
+                match ciphertext.len() == 1 {
+                    true => ciphertext[0].write_bits_le(vec),
+                    false => N::halt("Internal error: ciphertext to_bits_le corrupted in record owner"),
+                }
+            }
+        };
+
         // Compute the data bits.
         let mut data_bits_le = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_le(vec);
+        // Construct the data bits.
         u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_le(vec);
 
         // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
@@ -83,17 +112,30 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_be(vec),
+            Owner::Private(ciphertext) => {
+                // Ensure there is exactly one field element in the ciphertext.
+                match ciphertext.len() == 1 {
+                    true => ciphertext[0].write_bits_be(vec),
+                    false => N::halt("Internal error: ciphertext to_bits_be corrupted in record owner"),
+                }
+            }
+        };
+
         // Compute the data bits.
         let mut data_bits_be = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_be(vec);
+        // Construct the data bits.
         u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_be(vec);
 
         // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.

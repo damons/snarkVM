@@ -20,17 +20,25 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_le(vec),
+            Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_le(vec),
+            _ => A::halt("Internal error: plaintext to_bits_le corrupted in record owner"),
+        };
+
         // Compute the data bits.
         let mut data_bits_le = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_le(vec);
+        // Construct the data bits.
         U32::constant(console::U32::new(data_bits_le.len() as u32)).write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_le(vec);
 
         // Eject the version to check whether to construct the version bits.
@@ -42,17 +50,25 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_be(vec),
+            Owner::Private(Plaintext::Literal(Literal::Address(address), ..)) => address.write_bits_be(vec),
+            _ => A::halt("Internal error: plaintext to_bits_be corrupted in record owner"),
+        };
+
         // Compute the data bits.
         let mut data_bits_be = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_be(vec);
+        // Construct the data bits.
         U32::constant(console::U32::new(data_bits_be.len() as u32)).write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_be(vec);
 
         // Eject the version to check whether to construct the version bits.
@@ -68,17 +84,30 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_le(vec),
+            Owner::Private(ciphertext) => {
+                // Ensure there is exactly one field element in the ciphertext.
+                match ciphertext.len() == 1 {
+                    true => ciphertext[0].write_bits_le(vec),
+                    false => A::halt("Internal error: ciphertext to_bits_le corrupted in record owner"),
+                }
+            }
+        };
+
         // Compute the data bits.
         let mut data_bits_le = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_le(vec);
+        // Construct the data bits.
         U32::constant(console::U32::new(data_bits_le.len() as u32)).write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_le(vec);
 
         // Eject the version to check whether to construct the version bits.
@@ -90,17 +119,30 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<Self::Boolean>) {
+        // Construct the owner bits.
+        vec.push(self.owner.is_private());
+        match &self.owner {
+            Owner::Public(public) => public.write_bits_be(vec),
+            Owner::Private(ciphertext) => {
+                // Ensure there is exactly one field element in the ciphertext.
+                match ciphertext.len() == 1 {
+                    true => ciphertext[0].write_bits_be(vec),
+                    false => A::halt("Internal error: ciphertext to_bits_be corrupted in record owner"),
+                }
+            }
+        };
+
         // Compute the data bits.
         let mut data_bits_be = vec![];
         for (identifier, entry) in &self.data {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
-
-        // Construct the record bits.
-        self.owner.write_bits_be(vec);
+        // Construct the data bits.
         U32::constant(console::U32::new(data_bits_be.len() as u32)).write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
+
+        // Construct the nonce bits.
         self.nonce.write_bits_be(vec);
 
         // Eject the version to check whether to construct the version bits.

@@ -34,7 +34,7 @@ mod to_commitment;
 mod to_digest;
 mod to_fields;
 
-use crate::{Access, Ciphertext, Identifier, Plaintext, ProgramID, Visibility};
+use crate::{Access, Ciphertext, Identifier, Literal, Plaintext, ProgramID, Visibility};
 use snarkvm_circuit_account::{PrivateKey, ViewKey};
 use snarkvm_circuit_network::Aleo;
 use snarkvm_circuit_types::{Boolean, Field, Group, Scalar, U8, U32, environment::prelude::*};
@@ -181,7 +181,7 @@ impl<A: Aleo> Eject for Record<A, Plaintext<A>> {
             owner,
             self.data.iter().map(|(identifier, entry)| (identifier, entry).eject_value()).collect::<IndexMap<_, _>>(),
             self.nonce.eject_value(),
-            self.version.eject_value()
+            self.version.eject_value(),
         ) {
             Ok(record) => record,
             Err(error) => A::halt(format!("Record::<Plaintext>::eject_value: {error}")),
@@ -224,7 +224,7 @@ impl<A: Aleo> Eject for Record<A, Ciphertext<A>> {
             owner,
             self.data.iter().map(|(identifier, entry)| (identifier, entry).eject_value()).collect::<IndexMap<_, _>>(),
             self.nonce.eject_value(),
-            self.version.eject_value()
+            self.version.eject_value(),
         ) {
             Ok(record) => record,
             Err(error) => A::halt(format!("Record::<Ciphertext>::eject_value: {error}")),
