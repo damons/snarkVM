@@ -48,6 +48,7 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
         self.version.write_bits_le(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
             Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
@@ -84,6 +85,7 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
         self.version.write_bits_be(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
             Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
@@ -129,6 +131,7 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
         self.version.write_bits_le(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
             Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
@@ -170,6 +173,7 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
         self.version.write_bits_be(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
             Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner

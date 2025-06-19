@@ -46,6 +46,7 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         self.version.write_bits_le(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(true),   // Public owner
             Owner::Private(_) => vec.push(false), // Private owner
@@ -82,6 +83,7 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         self.version.write_bits_be(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(true),   // Public owner
             Owner::Private(_) => vec.push(false), // Private owner
@@ -125,6 +127,7 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         self.version.write_bits_le(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(true),   // Public owner
             Owner::Private(_) => vec.push(false), // Private owner
@@ -166,6 +169,7 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         self.version.write_bits_be(vec);
 
         // Construct the owner visibility bit.
+        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
         match &self.owner {
             Owner::Public(_) => vec.push(true),   // Public owner
             Owner::Private(_) => vec.push(false), // Private owner
