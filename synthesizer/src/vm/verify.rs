@@ -215,17 +215,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         );
                     }
                 }
-                // If the program checksum exists, then verify that it is correct.
-                if let Some(given_checksum) = deployment.program_checksum() {
-                    // Compute the expected checksum.
-                    let expected_checksum = deployment.program().to_checksum();
-                    ensure!(
-                        given_checksum == &expected_checksum,
-                        "The checksum given in the deployment did not match the expected checksum\n('[{}]' != '[{}]')",
-                        given_checksum.iter().join(", "),
-                        expected_checksum.iter().join(", ")
-                    );
-                }
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {
                     // Ensure the program owner matches the owner in the transaction.
@@ -561,8 +550,8 @@ mod tests {
         // Acquire a read lock on the process to ensure that the editions are not updated while we are reading them.
         let process_lock = vm.process();
         let process = process_lock.read();
-        // Get the program editions.
-        let program_editions = transaction
+        // Get the program checksums.
+        let program_checksums = transaction
             .transitions()
             .map(|transition| {
                 process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
@@ -570,7 +559,7 @@ mod tests {
             .collect::<Result<Vec<_>>>()
             .unwrap();
         // Return the cache key.
-        (transaction.id(), program_editions)
+        (transaction.id(), program_checksums)
     }
 
     #[test]

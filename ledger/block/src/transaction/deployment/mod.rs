@@ -80,13 +80,24 @@ impl<N: Network> Deployment<N> {
         // Ensure that either the both the program checksum and owner are present, or both are absent.
         // The call to `Deployment::version` implicitly performs this check.
         self.version()?;
-        // Ensure that if the program checksum is absent, then the edition is zero.
-        if self.program_checksum.is_none() {
-            ensure!(
-                self.edition == 0,
-                "If the program checksum is absent, but the edition must be zero {}",
-                self.edition
-            );
+        // Validate the deployment based on the program checksum.
+        match self.program_checksum {
+            // If the program checksum is present, then ensure that it matches that of the program.
+            Some(program_checksum) => {
+                ensure!(
+                    program_checksum == self.program.to_checksum(),
+                    "The program checksum in the deployment does not match the computed checksum for '{program_id}'"
+                );
+            }
+            // If the program checksum is absent, then verify that the edition is zero.
+            // It must be the case that this program was deployed before upgradability was introduced.
+            None => {
+                ensure!(
+                    self.edition == 0,
+                    "If the program checksum is absent, then the edition must be zero, but found {}",
+                    self.edition
+                );
+            }
         }
         // Ensure the program contains functions.
         ensure!(

@@ -81,8 +81,8 @@ use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};
 use rayon::prelude::*;
 
 // The key for the partially-verified transactions cache.
-// The key is a tuple of the transaction ID and a list of program editions for the transitions in the transaction.
-// Note: If a program is upgraded, then the program edition will change, effectively invalidating the previously cached result.
+// The key is a tuple of the transaction ID and a list of program checksums for the transitions in the transaction.
+// Note: If a program is upgraded and its contents are changed, then the program checksums will change, invalidating the previously cached result.
 type TransactionCacheKey<N> = (<N as Network>::TransactionID, Vec<Field<N>>);
 
 #[derive(Clone)]
