@@ -16,9 +16,9 @@
 use super::*;
 
 impl<N: Network, Private: Visibility> Record<N, Private> {
-    /// A helper method to derive the tag from the `sk_tag` and commitment.
-    pub fn tag(sk_tag: Field<N>, commitment: Field<N>) -> Result<Field<N>> {
-        // Compute the tag as `Hash(sk_tag, commitment)`.
-        N::hash_psd2(&[sk_tag, commitment])
+    /// A helper method to derive the tag from the `sk_tag` and digest.
+    pub fn tag(sk_tag: Field<N>, digest: Field<N>) -> Result<Field<N>> {
+        // Compute the tag as `Hash(sk_tag, digest)`.
+        N::hash_psd2(&[sk_tag, digest])
     }
 }

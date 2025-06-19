@@ -207,21 +207,17 @@ impl<N: Network> Transition<N> {
                             None => bail!("Expected a register to be paired with a record output"),
                         };
 
-                        // Compute the record commitment depending on the commitment version.
-                        // If the commitment version was set, always use the latest commitment version for the outputs.
-                        let candidate_cm = match commitment_version {
-                            None => record.to_digest(&program_id, record_name)?,
-                            // TODO (raychu86): Record Commitment - Check validity of this.
-                            Some(_) => record.to_commitment(&program_id, record_name, request.tvk())?,
-                        };
-
-                        // Ensure the commitment matches.
-                        ensure!(*commitment == candidate_cm, "The output record commitment is incorrect");
-
                         // Construct the (console) output index as a field element.
                         let index = Field::from_u64(output_register.locator());
                         // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
                         let randomizer = N::hash_to_scalar_psd2(&[*request.tvk(), index])?;
+
+                        // Compute the record view key.
+                        let record_view_key = (record.owner() * randomizer).to_x_coordinate();
+                        // Compute the record commitment.
+                        let candidate_cm = record.to_commitment(&program_id, record_name, record_view_key)?;
+                        // Ensure the commitment matches.
+                        ensure!(*commitment == candidate_cm, "The output record commitment is incorrect");
 
                         // Encrypt the record, using the randomizer.
                         let record_ciphertext = record.encrypt(randomizer)?;

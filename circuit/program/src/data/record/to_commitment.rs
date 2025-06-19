@@ -17,21 +17,28 @@ use super::*;
 
 impl<A: Aleo> Record<A, Plaintext<A>> {
     /// Returns the record commitment.
-    pub fn to_commitment(&self, program_id: &ProgramID<A>, record_name: &Identifier<A>, rvk: Field<A>) -> Field<A> {
+    pub fn to_commitment(&self, program_id: &ProgramID<A>, record_name: &Identifier<A>, record_view_key: Field<A>) -> Field<A> {
         // Construct the input as `(program_id || record_name || record)`.
         let mut input = program_id.to_bits_le();
         record_name.write_bits_le(&mut input);
         self.write_bits_le(&mut input);
+
+        // Compute the BHP hash of the program record.
+        let digest = A::hash_bhp1024(&input);
+
         // Construct the cm_nonce.
-        let cm_nonce = A::hash_to_scalar_psd2(&[A::commitment_domain(), rvk]);
-        // Compute the BHP commitment of the record digest.
-        A::commit_bhp1024(&input, &cm_nonce)
+        let cm_nonce = A::hash_to_scalar_psd2(&[A::commitment_domain(), record_view_key]);
+        // Compute the BHP commitment of the program record.
+        let commitment = A::commit_bhp1024(&input, &cm_nonce);
+
+        // If the version is 0, return the digest. Otherwise, return the commitment.
+        Ternary::ternary(&self.version.is_zero(), &digest, &commitment)
     }
 }
 
 impl<A: Aleo> Record<A, Ciphertext<A>> {
     /// Returns the record commitment.
-    pub fn to_commitment(&self, _program_id: &ProgramID<A>, _record_name: &Identifier<A>, _rvk: &Field<A>) -> Field<A> {
+    pub fn to_commitment(&self, _program_id: &ProgramID<A>, _record_name: &Identifier<A>, _record_view_key: &Field<A>) -> Field<A> {
         A::halt("Illegal operation: Record::to_commitment() cannot be invoked on the `Ciphertext` variant.")
     }
 }

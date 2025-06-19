@@ -30,6 +30,11 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
         self.nonce.write_bits_le(vec);
+
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version > 0 {
+            self.version.write_bits_le(vec);
+        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
@@ -46,6 +51,11 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
         self.nonce.write_bits_be(vec);
+
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version > 0 {
+            self.version.write_bits_be(vec);
+        }
     }
 }
 
@@ -64,6 +74,11 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
         self.nonce.write_bits_le(vec);
+
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version > 0 {
+            self.version.write_bits_le(vec);
+        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
@@ -80,5 +95,10 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
         self.nonce.write_bits_be(vec);
+
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version > 0 {
+            self.version.write_bits_be(vec);
+        }
     }
 }

@@ -32,7 +32,7 @@ mod plaintext;
 pub use plaintext::Plaintext;
 
 mod record;
-pub use record::{CommitmentVersion, Entry, Owner, Record};
+pub use record::{CommitmentVersion, Entry, Owner, RecordVersion, Record};
 
 mod register;
 pub use register::Register;

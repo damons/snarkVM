@@ -16,21 +16,21 @@
 use super::*;
 
 impl<A: Aleo, Private: Visibility<A>> Record<A, Private> {
-    /// A helper method to derive the serial number from the private key and commitment.
-    pub fn serial_number(private_key: PrivateKey<A>, commitment: Field<A>) -> Field<A> {
-        // Compute the generator `H` as `HashToGroup(commitment)`.
-        let h = A::hash_to_group_psd2(&[A::serial_number_domain(), commitment.clone()]);
+    /// A helper method to derive the serial number from the private key and digest.
+    pub fn serial_number(private_key: PrivateKey<A>, digest: Field<A>) -> Field<A> {
+        // Compute the generator `H` as `HashToGroup(digest)`.
+        let h = A::hash_to_group_psd2(&[A::serial_number_domain(), digest.clone()]);
         // Compute `gamma` as `sk_sig * H`.
         let gamma = h * private_key.sk_sig();
         // Compute the serial number from `gamma`.
-        Self::serial_number_from_gamma(&gamma, commitment)
+        Self::serial_number_from_gamma(&gamma, digest)
     }
 
-    /// A helper method to derive the serial number from the gamma and commitment.
-    pub fn serial_number_from_gamma(gamma: &Group<A>, commitment: Field<A>) -> Field<A> {
+    /// A helper method to derive the serial number from the gamma and digest.
+    pub fn serial_number_from_gamma(gamma: &Group<A>, digest: Field<A>) -> Field<A> {
         // Compute `sn_nonce` as `Hash(COFACTOR * gamma)`.
         let sn_nonce = A::hash_to_scalar_psd2(&[A::serial_number_domain(), gamma.mul_by_cofactor().to_x_coordinate()]);
-        // Compute `serial_number` as `Commit(commitment, sn_nonce)`.
-        A::commit_bhp512(&(A::serial_number_domain(), commitment).to_bits_le(), &sn_nonce)
+        // Compute `serial_number` as `Commit(digest, sn_nonce)`.
+        A::commit_bhp512(&(A::serial_number_domain(), digest).to_bits_le(), &sn_nonce)
     }
 }

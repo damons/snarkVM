@@ -89,6 +89,6 @@ impl<N: Network> Record<N, Plaintext<N>> {
         }
 
         // Return the encrypted record.
-        Self::from_ciphertext(owner, encrypted_data, self.nonce)
+        Self::from_ciphertext(owner, encrypted_data, self.nonce, self.version)
     }
 }

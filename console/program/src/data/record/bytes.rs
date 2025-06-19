@@ -51,7 +51,7 @@ impl<N: Network, Private: Visibility> FromBytes for Record<N, Private> {
             return Err(error("Failed to parse record: too many entries"));
         }
 
-        Ok(Self { owner, data, nonce })
+        Ok(Self { owner, data, nonce, version: owner.version() })
     }
 }
 

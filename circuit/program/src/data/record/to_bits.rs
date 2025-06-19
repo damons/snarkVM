@@ -32,6 +32,12 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
         U32::constant(console::U32::new(data_bits_le.len() as u32)).write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
         self.nonce.write_bits_le(vec);
+
+        // Eject the version to check whether to construct the version bits.
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version.eject_value() > 0 {
+            self.version.write_bits_le(vec);
+        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
@@ -48,6 +54,12 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
         U32::constant(console::U32::new(data_bits_be.len() as u32)).write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
         self.nonce.write_bits_be(vec);
+
+        // Eject the version to check whether to construct the version bits.
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version.eject_value() > 0 {
+            self.version.write_bits_be(vec);
+        }
     }
 }
 
@@ -68,6 +80,12 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
         U32::constant(console::U32::new(data_bits_le.len() as u32)).write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
         self.nonce.write_bits_le(vec);
+
+        // Eject the version to check whether to construct the version bits.
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version.eject_value() > 0 {
+            self.version.write_bits_le(vec);
+        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
@@ -84,5 +102,11 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
         U32::constant(console::U32::new(data_bits_be.len() as u32)).write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
         self.nonce.write_bits_be(vec);
+
+        // Eject the version to check whether to construct the version bits.
+        // If the version is 0, do not construct the version bits. Otherwise, construct the version bits.
+        if *self.version.eject_value() > 0 {
+            self.version.write_bits_be(vec);
+        }
     }
 }

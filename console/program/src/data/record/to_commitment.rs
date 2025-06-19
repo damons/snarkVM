@@ -21,14 +21,22 @@ impl<N: Network> Record<N, Plaintext<N>> {
         &self,
         program_id: &ProgramID<N>,
         record_name: &Identifier<N>,
-        rvk: &Field<N>,
+        record_view_key: &Field<N>,
     ) -> Result<Field<N>> {
         // Construct the input as `(program_id || record_name || record)`.
         let input = to_bits_le![program_id, record_name, self];
-        // Construct the commitment nonce.
-        let cm_nonce = N::hash_to_scalar_psd2(&[N::commitment_domain(), *rvk])?;
-        // Compute the BHP commitment of the record digest.
-        N::commit_bhp1024(&input, &cm_nonce)
+        // Match the record version to determine how to compute the commitment.
+        match *self.version {
+            // Compute the BHP hash of the program record.
+            0 => N::hash_bhp1024(&input),
+            // Compute the BHP commitment of the program record.
+            1.. => {
+                // Construct the commitment nonce.
+                let cm_nonce = N::hash_to_scalar_psd2(&[N::commitment_domain(), *record_view_key])?;
+                // Compute the BHP commitment of the program record using the commitment nonce.
+                N::commit_bhp1024(&input, &cm_nonce)
+            }
+        }
     }
 }
 
@@ -38,7 +46,7 @@ impl<N: Network> Record<N, Ciphertext<N>> {
         &self,
         _program_id: &ProgramID<N>,
         _record_name: &Identifier<N>,
-        _rvk: &Field<N>,
+        _record_view_key: &Field<N>,
     ) -> Result<Field<N>> {
         bail!("Illegal operation: Record::to_commitment() cannot be invoked on the `Ciphertext` variant.")
     }

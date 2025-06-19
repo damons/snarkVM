@@ -71,17 +71,25 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 (Cow::Owned(commitment), record) => (commitment, record),
             };
 
+            // Set the digest if in `RecordsFilter::Spent` or `RecordsFilter::Unspent` mode.
+            let digest = match filter {
+                RecordsFilter::Spent | RecordsFilter::Unspent => {
+                    record.to_digest(&program_id, record_name)?
+                },
+                RecordsFilter::All | RecordsFilter::SlowSpent(_) | RecordsFilter::SlowUnspent(_) => 0,
+            };
+
             // Determine whether to decrypt this record (or not), based on the filter.
             let commitment = match filter {
                 RecordsFilter::All => Ok(Some(commitment)),
-                RecordsFilter::Spent => Record::<N, Plaintext<N>>::tag(sk_tag, commitment).and_then(|tag| {
+                RecordsFilter::Spent => Record::<N, Plaintext<N>>::tag(sk_tag, digest).and_then(|tag| {
                     // Determine if the record is spent.
                     self.contains_tag(&tag).map(|is_spent| match is_spent {
                         true => Some(commitment),
                         false => None,
                     })
                 }),
-                RecordsFilter::Unspent => Record::<N, Plaintext<N>>::tag(sk_tag, commitment).and_then(|tag| {
+                RecordsFilter::Unspent => Record::<N, Plaintext<N>>::tag(sk_tag, digest).and_then(|tag| {
                     // Determine if the record is spent.
                     self.contains_tag(&tag).map(|is_spent| match is_spent {
                         true => None,

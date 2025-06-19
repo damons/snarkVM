@@ -113,14 +113,7 @@ impl<A: Aleo> Response<A> {
                         };
 
                         // Compute the record commitment.
-                        let commitment = match &commitment_version {
-                            None => record.to_digest(program_id, &Identifier::constant(*record_name)),
-                            // TODO (raychu86): Record Commitment - Check validity of this.
-                            // If the commitment version was set, always use the latest commitment version for the outputs.
-                            Some(_) => {
-                                record.to_commitment(program_id, &Identifier::constant(*record_name), tvk.clone())
-                            }
-                        };
+                        let commitment = record.to_commitment(program_id, &Identifier::constant(*record_name), );
 
                         // Prepare the index as a constant field element.
                         let output_index = Field::constant(console::Field::from_u64(output_register.locator()));

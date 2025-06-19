@@ -77,6 +77,6 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         }
 
         // Return the encrypted record.
-        Record { owner, data: encrypted_data, nonce: self.nonce.clone() }
+        Record { owner, data: encrypted_data, nonce: self.nonce.clone(), version: self.version.clone() }
     }
 }
