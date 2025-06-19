@@ -101,7 +101,7 @@ impl<N: Network> Parser for Record<N, Plaintext<N>> {
         // Parse the whitespace and comments from the string.
         let (string, _) = Sanitizer::parse(string)?;
         // Parse the "_version" tag from the string.
-        let (string, version) = match opt(tag("_version")(string)?) {
+        let (string, version) = match opt(tag("_version"))(string)? {
             // If there is no version, then set the version to zero.
             (string, None) => (string, U8::zero()),
             // If there is a version, then parse the version from the string.
