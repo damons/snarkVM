@@ -214,7 +214,7 @@ impl<A: Aleo> Request<A> {
                         input_hash.is_equal(&A::hash_psd8(&ciphertext.to_fields()))
                     }
                     // A record input is computed to its serial number.
-                    InputID::Record(commitment, gamma, serial_number, tag) => {
+                    InputID::Record(digest, gamma, serial_number, tag) => {
                         // Retrieve the record.
                         let record = match &input {
                             Value::Record(record) => record,
@@ -228,21 +228,13 @@ impl<A: Aleo> Request<A> {
                             // Ensure the input is a record.
                             _ => A::halt(format!("Expected a record input at input {index}")),
                         };
-                        // Compute the record commitment.
-                        let candidate_commitment = match &commitment_version {
-                            None => record.to_digest(program_id, &record_name),
-                            Some(commitment_version) => {
-                                let digest = record.to_digest(program_id, &record_name);
-                                let commitment = record.to_commitment(program_id, &record_name, tvk.clone());
-                                Ternary::ternary(&commitment_version.is_zero(), &digest, &commitment)
-                            }
-                        };
+                        // Compute the record digest.
+                        let candidate_digest = record.to_digest(program_id, &record_name);
                         // Compute the `candidate_serial_number` from `gamma`.
                         let candidate_serial_number =
-                            Record::<A, Plaintext<A>>::serial_number_from_gamma(gamma, candidate_commitment.clone());
+                            Record::<A, Plaintext<A>>::serial_number_from_gamma(gamma, candidate_digest.clone());
                         // Compute the tag.
-                        let candidate_tag =
-                            Record::<A, Plaintext<A>>::tag(sk_tag.clone(), candidate_commitment.clone());
+                        let candidate_tag = Record::<A, Plaintext<A>>::tag(sk_tag.clone(), candidate_digest.clone());
 
                         if CREATE_MESSAGE {
                             // Ensure the signature is declared.
@@ -255,8 +247,8 @@ impl<A: Aleo> Request<A> {
                             // Retrieve the response from the signature.
                             let response = signature.response();
 
-                            // Compute the generator `H` as `HashToGroup(commitment)`.
-                            let h = A::hash_to_group_psd2(&[A::serial_number_domain(), candidate_commitment.clone()]);
+                            // Compute the generator `H` as `HashToGroup(digest)`.
+                            let h = A::hash_to_group_psd2(&[A::serial_number_domain(), candidate_digest.clone()]);
                             // Compute `h_r` as `(challenge * gamma) + (response * H)`, equivalent to `r * H`.
                             let h_r = (gamma.deref() * challenge) + (&h * response);
 
@@ -267,8 +259,8 @@ impl<A: Aleo> Request<A> {
 
                         // Ensure the candidate serial number matches the expected serial number.
                         serial_number.is_equal(&candidate_serial_number)
-                            // Ensure the candidate commitment matches the expected commitment.
-                            & commitment.is_equal(&candidate_commitment)
+                            // Ensure the candidate digest matches the expected digest.
+                            & digest.is_equal(&candidate_digest)
                             // Ensure the candidate tag matches the expected tag.
                             & tag.is_equal(&candidate_tag)
                             // Ensure the record belongs to the signer.

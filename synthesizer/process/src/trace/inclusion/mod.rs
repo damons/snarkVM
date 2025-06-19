@@ -52,8 +52,8 @@ pub enum InclusionAssignmentWrapper<N: Network> {
 
 #[derive(Clone, Debug)]
 struct InputTask<N: Network> {
-    /// The commitment.
-    commitment: Field<N>,
+    /// The digest.
+    digest: Field<N>,
     /// The gamma value.
     gamma: Group<N>,
     /// The serial number.
@@ -94,13 +94,13 @@ impl<N: Network> Inclusion<N> {
         // Process the inputs.
         for input_id in input_ids {
             // Filter the inputs for records.
-            if let InputID::Record(commitment, gamma, serial_number, ..) = input_id {
+            if let InputID::Record(digest, gamma, serial_number, ..) = input_id {
                 // Add the record to the input tasks.
                 input_tasks.push(InputTask {
-                    commitment: *commitment,
+                    digest: *digest,
                     gamma: *gamma,
                     serial_number: *serial_number,
-                    local: self.output_commitments.get(commitment).cloned(),
+                    local: self.output_commitments.get(digest).cloned(),
                 });
             }
         }

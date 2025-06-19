@@ -176,31 +176,27 @@ impl<N: Network> Request<N> {
                     // Ensure the record belongs to the signer.
                     ensure!(**record.owner() == signer, "Input record for '{program_id}' must belong to the signer");
 
-                    // Compute the record commitment depending on the commitment version.
-                    // If no commitment version was supplied, default to `CommitmentVersion::V1`.
-                    let commitment = match commitment_version {
-                        None | Some(CommitmentVersion::V1) => record.to_digest(&program_id, record_name)?,
-                        Some(CommitmentVersion::V2) => record.to_commitment(&program_id, record_name, &tvk)?,
-                    };
+                    // Compute the record digest.
+                    let digest = record.to_digest(&program_id, record_name)?;
 
                     // Compute the generator `H` as `HashToGroup(commitment)`.
-                    let h = N::hash_to_group_psd2(&[N::serial_number_domain(), commitment])?;
+                    let h = N::hash_to_group_psd2(&[N::serial_number_domain(), digest])?;
                     // Compute `h_r` as `r * H`.
                     let h_r = h * r;
                     // Compute `gamma` as `sk_sig * H`.
                     let gamma = h * sk_sig;
 
                     // Compute the `serial_number` from `gamma`.
-                    let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, commitment)?;
+                    let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, digest)?;
                     // Compute the tag.
-                    let tag = Record::<N, Plaintext<N>>::tag(sk_tag, commitment)?;
+                    let tag = Record::<N, Plaintext<N>>::tag(sk_tag, digest)?;
 
                     // Add (`H`, `r * H`, `gamma`, `tag`) to the preimage.
                     message.extend([h, h_r, gamma].iter().map(|point| point.to_x_coordinate()));
                     message.push(tag);
 
                     // Add the input ID.
-                    input_ids.push(InputID::Record(commitment, gamma, serial_number, tag));
+                    input_ids.push(InputID::Record(digest, gamma, serial_number, tag));
                 }
                 // An external record input is hashed (using `tvk`) to a field element.
                 ValueType::ExternalRecord(..) => {

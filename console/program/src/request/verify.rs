@@ -132,13 +132,13 @@ impl<N: Network> Request<N> {
                         // Hash the ciphertext to a field element.
                         let candidate_hash = N::hash_psd8(&ciphertext.to_fields()?)?;
                         // Ensure the input hash matches.
-                        ensure!(*input_hash == candidate_hash, "Expected a private input with the same commitment");
+                        ensure!(*input_hash == candidate_hash, "Expected a private input with the same hash");
 
                         // Add the input hash to the message.
                         message.push(candidate_hash);
                     }
                     // A record input is computed to its serial number.
-                    InputID::Record(commitment, gamma, serial_number, tag) => {
+                    InputID::Record(digest, gamma, serial_number, tag) => {
                         // Retrieve the record.
                         let record = match &input {
                             Value::Record(record) => record,
@@ -155,29 +155,23 @@ impl<N: Network> Request<N> {
                         // Ensure the record belongs to the signer.
                         ensure!(**record.owner() == self.signer, "Input record does not belong to the signer");
 
-                        // Compute the record commitment depending on the commitment version.
-                        // If no commitment version was supplied, default to `CommitmentVersion::V1`.
-                        let candidate_cm = match commitment_version {
-                            None | Some(CommitmentVersion::V1) => record.to_digest(&self.program_id, record_name)?,
-                            Some(CommitmentVersion::V2) => {
-                                record.to_commitment(&self.program_id, record_name, &self.tvk)?
-                            }
-                        };
-                        // Ensure the commitment matches.
-                        ensure!(*commitment == candidate_cm, "Expected a record input with the same commitment");
+                        // Compute the record digest.
+                        let candidate_digest = record.to_digest(&self.program_id, record_name)?;
+                        // Ensure the digest matches.
+                        ensure!(*digest == candidate_digest, "Expected a record input with the same digest");
 
                         // Compute the `candidate_sn` from `gamma`.
-                        let candidate_sn = Record::<N, Plaintext<N>>::serial_number_from_gamma(gamma, *commitment)?;
+                        let candidate_sn = Record::<N, Plaintext<N>>::serial_number_from_gamma(gamma, *digest)?;
                         // Ensure the serial number matches.
                         ensure!(*serial_number == candidate_sn, "Expected a record input with the same serial number");
 
-                        // Compute the generator `H` as `HashToGroup(commitment)`.
-                        let h = N::hash_to_group_psd2(&[N::serial_number_domain(), *commitment])?;
+                        // Compute the generator `H` as `HashToGroup(digest)`.
+                        let h = N::hash_to_group_psd2(&[N::serial_number_domain(), *digest])?;
                         // Compute `h_r` as `(challenge * gamma) + (response * H)`, equivalent to `r * H`.
                         let h_r = (*gamma * challenge) + (h * response);
 
-                        // Compute the tag as `Hash(sk_tag || commitment)`.
-                        let candidate_tag = N::hash_psd2(&[self.sk_tag, *commitment])?;
+                        // Compute the tag as `Hash(sk_tag || digest)`.
+                        let candidate_tag = N::hash_psd2(&[self.sk_tag, *digest])?;
                         // Ensure the tag matches.
                         ensure!(*tag == candidate_tag, "Expected a record input with the same tag");
 

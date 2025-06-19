@@ -488,6 +488,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 .collect::<Vec<_>>();
 
             // Inject the `commitment_version` as `Mode::Private` if one was provided.
+            // This is not done if the commitment version is `None`, as it is not required for the old circuits.
             let commitment_version_circuit = commitment_version
                 .map(|commitment_version| circuit::CommitmentVersion::new(circuit::Mode::Private, commitment_version));
 

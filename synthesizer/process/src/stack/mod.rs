@@ -85,8 +85,8 @@ pub type Assignments<N> = Arc<RwLock<Vec<(circuit::Assignment<<N as Environment>
 #[derive(Clone)]
 pub enum CallStack<N: Network> {
     Authorize(Vec<Request<N>>, PrivateKey<N>, Authorization<N>),
-    Synthesize(Vec<Request<N>>, PrivateKey<N>, Authorization<N>),
-    CheckDeployment(Vec<Request<N>>, PrivateKey<N>, Assignments<N>, Option<u64>, Option<u64>),
+    Synthesize(Vec<Request<N>>, PrivateKey<N>, Authorization<N>), // TODO (raychu86): Record Commitment - Add commitment version or consensus version
+    CheckDeployment(Vec<Request<N>>, PrivateKey<N>, Assignments<N>, Option<u64>, Option<u64>), // TODO (raychu86): Record Commitment - Add commitment version or consensus version
     Evaluate(Authorization<N>),
     Execute(Authorization<N>, Arc<RwLock<Trace<N>>>),
     PackageRun(Vec<Request<N>>, PrivateKey<N>, Assignments<N>),

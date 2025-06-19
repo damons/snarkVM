@@ -21,14 +21,14 @@ impl<N: Network> Record<N, Plaintext<N>> {
         &self,
         program_id: &ProgramID<N>,
         record_name: &Identifier<N>,
-        tvk: &Field<N>,
+        rvk: &Field<N>,
     ) -> Result<Field<N>> {
-        // Construct the record digest.
-        let digest = self.to_digest(program_id, record_name)?;
-        // Construct the randomizer.
-        let randomizer = N::hash_to_scalar_psd2(&[N::commitment_domain(), *tvk])?;
+        // Construct the input as `(program_id || record_name || record)`.
+        let input = to_bits_le![program_id, record_name, self];
+        // Construct the commitment nonce.
+        let cm_nonce = N::hash_to_scalar_psd2(&[N::commitment_domain(), *rvk])?;
         // Compute the BHP commitment of the record digest.
-        N::commit_bhp256(&digest.to_bits_le(), &randomizer)
+        N::commit_bhp1024(&input, &cm_nonce)
     }
 }
 
@@ -38,7 +38,7 @@ impl<N: Network> Record<N, Ciphertext<N>> {
         &self,
         _program_id: &ProgramID<N>,
         _record_name: &Identifier<N>,
-        _tvk: &Field<N>,
+        _rvk: &Field<N>,
     ) -> Result<Field<N>> {
         bail!("Illegal operation: Record::to_commitment() cannot be invoked on the `Ciphertext` variant.")
     }
