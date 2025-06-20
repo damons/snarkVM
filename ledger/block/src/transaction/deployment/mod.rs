@@ -193,7 +193,7 @@ pub mod test_helpers {
     type CurrentNetwork = MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
 
-    pub(crate) fn sample_deployment(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+    pub(crate) fn sample_deployment(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
         INSTANCE
             .get_or_init(|| {
@@ -218,6 +218,13 @@ function compute:
                 let process = Process::load().unwrap();
                 // Compute the deployment.
                 let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+                // Create a new deployment with the desired edition.
+                let deployment = Deployment::<CurrentNetwork>::new(
+                    edition,
+                    deployment.program().clone(),
+                    deployment.verifying_keys().clone(),
+                )
+                .unwrap();
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()

@@ -76,6 +76,7 @@ use locktick::parking_lot::RwLock;
 use parking_lot::RwLock;
 use std::sync::{Arc, Weak};
 
+use console::types::U16;
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
 
@@ -201,6 +202,8 @@ pub struct Stack<N: Network> {
     verifying_keys: Arc<RwLock<IndexMap<Identifier<N>, VerifyingKey<N>>>>,
     /// The program address.
     program_address: Address<N>,
+    /// The program edition.
+    program_edition: U16<N>,
 }
 
 impl<N: Network> Stack<N> {
@@ -213,6 +216,13 @@ impl<N: Network> Stack<N> {
         ensure!(!process.contains_program(program_id), "Program '{program_id}' already exists");
         // Ensure the program contains functions.
         ensure!(!program.functions().is_empty(), "No functions present in the deployment for program '{program_id}'");
+        // If the program exists in the process, check that the new program exactly matches the existing program.
+        if let Ok(existing_stack) = process.get_stack(program_id) {
+            ensure!(
+                existing_stack.program() == program,
+                "Program '{program_id}' already exists with different contents."
+            );
+        }
 
         // Serialize the program into bytes.
         let program_bytes = program.to_bytes_le()?;
@@ -322,6 +332,12 @@ impl<N: Network> StackProgram<N> for Stack<N> {
     #[inline]
     fn program_address(&self) -> &Address<N> {
         &self.program_address
+    }
+
+    /// Returns the program edition.
+    #[inline]
+    fn program_edition(&self) -> U16<N> {
+        self.program_edition
     }
 
     /// Returns the external stack for the given program ID.

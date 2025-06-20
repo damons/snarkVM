@@ -67,6 +67,11 @@ impl<N: Network> Stack<N> {
 
         // Ensure the deployment is ordered.
         deployment.check_is_ordered()?;
+        // Ensure that edition in the stack and deployment matches.
+        ensure!(
+            *self.program_edition == deployment.edition(),
+            "The stack edition does not match the deployment edition"
+        );
         // Ensure the program in the stack and deployment matches.
         ensure!(&self.program == deployment.program(), "The stack program does not match the deployment program");
 

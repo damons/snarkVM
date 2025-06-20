@@ -120,28 +120,30 @@ impl<N: Network> Process<N> {
     }
 
     /// Adds a new program to the process.
+    /// If the program exists, then the existing program is replaced.
     /// If you intend to `execute` the program, use `deploy` and `finalize_deployment` instead.
     #[inline]
-    pub fn add_program(&mut self, program: &Program<N>) -> Result<()> {
+    pub fn add_program(&mut self, program: &Program<N>) -> Result<Option<Arc<Stack<N>>>> {
         // Initialize the 'credits.aleo' program ID.
         let credits_program_id = ProgramID::<N>::from_str("credits.aleo")?;
         // If the program is not 'credits.aleo', compute the program stack, and add it to the process.
         if program.id() != &credits_program_id {
-            self.add_stack(Stack::new(self, program)?);
+            return Ok(self.add_stack(Stack::new(self, program)?));
         }
-        Ok(())
+        Ok(None)
     }
 
     /// Adds a new stack to the process.
+    /// If the program exists, then the existing stack is replaced.
     /// If you intend to `execute` the program, use `deploy` and `finalize_deployment` instead.
     #[inline]
-    pub fn add_stack(&mut self, stack: Stack<N>) {
+    pub fn add_stack(&mut self, stack: Stack<N>) -> Option<Arc<Stack<N>>> {
         // Get the program ID.
         let program_id = *stack.program_id();
         // Arc the stack first to limit the scope of the write lock.
         let stack = Arc::new(stack);
         // Insert the stack into the process, replacing the existing stack if it exists.
-        self.stacks.write().insert(program_id, stack);
+        self.stacks.write().insert(program_id, stack)
     }
 }
 

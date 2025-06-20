@@ -121,16 +121,23 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
         let mut deployment_ids = cfg_into_iter!(deployment_ids)
             .map(|transaction_id| {
+                // Retrieve the block hash for the deployment transaction ID.
+                let Some(hash) = block_store.find_block_hash(&transaction_id)? else {
+                    bail!("Deployment transaction '{transaction_id}' is not found in storage.")
+                };
                 // Retrieve the height.
-                let height =
-                    match block_store.find_block_hash(&transaction_id)?.map(|hash| block_store.get_block_height(&hash))
-                    {
-                        Some(Ok(Some(height))) => height,
-                        _ => {
-                            bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
-                        }
-                    };
-                Ok((transaction_id, height))
+                let Some(height) = block_store.get_block_height(&hash)? else {
+                    bail!("Block height for deployment transaction '{transaction_id}' is not found in storage.")
+                };
+                // Get the corresponding block's transactions.
+                let Some(transactions) = block_store.get_block_transactions(&hash)? else {
+                    bail!("Transactions for deployment transaction '{hash}' is not found in storage.")
+                };
+                // Find the index of the deployment transaction ID in the block's transactions.
+                let Some(index) = transactions.transactions().get_index_of(transaction_id.deref()) else {
+                    bail!("Transaction for deployment transaction '{transaction_id}' is not found in storage.")
+                };
+                Ok((transaction_id, (height, index)))
             })
             .collect::<Result<Vec<_>>>()?;
         // Sort the deployment transaction IDs by their block heights.
@@ -3255,5 +3262,71 @@ function adder:
         } else {
             panic!("Expected an error, but the deployment was accepted.")
         }
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_deploy_and_execute_in_same_block_fails() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        vm.add_next_block(&genesis).unwrap();
+
+        // Deploy and execute a program in the same block.
+        let program = Program::from_str(
+            r"
+program adder_program.aleo;
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    add r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        // Initialize an "off-chain" VM to generate the deployment and execution.
+        let off_chain_vm = sample_vm();
+        off_chain_vm.add_next_block(&genesis).unwrap();
+        // Deploy the program.
+        let deployment = off_chain_vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment.fee_amount().unwrap(), 2483025);
+        // Add the program to the off-chain VM.
+        off_chain_vm.process().write().add_program(&program).unwrap();
+        // Execute the program.
+        let transaction = off_chain_vm
+            .execute(
+                &caller_private_key,
+                ("adder_program.aleo", "adder"),
+                [Value::from_str("1u64").unwrap(), Value::from_str("2u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        // Verify the transaction.
+        off_chain_vm.check_transaction(&transaction, None, rng).unwrap();
+        // Check that the account has enough to pay for the execution.
+        assert_eq!(*transaction.fee_amount().unwrap(), 1283);
+        // Drop the off-chain VM.
+        drop(off_chain_vm);
+
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment, transaction], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Check that the program was deployed.
+        assert!(vm.process().read().contains_program(&ProgramID::from_str("adder_program.aleo").unwrap()));
     }
 }

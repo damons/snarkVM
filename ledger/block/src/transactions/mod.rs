@@ -106,6 +106,11 @@ impl<N: Network> Transactions<N> {
     pub fn num_finalize(&self) -> usize {
         cfg_values!(self.transactions).map(|tx| tx.num_finalize()).sum()
     }
+
+    /// Returns the transactions in the `Transactions` as an `IndexMap`.
+    pub fn transactions(&self) -> &IndexMap<N::TransactionID, ConfirmedTransaction<N>> {
+        &self.transactions
+    }
 }
 
 impl<N: Network> Transactions<N> {

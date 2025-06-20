@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use super::*;
+use synthesizer_program::StackProgram;
 
 /// Ensures the given iterator has no duplicate elements, and that the ledger
 /// does not already contain a given item.
@@ -149,17 +150,68 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
-                // Ensure the edition is correct.
-                if deployment.edition() != N::EDITION {
-                    bail!("Invalid deployment transaction '{id}' - expected edition {}", N::EDITION)
+                // If the `CONSENSUS_VERSION` is `V8` or greater, then verify that:
+                //   - the edition is zero or one
+                // Otherwise, verify that:
+                //   - the deployment edition is zero
+                let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+                match consensus_version >= ConsensusVersion::V8 {
+                    true => {
+                        ensure!(
+                            deployment.edition() <= 1,
+                            "Invalid deployment transaction '{id}' - edition should be zero or one for `ConsensusVersion::V8` or greater"
+                        )
+                    }
+                    false => {
+                        ensure!(
+                            deployment.edition().is_zero(),
+                            "Invalid deployment transaction '{id}' - edition should be zero"
+                        );
+                    }
                 }
-                // Ensure the program ID does not already exist in the store.
-                if self.transaction_store().contains_program_id(deployment.program_id())? {
-                    bail!("Program ID '{}' is already deployed", deployment.program_id())
-                }
-                // Ensure the program does not already exist in the process.
-                if self.contains_program(deployment.program_id()) {
-                    bail!("Program ID '{}' already exists", deployment.program_id());
+                // If the edition is zero, then check that:
+                //  - The program does not exist in the store or process.
+                // If the edition is one, then check that:
+                //  - The program exists in the store and process.
+                //  - The new edition increments the old edition by 1.
+                //  - The new program exactly matches the old program.
+                let is_program_in_storage = self.transaction_store().contains_program_id(deployment.program_id())?;
+                let is_program_in_process = self.contains_program(deployment.program_id());
+                match deployment.edition() {
+                    0 => {
+                        // Ensure the program ID does not already exist in the store.
+                        ensure!(!is_program_in_storage, "Program ID '{}' is already deployed", deployment.program_id());
+                        // Ensure the program does not already exist in the process.
+                        ensure!(!is_program_in_process, "Program ID '{}' already exists", deployment.program_id());
+                    }
+                    new_edition => {
+                        // Check that the program exists.
+                        ensure!(
+                            is_program_in_storage,
+                            "Invalid deployment transaction '{id}' - program does not exist in the store"
+                        );
+                        ensure!(
+                            is_program_in_process,
+                            "Invalid deployment transaction '{id}' - program does not exist in the process"
+                        );
+                        // Get the existing program.
+                        // It should be the case that the stored program matches the process program.
+                        let stack = self.process().read().get_stack(deployment.program_id())?;
+                        // Check that the new edition increments the old edition by 1.
+                        let old_edition = *stack.program_edition();
+                        let expected_edition = old_edition
+                            .checked_add(1)
+                            .ok_or_else(|| anyhow!("Invalid deployment transaction '{id}' - next edition overflows"))?;
+                        ensure!(
+                            expected_edition == new_edition,
+                            "Invalid deployment transaction '{id}' - next edition ('{new_edition}') does not match the expected edition ('{expected_edition}')",
+                        );
+                        // Ensure the new program matches the old program.
+                        ensure!(
+                            stack.program() == deployment.program(),
+                            "Invalid deployment transaction '{id}' - new program does not match the old program"
+                        );
+                    }
                 }
                 // Enforce the syntax restrictions on the programs based on the current consensus version.
                 let current_block_height = self.block_store().current_block_height();

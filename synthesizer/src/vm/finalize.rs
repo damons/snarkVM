@@ -767,9 +767,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
             /* Start the commit process. */
 
-            // Commit all of the stacks to the process.
-            if !stacks.is_empty() {
-                stacks.into_iter().for_each(|stack| process.add_stack(stack))
+            // Commit all the stacks to the process.
+            for stack in stacks {
+                process.add_stack(stack);
             }
 
             finish!(timer); // <- Note: This timer does **not** include the time to write batch to DB.

@@ -19,7 +19,7 @@ use console::{
     program::Register,
 };
 
-pub trait InstructionTrait<N: Network>: Clone + Parser + FromBytes + ToBytes {
+pub trait InstructionTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes + ToBytes {
     /// Returns the destination registers of the instruction.
     fn destinations(&self) -> Vec<Register<N>>;
     /// Returns `true` if the given name is a reserved opcode.
