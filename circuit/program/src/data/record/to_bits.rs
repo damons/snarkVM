@@ -20,9 +20,8 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<Self::Boolean>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -37,8 +36,20 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_le.len() >= (1 << 31) {
+            A::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Write the first 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_le.len() as u32)).to_bits_le()[..31]);
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the data bits.
-        U32::constant(console::U32::new(data_bits_le.len() as u32)).write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
 
         // Construct the nonce bits.
@@ -46,20 +57,12 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_le(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
-            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
-        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<Self::Boolean>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -74,8 +77,20 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_be.len() >= (1 << 31) {
+            A::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
+        // Write the last 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_be.len() as u32)).to_bits_be()[1..]);
+
         // Construct the data bits.
-        U32::constant(console::U32::new(data_bits_be.len() as u32)).write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
 
         // Construct the nonce bits.
@@ -83,13 +98,6 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_be(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
-            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
-        }
     }
 }
 
@@ -98,9 +106,8 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<Self::Boolean>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -120,8 +127,20 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_le.len() >= (1 << 31) {
+            A::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Write the first 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_le.len() as u32)).to_bits_le()[..31]);
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the data bits.
-        U32::constant(console::U32::new(data_bits_le.len() as u32)).write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
 
         // Construct the nonce bits.
@@ -129,20 +148,12 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_le(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
-            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
-        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<Self::Boolean>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -162,8 +173,21 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
+
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_be.len() >= (1 << 31) {
+            A::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
+        // Write the last 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_be.len() as u32)).to_bits_be()[1..]);
+
         // Construct the data bits.
-        U32::constant(console::U32::new(data_bits_be.len() as u32)).write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
 
         // Construct the nonce bits.
@@ -171,12 +195,5 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
 
         // Construct the version bits.
         self.version.write_bits_be(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(Boolean::constant(true)), // Public owner
-            Owner::Private(_) => vec.push(Boolean::constant(false)), // Private owner
-        }
     }
 }

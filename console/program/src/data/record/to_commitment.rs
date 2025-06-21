@@ -26,15 +26,15 @@ impl<N: Network> Record<N, Plaintext<N>> {
         // Construct the input as `(program_id || record_name || record)`.
         let input = to_bits_le![program_id, record_name, self];
 
-        // Version 0 - Construct the input as the *record bits* without the version bits or owner visibility bit.
-        let input_v0 = input[..input.len() - 9].to_vec();
+        // Version 0 - Construct the input as the *record bits* without the version bits.
+        let input_v0 = input[..input.len() - 8].to_vec();
         // Version 0 - Compute the BHP hash of the program record.
         let digest = N::hash_bhp1024(&input_v0)?;
 
-        // Version 1 - Construct the input as the *digest* with the version bits & owner visibility bit.
+        // Version 1 - Construct the input as the *digest* with the version bits.
         let mut input_v1 = digest.to_bits_le();
-        // Append the version bits & owner visibility bit.
-        input_v1.extend_from_slice(&input[input.len() - 9..]);
+        // Append the version bits.
+        input_v1.extend_from_slice(&input[input.len() - 8..]);
 
         // If the record is non-hiding, then return the digest. Otherwise, return the commitment.
         match !self.is_hiding() {

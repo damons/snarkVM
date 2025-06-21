@@ -28,15 +28,15 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         record_name.write_bits_le(&mut input);
         self.write_bits_le(&mut input);
 
-        // Version 0 - Construct the input as the *record bits* without the version bits or owner visibility bit.
-        let input_v0 = input[..input.len() - 9].to_vec();
+        // Version 0 - Construct the input as the *record bits* without the version bits.
+        let input_v0 = input[..input.len() - 8].to_vec();
         // Version 0 - Compute the BHP hash of the program record.
         let digest = A::hash_bhp1024(&input_v0);
 
-        // Version 1 - Construct the input as the *digest* with the version bits & owner visibility bit.
+        // Version 1 - Construct the input as the *digest* with the version bits.
         let mut input_v1 = digest.to_bits_le();
-        // Append the version bits & owner visibility bit.
-        input_v1.extend_from_slice(&input[input.len() - 9..]);
+        // Append the version bits.
+        input_v1.extend_from_slice(&input[input.len() - 8..]);
 
         // Construct the cm_nonce.
         let cm_nonce = A::hash_to_scalar_psd2(&[A::commitment_domain(), record_view_key.clone()]);

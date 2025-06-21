@@ -18,9 +18,8 @@ use super::*;
 impl<N: Network> ToBits for Record<N, Plaintext<N>> {
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -35,8 +34,22 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
+
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_le.len() >= (1 << 31) {
+            N::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Write the first 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        let data_bits_len = u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
+        vec.extend_from_slice(&data_bits_len.to_bits_le()[..31]);
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the data bits.
-        u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
 
         // Construct the nonce bits.
@@ -44,20 +57,12 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
 
         // Construct the version bits.
         self.version.write_bits_le(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(true),   // Public owner
-            Owner::Private(_) => vec.push(false), // Private owner
-        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -72,8 +77,22 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
+
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_be.len() >= (1 << 31) {
+            N::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
+        // Write the last 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        let data_bits_len = u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
+        vec.extend_from_slice(&data_bits_len.to_bits_be()[1..]);
+
         // Construct the data bits.
-        u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
 
         // Construct the nonce bits.
@@ -81,22 +100,14 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
 
         // Construct the version bits.
         self.version.write_bits_be(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(true),   // Public owner
-            Owner::Private(_) => vec.push(false), // Private owner
-        }
     }
 }
 
 impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
     /// Returns this data as a list of **little-endian** bits.
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -116,8 +127,22 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
             identifier.write_bits_le(&mut data_bits_le);
             entry.write_bits_le(&mut data_bits_le);
         }
+
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_le.len() >= (1 << 31) {
+            N::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Write the first 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        let data_bits_len = u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
+        vec.extend_from_slice(&data_bits_len.to_bits_le()[..31]);
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
         // Construct the data bits.
-        u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_le(vec);
         vec.extend_from_slice(&data_bits_le);
 
         // Construct the nonce bits.
@@ -125,20 +150,12 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
 
         // Construct the version bits.
         self.version.write_bits_le(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(true),   // Public owner
-            Owner::Private(_) => vec.push(false), // Private owner
-        }
     }
 
     /// Returns this data as a list of **big-endian** bits.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
-        // Construct the hiding bit.
-        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
-        vec.push(self.is_hiding());
+        // Construct the owner visibility bit.
+        vec.push(self.owner.is_private());
 
         // Construct the owner bits.
         match &self.owner {
@@ -158,8 +175,22 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
             identifier.write_bits_be(&mut data_bits_be);
             entry.write_bits_be(&mut data_bits_be);
         }
+
+        // Ensure the data length is less than 2^31 bits.
+        if data_bits_be.len() >= (1 << 31) {
+            N::halt("Record data exceeds (1 << 31) bits")
+        }
+
+        // Construct the hiding bit.
+        // Note: While this bitflag is redundant, it is necessary for backwards compatibility.
+        vec.push(self.is_hiding());
+
+        // Write the last 31 bits of the data length (as we know it is less than 2^31).
+        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        let data_bits_len = u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
+        vec.extend_from_slice(&data_bits_len.to_bits_be()[1..]);
+
         // Construct the data bits.
-        u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits").write_bits_be(vec);
         vec.extend_from_slice(&data_bits_be);
 
         // Construct the nonce bits.
@@ -167,12 +198,5 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
 
         // Construct the version bits.
         self.version.write_bits_be(vec);
-
-        // Construct the owner visibility bit.
-        // Note: The owner visibility bitflag is placed on this line to maintain backwards compatibility.
-        match &self.owner {
-            Owner::Public(_) => vec.push(true),   // Public owner
-            Owner::Private(_) => vec.push(false), // Private owner
-        }
     }
 }
