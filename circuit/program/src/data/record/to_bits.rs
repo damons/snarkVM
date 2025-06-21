@@ -42,7 +42,7 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
         }
 
         // Write the first 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the last bit as the hiding bit.
         vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_le.len() as u32)).to_bits_le()[..31]);
 
         // Construct the hiding bit.
@@ -87,7 +87,7 @@ impl<A: Aleo> ToBits for Record<A, Plaintext<A>> {
         vec.push(self.is_hiding());
 
         // Write the last 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the first bit as the hiding bit.
         vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_be.len() as u32)).to_bits_be()[1..]);
 
         // Construct the data bits.
@@ -133,7 +133,7 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
         }
 
         // Write the first 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the last bit as the hiding bit.
         vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_le.len() as u32)).to_bits_le()[..31]);
 
         // Construct the hiding bit.
@@ -184,7 +184,7 @@ impl<A: Aleo> ToBits for Record<A, Ciphertext<A>> {
         vec.push(self.is_hiding());
 
         // Write the last 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the first bit as the hiding bit.
         vec.extend_from_slice(&U32::constant(console::U32::new(data_bits_be.len() as u32)).to_bits_be()[1..]);
 
         // Construct the data bits.

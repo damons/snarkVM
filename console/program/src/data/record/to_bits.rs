@@ -41,7 +41,7 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         }
 
         // Write the first 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the last bit as the hiding bit.
         let data_bits_len = u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
         vec.extend_from_slice(&data_bits_len.to_bits_le()[..31]);
 
@@ -88,7 +88,7 @@ impl<N: Network> ToBits for Record<N, Plaintext<N>> {
         vec.push(self.is_hiding());
 
         // Write the last 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the first bit as the hiding bit.
         let data_bits_len = u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
         vec.extend_from_slice(&data_bits_len.to_bits_be()[1..]);
 
@@ -134,7 +134,7 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         }
 
         // Write the first 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the last bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the last bit as the hiding bit.
         let data_bits_len = u32::try_from(data_bits_le.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
         vec.extend_from_slice(&data_bits_len.to_bits_le()[..31]);
 
@@ -186,7 +186,7 @@ impl<N: Network> ToBits for Record<N, Ciphertext<N>> {
         vec.push(self.is_hiding());
 
         // Write the last 31 bits of the data length (as we know it is less than 2^31).
-        // Note: In order to introducing a hiding bitflag, we repurpose the first bit as the hiding bit.
+        // Note: In order to introduce a hiding bitflag, we repurpose the first bit as the hiding bit.
         let data_bits_len = u32::try_from(data_bits_be.len()).or_halt_with::<N>("Record data exceeds u32::MAX bits");
         vec.extend_from_slice(&data_bits_len.to_bits_be()[1..]);
 
