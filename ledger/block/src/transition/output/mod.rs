@@ -209,10 +209,17 @@ impl<N: Network> Output<N> {
                     Err(error) => Err(error),
                 }
             }
-            Output::Record(_, checksum, Some(value)) => match N::hash_bhp1024(&value.to_bits_le()) {
-                Ok(candidate_hash) => Ok(checksum == &candidate_hash),
-                Err(error) => Err(error),
-            },
+            Output::Record(_, checksum, Some(value)) => {
+                // Ensure the record version is set to Version 1.
+                // Attention: The record version is currently on Version 1. If the record version is updated, change this value.
+                ensure!(**value.version() == 1, "The record version must be set to Version 1");
+
+                // Ensure the record ciphertext hash matches the checksum.
+                match N::hash_bhp1024(&value.to_bits_le()) {
+                    Ok(candidate_hash) => Ok(checksum == &candidate_hash),
+                    Err(error) => Err(error),
+                }
+            }
             Output::Future(hash, Some(output)) => {
                 match output.to_fields() {
                     Ok(fields) => {

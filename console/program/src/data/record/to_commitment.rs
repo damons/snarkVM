@@ -35,19 +35,16 @@ impl<N: Network> Record<N, Plaintext<N>> {
             false => input,
         };
 
-        // Compute the BHP hash of the program record.
-        let digest = N::hash_bhp1024(&record_bits);
-
         // If the record is non-hiding, then return the digest. Otherwise, return the commitment.
         match !self.is_hiding() {
             // Version 0 - Compute the BHP hash of the program record.
-            true => digest,
+            true => N::hash_bhp1024(&record_bits),
             // Version 1 - Compute the BHP commitment of the program record.
             false => {
                 // Construct the commitment nonce.
                 let cm_nonce = N::hash_to_scalar_psd2(&[N::commitment_domain(), *record_view_key])?;
                 // Compute the BHP commitment of the program record using the commitment nonce.
-                N::commit_bhp256(&digest?.to_bits_le(), &cm_nonce)
+                N::commit_bhp1024(&record_bits.to_bits_le(), &cm_nonce)
             }
         }
     }

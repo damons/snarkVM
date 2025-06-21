@@ -214,7 +214,7 @@ impl<A: Aleo> Request<A> {
                         input_hash.is_equal(&A::hash_psd8(&ciphertext.to_fields()))
                     }
                     // A record input is computed to its serial number.
-                    InputID::Record(commitment, gamma, serial_number, tag) => {
+                    InputID::Record(commitment, gamma, record_view_key, serial_number, tag) => {
                         // Retrieve the record.
                         let record = match &input {
                             Value::Record(record) => record,
@@ -229,7 +229,7 @@ impl<A: Aleo> Request<A> {
                             _ => A::halt(format!("Expected a record input at input {index}")),
                         };
                         // Compute the record commitment.
-                        let candidate_commitment = record.to_commitment(program_id, &record_name);
+                        let candidate_commitment = record.to_commitment(program_id, &record_name, record_view_key);
                         // Compute the `candidate_serial_number` from `gamma`.
                         let candidate_serial_number =
                             Record::<A, Plaintext<A>>::serial_number_from_gamma(gamma, candidate_commitment.clone());

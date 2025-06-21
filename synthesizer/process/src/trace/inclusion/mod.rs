@@ -94,7 +94,7 @@ impl<N: Network> Inclusion<N> {
         // Process the inputs.
         for input_id in input_ids {
             // Filter the inputs for records.
-            if let InputID::Record(commitment, gamma, serial_number, ..) = input_id {
+            if let InputID::Record(commitment, gamma, _, serial_number, _) = input_id {
                 // Add the record to the input tasks.
                 input_tasks.push(InputTask {
                     commitment: *commitment,

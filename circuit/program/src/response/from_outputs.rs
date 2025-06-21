@@ -105,6 +105,13 @@ impl<A: Aleo> Response<A> {
                             Value::Plaintext(..) => A::halt("Expected a record output, found a plaintext output"),
                             Value::Future(..) => A::halt("Expected a record output, found a future output"),
                         };
+                        // Retrieve the record owner (plaintext).
+                        let record_owner = match record.owner() {
+                            Owner::Public(owner) => owner,
+                            Owner::Private(_) => {
+                                A::halt("Expected a plaintext public record owner, found a private record owner")
+                            }
+                        };
 
                         // Retrieve the output register.
                         let output_register = match output_register {
@@ -112,13 +119,16 @@ impl<A: Aleo> Response<A> {
                             None => A::halt("Expected a register to be paired with a record output"),
                         };
 
-                        // Compute the record commitment.
-                        let commitment = record.to_commitment(program_id, &Identifier::constant(*record_name));
-
                         // Prepare the index as a constant field element.
                         let output_index = Field::constant(console::Field::from_u64(output_register.locator()));
                         // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
                         let randomizer = A::hash_to_scalar_psd2(&[tvk.clone(), output_index]);
+
+                        // Compute the record view key.
+                        let record_view_key = (record_owner.to_group() * &randomizer).to_x_coordinate();
+                        // Compute the record commitment.
+                        let commitment =
+                            record.to_commitment(program_id, &Identifier::constant(*record_name), &record_view_key);
 
                         // Encrypt the record, using the randomizer.
                         let encrypted_record = record.encrypt(&randomizer);

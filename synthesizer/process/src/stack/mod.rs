@@ -60,6 +60,7 @@ use console::{
         RegisterType,
         Request,
         Response,
+        U8,
         Value,
         ValueType,
     },

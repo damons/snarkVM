@@ -19,7 +19,7 @@ use snarkvm_circuit_types::environment::assert_scope;
 mod from_outputs;
 mod process_outputs_from_callback;
 
-use crate::{CommitmentVersion, Identifier, ProgramID, Value, compute_function_id};
+use crate::{CommitmentVersion, Identifier, Owner, ProgramID, Value, compute_function_id};
 use snarkvm_circuit_network::Aleo;
 use snarkvm_circuit_types::{Field, U16, environment::prelude::*};
 

@@ -16,7 +16,7 @@
 use super::*;
 
 impl<A: Aleo> Response<A> {
-    /// Returns the injected circuit outputs, given the number of inputs, tvk, tcm, outputs, and output types.
+    /// Returns the injected circuit outputs, given the number of inputs, tvk, tcm, outputs, output types, and output registers.
     pub fn process_outputs_from_callback(
         network_id: &U16<A>,
         program_id: &ProgramID<A>,
@@ -26,6 +26,7 @@ impl<A: Aleo> Response<A> {
         tcm: &Field<A>,
         outputs: Vec<console::Value<A::Network>>,        // Note: Console type
         output_types: &[console::ValueType<A::Network>], // Note: Console type
+        output_registers: &[Option<console::Register<A::Network>>], // Note: Console type
         commitment_version: Option<CommitmentVersion<A>>,
     ) -> Vec<Value<A>> {
         // Compute the function ID.
@@ -34,8 +35,9 @@ impl<A: Aleo> Response<A> {
         match outputs
             .iter()
             .zip_eq(output_types)
+            .zip_eq(output_registers)
             .enumerate()
-            .map(|(index, (output, output_types))| {
+            .map(|(index, ((output, output_types), output_register))| {
                 match output_types {
                     // For a constant output, compute the hash (using `tcm`) of the output.
                     console::ValueType::Constant(..) => {
@@ -120,10 +122,30 @@ impl<A: Aleo> Response<A> {
                             Value::Plaintext(..) => A::halt("Expected a record output, found a plaintext output"),
                             Value::Future(..) => A::halt("Expected a record output, found a future output"),
                         };
+                        // Retrieve the record owner (plaintext).
+                        let record_owner = match record.owner() {
+                            Owner::Public(owner) => owner,
+                            Owner::Private(_) => {
+                                A::halt("Expected a plaintext public record owner, found a private record owner")
+                            }
+                        };
 
+                        // Retrieve the output register.
+                        let output_register = match output_register {
+                            Some(output_register) => output_register,
+                            None => A::halt("Expected a register to be paired with a record output"),
+                        };
+
+                        // Prepare the index as a constant field element.
+                        let output_index = Field::constant(console::Field::from_u64(output_register.locator()));
+                        // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
+                        let randomizer = A::hash_to_scalar_psd2(&[tvk.clone(), output_index]);
+
+                        // Compute the record view key.
+                        let record_view_key = (record_owner.to_group() * randomizer).to_x_coordinate();
                         // Compute the record commitment.
                         let commitment =
-                            record.to_commitment(program_id, &Identifier::constant(*record_name), record_view_key);
+                            record.to_commitment(program_id, &Identifier::constant(*record_name), &record_view_key);
 
                         // Return the output ID.
                         // Note: Because this is a callback, the output ID is an **external record** ID.
@@ -306,6 +328,7 @@ mod tests {
                     &tcm,
                     response.outputs().to_vec(),
                     &output_types,
+                    &output_registers,
                     commitment_version_circuit.clone(),
                 );
                 assert_eq!(response.outputs(), outputs.eject_value());

@@ -510,6 +510,16 @@ impl<N: Network> CallTrait<N> for Call<N> {
             A::assert(check_input_ids);
             lap!(timer, "Checked the input ids");
 
+            // Retrieve the output registers.
+            let output_registers = function
+                .outputs()
+                .iter()
+                .map(|output| match output.operand() {
+                    Operand::Register(register) => Some(register.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
             // Inject the outputs as `Mode::Private` (with the 'tcm' and output IDs as `Mode::Public`).
             let outputs = circuit::Response::process_outputs_from_callback(
                 &network_id,
@@ -520,6 +530,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 &tcm,
                 response.outputs().to_vec(),
                 &function.output_types(),
+                &output_registers,
                 commitment_version_circuit,
             );
             lap!(timer, "Checked the outputs");

@@ -15,9 +15,7 @@
 
 use crate::{Ciphertext, Entry, Literal, Plaintext};
 use snarkvm_console_network::prelude::*;
-use snarkvm_console_types::{Address, Boolean, Field, U8};
-
-type Version<N> = U8<N>;
+use snarkvm_console_types::{Address, Boolean, Field};
 
 /// A value stored in program data.
 #[derive(Clone)]

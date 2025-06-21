@@ -138,7 +138,7 @@ impl<N: Network> Request<N> {
                         message.push(candidate_hash);
                     }
                     // A record input is computed to its serial number.
-                    InputID::Record(commitment, gamma, serial_number, tag) => {
+                    InputID::Record(commitment, gamma, record_view_key, serial_number, tag) => {
                         // Retrieve the record.
                         let record = match &input {
                             Value::Record(record) => record,
@@ -156,7 +156,8 @@ impl<N: Network> Request<N> {
                         ensure!(**record.owner() == self.signer, "Input record does not belong to the signer");
 
                         // Compute the record commitment.
-                        let candidate_commitment = record.to_commitment(&self.program_id, record_name)?;
+                        let candidate_commitment =
+                            record.to_commitment(&self.program_id, record_name, record_view_key)?;
                         // Ensure the commitment matches.
                         ensure!(
                             *commitment == candidate_commitment,

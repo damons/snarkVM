@@ -21,7 +21,7 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         &self,
         program_id: &ProgramID<A>,
         record_name: &Identifier<A>,
-        record_view_key: Field<A>,
+        record_view_key: &Field<A>,
     ) -> Field<A> {
         // Construct the input as `(program_id || record_name || record)`.
         let mut input = program_id.to_bits_le();
@@ -33,17 +33,13 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         // Version 1 - Construct the input with the version bits & owner visibility bit.
         let input_v1 = input;
 
-        // If the record is non-hiding, then remove the version bits & owner visibility bit (the last 9 bits)
-        // to maintain backwards compatibility.
-        let record_bits = Ternary::ternary(&!self.is_hiding(), &input_v0, &input_v1);
-
         // Construct the cm_nonce.
-        let cm_nonce = A::hash_to_scalar_psd2(&[A::commitment_domain(), record_view_key]);
+        let cm_nonce = A::hash_to_scalar_psd2(&[A::commitment_domain(), record_view_key.clone()]);
 
         // Version 0 - Compute the BHP hash of the program record.
-        let digest = A::hash_bhp1024(&record_bits);
+        let digest = A::hash_bhp1024(&input_v0);
         // Version 1 - Compute the BHP commitment of the program record.
-        let commitment = A::commit_bhp256(&digest, &cm_nonce);
+        let commitment = A::commit_bhp1024(&input_v1, &cm_nonce);
 
         // If the record is non-hiding, then return the digest. Otherwise, return the commitment.
         Ternary::ternary(&!self.is_hiding(), &digest, &commitment)
