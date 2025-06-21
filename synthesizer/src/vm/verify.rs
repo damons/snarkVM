@@ -135,6 +135,36 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         lap!(timer, "Check for duplicate elements");
 
+        // Get the consensus version.
+        let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+
+        // Acquire a read lock on the process.
+        let process = self.process.read();
+
+        // Get the program editions.
+        // If the transaction is an execution
+        //   AND the consensus version is V8 or greater
+        //   AND any of the component program editions (except for `credits.aleo`) are zero
+        // then fail.
+        if let Transaction::Execute(id, _, execution, _) = transaction {
+            if consensus_version >= ConsensusVersion::V8 {
+                for transition in execution.transitions() {
+                    // Get the stack.
+                    let stack = process.get_stack(transition.program_id())?;
+                    // If the program edition is zero, then fail.
+                    if stack.program_id() != &ProgramID::from_str("credits.aleo")? && stack.program_edition().is_zero()
+                    {
+                        drop(process); // Drop the process lock. 
+                        bail!(
+                            "Invalid execution transaction '{id}' - program edition cannot be zero for `ConsensusVersion::V8` or greater. Please redeploy the program."
+                        );
+                    }
+                }
+            }
+        }
+        // Drop the process lock.
+        drop(process);
+
         // Construct the transaction checksum.
         let checksum = Data::<Transaction<N>>::Buffer(transaction.to_bytes_le()?.into()).to_checksum::<N>()?;
 
@@ -148,13 +178,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Next, verify the deployment or execution.
         match transaction {
             Transaction::Deploy(id, deployment_id, owner, deployment, _) => {
+                // Sanity check that the program is not `credits.aleo`.
+                ensure!(
+                    deployment.program_id() != &ProgramID::from_str("credits.aleo")?,
+                    "Cannot deploy 'credits.aleo'"
+                );
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
                 // If the `CONSENSUS_VERSION` is `V8` or greater, then verify that:
                 //   - the edition is zero or one
                 // Otherwise, verify that:
                 //   - the deployment edition is zero
-                let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
                 match consensus_version >= ConsensusVersion::V8 {
                     true => {
                         ensure!(
