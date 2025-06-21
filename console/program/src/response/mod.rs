@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CommitmentVersion, Identifier, Owner, ProgramID, Register, Value, ValueType, compute_function_id};
+use crate::{CommitmentVersion, Identifier, ProgramID, Register, Value, ValueType, compute_function_id};
 use snarkvm_console_network::Network;
 use snarkvm_console_types::prelude::*;
 
@@ -147,12 +147,6 @@ impl<N: Network> Response<N> {
                             Value::Future(..) => bail!("Expected a record output, found a future output"),
                         };
 
-                        // Retrieve the record owner (plaintext).
-                        let record_owner = match record.owner() {
-                            Owner::Public(owner) => owner,
-                            Owner::Private(_) => bail!("Expected a plaintext record owner"),
-                        };
-
                         // Retrieve the output register.
                         let output_register = match output_register {
                             Some(output_register) => output_register,
@@ -165,7 +159,7 @@ impl<N: Network> Response<N> {
                         let randomizer = N::hash_to_scalar_psd2(&[*tvk, index])?;
 
                         // Compute the record view key.
-                        let record_view_key = (*record_owner.to_group() * randomizer).to_x_coordinate();
+                        let record_view_key = (***record.owner() * randomizer).to_x_coordinate();
                         // Compute the record commitment.
                         let commitment = record.to_commitment(program_id, record_name, &record_view_key)?;
 

@@ -32,7 +32,6 @@ use console::{
         Identifier,
         InputID,
         OutputID,
-        Owner,
         ProgramID,
         Record,
         Register,
@@ -202,12 +201,6 @@ impl<N: Network> Transition<N> {
                             _ => bail!("Expected a record type at output {index}"),
                         };
 
-                        // Retrieve the record owner (plaintext).
-                        let record_owner = match record.owner() {
-                            Owner::Public(owner) => owner,
-                            Owner::Private(_) => bail!("Expected a plaintext record owner"),
-                        };
-
                         // Retrieve the output register.
                         let output_register = match output_register {
                             Some(output_register) => output_register,
@@ -220,7 +213,7 @@ impl<N: Network> Transition<N> {
                         let randomizer = N::hash_to_scalar_psd2(&[*request.tvk(), index])?;
 
                         // Compute the record view key.
-                        let record_view_key = (*record_owner.to_group() * randomizer).to_x_coordinate();
+                        let record_view_key = (***record.owner() * randomizer).to_x_coordinate();
                         // Compute the record commitment.
                         let candidate_cm = record.to_commitment(&program_id, record_name, &record_view_key)?;
                         // Ensure the commitment matches.
