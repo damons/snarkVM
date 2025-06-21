@@ -16,9 +16,9 @@
 use super::*;
 
 impl<A: Aleo, Private: Visibility<A>> Record<A, Private> {
-    /// A helper method to derive the tag from the `sk_tag` and digest.
-    pub fn tag(sk_tag: Field<A>, digest: Field<A>) -> Field<A> {
-        // Compute the tag as `Hash(sk_tag, digest)`.
-        A::hash_psd2(&[sk_tag, digest])
+    /// A helper method to derive the tag from the `sk_tag` and commitment.
+    pub fn tag(sk_tag: Field<A>, commitment: Field<A>) -> Field<A> {
+        // Compute the tag as `Hash(sk_tag, commitment)`.
+        A::hash_psd2(&[sk_tag, commitment])
     }
 }

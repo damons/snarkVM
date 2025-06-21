@@ -32,7 +32,7 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         let input_v0 = input[..input.len() - 9].to_vec();
         // Version 0 - Compute the BHP hash of the program record.
         let digest = A::hash_bhp1024(&input_v0);
-        
+
         // Version 1 - Construct the input as the *digest* with the version bits & owner visibility bit.
         let mut input_v1 = digest.to_bits_le();
         // Append the version bits & owner visibility bit.
