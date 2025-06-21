@@ -158,13 +158,12 @@ impl<N: Network> Response<N> {
                         // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
                         let randomizer = N::hash_to_scalar_psd2(&[*tvk, index])?;
 
-                        // Compute the record view key.
-                        let record_view_key = (***record.owner() * randomizer).to_x_coordinate();
+                        // Encrypt the record, using the randomizer.
+                        let (encrypted_record, record_view_key) = record.encrypt_symmetric(randomizer)?;
+
                         // Compute the record commitment.
                         let commitment = record.to_commitment(program_id, record_name, &record_view_key)?;
 
-                        // Encrypt the record, using the randomizer.
-                        let encrypted_record = record.encrypt(randomizer)?;
                         // Compute the record checksum, as the hash of the encrypted record.
                         let checksum = N::hash_bhp1024(&encrypted_record.to_bits_le())?;
 

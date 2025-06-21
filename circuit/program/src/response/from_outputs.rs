@@ -117,14 +117,13 @@ impl<A: Aleo> Response<A> {
                         // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
                         let randomizer = A::hash_to_scalar_psd2(&[tvk.clone(), output_index]);
 
-                        // Compute the record view key.
-                        let record_view_key = ((*record.owner()).to_group() * &randomizer).to_x_coordinate();
+                        // Encrypt the record, using the randomizer.
+                        let (encrypted_record, record_view_key) = record.encrypt_symmetric(&randomizer);
+
                         // Compute the record commitment.
                         let commitment =
                             record.to_commitment(program_id, &Identifier::constant(*record_name), &record_view_key);
 
-                        // Encrypt the record, using the randomizer.
-                        let encrypted_record = record.encrypt(&randomizer);
                         // Compute the record checksum, as the hash of the encrypted record.
                         let checksum = A::hash_bhp1024(&encrypted_record.to_bits_le());
 

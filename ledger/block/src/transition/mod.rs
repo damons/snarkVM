@@ -212,15 +212,14 @@ impl<N: Network> Transition<N> {
                         // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
                         let randomizer = N::hash_to_scalar_psd2(&[*request.tvk(), index])?;
 
-                        // Compute the record view key.
-                        let record_view_key = (***record.owner() * randomizer).to_x_coordinate();
+                        // Encrypt the record, using the randomizer.
+                        let (record_ciphertext, record_view_key) = record.encrypt_symmetric(randomizer)?;
+
                         // Compute the record commitment.
                         let candidate_cm = record.to_commitment(&program_id, record_name, &record_view_key)?;
                         // Ensure the commitment matches.
                         ensure!(*commitment == candidate_cm, "The output record commitment is incorrect");
 
-                        // Encrypt the record, using the randomizer.
-                        let record_ciphertext = record.encrypt(randomizer)?;
                         // Compute the record checksum, as the hash of the encrypted record.
                         let ciphertext_checksum = N::hash_bhp1024(&record_ciphertext.to_bits_le())?;
                         // Ensure the checksum matches.
