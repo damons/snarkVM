@@ -28,18 +28,20 @@ impl<A: Aleo> Record<A, Plaintext<A>> {
         record_name.write_bits_le(&mut input);
         self.write_bits_le(&mut input);
 
-        // Version 0 - Construct the input without the version bits or owner visibility bit.
+        // Version 0 - Construct the input as the *record bits* without the version bits or owner visibility bit.
         let input_v0 = input[..input.len() - 9].to_vec();
-        // Version 1 - Construct the input with the version bits & owner visibility bit.
-        let input_v1 = input;
+        // Version 0 - Compute the BHP hash of the program record.
+        let digest = A::hash_bhp1024(&input_v0);
+        
+        // Version 1 - Construct the input as the *digest* with the version bits & owner visibility bit.
+        let mut input_v1 = digest.to_bits_le();
+        // Append the version bits & owner visibility bit.
+        input_v1.extend_from_slice(&input[input.len() - 9..]);
 
         // Construct the cm_nonce.
         let cm_nonce = A::hash_to_scalar_psd2(&[A::commitment_domain(), record_view_key.clone()]);
-
-        // Version 0 - Compute the BHP hash of the program record.
-        let digest = A::hash_bhp1024(&input_v0);
         // Version 1 - Compute the BHP commitment of the program record.
-        let commitment = A::commit_bhp1024(&input_v1, &cm_nonce);
+        let commitment = A::commit_bhp512(&input_v1, &cm_nonce);
 
         // If the record is non-hiding, then return the digest. Otherwise, return the commitment.
         Ternary::ternary(&!self.is_hiding(), &digest, &commitment)
