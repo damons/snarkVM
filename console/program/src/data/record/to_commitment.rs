@@ -47,7 +47,7 @@ impl<N: Network> Record<N, Plaintext<N>> {
                 // Construct the commitment nonce.
                 let cm_nonce = N::hash_to_scalar_psd2(&[N::commitment_domain(), *record_view_key])?;
                 // Compute the BHP commitment of the program record using the commitment nonce.
-                N::commit_bhp256(&digest, &cm_nonce)
+                N::commit_bhp256(&digest?.to_bits_le(), &cm_nonce)
             }
         }
     }

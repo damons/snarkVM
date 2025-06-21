@@ -75,7 +75,7 @@ macro_rules! prepare_impl {
                                 )?
                             }
                             None => {
-                                $query.$get_state_path_for_commitment(&task.digest)
+                                $query.$get_state_path_for_commitment(&task.commitment)
                                 $(.$await)?
                             }?
                         };
@@ -89,7 +89,7 @@ macro_rules! prepare_impl {
                         let assignment = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
                             let assignment = InclusionV0Assignment::new(
                                 state_path,
-                                task.digest,
+                                task.commitment,
                                 task.gamma,
                                 task.serial_number,
                                 local_state_root,
@@ -116,7 +116,7 @@ macro_rules! prepare_impl {
                             // This should be consistent with `Inclusion::prepare_verifier_inputs`
                             let assignment = InclusionAssignment::new(
                                 state_path,
-                                task.digest,
+                                task.commitment,
                                 task.gamma,
                                 task.serial_number,
                                 is_record_block_height_reached,

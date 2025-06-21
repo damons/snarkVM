@@ -138,7 +138,7 @@ impl<N: Network> Request<N> {
                         message.push(candidate_hash);
                     }
                     // A record input is computed to its serial number.
-                    InputID::Record(digest, gamma, serial_number, tag) => {
+                    InputID::Record(commitment, gamma, serial_number, tag) => {
                         // Retrieve the record.
                         let record = match &input {
                             Value::Record(record) => record,
@@ -155,23 +155,26 @@ impl<N: Network> Request<N> {
                         // Ensure the record belongs to the signer.
                         ensure!(**record.owner() == self.signer, "Input record does not belong to the signer");
 
-                        // Compute the record digest.
-                        let candidate_digest = record.to_digest(&self.program_id, record_name)?;
-                        // Ensure the digest matches.
-                        ensure!(*digest == candidate_digest, "Expected a record input with the same digest");
+                        // Compute the record commitment.
+                        let candidate_commitment = record.to_commitment(&self.program_id, record_name)?;
+                        // Ensure the commitment matches.
+                        ensure!(
+                            *commitment == candidate_commitment,
+                            "Expected a record input with the same commitment"
+                        );
 
                         // Compute the `candidate_sn` from `gamma`.
-                        let candidate_sn = Record::<N, Plaintext<N>>::serial_number_from_gamma(gamma, *digest)?;
+                        let candidate_sn = Record::<N, Plaintext<N>>::serial_number_from_gamma(gamma, *commitment)?;
                         // Ensure the serial number matches.
                         ensure!(*serial_number == candidate_sn, "Expected a record input with the same serial number");
 
-                        // Compute the generator `H` as `HashToGroup(digest)`.
-                        let h = N::hash_to_group_psd2(&[N::serial_number_domain(), *digest])?;
+                        // Compute the generator `H` as `HashToGroup(commitment)`.
+                        let h = N::hash_to_group_psd2(&[N::serial_number_domain(), *commitment])?;
                         // Compute `h_r` as `(challenge * gamma) + (response * H)`, equivalent to `r * H`.
                         let h_r = (*gamma * challenge) + (h * response);
 
-                        // Compute the tag as `Hash(sk_tag || digest)`.
-                        let candidate_tag = N::hash_psd2(&[self.sk_tag, *digest])?;
+                        // Compute the tag as `Hash(sk_tag || commitment)`.
+                        let candidate_tag = N::hash_psd2(&[self.sk_tag, *commitment])?;
                         // Ensure the tag matches.
                         ensure!(*tag == candidate_tag, "Expected a record input with the same tag");
 

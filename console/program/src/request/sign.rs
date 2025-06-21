@@ -176,27 +176,27 @@ impl<N: Network> Request<N> {
                     // Ensure the record belongs to the signer.
                     ensure!(**record.owner() == signer, "Input record for '{program_id}' must belong to the signer");
 
-                    // Compute the record digest.
-                    let digest = record.to_digest(&program_id, record_name)?;
+                    // Compute the record commitment.
+                    let commitment = record.to_commitment(&program_id, record_name)?;
 
                     // Compute the generator `H` as `HashToGroup(commitment)`.
-                    let h = N::hash_to_group_psd2(&[N::serial_number_domain(), digest])?;
+                    let h = N::hash_to_group_psd2(&[N::serial_number_domain(), commitment])?;
                     // Compute `h_r` as `r * H`.
                     let h_r = h * r;
                     // Compute `gamma` as `sk_sig * H`.
                     let gamma = h * sk_sig;
 
                     // Compute the `serial_number` from `gamma`.
-                    let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, digest)?;
+                    let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, commitment)?;
                     // Compute the tag.
-                    let tag = Record::<N, Plaintext<N>>::tag(sk_tag, digest)?;
+                    let tag = Record::<N, Plaintext<N>>::tag(sk_tag, commitment)?;
 
                     // Add (`H`, `r * H`, `gamma`, `tag`) to the preimage.
                     message.extend([h, h_r, gamma].iter().map(|point| point.to_x_coordinate()));
                     message.push(tag);
 
                     // Add the input ID.
-                    input_ids.push(InputID::Record(digest, gamma, serial_number, tag));
+                    input_ids.push(InputID::Record(commitment, gamma, serial_number, tag));
                 }
                 // An external record input is hashed (using `tvk`) to a field element.
                 ValueType::ExternalRecord(..) => {

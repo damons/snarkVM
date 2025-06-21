@@ -31,7 +31,6 @@ mod serial_number;
 mod tag;
 mod to_bits;
 mod to_commitment;
-mod to_digest;
 mod to_fields;
 
 use crate::{Access, Ciphertext, Identifier, Literal, Plaintext, ProgramID, Visibility};
