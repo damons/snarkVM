@@ -151,7 +151,7 @@ macro_rules! insert_canary_credit_v0_keys {
             $crate::insert_canary_key!($map, string, $type<$network>, ("set_validator_state", $crate::canary::[<SetValidatorStateV0 $variant>]::load_bytes()));
             $crate::insert_canary_key!($map, string, $type<$network>, ("transfer_private", $crate::canary::[<TransferPrivateV0 $variant>]::load_bytes()));
             $crate::insert_canary_key!($map, string, $type<$network>, ("transfer_public", $crate::canary::[<TransferPublicV0 $variant>]::load_bytes()));
-            $crate::insert_canary_key!($map, string, $type<$network>, ("transfer_public_as_signer", $crate::canary::[<TransferPublicAsSigneV0 $variant>]::load_bytes()));
+            $crate::insert_canary_key!($map, string, $type<$network>, ("transfer_public_as_signer", $crate::canary::[<TransferPublicAsSignerV0 $variant>]::load_bytes()));
             $crate::insert_canary_key!($map, string, $type<$network>, ("transfer_private_to_public", $crate::canary::[<TransferPrivateToPublicV0 $variant>]::load_bytes()));
             $crate::insert_canary_key!($map, string, $type<$network>, ("transfer_public_to_private", $crate::canary::[<TransferPublicToPrivateV0 $variant>]::load_bytes()));
             $crate::insert_canary_key!($map, string, $type<$network>, ("join", $crate::canary::[<JoinV0 $variant>]::load_bytes()));
