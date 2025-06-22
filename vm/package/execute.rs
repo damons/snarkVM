@@ -36,9 +36,7 @@ impl<N: Network> Package<N> {
         }
 
         // Build the package, if the package requires building.
-        // TODO (howardwu): We currently choose only to support local synthesis of keys due to performance.
-        // self.build::<A>(Some(endpoint.clone()))?;
-        self.build::<A>(None)?;
+        self.build::<A>()?;
 
         // Prepare the locator (even if logging is disabled, to sanity check the locator is well-formed).
         let locator = Locator::<N>::from_str(&format!("{program_id}/{function_name}"))?;
@@ -122,7 +120,7 @@ impl<N: Network> Package<N> {
             VarunaVersion::V2
         };
         // Prepare the trace.
-        trace.prepare(query)?;
+        trace.prepare(&query)?;
 
         // Prove the execution.
         let execution = trace.prove_execution::<A, R>(&locator.to_string(), varuna_version, rng)?;
@@ -148,7 +146,7 @@ mod tests {
         // Ensure the build directory does *not* exist.
         assert!(!package.build_directory().exists());
         // Build the package.
-        package.build::<CurrentAleo>(None).unwrap();
+        package.build::<CurrentAleo>().unwrap();
         // Ensure the build directory exists.
         assert!(package.build_directory().exists());
 
@@ -177,7 +175,7 @@ mod tests {
         // Ensure the build directory does *not* exist.
         assert!(!package.build_directory().exists());
         // Build the package.
-        package.build::<CurrentAleo>(None).unwrap();
+        package.build::<CurrentAleo>().unwrap();
         // Ensure the build directory exists.
         assert!(package.build_directory().exists());
 
@@ -206,7 +204,7 @@ mod tests {
         // Ensure the build directory does *not* exist.
         assert!(!package.build_directory().exists());
         // Build the package.
-        package.build::<CurrentAleo>(None).unwrap();
+        package.build::<CurrentAleo>().unwrap();
         // Ensure the build directory exists.
         assert!(package.build_directory().exists());
 

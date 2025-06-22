@@ -145,7 +145,7 @@ impl Network for CanaryV0 {
         (ConsensusVersion::V4, 5_730_000),
         (ConsensusVersion::V5, 5_780_000),
         (ConsensusVersion::V6, 6_240_000),
-        (ConsensusVersion::V7, 6_895_000),
+        (ConsensusVersion::V7, 6_880_000),
         (ConsensusVersion::V8, 7_350_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
@@ -180,7 +180,7 @@ impl Network for CanaryV0 {
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str = snarkvm_parameters::canary::NETWORK_INCLUSION_FUNCTION_NAME;
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
-    #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
+    #[cfg(not(any(test, feature = "test")))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
         (ConsensusVersion::V1, 100),
         (ConsensusVersion::V3, 100),
@@ -188,7 +188,7 @@ impl Network for CanaryV0 {
         (ConsensusVersion::V6, 100),
     ];
     /// A list of (consensus_version, size) pairs indicating the maximum number of certificates in a batch.
-    #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
+    #[cfg(any(test, feature = "test"))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
         (ConsensusVersion::V1, 25),
         (ConsensusVersion::V3, 25),
