@@ -22,7 +22,7 @@ mod sign;
 mod string;
 mod verify;
 
-use crate::{CommitmentVersion, Identifier, Plaintext, ProgramID, Record, Value, ValueType, compute_function_id};
+use crate::{Identifier, Plaintext, ProgramID, Record, Value, ValueType, compute_function_id};
 use snarkvm_console_account::{Address, ComputeKey, GraphKey, PrivateKey, Signature, ViewKey};
 use snarkvm_console_network::Network;
 use snarkvm_console_types::prelude::*;
@@ -178,13 +178,6 @@ mod test_helpers {
                 let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
                 let address = Address::try_from(&private_key).unwrap();
 
-                // Randomly select a commitment version.
-                let commitment_version = match rng.gen_range(0..3) {
-                    1 => Some(CommitmentVersion::V1),
-                    2 => Some(CommitmentVersion::V2),
-                    _ => None,
-                };
-
                 // Construct a program ID and function name.
                 let program_id = ProgramID::from_str("token.aleo").unwrap();
                 let function_name = Identifier::from_str("transfer").unwrap();
@@ -218,8 +211,8 @@ mod test_helpers {
 
                 // Compute the signed request.
                 let request =
-                    Request::sign(&private_key, program_id, function_name, inputs.into_iter(), &input_types, root_tvk,  is_root, commitment_version, rng).unwrap();
-                assert!(request.verify(&input_types, is_root, commitment_version));
+                    Request::sign(&private_key, program_id, function_name, inputs.into_iter(), &input_types, root_tvk,  is_root, rng).unwrap();
+                assert!(request.verify(&input_types, is_root));
                 request
             })
             .collect()

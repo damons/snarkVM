@@ -49,18 +49,7 @@ mod tests;
 use console::{
     account::{Address, GraphKey, PrivateKey, ViewKey},
     network::prelude::*,
-    program::{
-        Ciphertext,
-        CommitmentVersion,
-        Entry,
-        Identifier,
-        Literal,
-        Plaintext,
-        ProgramID,
-        Record,
-        StatePath,
-        Value,
-    },
+    program::{Ciphertext, Entry, Identifier, Literal, Plaintext, ProgramID, Record, StatePath, Value},
     types::{Field, Group},
 };
 use ledger_authority::Authority;
@@ -378,7 +367,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         private_key: &PrivateKey<N>,
         program: &Program<N>,
         priority_fee_in_microcredits: u64,
-        commitment_version: Option<CommitmentVersion>,
         query: Option<Query<N, C::BlockStorage>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
@@ -391,7 +379,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         let fee_record = Some(records.next().unwrap().clone());
 
         // Create a new deploy transaction.
-        self.vm.deploy(private_key, program, fee_record, priority_fee_in_microcredits, commitment_version, query, rng)
+        self.vm.deploy(private_key, program, fee_record, priority_fee_in_microcredits, query, rng)
     }
 
     /// Creates a transfer transaction.
@@ -403,7 +391,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         to: Address<N>,
         amount_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
-        commitment_version: Option<CommitmentVersion>,
         query: Option<Query<N, C::BlockStorage>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
@@ -429,7 +416,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             inputs.iter(),
             fee_record,
             priority_fee_in_microcredits,
-            commitment_version,
             query,
             rng,
         )

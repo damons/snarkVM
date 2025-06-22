@@ -213,12 +213,7 @@ impl<N: Network> Package<N> {
                         response.verifying_key().clone(),
                     )?;
                 }
-                None => process.synthesize_key::<A, _>(
-                    program_id,
-                    function_name,
-                    Some(CommitmentVersion::V2), // TODO (raychu86): Record Commitment - this should be configurable.
-                    &mut rand::thread_rng(),
-                )?,
+                None => process.synthesize_key::<A, _>(program_id, function_name, &mut rand::thread_rng())?,
             }
         }
 

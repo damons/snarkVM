@@ -252,13 +252,12 @@ pub mod test_helpers {
                 base_fee_in_microcredits,
                 priority_fee_in_microcredits,
                 deployment_or_execution_id,
-                None,
                 rng,
             )
             .unwrap();
 
         // Construct the fee trace.
-        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -310,12 +309,11 @@ pub mod test_helpers {
                 base_fee,
                 priority_fee,
                 deployment_or_execution_id,
-                None,
                 rng,
             )
             .unwrap();
         // Construct the fee trace.
-        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+        let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();

@@ -24,7 +24,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program_id: impl TryInto<ProgramID<N>>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = impl TryInto<Value<N>>>>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("VM::authorize");
@@ -46,7 +45,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         lap!(timer, "Prepare inputs");
 
         // Authorize the call.
-        let result = self.authorize_raw(private_key, program_id, function_name, inputs, commitment_version, rng);
+        let result = self.authorize_raw(private_key, program_id, function_name, inputs, rng);
         finish!(timer, "Authorize the call");
         result
     }
@@ -61,7 +60,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         macro_rules! logic {
@@ -73,7 +71,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     base_fee_in_microcredits,
                     priority_fee_in_microcredits,
                     *cast_ref!(deployment_or_execution_id as Field<$network>),
-                    commitment_version,
                     rng,
                 )?;
                 // Prepare the authorization.
@@ -96,7 +93,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         macro_rules! logic {
@@ -107,7 +103,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     base_fee_in_microcredits,
                     priority_fee_in_microcredits,
                     *cast_ref!(deployment_or_execution_id as Field<$network>),
-                    commitment_version,
                     rng,
                 )?;
                 // Prepare the authorization.
@@ -132,7 +127,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program_id: ProgramID<N>,
         function_name: Identifier<N>,
         inputs: Vec<Value<N>>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         macro_rules! logic {
@@ -143,7 +137,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     cast_ref!(program_id as ProgramID<$network>),
                     cast_ref!(function_name as Identifier<$network>),
                     cast_ref!(inputs as Vec<Value<$network>>).iter(),
-                    commitment_version,
                     rng,
                 )?;
                 // Prepare the authorization.

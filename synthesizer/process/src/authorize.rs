@@ -24,11 +24,10 @@ impl<N: Network> Process<N> {
         program_id: impl TryInto<ProgramID<N>>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         // Authorize the call.
-        self.get_stack(program_id)?.authorize::<A, R>(private_key, function_name, inputs, commitment_version, rng)
+        self.get_stack(program_id)?.authorize::<A, R>(private_key, function_name, inputs, rng)
     }
 
     /// Authorizes the fee given the credits record, the fee amount (in microcredits),
@@ -41,7 +40,6 @@ impl<N: Network> Process<N> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("Process::authorize_fee_private");
@@ -68,13 +66,7 @@ impl<N: Network> Process<N> {
         lap!(timer, "Construct the inputs");
 
         // Authorize the call.
-        let authorization = self.get_stack(program_id)?.authorize::<A, R>(
-            private_key,
-            function_name,
-            inputs,
-            commitment_version,
-            rng,
-        )?;
+        let authorization = self.get_stack(program_id)?.authorize::<A, R>(private_key, function_name, inputs, rng)?;
         finish!(timer, "Compute the authorization");
 
         // Return the authorization.
@@ -89,7 +81,6 @@ impl<N: Network> Process<N> {
         base_fee_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
         deployment_or_execution_id: Field<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("Process::authorize_fee_public");
@@ -109,13 +100,7 @@ impl<N: Network> Process<N> {
         lap!(timer, "Construct the inputs");
 
         // Authorize the call.
-        let authorization = self.get_stack(program_id)?.authorize::<A, R>(
-            private_key,
-            function_name,
-            inputs,
-            commitment_version,
-            rng,
-        )?;
+        let authorization = self.get_stack(program_id)?.authorize::<A, R>(private_key, function_name, inputs, rng)?;
         finish!(timer, "Compute the authorization");
 
         // Return the authorization.

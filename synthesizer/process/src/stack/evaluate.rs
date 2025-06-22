@@ -103,7 +103,6 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         &self,
         call_stack: CallStack<N>,
         caller: Option<ProgramID<N>>,
-        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Response<N>> {
         let timer = timer!("Stack::evaluate_function");
 
@@ -167,7 +166,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         lap!(timer, "Initialize the registers");
 
         // Ensure the request is well-formed.
-        ensure!(request.verify(&function.input_types(), is_root, commitment_version), "Request is invalid");
+        ensure!(request.verify(&function.input_types(), is_root), "Request is invalid");
         lap!(timer, "Verify the request");
 
         // Store the inputs.
@@ -183,7 +182,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
             // Evaluate the instruction.
             let result = match instruction {
                 // If the instruction is a `call` instruction, we need to handle it separately.
-                Instruction::Call(call) => CallTrait::evaluate(call, self, &mut registers, commitment_version),
+                Instruction::Call(call) => CallTrait::evaluate(call, self, &mut registers),
                 // Otherwise, evaluate the instruction normally.
                 _ => instruction.evaluate(self, &mut registers),
             };
@@ -246,7 +245,6 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
             outputs,
             &function.output_types(),
             &output_registers,
-            commitment_version,
         );
         finish!(timer);
 

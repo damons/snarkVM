@@ -162,7 +162,7 @@ function compute:
             // Construct the process.
             let process = Process::load().unwrap();
             // Compute the deployment.
-            let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+            let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -249,12 +249,11 @@ pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng
             base_fee_in_microcredits,
             priority_fee_in_microcredits,
             deployment_or_execution_id,
-            None,
             rng,
         )
         .unwrap();
     // Construct the fee trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -303,12 +302,11 @@ pub fn sample_fee_public(deployment_or_execution_id: Field<CurrentNetwork>, rng:
             base_fee_in_microcredits,
             priority_fee_in_microcredits,
             deployment_or_execution_id,
-            None,
             rng,
         )
         .unwrap();
     // Construct the fee trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -425,12 +423,11 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
                     "testing_large.aleo",
                     "large_transaction",
                     Vec::<Value<CurrentNetwork>>::new().iter(),
-                    None,
                     rng,
                 )
                 .unwrap();
             // Execute the function.
-            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
             // Initialize a new block store.
             let block_store =
@@ -536,9 +533,9 @@ fn sample_genesis_block_and_components_raw(
     let process = Process::load().unwrap();
     // Authorize the function.
     let authorization =
-        process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), None, rng).unwrap();
+        process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), rng).unwrap();
     // Execute the function.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();

@@ -21,7 +21,6 @@ impl<N: Network> Process<N> {
     pub fn verify_deployment<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         deployment: &Deployment<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Process::verify_deployment");
@@ -36,7 +35,7 @@ impl<N: Network> Process<N> {
         lap!(timer, "Compute the stack");
 
         // Ensure the verifying keys are well-formed and the certificates are valid.
-        let verification = stack.verify_deployment::<A, R>(deployment, commitment_version, rng);
+        let verification = stack.verify_deployment::<A, R>(deployment, rng);
         lap!(timer, "Verify the deployment");
 
         finish!(timer);
@@ -63,10 +62,10 @@ mod tests {
         let large_program = Program::from_str(include_str!("./resources/large_functions.aleo"))?;
 
         // Create a deployment for the program.
-        let deployment = process.deploy::<CurrentAleo, _>(&large_program, None, rng)?;
+        let deployment = process.deploy::<CurrentAleo, _>(&large_program, rng)?;
 
         // Verify the deployment.
-        assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).is_ok());
+        assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, rng).is_ok());
 
         bail!("\n\nRemember to #[ignore] this test!\n\n")
     }

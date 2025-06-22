@@ -20,7 +20,7 @@ mod entry;
 pub use entry::Entry;
 
 mod helpers;
-pub use helpers::{CommitmentVersion, Owner};
+pub use helpers::Owner;
 
 mod decrypt;
 mod encrypt;

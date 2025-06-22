@@ -42,13 +42,6 @@ use snarkvm_console_types::{Boolean, Field, Group, Scalar, U8};
 
 use indexmap::IndexMap;
 
-/// The different commitment versions.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum CommitmentVersion {
-    V1 = 1,
-    V2 = 2,
-}
-
 /// A value stored in program record.
 #[derive(Clone)]
 pub struct Record<N: Network, Private: Visibility> {

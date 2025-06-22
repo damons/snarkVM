@@ -236,7 +236,7 @@ function compute:
         let function_name = Identifier::from_str("compute").unwrap();
 
         // Sample the proving key.
-        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, &mut TestRng::default()).unwrap();
+        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, &mut TestRng::default()).unwrap();
 
         // Retrieve the proving key.
         let proving_key = process.get_proving_key(program.id(), function_name).unwrap();

@@ -27,7 +27,6 @@ impl<A: Aleo> Response<A> {
         outputs: Vec<console::Value<A::Network>>,        // Note: Console type
         output_types: &[console::ValueType<A::Network>], // Note: Console type
         output_registers: &[Option<console::Register<A::Network>>], // Note: Console type
-        commitment_version: Option<CommitmentVersion<A>>,
     ) -> Vec<Value<A>> {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name);
@@ -215,7 +214,6 @@ mod tests {
     use snarkvm_utilities::{TestRng, Uniform};
 
     use anyhow::Result;
-    use rand::Rng;
 
     pub(crate) const ITERATIONS: usize = 20;
 
@@ -235,15 +233,6 @@ mod tests {
             let tvk = console::Field::rand(rng);
             // Compute the transition commitment as `Hash(tvk)`.
             let tcm = <Circuit as Environment>::Network::hash_psd2(&[tvk])?;
-
-            // Randomly select a commitment version.
-            let commitment_version = match rng.gen_range(0..=2) {
-                1 => Some(console::CommitmentVersion::V1),
-                2 => Some(console::CommitmentVersion::V2),
-                _ => None,
-            };
-            let commitment_version_circuit =
-                commitment_version.map(|commitment_version| crate::CommitmentVersion::new(mode, commitment_version));
 
             // Compute the nonce.
             let index = console::Field::from_u64(8);
@@ -303,7 +292,6 @@ mod tests {
                 outputs.clone(),
                 &output_types,
                 &output_registers,
-                commitment_version,
             )?;
             // assert!(response.verify());
 
@@ -326,7 +314,6 @@ mod tests {
                     response.outputs().to_vec(),
                     &output_types,
                     &output_registers,
-                    commitment_version_circuit.clone(),
                 );
                 assert_eq!(response.outputs(), outputs.eject_value());
                 match mode.is_constant() {
@@ -348,7 +335,6 @@ mod tests {
                 outputs,
                 &output_types,
                 &output_registers,
-                commitment_version_circuit,
             );
             assert_eq!(response, candidate_b.eject_value());
 

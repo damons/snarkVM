@@ -20,12 +20,7 @@ impl<N: Network> Request<N> {
     ///
     /// Verifies (challenge == challenge') && (address == address') && (serial_numbers == serial_numbers') where:
     ///     challenge' := HashToScalar(r * G, pk_sig, pr_sig, signer, \[tvk, tcm, function ID, input IDs\])
-    pub fn verify(
-        &self,
-        input_types: &[ValueType<N>],
-        is_root: bool,
-        commitment_version: Option<CommitmentVersion>,
-    ) -> bool {
+    pub fn verify(&self, input_types: &[ValueType<N>], is_root: bool) -> bool {
         // Verify the transition public key, transition view key, and transition commitment are well-formed.
         {
             // Compute the transition commitment `tcm` as `Hash(tvk)`.
@@ -276,11 +271,10 @@ mod tests {
                 &input_types,
                 root_tvk,
                 is_root,
-                None,
                 rng,
             )
             .unwrap();
-            assert!(request.verify(&input_types, is_root, None));
+            assert!(request.verify(&input_types, is_root));
         }
     }
 }

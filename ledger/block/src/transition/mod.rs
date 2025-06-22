@@ -28,7 +28,6 @@ use console::{
     network::prelude::*,
     program::{
         Ciphertext,
-        CommitmentVersion,
         Identifier,
         InputID,
         OutputID,
@@ -93,7 +92,6 @@ impl<N: Network> Transition<N> {
         response: &Response<N>,
         output_types: &[ValueType<N>],
         output_registers: &[Option<Register<N>>],
-        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Self> {
         let network_id = *request.network_id();
         let program_id = *request.program_id();

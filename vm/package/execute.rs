@@ -24,7 +24,6 @@ impl<N: Network> Package<N> {
         private_key: &PrivateKey<N>,
         function_name: Identifier<N>,
         inputs: &[Value<N>],
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<(Response<N>, Execution<N>, Vec<CallMetrics<N>>)> {
         // Retrieve the main program.
@@ -49,19 +48,13 @@ impl<N: Network> Package<N> {
 
         // Prepare the query.
         let query = Query::<_, BlockMemory<_>>::from(endpoint);
-        // Fetch the consenus version.
+        // Fetch the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+
         // Construct the process.
         let process = self.get_process()?;
         // Authorize the function call.
-        let authorization = process.authorize::<A, R>(
-            private_key,
-            program_id,
-            function_name,
-            inputs.iter(),
-            commitment_version,
-            rng,
-        )?;
+        let authorization = process.authorize::<A, R>(private_key, program_id, function_name, inputs.iter(), rng)?;
 
         // Retrieve the program.
         let stack = process.get_stack(program_id)?;
@@ -117,7 +110,7 @@ impl<N: Network> Package<N> {
         process.insert_verifying_key(program_id, &function_name, verifier.verifying_key().clone())?;
 
         // Execute the circuit.
-        let (response, mut trace) = process.execute::<A, R>(authorization, commitment_version, rng)?;
+        let (response, mut trace) = process.execute::<A, R>(authorization, rng)?;
 
         // Retrieve the call metrics.
         let call_metrics = trace.call_metrics().to_vec();
@@ -168,7 +161,7 @@ mod tests {
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
         // Run the program function.
         let (_response, _execution, _metrics) =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).unwrap();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -197,7 +190,7 @@ mod tests {
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
         // Run the program function.
         let (_response, _execution, _metrics) =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).unwrap();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();
@@ -226,7 +219,7 @@ mod tests {
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
         // Run the program function.
         let (_response, _execution, _metrics) =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).unwrap();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).unwrap();
 
         // Proactively remove the temporary directory (to conserve space).
         std::fs::remove_dir_all(directory).unwrap();

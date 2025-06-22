@@ -318,7 +318,6 @@ pub(crate) mod test_helpers {
                 base_fee_in_microcredits,
                 priority_fee_in_microcredits,
                 deployment_or_execution_id,
-                None,
                 rng,
             )
             .unwrap();
@@ -354,7 +353,6 @@ pub(crate) mod test_helpers {
                 &program_id,
                 &function_name,
                 vec![destination, amount].iter(),
-                None,
                 rng,
             )
             .unwrap();

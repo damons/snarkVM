@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CommitmentVersion, Identifier, ProgramID, Register, Value, ValueType, compute_function_id};
+use crate::{Identifier, ProgramID, Register, Value, ValueType, compute_function_id};
 use snarkvm_console_network::Network;
 use snarkvm_console_types::prelude::*;
 
@@ -61,7 +61,6 @@ impl<N: Network> Response<N> {
         outputs: Vec<Value<N>>,
         output_types: &[ValueType<N>],
         output_operands: &[Option<Register<N>>],
-        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Self> {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name)?;

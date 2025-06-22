@@ -13,8 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod commitment_version;
-pub use commitment_version::*;
-
 mod owner;
 pub use owner::*;

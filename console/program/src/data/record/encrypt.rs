@@ -24,6 +24,7 @@ impl<N: Network> Record<N, Plaintext<N>> {
 
     /// Encrypts `self` for the record owner under the given randomizer,
     /// and returns the encrypted record alongside the record view key.
+    #[allow(clippy::type_complexity)]
     pub fn encrypt_symmetric(&self, randomizer: Scalar<N>) -> Result<(Record<N, Ciphertext<N>>, Field<N>)> {
         // Ensure the randomizer corresponds to the record nonce.
         if self.nonce == N::g_scalar_multiply(&randomizer) {

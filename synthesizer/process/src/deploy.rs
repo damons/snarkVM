@@ -21,7 +21,6 @@ impl<N: Network> Process<N> {
     pub fn deploy<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         program: &Program<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Deployment<N>> {
         let timer = timer!("Process::deploy");
@@ -31,7 +30,7 @@ impl<N: Network> Process<N> {
         lap!(timer, "Compute the stack");
 
         // Return the deployment.
-        let deployment = stack.deploy::<A, R>(commitment_version, rng);
+        let deployment = stack.deploy::<A, R>(rng);
         lap!(timer, "Construct the deployment");
 
         finish!(timer);

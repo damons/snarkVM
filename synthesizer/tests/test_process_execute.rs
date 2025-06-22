@@ -131,7 +131,6 @@ fn run_test(process: Process<CurrentNetwork>, test: &ProgramTest) -> serde_yaml:
                             program_id,
                             function_name,
                             inputs.iter(),
-                            None,
                             rng,
                         ) {
                             Ok(authorization) => authorization,
@@ -139,7 +138,7 @@ fn run_test(process: Process<CurrentNetwork>, test: &ProgramTest) -> serde_yaml:
                         };
                         // Execute the authorization and extract the output as YAML.
                         std::panic::catch_unwind(AssertUnwindSafe(|| {
-                            match process.execute::<CurrentAleo, _>(authorization, None, rng) {
+                            match process.execute::<CurrentAleo, _>(authorization, rng) {
                                 Ok((response, _)) => serde_yaml::Value::Sequence(
                                     response
                                         .outputs()

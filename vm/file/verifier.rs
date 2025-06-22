@@ -236,7 +236,7 @@ function compute:
         let function_name = Identifier::from_str("compute").unwrap();
 
         // Sample the verifying key.
-        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, &mut TestRng::default()).unwrap();
+        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, &mut TestRng::default()).unwrap();
 
         // Retrieve the verifying key.
         let verifying_key = process.get_verifying_key(program.id(), function_name).unwrap();

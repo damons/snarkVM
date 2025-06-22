@@ -23,7 +23,7 @@ use circuit::AleoV0;
 use console::{
     account::{Address, PrivateKey},
     network::{MainnetV0, prelude::*},
-    program::{CommitmentVersion, Identifier, ProgramID, Request, Value},
+    program::{Identifier, ProgramID, Request, Value},
 };
 use criterion::Criterion;
 use std::{str::FromStr, time::Duration};
@@ -38,7 +38,6 @@ fn prepare_check_deployment<N: Network, A: circuit::Aleo<Network = N>>(
     private_key: &PrivateKey<N>,
     function_name: Identifier<N>,
     inputs: &[Value<N>],
-    commitment_version: Option<CommitmentVersion>,
     rng: &mut TestRng,
 ) {
     // Retrieve the program.
@@ -52,18 +51,9 @@ fn prepare_check_deployment<N: Network, A: circuit::Aleo<Network = N>>(
     // Sample 'is_root'.
     let is_root = true;
     // Compute the request.
-    let request = Request::sign(
-        private_key,
-        program_id,
-        function_name,
-        inputs.iter(),
-        &input_types,
-        root_tvk,
-        is_root,
-        commitment_version,
-        rng,
-    )
-    .unwrap();
+    let request =
+        Request::sign(private_key, program_id, function_name, inputs.iter(), &input_types, root_tvk, is_root, rng)
+            .unwrap();
     // Initialize the assignments.
     let assignments = Assignments::<N>::default();
     // Initialize the call stack.
@@ -72,8 +62,7 @@ fn prepare_check_deployment<N: Network, A: circuit::Aleo<Network = N>>(
     // Benchmark synthesis of the circuit.
     c.bench_function(&format!("CheckDeployment for {function_name}"), |b| {
         b.iter(|| {
-            let _response =
-                stack.execute_function::<A, _>(call_stack.clone(), None, None, commitment_version, rng).unwrap();
+            let _response = stack.execute_function::<A, _>(call_stack.clone(), None, None, rng).unwrap();
         })
     });
 }
@@ -103,7 +92,7 @@ fn transfer_private(c: &mut Criterion) {
     let r2 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
     // Compute the assignment.
-    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0, r1, r2], None, rng);
+    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0, r1, r2], rng);
 }
 
 fn transfer_public(c: &mut Criterion) {
@@ -126,7 +115,7 @@ fn transfer_public(c: &mut Criterion) {
     let r1 = Value::<CurrentNetwork>::from_str("1_500_000_000_000_000_u64").unwrap();
 
     // Compute the assignment.
-    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0, r1], None, rng);
+    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0, r1], rng);
 }
 
 fn large_program(c: &mut Criterion) {
@@ -156,7 +145,7 @@ function do:
     let r0 = Value::<CurrentNetwork>::from_str("[[1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128], [1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128, 1u128]]").unwrap();
 
     // Compute the assignment.
-    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0], None, rng);
+    prepare_check_deployment::<_, CurrentAleo>(c, &stack, &private_key, function_name, &[r0], rng);
 }
 
 criterion_group! {
