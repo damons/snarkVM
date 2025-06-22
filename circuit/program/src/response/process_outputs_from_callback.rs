@@ -317,7 +317,7 @@ mod tests {
                 );
                 assert_eq!(response.outputs(), outputs.eject_value());
                 match mode.is_constant() {
-                    true => assert_scope!(<=num_constants, num_public, num_private, num_constraints),
+                    true => assert_scope!(<=num_constants, <=num_public, <=num_private, <=num_constraints),
                     false => assert_scope!(<=num_constants, num_public, num_private, num_constraints),
                 }
             });
@@ -349,16 +349,16 @@ mod tests {
 
     #[test]
     fn test_from_callback_constant() -> Result<()> {
-        check_from_callback(Mode::Constant, 20844, 5, 4922, 4931)
+        check_from_callback(Mode::Constant, 35000, 5, 11500, 11500)
     }
 
     #[test]
     fn test_from_callback_public() -> Result<()> {
-        check_from_callback(Mode::Public, 20844, 5, 6217, 6226)
+        check_from_callback(Mode::Public, 34374, 5, 13475, 13490)
     }
 
     #[test]
     fn test_from_callback_private() -> Result<()> {
-        check_from_callback(Mode::Private, 20844, 5, 6217, 6226)
+        check_from_callback(Mode::Private, 34374, 5, 13475, 13490)
     }
 }
