@@ -148,7 +148,7 @@ impl<N: Network> Inclusion<N> {
     pub fn prepare(
         &self,
         transitions: &[Transition<N>],
-        query: impl QueryTrait<N>,
+        query: &dyn QueryTrait<N>,
     ) -> Result<(Vec<InclusionAssignmentWrapper<N>>, N::StateRoot)> {
         prepare_impl!(self, transitions, query, current_state_root, current_block_height, get_state_path_for_commitment)
     }
@@ -158,7 +158,7 @@ impl<N: Network> Inclusion<N> {
     pub async fn prepare_async(
         &self,
         transitions: &[Transition<N>],
-        query: impl QueryTrait<N>,
+        query: &dyn QueryTrait<N>,
     ) -> Result<(Vec<InclusionAssignmentWrapper<N>>, N::StateRoot)> {
         prepare_impl!(
             self,
