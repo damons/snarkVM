@@ -124,17 +124,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let block_store = store.block_store();
 
         #[cfg(not(any(test, feature = "test")))]
-        let process = {
+        let mut process = {
             // Determine the latest block height.
             let latest_block_height = block_store.current_block_height();
             // Determine the consensus version.
             let consensus_version = N::CONSENSUS_VERSION(latest_block_height)?; // TODO (raychu86): Record Commitment - Select the proper consensus version.
             // Initialize a new process based on the consensus version.
-            let mut process = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
                 Process::load_v0()?
             } else {
                 Process::load()?
-            };
+            }
         };
         #[cfg(any(test, feature = "test"))]
         // Initialize a new process.
