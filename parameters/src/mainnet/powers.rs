@@ -73,17 +73,15 @@ lazy_static::lazy_static! {
 pub struct PowersOfG<E: PairingEngine> {
     /// The powers of beta G.
     powers_of_beta_g: RwLock<PowersOfBetaG<E>>,
-    /// Group elements of form `{ \beta^i \gamma G }`, where `i` is from 0 to
-    /// `degree`, This is used for hiding.
+    /// Group elements of form `{ \beta^i \gamma G }`, where `i` is from 0 to `degree`,
+    /// This is used for hiding.
     powers_of_beta_times_gamma_g: BTreeMap<usize, E::G1Affine>,
     /// Group elements of form `{ \beta^{max_degree - i} H }`, where `i`
     /// is of the form `2^k - 1` for `k` in `1` to `log_2(max_degree)`.
     negative_powers_of_beta_h: BTreeMap<usize, E::G2Affine>,
-    /// Information required to enforce degree bounds. Each pair is of the form
-    /// `(degree_bound, shifting_advice)`. Each pair is in the form
-    /// `(degree_bound, \beta^{max_degree - i} H),` where `H` is the generator
-    /// of G2, and `i` is of the form `2^k - 1` for `k` in `1` to
-    /// `log_2(max_degree)`.
+    /// Information required to enforce degree bounds. Each pair is of the form `(degree_bound, shifting_advice)`.
+    /// Each pair is in the form `(degree_bound, \beta^{max_degree - i} H),` where `H` is the generator of G2,
+    /// and `i` is of the form `2^k - 1` for `k` in `1` to `log_2(max_degree)`.
     prepared_negative_powers_of_beta_h: Arc<BTreeMap<usize, <E::G2Affine as PairingCurve>::Prepared>>,
     /// beta * h
     beta_h: E::G2Affine,
@@ -122,14 +120,12 @@ impl<E: PairingEngine> PowersOfG<E> {
         self.powers_of_beta_g.write().download_powers_for(&range)
     }
 
-    /// Returns the number of contiguous powers of beta G starting from the 0-th
-    /// power.
+    /// Returns the number of contiguous powers of beta G starting from the 0-th power.
     pub fn num_powers(&self) -> usize {
         self.powers_of_beta_g.read().num_powers()
     }
 
-    /// Returns the maximum possible number of contiguous powers of beta G
-    /// starting from the 0-th power.
+    /// Returns the maximum possible number of contiguous powers of beta G starting from the 0-th power.
     pub fn max_num_powers(&self) -> usize {
         MAX_NUM_POWERS
     }
@@ -244,8 +240,7 @@ pub struct PowersOfBetaG<E: PairingEngine> {
 }
 
 impl<E: PairingEngine> PowersOfBetaG<E> {
-    /// Returns the number of contiguous powers of beta G starting from the 0-th
-    /// power.
+    /// Returns the number of contiguous powers of beta G starting from the 0-th power.
     pub fn num_powers(&self) -> usize {
         self.powers_of_beta_g.len()
     }
@@ -264,12 +259,11 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
     }
 
     /// Returns the range of powers of beta G.
-    /// In detail, it returns the range of the available "normal" powers of beta
-    /// G, i.e. the contiguous range of powers of beta G starting from G,
-    /// and, the range of shifted_powers.
+    /// In detail, it returns the range of the available "normal" powers of beta G, i.e. the
+    /// contiguous range of powers of beta G starting from G, and, the range of shifted_powers.
     ///
-    /// For example, if the output of this function is `(0..8, 24..32)`, then
-    /// `self` contains the powers
+    /// For example, if the output of this function is `(0..8, 24..32)`, then `self`
+    /// contains the powers
     /// * `beta^0 * G, beta^1 * G, ..., beta^7 * G`, and
     /// * `beta^24 * G, ..., beta^31 * G`.
     pub fn available_powers(&self) -> (Range<usize>, Range<usize>) {
@@ -315,8 +309,7 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
             // all the powers reside in self.powers_of_beta_g.
             Ok(&self.powers_of_beta_g[range])
         } else {
-            // In this case, the shifted powers still reside in
-            // self.shifted_powers_of_beta_g.
+            // In this case, the shifted powers still reside in self.shifted_powers_of_beta_g.
             let lower = self.shifted_powers_of_beta_g.len() - (MAX_NUM_POWERS - range.start);
             let upper = self.shifted_powers_of_beta_g.len() - (MAX_NUM_POWERS - range.end);
             Ok(&self.shifted_powers_of_beta_g[lower..upper])
@@ -334,8 +327,7 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
         self.powers(target..(target + 1)).map(|s| s[0])
     }
 
-    /// Slices the underlying file to return a vector of affine elements between
-    /// `lower` and `upper`.
+    /// Slices the underlying file to return a vector of affine elements between `lower` and `upper`.
     fn powers(&mut self, range: Range<usize>) -> Result<&[E::G1Affine]> {
         if range.is_empty() {
             return Ok(&self.powers_of_beta_g[0..0]);
@@ -363,8 +355,7 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
             self.download_powers_up_to(range.end)?;
             self.shifted_powers_of_beta_g = Vec::new();
         } else if self.distance_from_shifted_of(range) < self.distance_from_normal_of(range) {
-            // If the range is closer to the shifted powers, then we download the shifted
-            // powers.
+            // If the range is closer to the shifted powers, then we download the shifted powers.
             self.download_shifted_powers_from(range.start)?;
         } else {
             // Otherwise, we download the normal powers.
@@ -373,9 +364,8 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
         Ok(())
     }
 
-    /// This method downloads the universal SRS powers up to the
-    /// `next_power_of_two(target_degree)`, and updates `Self` in place with
-    /// the new powers.
+    /// This method downloads the universal SRS powers up to the `next_power_of_two(target_degree)`,
+    /// and updates `Self` in place with the new powers.
     fn download_powers_up_to(&mut self, end: usize) -> Result<()> {
         // Determine the new power of two.
         let final_power_of_two = end.checked_next_power_of_two().ok_or_else(|| anyhow!("Requesting too many powers"))?;
@@ -441,9 +431,8 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
     }
 
     /// This method downloads the universal SRS powers from
-    /// `start` up to `MAXIMUM_NUM_POWERS -
-    /// self.shifted_powers_of_beta_g.len()`, and updates `Self` in place
-    /// with the new powers.
+    /// `start` up to `MAXIMUM_NUM_POWERS - self.shifted_powers_of_beta_g.len()`,
+    /// and updates `Self` in place with the new powers.
     fn download_shifted_powers_from(&mut self, start: usize) -> Result<()> {
         // Ensure the total number of powers is less than the maximum number of powers.
         ensure!(start <= MAX_NUM_POWERS, "Requesting more powers than exist in the SRS");
@@ -484,8 +473,7 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
         download_queue.reverse(); // We want to download starting from the smallest power.
 
         let mut final_powers = Vec::with_capacity(final_num_powers);
-        // If the `target_degree` exceeds the current `degree`, proceed to download the
-        // new powers.
+        // If the `target_degree` exceeds the current `degree`, proceed to download the new powers.
         for num_powers in &download_queue {
             #[cfg(debug_assertions)]
             println!("Loading {num_powers} shifted powers");

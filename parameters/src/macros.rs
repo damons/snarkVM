@@ -102,20 +102,17 @@ macro_rules! impl_store_and_remote_fetch {
 
         #[cfg(feature = "wasm")]
         fn remote_fetch(url: &str) -> Result<Vec<u8>, $crate::errors::ParameterError> {
-            // Use the browser's XmlHttpRequest object to download the parameter file
-            // synchronously.
+            // Use the browser's XmlHttpRequest object to download the parameter file synchronously.
             //
-            // This method blocks the event loop while the parameters are downloaded, and
-            // should be executed in a web worker to prevent the main browser window
-            // from freezing.
+            // This method blocks the event loop while the parameters are downloaded, and should be
+            // executed in a web worker to prevent the main browser window from freezing.
             let xhr = web_sys::XmlHttpRequest::new().map_err(|_| {
                 $crate::errors::ParameterError::Wasm("Download failed - XMLHttpRequest object not found".to_string())
             })?;
 
-            // XmlHttpRequest if specified as synchronous cannot use the responseType
-            // property. It cannot thus download bytes directly and enforces a text
-            // encoding. To get back the original binary, a charset that does not
-            // corrupt the original bytes must be used.
+            // XmlHttpRequest if specified as synchronous cannot use the responseType property. It
+            // cannot thus download bytes directly and enforces a text encoding. To get back the
+            // original binary, a charset that does not corrupt the original bytes must be used.
             xhr.override_mime_type("octet/binary; charset=ISO-8859-5").unwrap();
 
             // Initialize and send the request.
