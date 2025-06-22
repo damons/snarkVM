@@ -282,6 +282,8 @@ mod tests {
                 Some(console::Register::Locator(9)),
             ];
 
+            // Construct a signer.
+            let signer = console::Address::rand(rng);
             // Construct a network ID.
             let network_id = console::U16::new(<Circuit as Environment>::Network::ID);
             // Construct a program ID.
@@ -291,6 +293,7 @@ mod tests {
 
             // Construct the response.
             let response = console::Response::new(
+                &signer,
                 &network_id,
                 &program_id,
                 &function_name,
@@ -304,7 +307,8 @@ mod tests {
             )?;
             // assert!(response.verify());
 
-            // Inject the network ID, program ID, function name, `tvk`, `tcm`.
+            // Inject the signer, network ID, program ID, function name, `tvk`, `tcm`.
+            let signer = Address::<Circuit>::new(mode, signer);
             let network_id = U16::<Circuit>::constant(network_id);
             let program_id = ProgramID::<Circuit>::new(mode, program_id);
             let function_name = Identifier::<Circuit>::new(mode, function_name);
@@ -334,6 +338,7 @@ mod tests {
             // Compute the response using outputs (circuit).
             let outputs = Inject::new(mode, response.outputs().to_vec());
             let candidate_b = Response::from_outputs(
+                &signer,
                 &network_id,
                 &program_id,
                 &function_name,

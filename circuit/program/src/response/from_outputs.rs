@@ -18,6 +18,7 @@ use super::*;
 impl<A: Aleo> Response<A> {
     /// Initializes a response, given the number of inputs, tvk, tcm, outputs, output types, and output registers.
     pub fn from_outputs(
+        signer: &Address<A>,
         network_id: &U16<A>,
         program_id: &ProgramID<A>,
         function_name: &Identifier<A>,
@@ -127,8 +128,13 @@ impl<A: Aleo> Response<A> {
                         // Compute the record checksum, as the hash of the encrypted record.
                         let checksum = A::hash_bhp1024(&encrypted_record.to_bits_le());
 
+                        // Prepare a randomizer for the sender ciphertext.
+                        let randomizer = A::hash_psd4(&[A::encryption_domain(), record_view_key, Field::one()]);
+                        // Encrypt the signer address using the randomizer.
+                        let sender_ciphertext = signer.to_group().to_x_coordinate() + randomizer;
+
                         // Return the output ID.
-                        OutputID::record(commitment, checksum)
+                        OutputID::record(commitment, checksum, sender_ciphertext)
                     }
                     // For an external record output, compute the hash (using `tvk`) of the output.
                     console::ValueType::ExternalRecord(..) => {
@@ -253,6 +259,8 @@ mod tests {
                 Some(console::Register::Locator(9)),
             ];
 
+            // Construct a signer.
+            let signer = console::Address::rand(rng);
             // Construct a network ID.
             let network_id = console::U16::new(<Circuit as Environment>::Network::ID);
             // Construct a program ID.
@@ -262,6 +270,7 @@ mod tests {
 
             // Construct the response.
             let response = console::Response::new(
+                &signer,
                 &network_id,
                 &program_id,
                 &function_name,
@@ -274,7 +283,8 @@ mod tests {
                 commitment_version,
             )?;
 
-            // Inject the network ID, program ID, function name, `tvk`, `tcm`, and outputs.
+            // Inject the signer, network ID, program ID, function name, `tvk`, `tcm`, and outputs.
+            let signer = Address::<Circuit>::new(mode, signer);
             let network_id = U16::<Circuit>::constant(network_id);
             let program_id = ProgramID::<Circuit>::new(mode, program_id);
             let function_name = Identifier::<Circuit>::new(mode, function_name);
@@ -285,6 +295,7 @@ mod tests {
             Circuit::scope(format!("Response {i}"), || {
                 // Compute the response using outputs (circuit).
                 let candidate = Response::from_outputs(
+                    &signer,
                     &network_id,
                     &program_id,
                     &function_name,

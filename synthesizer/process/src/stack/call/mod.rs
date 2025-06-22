@@ -365,6 +365,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
 
                         // Execute the request.
                         let response = crate::Response::new(
+                            request.signer(),
                             request.network_id(),
                             substack.program().id(),
                             function.name(),

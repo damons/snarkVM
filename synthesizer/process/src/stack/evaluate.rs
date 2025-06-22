@@ -236,6 +236,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
 
         // Compute the response.
         let response = Response::new(
+            request.signer(),
             request.network_id(),
             self.program.id(),
             function.name(),

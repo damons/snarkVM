@@ -25,8 +25,8 @@ pub enum OutputID<N: Network> {
     Public(Field<N>),
     /// The ciphertext hash of the private output.
     Private(Field<N>),
-    /// The `(commitment, checksum)` tuple of the record output.
-    Record(Field<N>, Field<N>),
+    /// The `(commitment, checksum, sender_ciphertext)` tuple of the record output.
+    Record(Field<N>, Field<N>, Field<N>),
     /// The hash of the external record output.
     ExternalRecord(Field<N>),
     /// The hash of the future output.
@@ -51,6 +51,7 @@ impl<N: Network> From<(Vec<OutputID<N>>, Vec<Value<N>>)> for Response<N> {
 impl<N: Network> Response<N> {
     /// Initializes a new response.
     pub fn new(
+        signer: &Address<N>,
         network_id: &U16<N>,
         program_id: &ProgramID<N>,
         function_name: &Identifier<N>,
@@ -167,8 +168,13 @@ impl<N: Network> Response<N> {
                         // Compute the record checksum, as the hash of the encrypted record.
                         let checksum = N::hash_bhp1024(&encrypted_record.to_bits_le())?;
 
+                        // Prepare a randomizer for the sender ciphertext.
+                        let randomizer = N::hash_psd4(&[N::encryption_domain(), record_view_key, Field::one()])?;
+                        // Encrypt the signer address using the randomizer.
+                        let sender_ciphertext = (**signer).to_x_coordinate() + randomizer;
+
                         // Return the output ID.
-                        Ok(OutputID::Record(commitment, checksum))
+                        Ok(OutputID::Record(commitment, checksum, sender_ciphertext))
                     }
                     // For a locator output, compute the hash (using `tvk`) of the output.
                     ValueType::ExternalRecord(..) => {
