@@ -79,8 +79,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let fee = match is_fee_required || is_priority_fee_declared {
             true => {
                 // Compute the minimum execution cost.
-                let query_ = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
-                let consensus_version = N::CONSENSUS_VERSION(query_.current_block_height()?)?;
+                let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
                 let (minimum_execution_cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
                     execution_cost_v1(&self.process().read(), &execution)?
                 } else {
@@ -107,7 +106,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     )?,
                 };
                 // Execute the fee.
-                Some(self.execute_fee_authorization_raw(authorization, Some(query_), rng)?)
+                Some(self.execute_fee_authorization_raw(authorization, query, rng)?)
             }
             false => None,
         };
@@ -235,13 +234,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rng: &mut R,
     ) -> Result<Fee<N>> {
         let timer = timer!("VM::execute_fee_authorization_raw");
-
-        // Prepare the query.
-        let query = match query {
-            Some(query) => query,
-            None => Query::VM(self.block_store().clone()),
-        };
-        lap!(timer, "Prepare the query");
 
         // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
