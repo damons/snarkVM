@@ -113,6 +113,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
     ).unwrap();
     let record_ciphertext = record.encrypt(randomizer).unwrap();
     let record_checksum = CurrentNetwork::hash_bhp1024(&record_ciphertext.to_bits_le()).unwrap();
+    // Sample a sender ciphertext.
+    let sender_ciphertext = match record_ciphertext.version().is_zero() {
+        true => None,
+        false => Some(Uniform::rand(rng)),
+    };
 
     vec![
         (transition_id, input),
@@ -122,8 +127,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
         (Uniform::rand(rng), Output::Public(plaintext_hash, Some(plaintext))),
         (Uniform::rand(rng), Output::Private(Uniform::rand(rng), None)),
         (Uniform::rand(rng), Output::Private(ciphertext_hash, Some(ciphertext))),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None)),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext))),
+        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None, sender_ciphertext)),
+        (
+            Uniform::rand(rng),
+            Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext), sender_ciphertext),
+        ),
         (Uniform::rand(rng), Output::ExternalRecord(Uniform::rand(rng))),
     ]
 }
@@ -154,7 +162,7 @@ function compute:
             // Construct the process.
             let process = Process::load().unwrap();
             // Compute the deployment.
-            let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+            let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -241,12 +249,11 @@ pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng
             base_fee_in_microcredits,
             priority_fee_in_microcredits,
             deployment_or_execution_id,
-            None,
             rng,
         )
         .unwrap();
     // Construct the fee trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -255,7 +262,7 @@ pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng
     block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
 
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the fee.
     let fee = trace.prove_fee::<CurrentAleo, _>(VarunaVersion::V1, rng).unwrap();
 
@@ -295,12 +302,11 @@ pub fn sample_fee_public(deployment_or_execution_id: Field<CurrentNetwork>, rng:
             base_fee_in_microcredits,
             priority_fee_in_microcredits,
             deployment_or_execution_id,
-            None,
             rng,
         )
         .unwrap();
     // Construct the fee trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
@@ -309,7 +315,7 @@ pub fn sample_fee_public(deployment_or_execution_id: Field<CurrentNetwork>, rng:
     block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
 
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the fee.
     let fee = trace.prove_fee::<CurrentAleo, _>(VarunaVersion::V1, rng).unwrap();
 
@@ -417,12 +423,11 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
                     "testing_large.aleo",
                     "large_transaction",
                     Vec::<Value<CurrentNetwork>>::new().iter(),
-                    None,
                     rng,
                 )
                 .unwrap();
             // Execute the function.
-            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
             // Initialize a new block store.
             let block_store =
@@ -432,7 +437,7 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
                 .unwrap();
 
             // Prepare the assignments.
-            trace.prepare(ledger_query::Query::from(block_store)).unwrap();
+            trace.prepare(&ledger_query::Query::from(block_store)).unwrap();
             // Compute the proof and construct the execution.
             let execution = trace.prove_execution::<CurrentAleo, _>("testing.aleo", VarunaVersion::V1, rng).unwrap();
             // Reconstruct the execution from bytes.
@@ -528,15 +533,15 @@ fn sample_genesis_block_and_components_raw(
     let process = Process::load().unwrap();
     // Authorize the function.
     let authorization =
-        process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), None, rng).unwrap();
+        process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), rng).unwrap();
     // Execute the function.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>(locator.0, VarunaVersion::V1, rng).unwrap();
     // Convert the execution.

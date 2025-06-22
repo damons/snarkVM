@@ -28,7 +28,6 @@ use console::{
     network::prelude::*,
     program::{
         Ciphertext,
-        CommitmentVersion,
         Identifier,
         InputID,
         OutputID,
@@ -93,7 +92,6 @@ impl<N: Network> Transition<N> {
         response: &Response<N>,
         output_types: &[ValueType<N>],
         output_registers: &[Option<Register<N>>],
-        commitment_version: Option<CommitmentVersion>,
     ) -> Result<Self> {
         let network_id = *request.network_id();
         let program_id = *request.program_id();
@@ -193,7 +191,7 @@ impl<N: Network> Transition<N> {
                         // Return the private output.
                         Ok(Output::Private(*output_hash, Some(ciphertext)))
                     }
-                    (OutputID::Record(commitment, checksum), Value::Record(record)) => {
+                    (OutputID::Record(commitment, checksum, sender_ciphertext), Value::Record(record)) => {
                         // Retrieve the record name.
                         let record_name = match output_type {
                             ValueType::Record(record_name) => record_name,
@@ -225,8 +223,20 @@ impl<N: Network> Transition<N> {
                         // Ensure the checksum matches.
                         ensure!(*checksum == ciphertext_checksum, "The output record ciphertext checksum is incorrect");
 
+                        // Prepare a randomizer for the sender ciphertext.
+                        let randomizer = N::hash_psd4(&[N::encryption_domain(), record_view_key, Field::one()])?;
+                        // Encrypt the signer address using the randomizer.
+                        let candidate_sender_ciphertext = (**request.signer()).to_x_coordinate() + randomizer;
+                        // Ensure the sender ciphertext matches, or the sender ciphertext is zero.
+                        // Note: The option to allow a zero-value in the sender ciphertext allows
+                        // this feature to become optional or deactivated in the future.
+                        ensure!(
+                            (*sender_ciphertext == candidate_sender_ciphertext) || sender_ciphertext.is_zero(),
+                            "The output record sender ciphertext is incorrect"
+                        );
+
                         // Return the record output.
-                        Ok(Output::Record(*commitment, *checksum, Some(record_ciphertext)))
+                        Ok(Output::Record(*commitment, *checksum, Some(record_ciphertext), Some(*sender_ciphertext)))
                     }
                     (OutputID::ExternalRecord(hash), Value::Record(record)) => {
                         // Construct the (console) output index as a field element.
@@ -400,7 +410,7 @@ impl<N: Network> Transition<N> {
             Output::Constant(_, _) => false,
             Output::Public(_, _) => false,
             Output::Private(_, _) => false,
-            Output::Record(output_cm, _, _) => output_cm == commitment,
+            Output::Record(output_cm, _, _, _) => output_cm == commitment,
             Output::ExternalRecord(_) => false,
             Output::Future(_, _) => false,
         })
@@ -414,8 +424,8 @@ impl<N: Network> Transition<N> {
             Output::Constant(_, _) => None,
             Output::Public(_, _) => None,
             Output::Private(_, _) => None,
-            Output::Record(output_cm, _, Some(record)) if output_cm == commitment => Some(record),
-            Output::Record(_, _, _) => None,
+            Output::Record(output_cm, _, Some(record), _) if output_cm == commitment => Some(record),
+            Output::Record(_, _, _, _) => None,
             Output::ExternalRecord(_) => None,
             Output::Future(_, _) => None,
         })

@@ -18,6 +18,7 @@ use super::*;
 impl<A: Aleo> Response<A> {
     /// Initializes a response, given the number of inputs, tvk, tcm, outputs, output types, and output registers.
     pub fn from_outputs(
+        signer: &Address<A>,
         network_id: &U16<A>,
         program_id: &ProgramID<A>,
         function_name: &Identifier<A>,
@@ -27,7 +28,6 @@ impl<A: Aleo> Response<A> {
         outputs: Vec<Value<A>>,
         output_types: &[console::ValueType<A::Network>], // Note: Console type
         output_registers: &[Option<console::Register<A::Network>>], // Note: Console type
-        commitment_version: Option<CommitmentVersion<A>>,
     ) -> Self {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name);
@@ -127,8 +127,13 @@ impl<A: Aleo> Response<A> {
                         // Compute the record checksum, as the hash of the encrypted record.
                         let checksum = A::hash_bhp1024(&encrypted_record.to_bits_le());
 
+                        // Prepare a randomizer for the sender ciphertext.
+                        let randomizer = A::hash_psd4(&[A::encryption_domain(), record_view_key, Field::one()]);
+                        // Encrypt the signer address using the randomizer.
+                        let sender_ciphertext = signer.to_group().to_x_coordinate() + randomizer;
+
                         // Return the output ID.
-                        OutputID::record(commitment, checksum)
+                        OutputID::record(commitment, checksum, sender_ciphertext)
                     }
                     // For an external record output, compute the hash (using `tvk`) of the output.
                     console::ValueType::ExternalRecord(..) => {
@@ -186,7 +191,6 @@ mod tests {
     use snarkvm_utilities::{TestRng, Uniform};
 
     use anyhow::Result;
-    use rand::Rng;
 
     pub(crate) const ITERATIONS: usize = 20;
 
@@ -206,15 +210,6 @@ mod tests {
             let tvk = console::Field::rand(rng);
             // Compute the transition commitment as `Hash(tvk)`.
             let tcm = <Circuit as Environment>::Network::hash_psd2(&[tvk])?;
-
-            // Randomly select a commitment version.
-            let commitment_version = match rng.gen_range(0..=2) {
-                1 => Some(console::CommitmentVersion::V1),
-                2 => Some(console::CommitmentVersion::V2),
-                _ => None,
-            };
-            let commitment_version_circuit =
-                commitment_version.map(|commitment_version| crate::CommitmentVersion::new(mode, commitment_version));
 
             // Compute the nonce.
             let index = console::Field::from_u64(8);
@@ -253,6 +248,8 @@ mod tests {
                 Some(console::Register::Locator(9)),
             ];
 
+            // Construct a signer.
+            let signer = console::Address::rand(rng);
             // Construct a network ID.
             let network_id = console::U16::new(<Circuit as Environment>::Network::ID);
             // Construct a program ID.
@@ -262,6 +259,7 @@ mod tests {
 
             // Construct the response.
             let response = console::Response::new(
+                &signer,
                 &network_id,
                 &program_id,
                 &function_name,
@@ -271,10 +269,10 @@ mod tests {
                 outputs.clone(),
                 &output_types,
                 &output_registers,
-                commitment_version,
             )?;
 
-            // Inject the network ID, program ID, function name, `tvk`, `tcm`, and outputs.
+            // Inject the signer, network ID, program ID, function name, `tvk`, `tcm`, and outputs.
+            let signer = Address::<Circuit>::new(mode, signer);
             let network_id = U16::<Circuit>::constant(network_id);
             let program_id = ProgramID::<Circuit>::new(mode, program_id);
             let function_name = Identifier::<Circuit>::new(mode, function_name);
@@ -285,6 +283,7 @@ mod tests {
             Circuit::scope(format!("Response {i}"), || {
                 // Compute the response using outputs (circuit).
                 let candidate = Response::from_outputs(
+                    &signer,
                     &network_id,
                     &program_id,
                     &function_name,
@@ -294,7 +293,6 @@ mod tests {
                     outputs,
                     &output_types,
                     &output_registers,
-                    commitment_version_circuit,
                 );
                 assert_eq!(response, candidate.eject_value());
                 match mode.is_constant() {
@@ -312,16 +310,16 @@ mod tests {
 
     #[test]
     fn test_from_outputs_constant() -> Result<()> {
-        check_from_outputs(Mode::Constant, 26000, 6, 9500, 9500)
+        check_from_outputs(Mode::Constant, 38500, 7, 13500, 13500)
     }
 
     #[test]
     fn test_from_outputs_public() -> Result<()> {
-        check_from_outputs(Mode::Public, 24849, 6, 13962, 13983)
+        check_from_outputs(Mode::Public, 37257, 7, 18057, 18085)
     }
 
     #[test]
     fn test_from_outputs_private() -> Result<()> {
-        check_from_outputs(Mode::Private, 24849, 6, 13962, 13983)
+        check_from_outputs(Mode::Private, 37257, 7, 18057, 18085)
     }
 }

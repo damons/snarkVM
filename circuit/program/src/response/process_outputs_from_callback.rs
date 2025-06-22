@@ -27,7 +27,6 @@ impl<A: Aleo> Response<A> {
         outputs: Vec<console::Value<A::Network>>,        // Note: Console type
         output_types: &[console::ValueType<A::Network>], // Note: Console type
         output_registers: &[Option<console::Register<A::Network>>], // Note: Console type
-        commitment_version: Option<CommitmentVersion<A>>,
     ) -> Vec<Value<A>> {
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name);
@@ -215,7 +214,6 @@ mod tests {
     use snarkvm_utilities::{TestRng, Uniform};
 
     use anyhow::Result;
-    use rand::Rng;
 
     pub(crate) const ITERATIONS: usize = 20;
 
@@ -235,15 +233,6 @@ mod tests {
             let tvk = console::Field::rand(rng);
             // Compute the transition commitment as `Hash(tvk)`.
             let tcm = <Circuit as Environment>::Network::hash_psd2(&[tvk])?;
-
-            // Randomly select a commitment version.
-            let commitment_version = match rng.gen_range(0..=2) {
-                1 => Some(console::CommitmentVersion::V1),
-                2 => Some(console::CommitmentVersion::V2),
-                _ => None,
-            };
-            let commitment_version_circuit =
-                commitment_version.map(|commitment_version| crate::CommitmentVersion::new(mode, commitment_version));
 
             // Compute the nonce.
             let index = console::Field::from_u64(8);
@@ -282,6 +271,8 @@ mod tests {
                 Some(console::Register::Locator(9)),
             ];
 
+            // Construct a signer.
+            let signer = console::Address::rand(rng);
             // Construct a network ID.
             let network_id = console::U16::new(<Circuit as Environment>::Network::ID);
             // Construct a program ID.
@@ -291,6 +282,7 @@ mod tests {
 
             // Construct the response.
             let response = console::Response::new(
+                &signer,
                 &network_id,
                 &program_id,
                 &function_name,
@@ -300,11 +292,11 @@ mod tests {
                 outputs.clone(),
                 &output_types,
                 &output_registers,
-                commitment_version,
             )?;
             // assert!(response.verify());
 
-            // Inject the network ID, program ID, function name, `tvk`, `tcm`.
+            // Inject the signer, network ID, program ID, function name, `tvk`, `tcm`.
+            let signer = Address::<Circuit>::new(mode, signer);
             let network_id = U16::<Circuit>::constant(network_id);
             let program_id = ProgramID::<Circuit>::new(mode, program_id);
             let function_name = Identifier::<Circuit>::new(mode, function_name);
@@ -322,11 +314,10 @@ mod tests {
                     response.outputs().to_vec(),
                     &output_types,
                     &output_registers,
-                    commitment_version_circuit.clone(),
                 );
                 assert_eq!(response.outputs(), outputs.eject_value());
                 match mode.is_constant() {
-                    true => assert_scope!(<=num_constants, num_public, num_private, num_constraints),
+                    true => assert_scope!(<=num_constants, <=num_public, <=num_private, <=num_constraints),
                     false => assert_scope!(<=num_constants, num_public, num_private, num_constraints),
                 }
             });
@@ -334,6 +325,7 @@ mod tests {
             // Compute the response using outputs (circuit).
             let outputs = Inject::new(mode, response.outputs().to_vec());
             let candidate_b = Response::from_outputs(
+                &signer,
                 &network_id,
                 &program_id,
                 &function_name,
@@ -343,7 +335,6 @@ mod tests {
                 outputs,
                 &output_types,
                 &output_registers,
-                commitment_version_circuit,
             );
             assert_eq!(response, candidate_b.eject_value());
 
@@ -358,16 +349,16 @@ mod tests {
 
     #[test]
     fn test_from_callback_constant() -> Result<()> {
-        check_from_callback(Mode::Constant, 20844, 5, 4922, 4931)
+        check_from_callback(Mode::Constant, 35000, 5, 11500, 11500)
     }
 
     #[test]
     fn test_from_callback_public() -> Result<()> {
-        check_from_callback(Mode::Public, 20844, 5, 6217, 6226)
+        check_from_callback(Mode::Public, 34374, 5, 13475, 13490)
     }
 
     #[test]
     fn test_from_callback_private() -> Result<()> {
-        check_from_callback(Mode::Private, 20844, 5, 6217, 6226)
+        check_from_callback(Mode::Private, 34374, 5, 13475, 13490)
     }
 }

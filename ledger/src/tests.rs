@@ -40,14 +40,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use time::OffsetDateTime;
 
 #[cfg(not(feature = "rocks"))]
-type LedgerType<N> = ledger_store::helpers::memory::ConsensusMemory<N>;
+type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
 #[cfg(feature = "rocks")]
-type LedgerType<N> = ledger_store::helpers::rocksdb::ConsensusDB<N>;
+type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
 /// Initializes a sample VM.
-fn sample_vm() -> VM<CurrentNetwork, LedgerType<CurrentNetwork>> {
-    VM::from(ConsensusStore::<CurrentNetwork, LedgerType<CurrentNetwork>>::open(StorageMode::new_test(None)).unwrap())
-        .unwrap()
+fn sample_vm() -> VM<CurrentNetwork, LedgerType> {
+    VM::from(ConsensusStore::<CurrentNetwork, LedgerType>::open(StorageMode::new_test(None)).unwrap()).unwrap()
 }
 
 /// Extract the transmissions from a block.
@@ -68,12 +67,12 @@ fn extract_transmissions(
     transmissions
 }
 
-/// Helper to build chains with custom sturctures for testing
+/// Helper to build chains with custom structures for testing
 struct TestChainBuilder {
     /// The keys of all validators.
     private_keys: Vec<PrivateKey<CurrentNetwork>>,
 
-    ledger: Ledger<CurrentNetwork, LedgerType<CurrentNetwork>>,
+    ledger: Ledger<CurrentNetwork, LedgerType>,
 
     last_block_round: u64,
 
@@ -91,12 +90,10 @@ struct TestChainBuilder {
 }
 
 impl TestChainBuilder {
-    /// Initialize the builder with the specified commitee and gensis block
+    /// Initialize the builder with the specified committee and genesis block
     pub fn new(private_keys: Vec<PrivateKey<CurrentNetwork>>, genesis: Block<CurrentNetwork>) -> Self {
         // Initialize the ledger with the genesis block.
-        let ledger =
-            Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis.clone(), StorageMode::new_test(None))
-                .unwrap();
+        let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis.clone(), StorageMode::new_test(None)).unwrap();
 
         Self {
             private_keys,
@@ -124,14 +121,30 @@ impl TestChainBuilder {
     ) -> Vec<Block<CurrentNetwork>> {
         assert!(num_blocks > 0, "Need to build at least one block");
 
-        (0..num_blocks).map(|_| self.generate_block_with_partition(skip_nodes, rng)).collect()
+        (0..num_blocks)
+            .map(|_| {
+                self.generate_block_with_partition(
+                    skip_nodes,
+                    OffsetDateTime::now_utc().unix_timestamp(),
+                    Default::default(),
+                    false,
+                    rng,
+                )
+            })
+            .collect()
     }
 
     /// Create a new block, with a fully-connected DAG.
     ///
     /// This will "fill in " any gaps left in earlier rounds from non participating nodes.
     pub fn generate_block(&mut self, rng: &mut TestRng) -> Block<CurrentNetwork> {
-        self.generate_block_with_partition(&Default::default(), rng)
+        self.generate_block_with_partition(
+            &Default::default(),
+            OffsetDateTime::now_utc().unix_timestamp(),
+            Default::default(),
+            false,
+            rng,
+        )
     }
 
     /// Same as `generate_block` but with some nodes not participating in batch generation.
@@ -140,6 +153,9 @@ impl TestChainBuilder {
     pub fn generate_block_with_partition(
         &mut self,
         skip_nodes: &HashSet<usize>,
+        timestamp: i64,
+        transmissions: IndexMap<TransmissionID<CurrentNetwork>, Transmission<CurrentNetwork>>,
+        skip_verification: bool,
         rng: &mut TestRng,
     ) -> Block<CurrentNetwork> {
         assert!(self.current_height > 0);
@@ -147,12 +163,14 @@ impl TestChainBuilder {
 
         let block_height = self.current_height + 1;
 
-        // SubDAGs can be at most GC roudns long.
+        // SubDAGs can be at most GC rounds long.
         let mut round = if self.last_block_round < BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 {
             1
         } else {
             self.last_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 + 2
         };
+
+        let transmission_ids = transmissions.keys().cloned().collect::<IndexSet<_>>();
 
         // Create certificates for each round.
         loop {
@@ -180,9 +198,9 @@ impl TestChainBuilder {
                 let batch_header = BatchHeader::new(
                     private_key_1,
                     round,
-                    OffsetDateTime::now_utc().unix_timestamp(),
+                    timestamp,
                     committee.id(),
-                    Default::default(),
+                    transmission_ids.clone(),
                     previous_certificate_ids.clone(),
                     rng,
                 )
@@ -265,8 +283,10 @@ impl TestChainBuilder {
 
         // Construct the block.
         let subdag = Subdag::from(subdag_map).unwrap();
-        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, Default::default(), rng).unwrap();
-        self.ledger.check_next_block(&block, rng).unwrap();
+        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, transmissions, rng).unwrap();
+        if !skip_verification {
+            self.ledger.check_next_block(&block, rng).unwrap();
+        }
 
         // Update state.
         self.ledger.advance_to_next_block(&block).unwrap();
@@ -284,7 +304,7 @@ fn test_load() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
@@ -303,7 +323,7 @@ fn test_load_unchecked() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
@@ -329,7 +349,7 @@ fn test_get_block() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block.
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, rng).unwrap();
 
@@ -339,6 +359,27 @@ fn test_get_block() {
     let candidate = ledger.get_block(0).unwrap();
     // Ensure the genesis block matches.
     assert_eq!(genesis, candidate);
+}
+
+#[test]
+fn test_get_bonded_balances() {
+    // Initialize an RNG.
+    let rng = &mut TestRng::default();
+
+    // Initialize the test environment.
+    let crate::test_helpers::TestEnv { ledger, .. } = crate::test_helpers::sample_test_env(rng);
+
+    // Fetch the bonded mapping.
+    let credits_program_id = ProgramID::from_str("credits.aleo").unwrap();
+    let bonded_mapping = Identifier::from_str("bonded").unwrap();
+    let bonded_mapping =
+        ledger.vm().finalize_store().get_mapping_confirmed(credits_program_id, bonded_mapping).unwrap();
+    // Deserialize the bonded stakers.
+    let stakers = synthesizer::vm::bonded_map_into_stakers(bonded_mapping).unwrap();
+    // Check that the bonded amounts match the bonded mapping.
+    for (staker, (_, amount)) in stakers {
+        assert_eq!(amount, ledger.get_bonded_amount(&staker).unwrap());
+    }
 }
 
 #[test]
@@ -387,9 +428,8 @@ fn test_insufficient_private_fees() {
     {
         // Prepare a `split` execution without a fee.
         let inputs = [Value::Record(record_1.clone()), Value::from_str("100u64").unwrap()];
-        let authorization = ledger.vm.authorize(&private_key, "credits.aleo", "split", inputs, None, rng).unwrap();
-        let split_transaction_without_fee =
-            ledger.vm.execute_authorization(authorization, None, None, None, rng).unwrap();
+        let authorization = ledger.vm.authorize(&private_key, "credits.aleo", "split", inputs, rng).unwrap();
+        let split_transaction_without_fee = ledger.vm.execute_authorization(authorization, None, None, rng).unwrap();
         assert!(ledger.check_transaction_basic(&split_transaction_without_fee, None, rng).is_ok());
     }
 
@@ -401,9 +441,8 @@ fn test_insufficient_private_fees() {
             Value::from_str(&format!("{address}")).unwrap(),
             Value::from_str("100u64").unwrap(),
         ];
-        let authorization =
-            ledger.vm.authorize(&private_key, "credits.aleo", "transfer_private", inputs, None, rng).unwrap();
-        let transaction_without_fee = ledger.vm.execute_authorization(authorization, None, None, None, rng).unwrap();
+        let authorization = ledger.vm.authorize(&private_key, "credits.aleo", "transfer_private", inputs, rng).unwrap();
+        let transaction_without_fee = ledger.vm.execute_authorization(authorization, None, None, rng).unwrap();
         let execution = transaction_without_fee.execution().unwrap();
 
         // Check that a transaction with sufficient fee will succeed.
@@ -415,29 +454,19 @@ fn test_insufficient_private_fees() {
                 10_000_000,
                 1_000,
                 execution.to_execution_id().unwrap(),
-                None,
                 rng,
             )
             .unwrap();
-        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, None, rng).unwrap();
+        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
         let sufficient_fee_transaction = Transaction::from_execution(execution.clone(), Some(fee)).unwrap();
         assert!(ledger.check_transaction_basic(&sufficient_fee_transaction, None, rng).is_ok());
 
         // Check that a transaction with insufficient fee will fail.
         let insufficient_fee_authorization = ledger
             .vm
-            .authorize_fee_private(
-                &private_key,
-                record_2.clone(),
-                1,
-                0,
-                execution.to_execution_id().unwrap(),
-                None,
-                rng,
-            )
+            .authorize_fee_private(&private_key, record_2.clone(), 1, 0, execution.to_execution_id().unwrap(), rng)
             .unwrap();
-        let insufficient_fee =
-            ledger.vm.execute_fee_authorization(insufficient_fee_authorization, None, None, rng).unwrap();
+        let insufficient_fee = ledger.vm.execute_fee_authorization(insufficient_fee_authorization, None, rng).unwrap();
         let insufficient_fee_transaction =
             Transaction::from_execution(execution.clone(), Some(insufficient_fee)).unwrap();
         assert!(ledger.check_transaction_basic(&insufficient_fee_transaction, None, rng).is_err());
@@ -461,17 +490,16 @@ finalize foo:
         .unwrap();
 
         // Check that a deployment transaction with sufficient fee will succeed.
-        let transaction = ledger.vm.deploy(&private_key, &program, Some(record_2.clone()), 0, None, None, rng).unwrap();
+        let transaction = ledger.vm.deploy(&private_key, &program, Some(record_2.clone()), 0, None, rng).unwrap();
         assert!(ledger.check_transaction_basic(&transaction, None, rng).is_ok());
 
         // Check that a deployment transaction with insufficient fee will fail.
         let deployment = transaction.deployment().unwrap();
         let insufficient_fee_authorization = ledger
             .vm
-            .authorize_fee_private(&private_key, record_2, 1, 0, deployment.to_deployment_id().unwrap(), None, rng)
+            .authorize_fee_private(&private_key, record_2, 1, 0, deployment.to_deployment_id().unwrap(), rng)
             .unwrap();
-        let insufficient_fee =
-            ledger.vm.execute_fee_authorization(insufficient_fee_authorization, None, None, rng).unwrap();
+        let insufficient_fee = ledger.vm.execute_fee_authorization(insufficient_fee_authorization, None, rng).unwrap();
         let insufficient_fee_transaction =
             Transaction::from_deployment(*transaction.owner().unwrap(), deployment.clone(), insufficient_fee).unwrap();
         assert!(ledger.check_transaction_basic(&insufficient_fee_transaction, None, rng).is_err());
@@ -497,7 +525,7 @@ fn test_insufficient_public_fees() {
             [Value::from_str(&format!("{recipient_address}")).unwrap(), Value::from_str("1000000000000u64").unwrap()];
         let transaction = ledger
             .vm
-            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
             .unwrap();
 
         let block =
@@ -518,16 +546,7 @@ fn test_insufficient_public_fees() {
         ];
         let transaction = ledger
             .vm
-            .execute(
-                &recipient_private_key,
-                ("credits.aleo", "bond_validator"),
-                inputs.into_iter(),
-                None,
-                0,
-                None,
-                None,
-                rng,
-            )
+            .execute(&recipient_private_key, ("credits.aleo", "bond_validator"), inputs.into_iter(), None, 0, None, rng)
             .unwrap();
 
         let block =
@@ -581,7 +600,7 @@ finalize foo:
     let credits = Some(records.values().next().unwrap().clone());
 
     // Deploy.
-    let transaction = ledger.vm.deploy(&private_key, &program, credits, 0, None, None, rng).unwrap();
+    let transaction = ledger.vm.deploy(&private_key, &program, credits, 0, None, rng).unwrap();
     // Verify.
     ledger.vm().check_transaction(&transaction, None, rng).unwrap();
 
@@ -594,7 +613,7 @@ finalize foo:
     assert_eq!(ledger.latest_hash(), block.hash());
 
     // Create a transfer transaction to produce a record with insufficient balance to pay for fees.
-    let transfer_transaction = ledger.create_transfer(&private_key, address, 100, 0, None, None, rng).unwrap();
+    let transfer_transaction = ledger.create_transfer(&private_key, address, 100, 0, None, rng).unwrap();
 
     // Construct the next block.
     let block = ledger
@@ -628,16 +647,14 @@ finalize foo:
     assert!(
         ledger
             .vm
-            .execute(&private_key, ("dummy.aleo", "foo"), inputs.clone(), Some(insufficient_record), 0, None, None, rng)
+            .execute(&private_key, ("dummy.aleo", "foo"), inputs.clone(), Some(insufficient_record), 0, None, rng)
             .is_err()
     );
 
     let sufficient_record = records[1].clone();
     // Execute with enough fees.
-    let transaction = ledger
-        .vm
-        .execute(&private_key, ("dummy.aleo", "foo"), inputs, Some(sufficient_record), 0, None, None, rng)
-        .unwrap();
+    let transaction =
+        ledger.vm.execute(&private_key, ("dummy.aleo", "foo"), inputs, Some(sufficient_record), 0, None, rng).unwrap();
     // Verify.
     ledger.vm.check_transaction(&transaction, None, rng).unwrap();
     // Ensure that the ledger deems the transaction valid.
@@ -685,8 +702,7 @@ finalize failed_assert:
     let record_2 = records[1].clone();
 
     // Deploy the program.
-    let deployment_transaction =
-        ledger.vm().deploy(&private_key, &program, Some(record_1), 0, None, None, rng).unwrap();
+    let deployment_transaction = ledger.vm().deploy(&private_key, &program, Some(record_1), 0, None, rng).unwrap();
 
     // Construct the deployment block.
     let deployment_block = ledger
@@ -708,7 +724,6 @@ finalize failed_assert:
             Vec::<Value<_>>::new().into_iter(),
             Some(record_2),
             0,
-            None,
             None,
             rng,
         )
@@ -771,7 +786,7 @@ finalize foo:
     .unwrap();
 
     // Deploy.
-    let transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, None, rng).unwrap();
+    let transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
     // Verify.
     ledger.vm().check_transaction(&transaction, None, rng).unwrap();
 
@@ -799,14 +814,14 @@ fn test_bond_and_unbond_validator() {
     let new_member_withdrawal_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     let new_member_withdrawal_address = Address::try_from(&new_member_withdrawal_private_key).unwrap();
 
-    // Fund the new committee member and their withdrawwal address.
+    // Fund the new committee member and their withdrawal address.
     let inputs = [
         Value::from_str(&format!("{new_member_address}")).unwrap(),
         Value::from_str("20000000000000u64").unwrap(), // 20 million credits.
     ];
     let transfer_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
     let inputs = [
         Value::from_str(&format!("{new_member_withdrawal_address}")).unwrap(),
@@ -814,7 +829,7 @@ fn test_bond_and_unbond_validator() {
     ];
     let transfer_to_withdrawal_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Construct the next block.
@@ -844,7 +859,7 @@ fn test_bond_and_unbond_validator() {
     ];
     let bond_validator_transaction = ledger
         .vm
-        .execute(&new_member_private_key, ("credits.aleo", "bond_validator"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&new_member_private_key, ("credits.aleo", "bond_validator"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Construct the next block.
@@ -866,7 +881,7 @@ fn test_bond_and_unbond_validator() {
     let committee = ledger.latest_committee().unwrap();
     assert!(committee.is_committee_member(new_member_address));
 
-    // Check that number of validators in the `metadata` mapping in `credtis.aleo` is updated.
+    // Check that number of validators in the `metadata` mapping in `credits.aleo` is updated.
     let program_id = ProgramID::<CurrentNetwork>::from_str("credits.aleo").unwrap();
     let metadata_mapping_name = Identifier::from_str("metadata").unwrap();
     let key = Plaintext::<CurrentNetwork>::from_str("aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc")
@@ -897,7 +912,6 @@ fn test_bond_and_unbond_validator() {
             inputs.iter(),
             None,
             0,
-            None,
             None,
             rng,
         )
@@ -955,7 +969,7 @@ fn test_aborted_transaction_indexing() {
     let inputs = [Value::from_str(&format!("{recipient_address}")).unwrap(), Value::from_str("185000u64").unwrap()];
     let transfer_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Construct the next block.
@@ -973,7 +987,7 @@ fn test_aborted_transaction_indexing() {
     let inputs = [Value::from_str(&format!("{recipient_address_2}")).unwrap(), Value::from_str("1u64").unwrap()];
     let transfer_transaction = ledger
         .vm
-        .execute(&recipient_private_key_2, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&recipient_private_key_2, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
     let aborted_transaction_id = transfer_transaction.id();
 
@@ -981,7 +995,7 @@ fn test_aborted_transaction_indexing() {
     let inputs = [Value::from_str(&format!("{recipient_address_2}")).unwrap(), Value::from_str("1u64").unwrap()];
     let transfer_transaction_2 = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Create a block.
@@ -1027,7 +1041,7 @@ fn test_aborted_solution_ids() {
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
     let transfer_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Create a block.
@@ -1096,16 +1110,7 @@ fn test_execute_duplicate_input_ids() {
         // Execute.
         let execution = ledger
             .vm
-            .execute(
-                &private_key,
-                ("credits.aleo", "transfer_private"),
-                inputs.clone().iter(),
-                None,
-                0,
-                None,
-                None,
-                rng,
-            )
+            .execute(&private_key, ("credits.aleo", "transfer_private"), inputs.clone().iter(), None, 0, None, rng)
             .unwrap();
         execution_ids.push(execution.id());
         executions.push(execution);
@@ -1124,7 +1129,7 @@ finalize foo:
         ))
         .unwrap();
         let deployment =
-            ledger.vm.deploy(&private_key, &program, Some(record_deployment.clone()), 0, None, None, rng).unwrap();
+            ledger.vm.deploy(&private_key, &program, Some(record_deployment.clone()), 0, None, rng).unwrap();
         deployment_ids.push(deployment.id());
         deployments.push(deployment);
     }
@@ -1139,7 +1144,6 @@ finalize foo:
             inputs.clone().iter(),
             Some(record_execution.clone()),
             0,
-            None,
             None,
             rng,
         )
@@ -1172,11 +1176,10 @@ finalize foo:
             *executions.last().unwrap().fee_amount().unwrap(),
             0,
             mutated_execution.to_execution_id().unwrap(),
-            None,
             rng,
         )
         .unwrap();
-    let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, None, rng).unwrap();
+    let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
     // Create a mutated transaction.
     let mutated_transaction = Transaction::from_execution(mutated_execution, Some(fee)).unwrap();
     execution_ids.push(mutated_transaction.id());
@@ -1240,7 +1243,7 @@ finalize foo:
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000u64").unwrap()];
     let transfer = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
         .unwrap();
     let transfer_id = transfer.id();
 
@@ -1298,7 +1301,7 @@ function create_duplicate_record:
     .unwrap();
 
     // Deploy.
-    let deployment_transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, None, rng).unwrap();
+    let deployment_transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
     // Verify.
     ledger.vm().check_transaction(&deployment_transaction, None, rng).unwrap();
 
@@ -1345,7 +1348,6 @@ function create_duplicate_record:
                 None,
                 0,
                 None,
-                None,
                 fixed_rng,
             )
             .unwrap();
@@ -1360,11 +1362,10 @@ function create_duplicate_record:
                 *transaction.fee_amount().unwrap(),
                 0,
                 execution.to_execution_id().unwrap(),
-                None,
                 rng,
             )
             .unwrap();
-        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, None, rng).unwrap();
+        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
 
         Transaction::from_execution(execution, Some(fee)).unwrap()
     };
@@ -1391,7 +1392,7 @@ function create_duplicate_record:
         .unwrap();
 
         // Create a transaction with a fixed rng.
-        let transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, None, fixed_rng).unwrap();
+        let transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, fixed_rng).unwrap();
 
         // Extract the deployment and owner.
         let deployment = transaction.deployment().unwrap().clone();
@@ -1406,11 +1407,10 @@ function create_duplicate_record:
                 *transaction.fee_amount().unwrap(),
                 0,
                 deployment.to_deployment_id().unwrap(),
-                None,
                 fixed_rng,
             )
             .unwrap();
-        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, None, fixed_rng).unwrap();
+        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, fixed_rng).unwrap();
 
         Transaction::from_deployment(owner, deployment, fee).unwrap()
     };
@@ -1486,7 +1486,7 @@ function create_duplicate_record:
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000u64").unwrap()];
     let transfer_4 = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
         .unwrap();
     let transfer_4_id = transfer_4.id();
 
@@ -1537,7 +1537,7 @@ function empty_function:
     .unwrap();
 
     // Deploy.
-    let deployment_transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, None, rng).unwrap();
+    let deployment_transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
     // Verify.
     ledger.vm().check_transaction(&deployment_transaction, None, rng).unwrap();
 
@@ -1570,7 +1570,6 @@ function empty_function:
                 None,
                 0,
                 None,
-                None,
                 fixed_rng,
             )
             .unwrap();
@@ -1585,11 +1584,10 @@ function empty_function:
                 *transaction.fee_amount().unwrap(),
                 0,
                 execution.to_execution_id().unwrap(),
-                None,
                 rng,
             )
             .unwrap();
-        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, None, rng).unwrap();
+        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
 
         Transaction::from_execution(execution, Some(fee)).unwrap()
     };
@@ -1638,7 +1636,7 @@ function empty_function:
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000u64").unwrap()];
     let transfer_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
         .unwrap();
     let transfer_transaction_id = transfer_transaction.id();
 
@@ -1691,7 +1689,7 @@ function simple_output:
     .unwrap();
 
     // Deploy.
-    let deployment_transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, None, rng).unwrap();
+    let deployment_transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
     // Verify.
     ledger.vm().check_transaction(&deployment_transaction, None, rng).unwrap();
 
@@ -1717,7 +1715,7 @@ function simple_output:
         let inputs: [Value<_>; 0] = [];
         let transaction = ledger
             .vm
-            .execute(&private_key, ("dummy_program.aleo", function), inputs.into_iter(), None, 0, None, None, fixed_rng)
+            .execute(&private_key, ("dummy_program.aleo", function), inputs.into_iter(), None, 0, None, fixed_rng)
             .unwrap();
         // Extract the execution.
         let execution = transaction.execution().unwrap().clone();
@@ -1730,11 +1728,10 @@ function simple_output:
                 *transaction.fee_amount().unwrap(),
                 0,
                 execution.to_execution_id().unwrap(),
-                None,
                 rng,
             )
             .unwrap();
-        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, None, rng).unwrap();
+        let fee = ledger.vm.execute_fee_authorization(fee_authorization, None, rng).unwrap();
 
         Transaction::from_execution(execution, Some(fee)).unwrap()
     };
@@ -1789,7 +1786,7 @@ function simple_output:
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000u64").unwrap()];
     let transfer_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
         .unwrap();
     let transfer_transaction_id = transfer_transaction.id();
 
@@ -1848,11 +1845,11 @@ function empty_function:
     .unwrap();
 
     // Create a deployment transaction for the first program with the same public payer.
-    let deployment_1 = ledger.vm.deploy(&private_key, &program_1, None, 0, None, None, rng).unwrap();
+    let deployment_1 = ledger.vm.deploy(&private_key, &program_1, None, 0, None, rng).unwrap();
     let deployment_1_id = deployment_1.id();
 
     // Create a deployment transaction for the second program with the same public payer.
-    let deployment_2 = ledger.vm.deploy(&private_key, &program_2, None, 0, None, None, rng).unwrap();
+    let deployment_2 = ledger.vm.deploy(&private_key, &program_2, None, 0, None, rng).unwrap();
     let deployment_2_id = deployment_2.id();
 
     // Create a block.
@@ -1892,23 +1889,14 @@ fn test_abort_fee_transaction() {
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000u64").unwrap()];
     let transaction = ledger
         .vm
-        .execute(
-            &private_key,
-            ("credits.aleo", "transfer_public"),
-            inputs.clone().into_iter(),
-            None,
-            0,
-            None,
-            None,
-            rng,
-        )
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone().into_iter(), None, 0, None, rng)
         .unwrap();
     let transaction_id = transaction.id();
 
     // Convert a fee transaction.
     let transaction_to_convert_to_fee = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
         .unwrap();
     let fee_transaction = Transaction::from_fee(transaction_to_convert_to_fee.fee_transition().unwrap()).unwrap();
     let fee_transaction_id = fee_transaction.id();
@@ -1948,16 +1936,7 @@ fn test_abort_invalid_transaction() {
     // Generate a transaction that will be invalid on another network.
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000u64").unwrap()];
     let invalid_transaction = vm
-        .execute(
-            &private_key,
-            ("credits.aleo", "transfer_public"),
-            inputs.clone().into_iter(),
-            None,
-            0,
-            None,
-            None,
-            rng,
-        )
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone().into_iter(), None, 0, None, rng)
         .unwrap();
     let invalid_transaction_id = invalid_transaction.id();
 
@@ -1967,20 +1946,11 @@ fn test_abort_invalid_transaction() {
     // Construct valid transactions for the ledger.
     let valid_transaction_1 = ledger
         .vm
-        .execute(
-            &private_key,
-            ("credits.aleo", "transfer_public"),
-            inputs.clone().into_iter(),
-            None,
-            0,
-            None,
-            None,
-            rng,
-        )
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.clone().into_iter(), None, 0, None, rng)
         .unwrap();
     let valid_transaction_2 = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.into_iter(), None, 0, None, rng)
         .unwrap();
     let valid_transaction_id_1 = valid_transaction_1.id();
     let valid_transaction_id_2 = valid_transaction_2.id();
@@ -2066,12 +2036,12 @@ finalize foo2:
     .unwrap();
 
     // Create a deployment transaction for the first program.
-    let deployment_1 = ledger.vm.deploy(&private_key, &program_1, Some(record_1), 0, None, None, rng).unwrap();
+    let deployment_1 = ledger.vm.deploy(&private_key, &program_1, Some(record_1), 0, None, rng).unwrap();
     let deployment_1_id = deployment_1.id();
     assert!(ledger.check_transaction_basic(&deployment_1, None, rng).is_ok());
 
     // Create a deployment transaction for the second program.
-    let deployment_2 = ledger.vm.deploy(&private_key, &program_2, Some(record_2), 0, None, None, rng).unwrap();
+    let deployment_2 = ledger.vm.deploy(&private_key, &program_2, Some(record_2), 0, None, rng).unwrap();
     let deployment_2_id = deployment_2.id();
     assert!(ledger.check_transaction_basic(&deployment_2, None, rng).is_ok());
 
@@ -2188,8 +2158,7 @@ fn test_max_committee_limit_with_bonds() {
         .unwrap();
 
     // Initialize a Ledger from the genesis block.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis_block, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis_block, StorageMode::new_test(None)).unwrap();
 
     // Bond the first validator.
     let bond_first_transaction = ledger
@@ -2205,7 +2174,6 @@ fn test_max_committee_limit_with_bonds() {
             .iter(),
             None,
             0,
-            None,
             None,
             rng,
         )
@@ -2250,7 +2218,6 @@ fn test_max_committee_limit_with_bonds() {
             .iter(),
             None,
             0,
-            None,
             None,
             rng,
         )
@@ -2299,7 +2266,6 @@ fn test_max_committee_limit_with_bonds() {
             None,
             0,
             None,
-            None,
             rng,
         )
         .unwrap();
@@ -2318,7 +2284,6 @@ fn test_max_committee_limit_with_bonds() {
             .iter(),
             None,
             0,
-            None,
             None,
             rng,
         )
@@ -2401,7 +2366,7 @@ fn test_deployment_exceeding_max_transaction_spend() {
     let exceeding_program = exceeding_program.unwrap();
 
     // Deploy the allowed program.
-    let deployment = ledger.vm().deploy(&private_key, &allowed_program, None, 0, None, None, rng).unwrap();
+    let deployment = ledger.vm().deploy(&private_key, &allowed_program, None, 0, None, rng).unwrap();
 
     // Verify the deployment transaction.
     assert!(ledger.vm().check_transaction(&deployment, None, rng).is_ok());
@@ -2420,7 +2385,7 @@ fn test_deployment_exceeding_max_transaction_spend() {
     assert!(ledger.vm().contains_program(allowed_program.id()));
 
     // Attempt to deploy the exceeding program.
-    let result = ledger.vm().deploy(&private_key, &exceeding_program, None, 0, None, None, rng);
+    let result = ledger.vm().deploy(&private_key, &exceeding_program, None, 0, None, rng);
 
     // Check that the deployment failed.
     assert!(result.is_err());
@@ -2451,7 +2416,7 @@ fn test_transaction_ordering() {
         [Value::from_str(&format!("{address_2}")).unwrap(), Value::from_str(&format!("{amount_1}u64")).unwrap()];
     let transfer_1 = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     let amount_2 = 100000000u64;
@@ -2459,7 +2424,7 @@ fn test_transaction_ordering() {
         [Value::from_str(&format!("{address_3}")).unwrap(), Value::from_str(&format!("{amount_2}u64")).unwrap()];
     let transfer_2 = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Update the public balance.
@@ -2521,49 +2486,39 @@ finalize foo:
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000000u64").unwrap()];
     let initial_transfer = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
     let initial_transfer_id = initial_transfer.id();
 
     // Create a deployment transaction.
-    let deployment_transaction = ledger.vm.deploy(&private_key_2, &program_1, None, 0, None, None, rng).unwrap();
+    let deployment_transaction = ledger.vm.deploy(&private_key_2, &program_1, None, 0, None, rng).unwrap();
 
     // Create a deployment transaction.
-    let deployment_transaction_2 = ledger.vm.deploy(&private_key_3, &program_2, None, 0, None, None, rng).unwrap();
+    let deployment_transaction_2 = ledger.vm.deploy(&private_key_3, &program_2, None, 0, None, rng).unwrap();
 
     // Create a transfer transaction.
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000000u64").unwrap()];
     let transfer_transaction = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Create a rejected transfer transaction.
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("1000000000000000u64").unwrap()];
     let rejected_transfer = ledger
         .vm
-        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
         .unwrap();
 
     // Create an aborted transfer transaction.
     let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
     let aborted_transfer = ledger
         .vm
-        .execute(
-            &private_key,
-            ("credits.aleo", "transfer_public"),
-            inputs.iter(),
-            None,
-            public_balance - 10,
-            None,
-            None,
-            rng,
-        )
+        .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, public_balance - 10, None, rng)
         .unwrap();
 
     // Create an aborted deployment transaction.
-    let aborted_deployment =
-        ledger.vm.deploy(&private_key, &program_3, None, public_balance - 10, None, None, rng).unwrap();
+    let aborted_deployment = ledger.vm.deploy(&private_key, &program_3, None, public_balance - 10, None, rng).unwrap();
 
     const ITERATIONS: usize = 100;
     for _ in 0..ITERATIONS {
@@ -2654,7 +2609,7 @@ finalize is_id:
     .unwrap();
 
     // Deploy.
-    let transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, None, rng).unwrap();
+    let transaction = ledger.vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
     // Verify.
     ledger.vm().check_transaction(&transaction, None, rng).unwrap();
 
@@ -2669,13 +2624,10 @@ finalize is_id:
 
     // Execute functions `is_block` and `is_id` to assert that the on-chain state is as expected.
     let inputs_block: [Value<CurrentNetwork>; 1] = [Value::from_str("2u32").unwrap()];
-    let tx_block = ledger
-        .vm
-        .execute(&private_key, (&program_id, "is_block"), inputs_block.iter(), None, 0, None, None, rng)
-        .unwrap();
+    let tx_block =
+        ledger.vm.execute(&private_key, (&program_id, "is_block"), inputs_block.iter(), None, 0, None, rng).unwrap();
     let inputs_id: [Value<CurrentNetwork>; 1] = [Value::from(Literal::U16(U16::new(CurrentNetwork::ID)))];
-    let tx_id =
-        ledger.vm.execute(&private_key, (&program_id, "is_id"), inputs_id.iter(), None, 0, None, None, rng).unwrap();
+    let tx_id = ledger.vm.execute(&private_key, (&program_id, "is_id"), inputs_id.iter(), None, 0, None, rng).unwrap();
 
     // Construct the next block.
     let block_2 =
@@ -2685,12 +2637,10 @@ finalize is_id:
 
     // Execute the program.
     let inputs_block_2: [Value<CurrentNetwork>; 1] = [Value::from_str("3u32").unwrap()];
-    let tx_block_2 = ledger
-        .vm
-        .execute(&private_key, (&program_id, "is_block"), inputs_block_2.iter(), None, 0, None, None, rng)
-        .unwrap();
+    let tx_block_2 =
+        ledger.vm.execute(&private_key, (&program_id, "is_block"), inputs_block_2.iter(), None, 0, None, rng).unwrap();
     let tx_id_2 =
-        ledger.vm.execute(&private_key, (&program_id, "is_id"), inputs_id.iter(), None, 0, None, None, rng).unwrap();
+        ledger.vm.execute(&private_key, (&program_id, "is_id"), inputs_id.iter(), None, 0, None, rng).unwrap();
 
     // Construct the next block.
     let block_3 = ledger
@@ -2754,7 +2704,7 @@ function foo:
             if attempts >= ITERATIONS {
                 panic!("Failed to craft deployment after {ITERATIONS} attempts");
             }
-            match try_vm_runtime!(|| ledger.vm().deploy(&private_key, program, None, 0, None, None, rng)) {
+            match try_vm_runtime!(|| ledger.vm().deploy(&private_key, program, None, 0, None, rng)) {
                 Ok(result) => break result.unwrap(),
                 Err(_) => attempts += 1,
             }
@@ -2777,14 +2727,11 @@ function foo:
             };
             let deployment = deployment_tx.deployment().unwrap().clone();
             for _ in 0..ITERATIONS {
-                let result = match try_vm_runtime!(|| process.read().verify_deployment::<CurrentAleo, _>(
-                    &deployment,
-                    None,
-                    rng
-                )) {
-                    Ok(result) => result.is_ok(),
-                    Err(_) => false,
-                };
+                let result =
+                    match try_vm_runtime!(|| process.read().verify_deployment::<CurrentAleo, _>(&deployment, rng)) {
+                        Ok(result) => result.is_ok(),
+                        Err(_) => false,
+                    };
                 assert_eq!(result, expected_result);
             }
         };
@@ -2801,6 +2748,7 @@ function foo:
 #[cfg(feature = "test")]
 mod valid_solutions {
     use super::*;
+    use crate::is_solution_limit_reached::STAKE_REQUIREMENTS_PER_SOLUTION;
     use ledger_puzzle::Solution;
     use rand::prelude::SliceRandom;
     use std::collections::HashSet;
@@ -2834,7 +2782,7 @@ mod valid_solutions {
         let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
-            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
             .unwrap();
 
         // Check that block creation fails when duplicate solution IDs are provided.
@@ -2890,6 +2838,9 @@ mod valid_solutions {
         // Start a local counter of proof targets.
         let mut combined_targets = 0;
 
+        // Track the total number of solutions in the current epoch.
+        let mut total_epoch_solutions = 0;
+
         // Run through 25 blocks of target adjustment.
         while block_height < NUM_BLOCKS {
             // Get coinbase puzzle data from the latest block.
@@ -2931,7 +2882,7 @@ mod valid_solutions {
             let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
             let transfer_transaction = ledger
                 .vm
-                .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+                .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
                 .unwrap();
 
             // Generate the next prospective block.
@@ -2956,7 +2907,187 @@ mod valid_solutions {
 
             // Set the latest block height.
             block_height = ledger.latest_height();
+
+            // Update the epoch solutions count.
+            total_epoch_solutions += num_solutions;
         }
+
+        // Fetch the epoch provers cache.
+        let epoch_provers = ledger.epoch_provers_cache.read();
+        // Load the epoch provers from the blocks in the current epoch.
+        let expected_epoch_provers = ledger.load_epoch_provers();
+        // Check that the epoch solutions are correct
+        assert_eq!(epoch_provers.values().sum::<u32>(), u32::try_from(total_epoch_solutions).unwrap());
+        assert_eq!(epoch_provers.len(), expected_epoch_provers.len());
+        for ((expected_address, expected_count), (address, count)) in
+            expected_epoch_provers.iter().zip(epoch_provers.iter())
+        {
+            assert_eq!(expected_address, address);
+            assert_eq!(expected_count, count);
+        }
+    }
+
+    #[test]
+    fn test_solution_limits() {
+        let rng = &mut TestRng::default();
+
+        // Sample the genesis private key.
+        let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let validator_address = Address::try_from(&private_key).unwrap();
+
+        // Initialize the store.
+        let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
+        // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
+        let seed: u64 = rng.gen();
+        let genesis_rng = &mut TestRng::from_seed(seed);
+        let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
+
+        // Extract the private keys from the genesis committee by using the same RNG to sample private keys.
+        let genesis_rng = &mut TestRng::from_seed(seed);
+        let private_keys = [
+            private_key,
+            PrivateKey::new(genesis_rng).unwrap(),
+            PrivateKey::new(genesis_rng).unwrap(),
+            PrivateKey::new(genesis_rng).unwrap(),
+        ];
+
+        // Construct the chain builder.
+        let mut chain_builder = TestChainBuilder::new(private_keys.to_vec(), genesis.clone());
+
+        // Construct the ledger.
+        let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
+
+        // Retrieve the puzzle parameters.
+        let puzzle = ledger.puzzle();
+        let latest_epoch_hash = ledger.latest_epoch_hash().unwrap();
+        let minimum_proof_target = ledger.latest_proof_target();
+
+        // Create new prover account.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+
+        let mut valid_solutions = Vec::with_capacity(2);
+        // Create solutions that are greater than the minimum proof target.
+        while valid_solutions.len() < 2 {
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
+                valid_solutions.push(solution);
+            }
+        }
+        let valid_solution_1 = valid_solutions.remove(0);
+        let valid_solution_2 = valid_solutions.remove(0);
+        let valid_solution_1_transmission = Transmission::from(valid_solution_1);
+        let valid_solution_1_transmission_id = TransmissionID::Solution(
+            valid_solution_1.id(),
+            valid_solution_1_transmission.to_checksum().unwrap().unwrap(),
+        );
+        let valid_solution_2_transmission = Transmission::from(valid_solution_2);
+        let valid_solution_2_transmission_id = TransmissionID::Solution(
+            valid_solution_2.id(),
+            valid_solution_2_transmission.to_checksum().unwrap().unwrap(),
+        );
+
+        // 1. Advance to the latest timestamp.
+
+        assert!(!ledger.is_solution_limit_reached(&prover_address, 0));
+
+        // Transfer a public balance to the prover address.
+        let inputs =
+            [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10_000_000_000_000u64").unwrap()];
+        let transfer_transaction = ledger
+            .vm
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
+            .unwrap();
+        let transfer_transmission = Transmission::from(transfer_transaction.clone());
+        // Construct the transmission ID.
+        let transmission_id = TransmissionID::Transaction(
+            transfer_transaction.id(),
+            transfer_transmission.to_checksum().unwrap().unwrap(),
+        );
+        // Create a block that advances the ledger past the first solution limit timestamp.
+        let timestamp_1 = STAKE_REQUIREMENTS_PER_SOLUTION[0].0;
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([(transmission_id, transfer_transmission)]),
+            true,
+            rng,
+        );
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // 2. Check that the solution limit is reached because the prover does not have any stake.
+        assert_eq!(ledger.num_remaining_solutions(&prover_address, 0), 0);
+        assert!(ledger.is_solution_limit_reached(&prover_address, 0));
+
+        // Create a block with a solution.
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([(valid_solution_1_transmission_id, valid_solution_1_transmission.clone())]),
+            true,
+            rng,
+        );
+        // Check that the solution is aborted.
+        assert!(next_block.solutions().is_empty());
+        assert_eq!(next_block.aborted_solution_ids().len(), 1);
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // 3. Bond the required stake.
+
+        // Bond the required stake.
+        let inputs = [
+            Value::<CurrentNetwork>::from_str(&validator_address.to_string()).unwrap(),
+            Value::<CurrentNetwork>::from_str(&prover_address.to_string()).unwrap(),
+            Value::<CurrentNetwork>::from_str(&format!("{}u64", STAKE_REQUIREMENTS_PER_SOLUTION[0].1)).unwrap(),
+        ];
+        let bond_transaction = ledger
+            .vm
+            .execute(&prover_private_key, ("credits.aleo", "bond_public"), inputs.iter(), None, 0, None, rng)
+            .unwrap();
+        let bond_transmission = Transmission::from(bond_transaction.clone());
+        let bond_transmission_transmission_id =
+            TransmissionID::Transaction(bond_transaction.id(), bond_transmission.to_checksum().unwrap().unwrap());
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([(bond_transmission_transmission_id, bond_transmission)]),
+            true,
+            rng,
+        );
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // 4. Check that the solution is valid with sufficient stake.
+
+        // Check that the prover can submit solutions.
+        assert_eq!(ledger.num_remaining_solutions(&prover_address, 0), 1);
+        assert!(!ledger.is_solution_limit_reached(&prover_address, 0));
+
+        // 5. Check that the next block will accept the solution and abort any excess.
+
+        let next_block = chain_builder.generate_block_with_partition(
+            &Default::default(),
+            timestamp_1,
+            IndexMap::from([
+                (valid_solution_1_transmission_id, valid_solution_1_transmission.clone()),
+                (valid_solution_2_transmission_id, valid_solution_2_transmission.clone()),
+            ]),
+            true,
+            rng,
+        );
+
+        // Check that the first solution is accepted and the second is aborted.
+        assert!(next_block.solutions().solution_ids().contains(&valid_solution_1.id()));
+        assert_eq!(next_block.aborted_solution_ids(), &vec![valid_solution_2.id()]);
+
+        // Advance to the next block.
+        ledger.advance_to_next_block(&next_block).unwrap();
+
+        // Check that the prover can no longer submit solutions.
+        assert_eq!(ledger.num_remaining_solutions(&prover_address, 0), 0);
+        assert!(ledger.is_solution_limit_reached(&prover_address, 0));
     }
 
     #[test]
@@ -3013,7 +3144,7 @@ mod valid_solutions {
         let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
-            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
             .unwrap();
 
         // Create a block.
@@ -3085,7 +3216,7 @@ mod valid_solutions {
         let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
-            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
             .unwrap();
 
         // Create a block.
@@ -3164,7 +3295,7 @@ mod valid_solutions {
         let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
-            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
             .unwrap();
 
         // Check that the block creation fixes the malformed solution.
@@ -3233,7 +3364,7 @@ mod valid_solutions {
         let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
-            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, None, rng)
+            .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
             .unwrap();
 
         // Create a block.
@@ -3272,7 +3403,7 @@ fn test_forged_block_subdags() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3296,8 +3427,7 @@ fn test_forged_block_subdags() {
     let block_3 = quorum_blocks.remove(0);
 
     // Construct the ledger.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
 
     // Advance to block 1.
     ledger.advance_to_next_block(&block_1).unwrap();
@@ -3407,7 +3537,7 @@ fn test_subdag_with_long_branch() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3432,8 +3562,7 @@ fn test_subdag_with_long_branch() {
     );
 
     // Construct the ledger.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
 
     for block in blocks {
         ledger.advance_to_next_block(&block).unwrap();
@@ -3454,7 +3583,7 @@ fn test_subdag_with_gc_length() {
     // Sample the genesis private key.
     let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
     // Initialize the store.
-    let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+    let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
     let seed: u64 = rng.gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
@@ -3479,8 +3608,7 @@ fn test_subdag_with_gc_length() {
     );
 
     // Construct the ledger.
-    let ledger =
-        Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(genesis, StorageMode::new_test(None)).unwrap();
+    let ledger = Ledger::<CurrentNetwork, LedgerType>::load(genesis, StorageMode::new_test(None)).unwrap();
 
     for block in blocks {
         ledger.advance_to_next_block(&block).unwrap();
@@ -3606,13 +3734,13 @@ function create_and_consume:
     .unwrap();
 
     // Deploy the programs.
-    let deployment_0 = ledger.vm().deploy(&private_key, &program_0, None, 0, None, None, rng).unwrap();
+    let deployment_0 = ledger.vm().deploy(&private_key, &program_0, None, 0, None, rng).unwrap();
     let block =
         ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![deployment_0], rng).unwrap();
     assert_eq!(block.transactions().num_accepted(), 1);
     ledger.advance_to_next_block(&block).unwrap();
 
-    let deployment_1 = ledger.vm().deploy(&private_key, &program_1, None, 0, None, None, rng).unwrap();
+    let deployment_1 = ledger.vm().deploy(&private_key, &program_1, None, 0, None, rng).unwrap();
     let block =
         ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![deployment_1], rng).unwrap();
     assert_eq!(block.transactions().num_accepted(), 1);
@@ -3621,16 +3749,7 @@ function create_and_consume:
     // Call the `mint` function.
     let transaction = ledger
         .vm()
-        .execute(
-            &private_key,
-            ("child.aleo", "mint"),
-            Vec::<Value<CurrentNetwork>>::new().iter(),
-            None,
-            0,
-            None,
-            None,
-            rng,
-        )
+        .execute(&private_key, ("child.aleo", "mint"), Vec::<Value<CurrentNetwork>>::new().iter(), None, 0, None, rng)
         .unwrap();
     let mint_record = transaction.records().last().unwrap().1.decrypt(&view_key).unwrap();
     let block =
@@ -3657,7 +3776,6 @@ function create_and_consume:
             None,
             0,
             None,
-            None,
             rng,
         )
         .unwrap();
@@ -3680,7 +3798,7 @@ function create_and_consume:
     let record = block.records().collect_vec().last().unwrap().1.decrypt(&view_key).unwrap();
     let transaction = ledger
         .vm()
-        .execute(&private_key, ("child.aleo", "burn"), vec![Value::Record(record)].iter(), None, 0, None, None, rng)
+        .execute(&private_key, ("child.aleo", "burn"), vec![Value::Record(record)].iter(), None, 0, None, rng)
         .unwrap();
     let block =
         ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
@@ -3705,7 +3823,6 @@ function create_and_consume:
             Vec::<Value<CurrentNetwork>>::new().iter(),
             None,
             0,
-            None,
             None,
             rng,
         )
@@ -3734,7 +3851,6 @@ function create_and_consume:
             None,
             0,
             None,
-            None,
             rng,
         )
         .unwrap();
@@ -3755,16 +3871,7 @@ function create_and_consume:
     // Call the `consume` function.
     let transaction = ledger
         .vm()
-        .execute(
-            &private_key,
-            ("parent.aleo", "consume"),
-            vec![Value::Record(mint_record)].iter(),
-            None,
-            0,
-            None,
-            None,
-            rng,
-        )
+        .execute(&private_key, ("parent.aleo", "consume"), vec![Value::Record(mint_record)].iter(), None, 0, None, rng)
         .unwrap();
     let block =
         ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![transaction], rng).unwrap();
@@ -3789,7 +3896,6 @@ function create_and_consume:
             Vec::<Value<CurrentNetwork>>::new().iter(),
             None,
             0,
-            None,
             None,
             rng,
         )

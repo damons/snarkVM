@@ -41,6 +41,7 @@ mod check_transaction_basic;
 mod contains;
 mod find;
 mod get;
+mod is_solution_limit_reached;
 mod iterators;
 
 #[cfg(test)]
@@ -49,25 +50,14 @@ mod tests;
 use console::{
     account::{Address, GraphKey, PrivateKey, ViewKey},
     network::prelude::*,
-    program::{
-        Ciphertext,
-        CommitmentVersion,
-        Entry,
-        Identifier,
-        Literal,
-        Plaintext,
-        ProgramID,
-        Record,
-        StatePath,
-        Value,
-    },
+    program::{Ciphertext, Entry, Identifier, Literal, Plaintext, ProgramID, Record, StatePath, Value},
     types::{Field, Group},
 };
 use ledger_authority::Authority;
 use ledger_committee::Committee;
 use ledger_narwhal::{BatchCertificate, Subdag, Transmission, TransmissionID};
 use ledger_puzzle::{Puzzle, PuzzleSolutions, Solution, SolutionID};
-use ledger_query::Query;
+use ledger_query::QueryTrait;
 use ledger_store::{ConsensusStorage, ConsensusStore};
 use synthesizer::{
     program::{FinalizeGlobalState, Program},
@@ -153,6 +143,8 @@ pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     /// If `L` is the lookback round distance, `C` is the active committee at round `R + L`
     /// (i.e. the committee in charge of running consensus at round `R + L`).
     committee_cache: Arc<Mutex<LruCache<u64, Committee<N>>>>,
+    /// The cache that holds the provers and the number of solutions they have submitted for the current epoch.
+    epoch_provers_cache: Arc<RwLock<IndexMap<Address<N>, u32>>>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
@@ -218,6 +210,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             current_committee: Arc::new(RwLock::new(current_committee)),
             current_block: Arc::new(RwLock::new(genesis_block.clone())),
             committee_cache,
+            epoch_provers_cache: Default::default(),
         };
 
         // If the block store is empty, add the genesis block.
@@ -241,9 +234,34 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         ledger.current_committee = Arc::new(RwLock::new(Some(ledger.latest_committee()?)));
         // Set the current epoch hash.
         ledger.current_epoch_hash = Arc::new(RwLock::new(Some(ledger.get_epoch_hash(latest_height)?)));
+        // Set the epoch prover cache.
+        ledger.epoch_provers_cache = Arc::new(RwLock::new(ledger.load_epoch_provers()));
 
         finish!(timer, "Initialize ledger");
         Ok(ledger)
+    }
+
+    /// Loads the provers and the number of solutions they have submitted for the current epoch.
+    pub fn load_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
+        // Fetch the block heights that belong to the current epoch.
+        let current_block_height = self.vm().block_store().current_block_height();
+        let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
+        let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
+
+        // Collect the addresses of the solutions submitted in the current epoch.
+        let solution_addresses = cfg_iter!(existing_epoch_blocks)
+            .flat_map(|height| match self.get_solutions(*height).as_deref() {
+                Ok(Some(solutions)) => solutions.iter().map(|(_, s)| s.address()).collect::<Vec<_>>(),
+                _ => vec![],
+            })
+            .collect::<Vec<_>>();
+
+        // Count the number of occurrences of each address in the epoch blocks.
+        let mut epoch_provers = IndexMap::new();
+        for address in solution_addresses {
+            epoch_provers.entry(address).and_modify(|e| *e += 1).or_insert(1);
+        }
+        epoch_provers
     }
 
     /// Returns the VM.
@@ -254,6 +272,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Returns the puzzle.
     pub const fn puzzle(&self) -> &Puzzle<N> {
         self.vm.puzzle()
+    }
+
+    /// Returns the provers and the number of solutions they have submitted for the current epoch.
+    pub fn epoch_provers(&self) -> Arc<RwLock<IndexMap<Address<N>, u32>>> {
+        self.epoch_provers_cache.clone()
     }
 
     /// Returns the latest committee,
@@ -378,8 +401,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         private_key: &PrivateKey<N>,
         program: &Program<N>,
         priority_fee_in_microcredits: u64,
-        commitment_version: Option<CommitmentVersion>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.
@@ -391,7 +413,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         let fee_record = Some(records.next().unwrap().clone());
 
         // Create a new deploy transaction.
-        self.vm.deploy(private_key, program, fee_record, priority_fee_in_microcredits, commitment_version, query, rng)
+        self.vm.deploy(private_key, program, fee_record, priority_fee_in_microcredits, query, rng)
     }
 
     /// Creates a transfer transaction.
@@ -403,8 +425,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         to: Address<N>,
         amount_in_microcredits: u64,
         priority_fee_in_microcredits: u64,
-        commitment_version: Option<CommitmentVersion>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.
@@ -429,7 +450,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             inputs.iter(),
             fee_record,
             priority_fee_in_microcredits,
-            commitment_version,
             query,
             rng,
         )

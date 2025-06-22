@@ -235,17 +235,17 @@ fn execute_function<F: FinalizeStorage<CurrentNetwork>>(
 ) -> Result<()> {
     // Construct the authorization.
     let authorization =
-        process.authorize::<CurrentAleo, _>(caller_private_key, "credits.aleo", function, inputs.iter(), None, rng)?;
+        process.authorize::<CurrentAleo, _>(caller_private_key, "credits.aleo", function, inputs.iter(), rng)?;
 
     // Construct the trace.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng)?;
+    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng)?;
 
     // Construct the block store.
     // Use 0u16 as a valid in-memory StorageMode value instead of None
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(0u16)?;
 
     // Prepare the trace.
-    trace.prepare(Query::from(&block_store))?;
+    trace.prepare(&Query::from(&block_store))?;
 
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>(function, VarunaVersion::V1, rng)?;

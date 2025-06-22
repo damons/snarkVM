@@ -46,14 +46,8 @@ impl Execute {
         let rng = &mut rand::thread_rng();
 
         // Execute the request.
-        let (response, execution, metrics) = package.execute::<Aleo, _>(
-            self.endpoint,
-            &private_key,
-            self.function,
-            &self.inputs,
-            Some(CommitmentVersion::V2),
-            rng,
-        )?; // // TODO (raychu86): Record Commitment - This should be configurable.
+        let (response, execution, metrics) =
+            package.execute::<Aleo, _>(self.endpoint, &private_key, self.function, &self.inputs, rng)?;
 
         // TODO (howardwu): Include the option to execute a fee.
         let fee = None;

@@ -21,7 +21,6 @@ impl<N: Network> Stack<N> {
     pub fn synthesize_key<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         function_name: &Identifier<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         // If the proving and verifying key already exist, skip the synthesis for this function.
@@ -69,7 +68,6 @@ impl<N: Network> Stack<N> {
             &input_types,
             root_tvk,
             is_root,
-            commitment_version,
             rng,
         )?;
         // Initialize the authorization.
@@ -77,7 +75,7 @@ impl<N: Network> Stack<N> {
         // Initialize the call stack.
         let call_stack = CallStack::Synthesize(vec![request], burner_private_key, authorization);
         // Synthesize the circuit.
-        let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, commitment_version, rng)?;
+        let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, rng)?;
 
         // Ensure the proving key exists.
         ensure!(self.contains_proving_key(function_name), "Function '{function_name}' is missing a proving key.");

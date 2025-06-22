@@ -27,7 +27,6 @@ impl<N: Network> Request<N> {
         input_types: &[ValueType<N>],
         root_tvk: Option<Field<N>>,
         is_root: bool,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Self> {
         // Ensure the number of inputs matches the number of input types.

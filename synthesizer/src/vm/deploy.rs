@@ -28,12 +28,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program: &Program<N>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        commitment_version: Option<CommitmentVersion>,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the deployment.
-        let deployment = self.deploy_raw(program, commitment_version, rng)?;
+        let deployment = self.deploy_raw(program, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
         // Compute the deployment ID.
@@ -51,7 +50,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 minimum_deployment_cost,
                 priority_fee_in_microcredits,
                 deployment_id,
-                commitment_version,
                 rng,
             )?,
             None => self.authorize_fee_public(
@@ -59,12 +57,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 minimum_deployment_cost,
                 priority_fee_in_microcredits,
                 deployment_id,
-                commitment_version,
                 rng,
             )?,
         };
         // Compute the fee.
-        let fee = self.execute_fee_authorization(fee_authorization, commitment_version, query.clone(), rng)?;
+        let fee = self.execute_fee_authorization(fee_authorization, query, rng)?;
 
         // Return the deploy transaction.
         Transaction::from_deployment(owner, deployment, fee)
@@ -74,18 +71,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Returns a deployment for the given program.
     #[inline]
-    pub(super) fn deploy_raw<R: Rng + CryptoRng>(
-        &self,
-        program: &Program<N>,
-        commitment_version: Option<CommitmentVersion>,
-        rng: &mut R,
-    ) -> Result<Deployment<N>> {
+    pub(super) fn deploy_raw<R: Rng + CryptoRng>(&self, program: &Program<N>, rng: &mut R) -> Result<Deployment<N>> {
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the program.
                 let program = cast_ref!(&program as Program<$network>);
                 // Compute the deployment.
-                let deployment = $process.deploy::<$aleo, _>(program, commitment_version, rng)?;
+                let deployment = $process.deploy::<$aleo, _>(program, rng)?;
                 // Prepare the deployment.
                 Ok(cast_ref!(deployment as Deployment<N>).clone())
             }};

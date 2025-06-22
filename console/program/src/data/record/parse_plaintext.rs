@@ -16,7 +16,7 @@
 use super::*;
 
 impl<N: Network> Parser for Record<N, Plaintext<N>> {
-    /// Parses a string as a record: `{ owner: address, identifier_0: entry_0, ..., identifier_n: entry_n, _nonce: field }`.
+    /// Parses a string as a record: `{ owner: address, identifier_0: entry_0, ..., identifier_n: entry_n, _nonce: field, _version: u8 }`.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
         /// Parses a sanitized pair: `identifier: entry`.
@@ -98,9 +98,17 @@ impl<N: Network> Parser for Record<N, Plaintext<N>> {
         // Parse the nonce from the string.
         let (string, (nonce, _)) = pair(Group::parse, tag(".public"))(string)?;
 
+        // There may be an optional "_version" tag. Parse the "," from the string if it exists.
+        let string = match opt(tag(","))(string)? {
+            // If there is a version, then parse the "," from the string.
+            (string, Some(_)) => string,
+            // If there is no version, then keep the string as is.
+            (string, None) => string,
+        };
+
         // Parse the whitespace and comments from the string.
         let (string, _) = Sanitizer::parse(string)?;
-        // Parse the "_version" tag from the string.
+        // Parse the optional "_version" tag from the string.
         let (string, version) = match opt(tag("_version"))(string)? {
             // If there is no version, then set the version to zero.
             (string, None) => (string, U8::zero()),

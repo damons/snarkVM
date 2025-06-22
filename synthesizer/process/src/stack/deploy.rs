@@ -20,11 +20,7 @@ use rand::{SeedableRng, rngs::StdRng};
 impl<N: Network> Stack<N> {
     /// Deploys the given program ID, if it does not exist.
     #[inline]
-    pub fn deploy<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
-        &self,
-        commitment_version: Option<CommitmentVersion>,
-        rng: &mut R,
-    ) -> Result<Deployment<N>> {
+    pub fn deploy<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(&self, rng: &mut R) -> Result<Deployment<N>> {
         let timer = timer!("Stack::deploy");
 
         // Ensure the program contains functions.
@@ -35,7 +31,7 @@ impl<N: Network> Stack<N> {
 
         for function_name in self.program.functions().keys() {
             // Synthesize the proving and verifying key.
-            self.synthesize_key::<A, R>(function_name, commitment_version, rng)?;
+            self.synthesize_key::<A, R>(function_name, rng)?;
             lap!(timer, "Synthesize key for {function_name}");
 
             // Retrieve the proving key.
@@ -63,7 +59,6 @@ impl<N: Network> Stack<N> {
     pub fn verify_deployment<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         deployment: &Deployment<N>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Stack::verify_deployment");
@@ -141,7 +136,6 @@ impl<N: Network> Stack<N> {
                 &input_types,
                 root_tvk,
                 is_root,
-                commitment_version,
                 rng,
             )?;
             lap!(timer, "Compute the request for {}", function.name());
@@ -171,9 +165,7 @@ impl<N: Network> Stack<N> {
         cfg_into_iter!(call_stacks).zip_eq(deployment.verifying_keys()).zip_eq(rngs).try_for_each(
             |(((function_name, call_stack, assignments), (_, (verifying_key, certificate))), mut rng)| {
                 // Synthesize the circuit.
-                if let Err(err) =
-                    self.execute_function::<A, _>(call_stack, caller, root_tvk, commitment_version, &mut rng)
-                {
+                if let Err(err) = self.execute_function::<A, _>(call_stack, caller, root_tvk, &mut rng) {
                     bail!("Failed to synthesize the circuit for '{function_name}': {err}")
                 }
                 // Check the certificate.

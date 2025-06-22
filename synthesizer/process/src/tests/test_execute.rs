@@ -89,19 +89,12 @@ pub fn sample_fee<N: Network, A: Aleo<Network = N>, B: BlockStorage<N>, P: Final
 
     // Authorize the fee.
     let authorization = process
-        .authorize_fee_public::<A, _>(
-            &private_key,
-            base_fee_in_microcredits,
-            priority_fee_in_microcredits,
-            id,
-            None,
-            rng,
-        )
+        .authorize_fee_public::<A, _>(&private_key, base_fee_in_microcredits, priority_fee_in_microcredits, id, rng)
         .unwrap();
     // Execute the fee.
-    let (_, mut trace) = process.execute::<A, _>(authorization, None, rng).unwrap();
+    let (_, mut trace) = process.execute::<A, _>(authorization, rng).unwrap();
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the fee.
     trace.prove_fee::<A, _>(VarunaVersion::V1, rng).unwrap()
 }
@@ -142,7 +135,7 @@ function foo:
 
         // Authorize the function call.
         let authorization = process
-            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, inputs.iter(), None, rng)
+            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, inputs.iter(), rng)
             .unwrap();
         assert_eq!(authorization.len(), 1);
         authorization
@@ -155,16 +148,14 @@ function foo:
     let expected = Value::Plaintext(Plaintext::<CurrentNetwork>::from_str("5field").unwrap());
 
     // Run the function.
-    let response = stack
-        .evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None, None)
-        .unwrap();
+    let response =
+        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
 
     // Re-run to ensure state continues to work.
-    let response =
-        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None, None).unwrap();
+    let response = stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
@@ -209,7 +200,7 @@ output r1 as field.private;",
 
         // Authorize the function call.
         let authorization = process
-            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), None, rng)
+            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), rng)
             .unwrap();
         assert_eq!(authorization.len(), 1);
         authorization
@@ -219,16 +210,14 @@ output r1 as field.private;",
     let stack = process.get_stack(program.id()).unwrap();
 
     // Compute the output value.
-    let response = stack
-        .evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None, None)
-        .unwrap();
+    let response =
+        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
 
     // Re-run to ensure state continues to work.
-    let response =
-        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None, None).unwrap();
+    let response = stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
@@ -278,7 +267,7 @@ output r1 as u64.private;",
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
@@ -286,16 +275,14 @@ output r1 as u64.private;",
     let stack = process.get_stack(program.id()).unwrap();
 
     // Compute the output value.
-    let response = stack
-        .evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None, None)
-        .unwrap();
+    let response =
+        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
 
     // Re-run to ensure state continues to work.
-    let response =
-        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None, None).unwrap();
+    let response = stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
@@ -346,7 +333,7 @@ output r4 as field.private;",
         // Construct the process.
         let process = crate::test_helpers::sample_process(&program);
         // Check that the circuit key can be synthesized.
-        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, &mut TestRng::default()).unwrap();
+        process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, &mut TestRng::default()).unwrap();
     }
 
     // Construct the process.
@@ -367,7 +354,6 @@ output r4 as field.private;",
                 program.id(),
                 function_name,
                 [r0.clone(), r1.clone()].iter(),
-                None,
                 rng,
             )
             .unwrap();
@@ -379,9 +365,8 @@ output r4 as field.private;",
     let stack = process.get_stack(program.id()).unwrap();
 
     // Compute the output value.
-    let response = stack
-        .evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None, None)
-        .unwrap();
+    let response =
+        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -389,8 +374,7 @@ output r4 as field.private;",
     assert_eq!(r4, candidate[2]);
 
     // Re-run to ensure state continues to work.
-    let response =
-        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None, None).unwrap();
+    let response = stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -411,14 +395,14 @@ output r4 as field.private;",
     let burner_private_key = PrivateKey::new(rng).unwrap();
     // Authorize the function call, with a burner private key.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&burner_private_key, program.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&burner_private_key, program.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
     // Re-run to ensure state continues to work.
     let trace = Arc::new(RwLock::new(Trace::new()));
     let call_stack = CallStack::execute(authorization, trace).unwrap();
-    let response = stack.execute_function::<CurrentAleo, _>(call_stack, None, None, None, rng).unwrap();
+    let response = stack.execute_function::<CurrentAleo, _>(call_stack, None, None, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -467,7 +451,7 @@ output r1 as token.record;",
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
     let request = authorization.peek_next().unwrap();
@@ -486,16 +470,14 @@ output r1 as token.record;",
     let stack = process.get_stack(program.id()).unwrap();
 
     // Compute the output value.
-    let response = stack
-        .evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None, None)
-        .unwrap();
+    let response =
+        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization.replicate()).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
 
     // Re-run to ensure state continues to work.
-    let response =
-        stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None, None).unwrap();
+    let response = stack.evaluate_function::<CurrentAleo>(CallStack::evaluate(authorization).unwrap(), None).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(expected, candidate[0]);
@@ -526,7 +508,6 @@ fn test_process_execute_transfer_public_to_private() {
             program.id(),
             Identifier::from_str("transfer_public_to_private").unwrap(),
             [r0, r1].iter(),
-            None,
             rng,
         )
         .unwrap();
@@ -547,7 +528,7 @@ fn test_process_execute_transfer_public_to_private() {
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(2, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -556,7 +537,7 @@ fn test_process_execute_transfer_public_to_private() {
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(2, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -593,7 +574,7 @@ function hello_world:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, &mut TestRng::default()).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, &mut TestRng::default()).unwrap();
 }
 
 #[test]
@@ -659,7 +640,6 @@ fn test_process_multirecords() {
             program.id(),
             function_name,
             [input_a, input_b, input_c].iter(),
-            None,
             rng,
         )
         .unwrap();
@@ -693,7 +673,7 @@ fn test_process_multirecords() {
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(output_a, candidate[0]);
@@ -704,7 +684,7 @@ fn test_process_multirecords() {
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(output_a, candidate[0]);
@@ -758,7 +738,7 @@ fn test_process_self_caller() {
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [input].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
     let request = authorization.peek_next().unwrap();
@@ -776,7 +756,7 @@ fn test_process_self_caller() {
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -785,7 +765,7 @@ fn test_process_self_caller() {
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -825,7 +805,7 @@ fn test_process_program_id() {
     // Authorize the function call.
     let inputs: &[Value<CurrentNetwork>] = &[];
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, inputs.iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, inputs.iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
@@ -836,7 +816,7 @@ fn test_process_program_id() {
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -845,7 +825,7 @@ fn test_process_program_id() {
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -867,7 +847,7 @@ fn test_process_output_operand() {
         // Authorize the function call.
         let inputs: &[Value<CurrentNetwork>] = &[];
         let authorization = process
-            .authorize::<CurrentAleo, _>(caller_private_key, program.id(), function_name, inputs.iter(), None, rng)
+            .authorize::<CurrentAleo, _>(caller_private_key, program.id(), function_name, inputs.iter(), rng)
             .unwrap();
         assert_eq!(authorization.len(), 1);
 
@@ -875,7 +855,7 @@ fn test_process_output_operand() {
         assert_eq!(authorization.len(), 1);
 
         // Compute the output value.
-        let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+        let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
         let candidate = response.outputs();
         assert_eq!(1, candidate.len());
         assert_eq!(output, candidate[0]);
@@ -884,7 +864,7 @@ fn test_process_output_operand() {
         assert_eq!(authorization.len(), 1);
 
         // Execute the request.
-        let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+        let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
         let candidate = response.outputs();
         assert_eq!(1, candidate.len());
         assert_eq!(output, candidate[0]);
@@ -993,7 +973,7 @@ function compute:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let process = crate::test_helpers::sample_process(&program);
@@ -1013,7 +993,7 @@ function compute:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
     let request = authorization.peek_next().unwrap();
@@ -1035,7 +1015,7 @@ function compute:
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(4, candidate.len());
     assert_eq!(r3, candidate[0]);
@@ -1047,7 +1027,7 @@ function compute:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(4, candidate.len());
     assert_eq!(r3, candidate[0]);
@@ -1154,7 +1134,7 @@ function transfer:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller0_private_key, program1.id(), function_name, [r0, r1, r2].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller0_private_key, program1.id(), function_name, [r0, r1, r2].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 5);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
@@ -1187,7 +1167,7 @@ function transfer:
     assert_eq!(authorization.len(), 5);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(2, candidate.len());
     assert_eq!(output_a, candidate[0]);
@@ -1197,7 +1177,7 @@ function transfer:
     assert_eq!(authorization.len(), 5);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(2, candidate.len());
     assert_eq!(output_a, candidate[0]);
@@ -1261,7 +1241,7 @@ finalize compute:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let mut process = Process::load().unwrap();
@@ -1272,9 +1252,9 @@ finalize compute:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1294,12 +1274,12 @@ finalize compute:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
@@ -1307,12 +1287,12 @@ finalize compute:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
     // Verify the execution.
@@ -1373,7 +1353,7 @@ finalize compute:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let mut process = Process::load().unwrap();
@@ -1384,9 +1364,9 @@ finalize compute:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1406,12 +1386,12 @@ finalize compute:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
@@ -1419,12 +1399,12 @@ finalize compute:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
@@ -1500,7 +1480,7 @@ finalize mint_public:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let mut process = Process::load().unwrap();
@@ -1511,9 +1491,9 @@ finalize mint_public:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1524,7 +1504,7 @@ finalize mint_public:
     // TODO (howardwu): Remove this. I call this to synthesize the proving key independent of the assignment from 'execute'.
     //  In general, we should update all tests to utilize a presynthesized proving key, before execution, to test
     //  the correctness of the synthesizer.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Initialize a new caller account.
     let caller_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
@@ -1537,12 +1517,12 @@ finalize mint_public:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
@@ -1550,12 +1530,12 @@ finalize mint_public:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("token", VarunaVersion::V1, rng).unwrap();
 
@@ -1629,7 +1609,7 @@ finalize mint_public:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program0);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program0.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program0.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let mut process = Process::load().unwrap();
@@ -1640,9 +1620,9 @@ finalize mint_public:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program0, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program0, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1653,7 +1633,7 @@ finalize mint_public:
     // TODO (howardwu): Remove this. I call this to synthesize the proving key independent of the assignment from 'execute'.
     //  In general, we should update all tests to utilize a presynthesized proving key, before execution, to test
     //  the correctness of the synthesizer.
-    process.synthesize_key::<CurrentAleo, _>(program0.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program0.id(), &function_name, rng).unwrap();
 
     // Initialize another program.
     let (string, program1) = Program::<CurrentNetwork>::parse(
@@ -1680,9 +1660,9 @@ finalize init:
     let function_name = Identifier::from_str("init").unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program1, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program1, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1693,7 +1673,7 @@ finalize init:
     // TODO (howardwu): Remove this. I call this to synthesize the proving key independent of the assignment from 'execute'.
     //  In general, we should update all tests to utilize a presynthesized proving key, before execution, to test
     //  the correctness of the synthesizer.
-    process.synthesize_key::<CurrentAleo, _>(program1.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program1.id(), &function_name, rng).unwrap();
 
     // Initialize caller.
     let caller_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
@@ -1705,12 +1685,12 @@ finalize init:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program1.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program1.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 2);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
@@ -1718,12 +1698,12 @@ finalize init:
     assert_eq!(authorization.len(), 2);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", VarunaVersion::V1, rng).unwrap();
 
@@ -1787,7 +1767,7 @@ finalize compute:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let mut process = Process::load().unwrap();
@@ -1798,9 +1778,9 @@ finalize compute:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1820,12 +1800,12 @@ finalize compute:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1, r2].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
@@ -1833,12 +1813,12 @@ finalize compute:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
@@ -1928,7 +1908,7 @@ function a:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program2.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program2.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 3);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
@@ -1936,7 +1916,7 @@ function a:
     let output = Value::<CurrentNetwork>::from_str("3u8").unwrap();
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -1945,7 +1925,7 @@ function a:
     assert_eq!(authorization.len(), 3);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -1968,7 +1948,7 @@ function a:
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("two", VarunaVersion::V1, rng).unwrap();
 
@@ -2110,7 +2090,7 @@ fn test_complex_execution_order() {
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program4.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program4.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 10);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
@@ -2118,7 +2098,7 @@ fn test_complex_execution_order() {
     let output = Value::<CurrentNetwork>::from_str("17u8").unwrap();
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -2127,7 +2107,7 @@ fn test_complex_execution_order() {
     assert_eq!(authorization.len(), 10);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
     assert_eq!(output, candidate[0]);
@@ -2155,7 +2135,7 @@ fn test_complex_execution_order() {
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V1, rng).unwrap();
 
@@ -2216,7 +2196,7 @@ finalize compute:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let mut process = Process::load().unwrap();
@@ -2227,9 +2207,9 @@ finalize compute:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -2248,12 +2228,12 @@ finalize compute:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
@@ -2261,12 +2241,12 @@ finalize compute:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(1, candidate.len());
 
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
@@ -2328,7 +2308,7 @@ function compute:
     // Construct the process.
     let process = crate::test_helpers::sample_process(&program);
     // Check that the circuit key can be synthesized.
-    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, None, rng).unwrap();
+    process.synthesize_key::<CurrentAleo, _>(program.id(), &function_name, rng).unwrap();
 
     // Reset the process.
     let process = crate::test_helpers::sample_process(&program);
@@ -2342,7 +2322,7 @@ function compute:
 
     // Authorize the function call.
     let authorization = process
-        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1].iter(), None, rng)
+        .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), function_name, [r0, r1].iter(), rng)
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
@@ -2354,7 +2334,7 @@ function compute:
     assert_eq!(authorization.len(), 1);
 
     // Compute the output value.
-    let response = process.evaluate::<CurrentAleo>(authorization.replicate(), None).unwrap();
+    let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -2365,7 +2345,7 @@ function compute:
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(3, candidate.len());
     assert_eq!(r2, candidate[0]);
@@ -2375,7 +2355,7 @@ function compute:
     // Initialize a new block store.
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
     // Prepare the trace.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
@@ -2398,12 +2378,12 @@ fn test_process_deploy_credits_program() {
     let program = Program::credits().unwrap();
 
     // Create a deployment for the credits.aleo program.
-    let deployment = empty_process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = empty_process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 
     // Ensure the deployment is valid on the empty process.
-    empty_process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    empty_process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Ensure the deployment is not valid on the standard process.
-    assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).is_err());
+    assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, rng).is_err());
 
     // Create a new `credits.aleo` program.
     let program = Program::from_str(
@@ -2422,12 +2402,12 @@ function compute:
     .unwrap();
 
     // Create a deployment for the credits.aleo program.
-    let deployment = empty_process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = empty_process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 
     // Ensure the deployment is valid on the empty process.
-    empty_process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    empty_process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Ensure the deployment is not valid on the standard process.
-    assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).is_err());
+    assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, rng).is_err());
 }
 
 #[test]
@@ -2454,9 +2434,9 @@ function {function_name}:
     let finalize_store = FinalizeStore::<_, FinalizeMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Add the program to the process.
-    let deployment = process.deploy::<CurrentAleo, _>(&program, None, rng).unwrap();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, None, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -2472,15 +2452,15 @@ function {function_name}:
         // Authorize the function call.
         let inputs = Vec::<Value<CurrentNetwork>>::new();
         let authorization = process
-            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), &function_name, inputs.iter(), None, rng)
+            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), &function_name, inputs.iter(), rng)
             .unwrap();
 
         // Execute the request.
-        let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+        let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
         assert_eq!(response.outputs().len(), 0);
 
         // Prepare the trace.
-        trace.prepare(Query::from(block_store.clone())).unwrap();
+        trace.prepare(&Query::from(block_store.clone())).unwrap();
         // Prove the execution.
         trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap()
     };
@@ -2491,15 +2471,15 @@ function {function_name}:
         // Authorize the function call.
         let inputs = Vec::<Value<CurrentNetwork>>::new();
         let authorization = process
-            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), &function_name, inputs.iter(), None, rng)
+            .authorize::<CurrentAleo, _>(&caller_private_key, program.id(), &function_name, inputs.iter(), rng)
             .unwrap();
 
         // Execute the request.
-        let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, None, rng).unwrap();
+        let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
         assert_eq!(response.outputs().len(), 0);
 
         // Prepare the trace.
-        trace.prepare(Query::from(block_store)).unwrap();
+        trace.prepare(&Query::from(block_store)).unwrap();
         // Prove the execution.
         trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap()
     };

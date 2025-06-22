@@ -20,7 +20,6 @@ mod execute;
 mod is_build_required;
 mod run;
 
-pub use build::{BuildRequest, BuildResponse};
 pub use deploy::{DeployRequest, DeployResponse};
 
 use crate::{
@@ -28,7 +27,7 @@ use crate::{
     console::{
         account::PrivateKey,
         network::{ConsensusVersion, Network},
-        program::{CommitmentVersion, Identifier, Locator, ProgramID, Response, Value},
+        program::{Identifier, Locator, ProgramID, Response, Value},
     },
     file::{AVMFile, AleoFile, Manifest, ProverFile, README, VerifierFile},
     ledger::{
@@ -40,7 +39,6 @@ use crate::{
     synthesizer::{
         process::{Assignments, CallMetrics, CallStack, Process, StackExecute},
         program::{CallOperator, Instruction, Program, StackProgram},
-        snark::{ProvingKey, VerifyingKey},
     },
 };
 
@@ -193,7 +191,7 @@ pub(crate) mod test_helpers {
     type CurrentNetwork = MainnetV0;
 
     fn temp_dir() -> PathBuf {
-        tempfile::tempdir().expect("Failed to open temporary directory").into_path()
+        tempfile::tempdir().expect("Failed to open temporary directory").keep()
     }
 
     /// Samples a (temporary) package containing a `token.aleo` program.
@@ -550,7 +548,7 @@ function bar:
         // Ensure the build directory does *not* exist.
         assert!(!package.build_directory().exists());
         // Build the package.
-        package.build::<CurrentAleo>(None).unwrap();
+        package.build::<CurrentAleo>().unwrap();
         // Ensure the build directory exists.
         assert!(package.build_directory().exists());
 
@@ -565,11 +563,11 @@ function bar:
         let endpoint = "https://api.explorer.aleo.org/v1".to_string();
 
         // Run the program function.
-        let run_result = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, None, rng).ok();
+        let run_result = package.run::<CurrentAleo, _>(&private_key, function_name, &inputs, rng).ok();
 
         // Execute the program function.
         let execute_result =
-            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, None, rng).ok();
+            package.execute::<CurrentAleo, _>(endpoint, &private_key, function_name, &inputs, rng).ok();
 
         match (run_result, execute_result) {
             // If both results are `None`, then they both failed.

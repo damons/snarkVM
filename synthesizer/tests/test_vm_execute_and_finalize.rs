@@ -43,9 +43,9 @@ use rayon::prelude::*;
 use utilities::*;
 
 #[cfg(not(feature = "rocks"))]
-type LedgerType<N> = ledger_store::helpers::memory::ConsensusMemory<N>;
+type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
 #[cfg(feature = "rocks")]
-type LedgerType<N> = ledger_store::helpers::rocksdb::ConsensusDB<N>;
+type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
 #[test]
 fn test_vm_execute_and_finalize() {
@@ -93,7 +93,6 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
                 None,
                 0,
                 None,
-                None,
                 rng,
             )
             .unwrap();
@@ -126,7 +125,7 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
 
     // Deploy the programs.
     for program in test.programs() {
-        let transaction = match vm.deploy(&genesis_private_key, program, None, 0, None, None, rng) {
+        let transaction = match vm.deploy(&genesis_private_key, program, None, 0, None, rng) {
             Ok(transaction) => transaction,
             Err(error) => {
                 let mut output = serde_yaml::Mapping::new();
@@ -226,8 +225,7 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
 
             // Execute the function, extracting the transaction.
             let transaction =
-                match vm.execute(&private_key, (program_id, function_name), inputs.iter(), None, 0u64, None, None, rng)
-                {
+                match vm.execute(&private_key, (program_id, function_name), inputs.iter(), None, 0u64, None, rng) {
                     Ok(transaction) => transaction,
                     // If the execution fails, return the error.
                     Err(err) => {
@@ -373,9 +371,9 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
 fn initialize_vm<R: Rng + CryptoRng>(
     private_key: &PrivateKey<CurrentNetwork>,
     rng: &mut R,
-) -> (VM<CurrentNetwork, LedgerType<CurrentNetwork>>, Vec<Record<CurrentNetwork, Plaintext<CurrentNetwork>>>) {
+) -> (VM<CurrentNetwork, LedgerType>, Vec<Record<CurrentNetwork, Plaintext<CurrentNetwork>>>) {
     // Initialize a VM.
-    let vm: VM<CurrentNetwork, LedgerType<CurrentNetwork>> =
+    let vm: VM<CurrentNetwork, LedgerType> =
         VM::from(ConsensusStore::open(StorageMode::new_test(None)).unwrap()).unwrap();
 
     // Initialize the genesis block.
@@ -537,8 +535,7 @@ fn split<C: ConsensusStorage<CurrentNetwork>, R: Rng + CryptoRng>(
     rng: &mut R,
 ) -> (Vec<Record<CurrentNetwork, Plaintext<CurrentNetwork>>>, Vec<Transaction<CurrentNetwork>>) {
     let inputs = vec![Value::Record(record), Value::Plaintext(Plaintext::from(Literal::U64(U64::new(amount))))];
-    let transaction =
-        vm.execute(private_key, ("credits.aleo", "split"), inputs.iter(), None, 0, None, None, rng).unwrap();
+    let transaction = vm.execute(private_key, ("credits.aleo", "split"), inputs.iter(), None, 0, None, rng).unwrap();
     let records = transaction
         .records()
         .map(|(_, record)| record.decrypt(&ViewKey::try_from(private_key).unwrap()).unwrap())

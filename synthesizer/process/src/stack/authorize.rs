@@ -23,12 +23,10 @@ impl<N: Network> Stack<N> {
         private_key: &PrivateKey<N>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
-        commitment_version: Option<CommitmentVersion>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         let timer = timer!("Stack::authorize");
 
-        // TODO (raychu86): Record Commitment - Determine which program the version is on. If old version, we need to pass in None for the commitment version. If new, must use a Some() value.
         // Get the program ID.
         let program_id = *self.program.id();
         // Prepare the function name.
@@ -44,24 +42,15 @@ impl<N: Network> Stack<N> {
         // This is the root request and we do not have a root_tvk to pass on.
         let root_tvk = None;
         // Compute the request.
-        let request = Request::sign(
-            private_key,
-            program_id,
-            function_name,
-            inputs,
-            &input_types,
-            root_tvk,
-            is_root,
-            commitment_version,
-            rng,
-        )?;
+        let request =
+            Request::sign(private_key, program_id, function_name, inputs, &input_types, root_tvk, is_root, rng)?;
         lap!(timer, "Compute the request");
         // Initialize the authorization.
         let authorization = Authorization::new(request.clone());
         // Construct the call stack.
         let call_stack = CallStack::Authorize(vec![request], *private_key, authorization.clone());
         // Construct the authorization from the function.
-        let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, commitment_version, rng)?;
+        let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, rng)?;
         finish!(timer, "Construct the authorization from the function");
 
         // Return the authorization.
