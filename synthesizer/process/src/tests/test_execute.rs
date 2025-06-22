@@ -15,6 +15,7 @@
 
 use crate::{
     CallStack,
+    InclusionVersion,
     Process,
     Stack,
     Trace,
@@ -461,7 +462,7 @@ output r1 as token.record;",
 
     // Declare the expected output value.
     let expected = Value::from_str(&format!(
-        "{{ owner: {caller}.private, token_amount: 100u64.private, _nonce: {nonce}.public }}"
+        "{{ owner: {caller}.private, token_amount: 100u64.private, _nonce: {nonce}.public, _version: 1u8.public }}"
     ))
     .unwrap();
 
@@ -519,7 +520,7 @@ fn test_process_execute_transfer_public_to_private() {
 
     // Declare the expected output value.
     let r2 = Value::from_str(&format!(
-        "{{ owner: {caller}.private, microcredits: 99_000_000_000_000_u64.private, _nonce: {nonce}.public }}"
+        "{{ owner: {caller}.private, microcredits: 99_000_000_000_000_u64.private, _nonce: {nonce}.public, _version: 1u8.public }}"
     ))
     .unwrap();
 
@@ -658,15 +659,18 @@ fn test_process_multirecords() {
     let nonce_c = CurrentNetwork::g_scalar_multiply(&randomizer_c);
 
     // Declare the output value.
-    let output_a =
-        Value::from_str(&format!("{{ owner: {caller}.private, item: 1234u64.private, _nonce: {nonce_a}.public }}"))
-            .unwrap();
-    let output_b =
-        Value::from_str(&format!("{{ owner: {caller}.private, item: 4321u64.private, _nonce: {nonce_b}.public }}"))
-            .unwrap();
-    let output_c =
-        Value::from_str(&format!("{{ owner: {caller}.private, item: 5678u64.private, _nonce: {nonce_c}.public }}"))
-            .unwrap();
+    let output_a = Value::from_str(&format!(
+        "{{ owner: {caller}.private, item: 1234u64.private, _nonce: {nonce_a}.public, _version: 1u8.public }}"
+    ))
+    .unwrap();
+    let output_b = Value::from_str(&format!(
+        "{{ owner: {caller}.private, item: 4321u64.private, _nonce: {nonce_b}.public, _version: 1u8.public }}"
+    ))
+    .unwrap();
+    let output_c = Value::from_str(&format!(
+        "{{ owner: {caller}.private, item: 5678u64.private, _nonce: {nonce_c}.public, _version: 1u8.public }}"
+    ))
+    .unwrap();
 
     // Check again to make sure we didn't modify the authorization before calling `evaluate`.
     assert_eq!(authorization.len(), 1);
@@ -747,9 +751,10 @@ fn test_process_self_caller() {
     let nonce = CurrentNetwork::g_scalar_multiply(&randomizer);
 
     // Declare the output value.
-    let output =
-        Value::from_str(&format!("{{ owner: {caller}.private, item: 1234u64.private, _nonce: {nonce}.public }}"))
-            .unwrap();
+    let output = Value::from_str(&format!(
+        "{{ owner: {caller}.private, item: 1234u64.private, _nonce: {nonce}.public, _version: 1u8.public }}"
+    ))
+    .unwrap();
 
     // Check again to make sure we didn't modify the authorization before calling `evaluate`.
     assert_eq!(authorization.len(), 1);
@@ -1003,7 +1008,7 @@ function compute:
 
     // Declare the expected output value.
     let r3 = Value::<CurrentNetwork>::from_str(&format!(
-        "{{ owner: {caller}.private, token_amount: 100u64.private, _nonce: {nonce}.public }}"
+        "{{ owner: {caller}.private, token_amount: 100u64.private, _nonce: {nonce}.public, _version: 1u8.public }}"
     ))
     .unwrap();
     let r4 = Value::from_str("19field").unwrap();
@@ -1152,12 +1157,13 @@ function transfer:
 
         // Declare the expected output value.
         let output_a = Value::from_str(&format!(
-            "{{ owner: {caller1}.private, amount: 99u64.private, _nonce: {nonce_a}.public }}"
+            "{{ owner: {caller1}.private, amount: 99u64.private, _nonce: {nonce_a}.public, _version: 1u8.public }}"
         ))
         .unwrap();
-        let output_b =
-            Value::from_str(&format!("{{ owner: {caller0}.private, amount: 1u64.private, _nonce: {nonce_b}.public }}"))
-                .unwrap();
+        let output_b = Value::from_str(&format!(
+            "{{ owner: {caller0}.private, amount: 1u64.private, _nonce: {nonce_b}.public, _version: 1u8.public }}"
+        ))
+        .unwrap();
 
         (output_a, output_b)
     };
@@ -1295,7 +1301,7 @@ finalize compute:
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1408,7 +1414,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1539,7 +1545,7 @@ finalize mint_public:
     let execution = trace.prove_execution::<CurrentAleo, _>("token", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1707,7 +1713,7 @@ finalize init:
     let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1822,7 +1828,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1952,7 +1958,7 @@ function a:
     let execution = trace.prove_execution::<CurrentAleo, _>("two", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
@@ -2139,7 +2145,7 @@ fn test_complex_execution_order() {
     let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
@@ -2250,7 +2256,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2359,7 +2365,7 @@ function compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, &execution).unwrap();
+    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]

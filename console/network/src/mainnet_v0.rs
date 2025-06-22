@@ -40,6 +40,8 @@ lazy_static! {
     /// The Varuna sponge parameters.
     pub static ref VARUNA_FS_PARAMETERS: FiatShamirParameters<MainnetV0> = FiatShamir::<MainnetV0>::sample_parameters();
 
+    /// The commitment domain as a constant field element.
+    static ref COMMITMENT_DOMAIN: Field<MainnetV0> = Field::<MainnetV0>::new_domain_separator("AleoCommitment0");
     /// The encryption domain as a constant field element.
     pub static ref ENCRYPTION_DOMAIN: Field<MainnetV0> = Field::<MainnetV0>::new_domain_separator("AleoSymmetricEncryption0");
     /// The graph key domain as a constant field element.
@@ -67,6 +69,17 @@ lazy_static! {
     pub static ref POSEIDON_4: Poseidon4<MainnetV0> = Poseidon4::<MainnetV0>::setup("AleoPoseidon4").expect("Failed to setup Poseidon4");
     /// The Poseidon hash function, using a rate of 8.
     pub static ref POSEIDON_8: Poseidon8<MainnetV0> = Poseidon8::<MainnetV0>::setup("AleoPoseidon8").expect("Failed to setup Poseidon8");
+
+    pub static ref CREDITS_V0_PROVING_KEYS: IndexMap<String, Arc<VarunaProvingKey<Console>>> = {
+        let mut map = IndexMap::new();
+        snarkvm_parameters::insert_credit_v0_keys!(map, VarunaProvingKey<Console>, Prover);
+        map
+    };
+    pub static ref CREDITS_V0_VERIFYING_KEYS: IndexMap<String, Arc<VarunaVerifyingKey<Console>>> = {
+        let mut map = IndexMap::new();
+        snarkvm_parameters::insert_credit_v0_keys!(map, VarunaVerifyingKey<Console>, Verifier);
+        map
+    };
 
     pub static ref CREDITS_PROVING_KEYS: IndexMap<String, Arc<VarunaProvingKey<Console>>> = {
         let mut map = IndexMap::new();
@@ -145,7 +158,7 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V5, 7_060_000),
         (ConsensusVersion::V6, 7_560_000),
         (ConsensusVersion::V7, 7_570_000),
-        (ConsensusVersion::V8, 999_999_999),
+        (ConsensusVersion::V8, 8_415_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
@@ -201,6 +214,12 @@ impl Network for MainnetV0 {
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
 
+    /// Returns the block height where the the inclusion proof will be updated.
+    #[allow(non_snake_case)]
+    fn INCLUSION_UPGRADE_HEIGHT() -> Result<u32> {
+        Self::CONSENSUS_HEIGHT(ConsensusVersion::V8)
+    }
+
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8] {
         snarkvm_parameters::mainnet::GenesisBytes::load_bytes()
@@ -209,6 +228,20 @@ impl Network for MainnetV0 {
     /// Returns the restrictions list as a JSON-compatible string.
     fn restrictions_list_as_str() -> &'static str {
         snarkvm_parameters::mainnet::RESTRICTIONS_LIST
+    }
+
+    /// Returns the proving key for the given function name in the v0 version of `credits.aleo`.
+    fn get_credits_v0_proving_key(function_name: String) -> Result<&'static Arc<VarunaProvingKey<Self>>> {
+        CREDITS_V0_PROVING_KEYS
+            .get(&function_name)
+            .ok_or_else(|| anyhow!("Proving key (v0) for credits.aleo/{function_name}' not found"))
+    }
+
+    /// Returns the verifying key for the given function name in the v0 version of `credits.aleo`.
+    fn get_credits_v0_verifying_key(function_name: String) -> Result<&'static Arc<VarunaVerifyingKey<Self>>> {
+        CREDITS_V0_VERIFYING_KEYS
+            .get(&function_name)
+            .ok_or_else(|| anyhow!("Verifying key (v0) for credits_v0.aleo/{function_name}' not found"))
     }
 
     /// Returns the proving key for the given function name in `credits.aleo`.
@@ -223,6 +256,30 @@ impl Network for MainnetV0 {
         CREDITS_VERIFYING_KEYS
             .get(&function_name)
             .ok_or_else(|| anyhow!("Verifying key for credits.aleo/{function_name}' not found"))
+    }
+
+    /// Returns the `proving key` for the inclusion_v0 circuit.
+    fn inclusion_v0_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
+        static INSTANCE: OnceCell<Arc<VarunaProvingKey<Console>>> = OnceCell::new();
+        INSTANCE.get_or_init(|| {
+            // Skipping the first byte, which is the encoded version.
+            Arc::new(
+                CircuitProvingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_V0_PROVING_KEY[1..])
+                    .expect("Failed to load inclusion_v0 proving key."),
+            )
+        })
+    }
+
+    /// Returns the `verifying key` for the inclusion_v0 circuit.
+    fn inclusion_v0_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>> {
+        static INSTANCE: OnceCell<Arc<VarunaVerifyingKey<Console>>> = OnceCell::new();
+        INSTANCE.get_or_init(|| {
+            // Skipping the first byte, which is the encoded version.
+            Arc::new(
+                CircuitVerifyingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_V0_VERIFYING_KEY[1..])
+                    .expect("Failed to load inclusion_v0 verifying key."),
+            )
+        })
     }
 
     /// Returns the `proving key` for the inclusion circuit.
@@ -291,6 +348,11 @@ impl Network for MainnetV0 {
     /// Returns the sponge parameters used for the sponge in the Varuna SNARK.
     fn varuna_fs_parameters() -> &'static FiatShamirParameters<Self> {
         &VARUNA_FS_PARAMETERS
+    }
+
+    /// Returns the commitment domain as a constant field element.
+    fn commitment_domain() -> Field<Self> {
+        *COMMITMENT_DOMAIN
     }
 
     /// Returns the encryption domain as a constant field element.

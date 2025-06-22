@@ -165,6 +165,7 @@ pub enum TransitionOutputMap {
     Private = DataID::OutputPrivateMap as u16,
     Record = DataID::OutputRecordMap as u16,
     RecordNonce = DataID::OutputRecordNonceMap as u16,
+    RecordSender = DataID::OutputRecordSenderMap as u16,
     ExternalRecord = DataID::OutputExternalRecordMap as u16,
     Future = DataID::OutputFutureMap as u16,
 }
@@ -296,6 +297,9 @@ enum DataID {
     KeyValueMap,
     // Track edition based on transaction ID
     IDEditionMap,
+
+    // For Backwards Compatibility with Existing Databases
+    OutputRecordSenderMap,
 
     // Testing
     #[cfg(test)]

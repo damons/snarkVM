@@ -430,8 +430,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                 // This is a foundational bug - the caller is violating protocol rules.
                                 // It is possible that a `credits.aleo/split` transaction has no fee. However, it
                                 // is a simple transition without finalize operations and should not fail here.
+                                // If a `credits.aleo/upgrade` transaction has no fee and fails, we simply abort it.
                                 // Note: This will abort the entire atomic batch.
-                                None => Err("Rejected execute transaction has no fee".to_string()),
+                                None => {
+                                    // Abort the upgrade transaction.
+                                    if transaction.contains_upgrade() && execution.len() == 1 {
+                                        aborted.push((
+                                            transaction.clone(),
+                                            "Failed to finalize a `credits.aleo/upgrade` call with no fee".to_string(),
+                                        ));
+                                        // Continue to the next transaction.
+                                        continue 'outer;
+                                    }
+                                    Err("Rejected execute transaction has no fee".to_string())
+                                }
                             },
                         }
                     }
@@ -2803,7 +2815,7 @@ finalize compute:
             // Note that the first validator is used to execute additional transactions in `VM::genesis_quorum`.
             // Therefore, the balance of the first validator will be different from the expected balance.
             if entry.0 == Plaintext::from_str(&first_validator.to_string()).unwrap() {
-                assert_eq!(entry.1, Value::from_str("144991999894244u64").unwrap());
+                assert_eq!(entry.1, Value::from_str("144991999894112u64").unwrap());
             } else {
                 assert!(expected_account.contains(entry));
             }

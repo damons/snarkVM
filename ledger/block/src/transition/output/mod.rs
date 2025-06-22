@@ -34,8 +34,8 @@ pub enum Output<N: Network> {
     Public(Field<N>, Option<Plaintext<N>>),
     /// The ciphertext hash and (optional) ciphertext.
     Private(Field<N>, Option<Ciphertext<N>>),
-    /// The commitment, checksum, and (optional) record ciphertext.
-    Record(Field<N>, Field<N>, Option<Record<N, Ciphertext<N>>>),
+    /// The commitment, checksum, (optional) record ciphertext, and (optional) sender ciphertext.
+    Record(Field<N>, Field<N>, Option<Record<N, Ciphertext<N>>>, Option<Field<N>>),
     /// The output commitment of the external record. Note: This is **not** the record commitment.
     ExternalRecord(Field<N>),
     /// The future hash and (optional) future.
@@ -49,7 +49,7 @@ impl<N: Network> Output<N> {
             Output::Constant(_, _) => 0,
             Output::Public(_, _) => 1,
             Output::Private(_, _) => 2,
-            Output::Record(_, _, _) => 3,
+            Output::Record(_, _, _, _) => 3,
             Output::ExternalRecord(_) => 4,
             Output::Future(_, _) => 5,
         }
@@ -76,7 +76,7 @@ impl<N: Network> Output<N> {
     #[allow(clippy::type_complexity)]
     pub const fn record(&self) -> Option<(&Field<N>, &Record<N, Ciphertext<N>>)> {
         match self {
-            Output::Record(commitment, _, Some(record)) => Some((commitment, record)),
+            Output::Record(commitment, _, Some(record), _) => Some((commitment, record)),
             _ => None,
         }
     }
@@ -85,7 +85,7 @@ impl<N: Network> Output<N> {
     #[allow(clippy::type_complexity)]
     pub fn into_record(self) -> Option<(Field<N>, Record<N, Ciphertext<N>>)> {
         match self {
-            Output::Record(commitment, _, Some(record)) => Some((commitment, record)),
+            Output::Record(commitment, _, Some(record), _) => Some((commitment, record)),
             _ => None,
         }
     }
@@ -109,7 +109,7 @@ impl<N: Network> Output<N> {
     /// Returns the nonce, if the output is a record.
     pub const fn nonce(&self) -> Option<&Group<N>> {
         match self {
-            Output::Record(_, _, Some(record)) => Some(record.nonce()),
+            Output::Record(_, _, Some(record), _) => Some(record.nonce()),
             _ => None,
         }
     }
@@ -117,7 +117,7 @@ impl<N: Network> Output<N> {
     /// Returns the nonce, if the output is a record, and consumes `self`.
     pub fn into_nonce(self) -> Option<Group<N>> {
         match self {
-            Output::Record(_, _, Some(record)) => Some(record.into_nonce()),
+            Output::Record(_, _, Some(record), _) => Some(record.into_nonce()),
             _ => None,
         }
     }
@@ -138,6 +138,22 @@ impl<N: Network> Output<N> {
         }
     }
 
+    /// Returns the sender ciphertext, if the output is a record.
+    pub const fn sender_ciphertext(&self) -> Option<&Field<N>> {
+        match self {
+            Output::Record(_, _, _, Some(sender_ciphertext)) => Some(sender_ciphertext),
+            _ => None,
+        }
+    }
+
+    /// Returns the sender ciphertext, if the output is a record, and consumes `self`.
+    pub fn into_sender_ciphertext(self) -> Option<Field<N>> {
+        match self {
+            Output::Record(_, _, _, Some(sender_ciphertext)) => Some(sender_ciphertext),
+            _ => None,
+        }
+    }
+
     /// Returns the future, if the output is a future.
     pub const fn future(&self) -> Option<&Future<N>> {
         match self {
@@ -150,8 +166,8 @@ impl<N: Network> Output<N> {
     pub fn verifier_inputs(&self) -> impl '_ + Iterator<Item = N::Field> {
         // Append the output ID.
         [**self.id()].into_iter()
-            // Append the checksum if it exists.
-            .chain([self.checksum().map(|sum| **sum)].into_iter().flatten())
+            // Append the checksum and sender ciphertext, if they exist.
+            .chain([self.checksum().map(|sum| **sum), self.sender_ciphertext().map(|sender| **sender)].into_iter().flatten())
     }
 
     /// Returns `true` if the output is well-formed.
@@ -209,10 +225,27 @@ impl<N: Network> Output<N> {
                     Err(error) => Err(error),
                 }
             }
-            Output::Record(_, checksum, Some(value)) => match N::hash_bhp1024(&value.to_bits_le()) {
-                Ok(candidate_hash) => Ok(checksum == &candidate_hash),
-                Err(error) => Err(error),
-            },
+            Output::Record(_, checksum, Some(record_ciphertext), sender_ciphertext) => {
+                // Ensure the record version is set to Version 1.
+                // Attention: The record version is currently on Version 1. If the record version is updated, change this value.
+                ensure!(**record_ciphertext.version() == 1, "The record version must be set to Version 1");
+
+                // If the record version is set to Version 0, ensure the sender ciphertext is `None`.
+                // If the record version is set to Version 1 or higher, ensure the sender ciphertext is `Some` and non-zero.
+                if **record_ciphertext.version() == 0 {
+                    ensure!(sender_ciphertext.is_none(), "The sender ciphertext must be None for Version 0 records");
+                } else {
+                    ensure!(sender_ciphertext.is_some(), "The sender ciphertext must be non-empty");
+                    // Note: The sender ciphertext feature can become optional or deactivated by removing this check.
+                    ensure!(sender_ciphertext.unwrap() != Field::zero(), "The sender ciphertext must be non-zero");
+                }
+
+                // Ensure the record ciphertext hash matches the checksum.
+                match N::hash_bhp1024(&record_ciphertext.to_bits_le()) {
+                    Ok(candidate_hash) => Ok(checksum == &candidate_hash),
+                    Err(error) => Err(error),
+                }
+            }
             Output::Future(hash, Some(output)) => {
                 match output.to_fields() {
                     Ok(fields) => {
@@ -236,7 +269,7 @@ impl<N: Network> Output<N> {
             Output::Constant(_, None)
             | Output::Public(_, None)
             | Output::Private(_, None)
-            | Output::Record(_, _, None)
+            | Output::Record(_, _, None, _)
             | Output::Future(_, None) => {
                 // This enforces that the transition *must* contain the value for this transition output.
                 // A similar rule is enforced for the transition input.
@@ -289,6 +322,11 @@ pub(crate) mod test_helpers {
         ).unwrap();
         let record_ciphertext = record.encrypt(randomizer).unwrap();
         let record_checksum = CurrentNetwork::hash_bhp1024(&record_ciphertext.to_bits_le()).unwrap();
+        // Sample a sender ciphertext.
+        let sender_ciphertext = match record_ciphertext.version().is_zero() {
+            true => None,
+            false => Some(Uniform::rand(rng)),
+        };
 
         vec![
             (transition_id, input),
@@ -298,8 +336,11 @@ pub(crate) mod test_helpers {
             (Uniform::rand(rng), Output::Public(plaintext_hash, Some(plaintext))),
             (Uniform::rand(rng), Output::Private(Uniform::rand(rng), None)),
             (Uniform::rand(rng), Output::Private(ciphertext_hash, Some(ciphertext))),
-            (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None)),
-            (Uniform::rand(rng), Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext))),
+            (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None, sender_ciphertext)),
+            (
+                Uniform::rand(rng),
+                Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext), sender_ciphertext),
+            ),
             (Uniform::rand(rng), Output::ExternalRecord(Uniform::rand(rng))),
         ]
     }

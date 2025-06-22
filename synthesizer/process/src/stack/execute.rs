@@ -383,6 +383,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
 
         // Construct the response.
         let response = circuit::Response::from_outputs(
+            request.signer(),
             request.network_id(),
             request.program_id(),
             request.function_name(),
