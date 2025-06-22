@@ -270,37 +270,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 }
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
-    /// Update the credits program in the VM with the latest verifying keys.
-    fn update_credits_vks(&self) -> Result<()> {
-        // Initialize the store for 'credits.aleo'.
-        let credits = Program::<N>::credits()?;
-
-        // Acquire the process lock.
-        let process = self.process.write();
-
-        // Synthesize the 'credits.aleo' verifying keys.
-        for function_name in credits.functions().keys() {
-            // Remove the proving key.
-            process.remove_proving_key(credits.id(), function_name)?;
-            // Load the verifying key.
-            let verifying_key = N::get_credits_verifying_key(function_name.to_string())?;
-            // Retrieve the number of public and private variables.
-            // Note: This number does *NOT* include the number of constants. This is safe because
-            // this program is never deployed, as it is a first-class citizen of the protocol.
-            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
-            // Insert the verifying key.
-            process.insert_verifying_key(
-                credits.id(),
-                function_name,
-                VerifyingKey::new(verifying_key.clone(), num_variables),
-            )?;
-        }
-
-        Ok(())
-    }
-}
-
-impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Returns a new genesis block for a beacon chain.
     pub fn genesis_beacon<R: Rng + CryptoRng>(&self, private_key: &PrivateKey<N>, rng: &mut R) -> Result<Block<N>> {
         let private_keys = [*private_key, PrivateKey::new(rng)?, PrivateKey::new(rng)?, PrivateKey::new(rng)?];
@@ -458,7 +427,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Ok(_ratified_finalize_operations) => {
                 // If the block advances to `ConsensusVersion::V8`, updated the VKs used for the credits program.
                 if N::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap_or_default() == block.height() {
-                    self.update_credits_vks()?;
+                    self.update_credits_verifying_keys()?;
                 }
                 // Unpause the atomic writes, executing the ones queued from block insertion and finalization.
                 #[cfg(feature = "rocks")]
@@ -496,6 +465,37 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 Err(finalize_error)
             }
         }
+    }
+}
+
+impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
+    /// Update the `credits.aleo` program in the VM with the latest verifying keys.
+    fn update_credits_verifying_keys(&self) -> Result<()> {
+        // Initialize the store for 'credits.aleo'.
+        let credits = Program::<N>::credits()?;
+
+        // Acquire the process lock.
+        let process = self.process.write();
+
+        // Synthesize the 'credits.aleo' verifying keys.
+        for function_name in credits.functions().keys() {
+            // Remove the proving key.
+            process.remove_proving_key(credits.id(), function_name)?;
+            // Load the verifying key.
+            let verifying_key = N::get_credits_verifying_key(function_name.to_string())?;
+            // Retrieve the number of public and private variables.
+            // Note: This number does *NOT* include the number of constants. This is safe because
+            // this program is never deployed, as it is a first-class citizen of the protocol.
+            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
+            // Insert the verifying key.
+            process.insert_verifying_key(
+                credits.id(),
+                function_name,
+                VerifyingKey::new(verifying_key.clone(), num_variables),
+            )?;
+        }
+
+        Ok(())
     }
 }
 
