@@ -80,10 +80,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             true => {
                 // Compute the minimum execution cost.
                 let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-                let (minimum_execution_cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
-                    execution_cost_v1(&self.process().read(), &execution)?
-                } else {
-                    execution_cost_v2(&self.process().read(), &execution)?
+                let (minimum_execution_cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
+                    true => execution_cost_v1(&self.process().read(), &execution)?,
+                    false => execution_cost_v2(&self.process().read(), &execution)?,
                 };
                 // Compute the execution ID.
                 let execution_id = execution.to_execution_id()?;
@@ -192,10 +191,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
         // Determine which Varuna version to use.
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
@@ -238,10 +236,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
         // Determine which Varuna version to use.
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{

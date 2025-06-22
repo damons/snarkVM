@@ -226,18 +226,19 @@ impl<N: Network> Output<N> {
                 }
             }
             Output::Record(_, checksum, Some(record_ciphertext), sender_ciphertext) => {
-                // Ensure the record version is set to Version 1.
-                // Attention: The record version is currently on Version 1. If the record version is updated, change this value.
-                ensure!(**record_ciphertext.version() == 1, "The record version must be set to Version 1");
-
                 // If the record version is set to Version 0, ensure the sender ciphertext is `None`.
                 // If the record version is set to Version 1 or higher, ensure the sender ciphertext is `Some` and non-zero.
                 if **record_ciphertext.version() == 0 {
                     ensure!(sender_ciphertext.is_none(), "The sender ciphertext must be None for Version 0 records");
-                } else {
+                } else if **record_ciphertext.version() == 1 {
                     ensure!(sender_ciphertext.is_some(), "The sender ciphertext must be non-empty");
                     // Note: The sender ciphertext feature can become optional or deactivated by removing this check.
                     ensure!(sender_ciphertext.unwrap() != Field::zero(), "The sender ciphertext must be non-zero");
+                } else {
+                    bail!(
+                        "The record version must be set to Version 0 or 1, but found Version {}",
+                        **record_ciphertext.version()
+                    );
                 }
 
                 // Ensure the record ciphertext hash matches the checksum.
