@@ -59,7 +59,8 @@ fn write_metadata(filename: &str, metadata: &Value) -> Result<()> {
     Ok(())
 }
 
-/// (Do not use) Writes the metadata files. (cargo run --release --example setup usrs)
+/// (Do not use) Writes the metadata files. (cargo run --release --example setup
+/// usrs)
 pub fn usrs() -> Result<()> {
     let paths = fs::read_dir("../src/mainnet/resources/").unwrap();
     for path in paths {
@@ -84,12 +85,13 @@ pub fn usrs() -> Result<()> {
     Ok(())
 }
 
-/// Synthesizes the circuit keys for the credits program. (cargo run --release --example setup credits)
+/// Synthesizes the circuit keys for the credits program. (cargo run --release
+/// --example setup credits)
 pub fn credits_program<N: Network, A: Aleo<Network = N>>() -> Result<()> {
     // Initialize an RNG.
     let rng = &mut snarkvm_utilities::TestRng::fixed(1245897092);
-    // TODO (raychu86): Record Commitment - Determine which Commitment Version to use.
-    // Initialize the process.
+    // TODO (raychu86): Record Commitment - Determine which Commitment Version to
+    // use. Initialize the process.
     let process = Process::setup::<A, _>(None, rng)?;
     // Initialize the program.
     let program = Program::<N>::credits()?;
@@ -102,7 +104,8 @@ pub fn credits_program<N: Network, A: Aleo<Network = N>>() -> Result<()> {
     for (function_name, _) in program.functions().iter() {
         // let timer = std::time::Instant::now();
         // process.synthesize_key::<A, _>(program_id, function_name, rng)?;
-        // println!("Synthesized '{}': {} ms", function_name, timer.elapsed().as_millis());
+        // println!("Synthesized '{}': {} ms", function_name,
+        // timer.elapsed().as_millis());
 
         let proving_key = process.get_proving_key(program_id, function_name)?;
         let proving_key_bytes = proving_key.to_bytes_le()?;
@@ -124,10 +127,7 @@ pub fn credits_program<N: Network, A: Aleo<Network = N>>() -> Result<()> {
         write_remote(&format!("{function_name}.prover"), &proving_key_checksum, &proving_key_bytes)?;
         write_local(&format!("{function_name}.verifier"), &verifying_key_bytes)?;
 
-        commands.push(format!(
-            "upload \"{}\"",
-            versioned_filename(&format!("{function_name}.prover"), &proving_key_checksum)
-        ));
+        commands.push(format!("upload \"{}\"", versioned_filename(&format!("{function_name}.prover"), &proving_key_checksum)));
     }
 
     // Print the commands.
