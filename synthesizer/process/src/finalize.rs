@@ -105,11 +105,10 @@ impl<N: Network> Process<N> {
 
         // Construct the call graph.
         let consensus_version = N::CONSENSUS_VERSION(state.block_height())?;
-        let call_graph = if (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
-            self.construct_call_graph(execution)?
-        // If the height is greater than or equal to `ConsensusVersion::V3`, then provide an empty call graph, as it is no longer used during finalization.
-        } else {
-            HashMap::new()
+        let call_graph = match (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
+            true => self.construct_call_graph(execution)?,
+            // If the height is greater than or equal to `ConsensusVersion::V3`, then provide an empty call graph, as it is no longer used during finalization.
+            false => HashMap::new(),
         };
 
         atomic_batch_scope!(store, {
@@ -167,11 +166,10 @@ fn finalize_fee_transition<N: Network, P: FinalizeStorage<N>>(
 ) -> Result<Vec<FinalizeOperation<N>>> {
     // Construct the call graph.
     let consensus_version = N::CONSENSUS_VERSION(state.block_height())?;
-    let call_graph = if (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
-        HashMap::from([(*fee.transition_id(), Vec::new())])
-    } else {
+    let call_graph = match (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
+        true => HashMap::from([(*fee.transition_id(), Vec::new())]),
         // If the height is greater than or equal to `ConsensusVersion::V3`, then provide an empty call graph, as it is no longer used during finalization.
-        HashMap::new()
+        false => HashMap::new(),
     };
 
     // Finalize the transition.

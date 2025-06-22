@@ -114,10 +114,9 @@ impl<N: Network> Package<N> {
         let call_metrics = trace.call_metrics().to_vec();
 
         // Determine which Varuna version to use.
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
         // Prepare the trace.
         trace.prepare(&query)?;

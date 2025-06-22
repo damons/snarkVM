@@ -1301,7 +1301,7 @@ finalize compute:
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1414,7 +1414,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1545,7 +1545,7 @@ finalize mint_public:
     let execution = trace.prove_execution::<CurrentAleo, _>("token", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1713,7 +1713,7 @@ finalize init:
     let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1828,7 +1828,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1958,7 +1958,7 @@ function a:
     let execution = trace.prove_execution::<CurrentAleo, _>("two", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
@@ -2145,7 +2145,7 @@ fn test_complex_execution_order() {
     let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
@@ -2256,7 +2256,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2365,7 +2365,7 @@ function compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
