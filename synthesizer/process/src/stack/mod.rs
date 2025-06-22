@@ -217,6 +217,12 @@ impl<N: Network> Stack<N> {
         ensure!(!program.functions().is_empty(), "No functions present in the deployment for program '{program_id}'");
         // If the program exists in the process, check that the new program exactly matches the existing program.
         if let Ok(existing_stack) = process.get_stack(program_id) {
+            // Ensure the program is not `credits.aleo`.
+            ensure!(
+                program_id != &ProgramID::from_str("credits.aleo")?,
+                "Cannot re-initialize the 'credits.aleo'."
+            );
+            // Ensure that the new program matches the existing program.
             ensure!(
                 existing_stack.program() == program,
                 "Program '{program_id}' already exists with different contents."
