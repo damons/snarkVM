@@ -105,11 +105,16 @@ impl<A: Aleo> OutputID<A> {
         // Inject the expected commitment, checksum, and sender ciphertext as `Mode::Public`.
         let output_commitment = Field::new(Mode::Public, expected_commitment.eject_value());
         let output_checksum = Field::new(Mode::Public, expected_checksum.eject_value());
-        let output_sender_ciphertext = Field::new(Mode::Public, expected_sender_ciphertext.eject_value());
-        // Ensure the injected commitment, checksum, and sender ciphertext matches the given commitment, checksum, and sender ciphertext.
+        let output_sender_ciphertext = Field::new(Mode::Public, expected_sender_ciphertext.eject_value()); // Note: Set to `0field` here and in consensus to make optional or deactivated.
+        // Ensure the injected commitment and checksum matches the given commitment and checksum.
         A::assert_eq(&output_commitment, expected_commitment);
         A::assert_eq(&output_checksum, expected_checksum);
-        A::assert_eq(&output_sender_ciphertext, expected_sender_ciphertext);
+        // Ensure the sender ciphertext matches, or the sender ciphertext is zero.
+        // Note: The option to allow a zero-value in the sender ciphertext allows
+        // this feature to become optional or deactivated in the future.
+        let is_sender_ciphertext_equal = output_sender_ciphertext.is_equal(&expected_sender_ciphertext);
+        let is_sender_ciphertext_zero = output_sender_ciphertext.is_zero();
+        A::assert(is_sender_ciphertext_equal | is_sender_ciphertext_zero);
         // Return the output ID.
         Self::Record(output_commitment, output_checksum, output_sender_ciphertext)
     }

@@ -236,6 +236,7 @@ impl<N: Network> Output<N> {
                     ensure!(sender_ciphertext.is_none(), "The sender ciphertext must be None for Version 0 records");
                 } else {
                     ensure!(sender_ciphertext.is_some(), "The sender ciphertext must be non-empty");
+                    // Note: The sender ciphertext feature can become optional or deactivated by removing this check.
                     ensure!(sender_ciphertext.unwrap() != Field::zero(), "The sender ciphertext must be non-zero");
                 }
 

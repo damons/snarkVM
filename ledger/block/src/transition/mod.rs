@@ -229,9 +229,11 @@ impl<N: Network> Transition<N> {
                         let randomizer = N::hash_psd4(&[N::encryption_domain(), record_view_key, Field::one()])?;
                         // Encrypt the signer address using the randomizer.
                         let candidate_sender_ciphertext = (**request.signer()).to_x_coordinate() + randomizer;
-                        // Ensure the sender ciphertext matches.
+                        // Ensure the sender ciphertext matches, or the sender ciphertext is zero.
+                        // Note: The option to allow a zero-value in the sender ciphertext allows
+                        // this feature to become optional or deactivated in the future.
                         ensure!(
-                            *sender_ciphertext == candidate_sender_ciphertext,
+                            (*sender_ciphertext == candidate_sender_ciphertext) || sender_ciphertext.is_zero(),
                             "The output record sender ciphertext is incorrect"
                         );
 
