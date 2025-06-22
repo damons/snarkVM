@@ -87,7 +87,7 @@ pub enum ConsensusVersion {
     V6 = 6,
     /// V7: Update to program rules.
     V7 = 7,
-    /// V8: Update to inclusion version.
+    /// V8: Update to inclusion version, record commitment version, and introduces sender ciphertexts.
     V8 = 8,
 }
 

@@ -69,6 +69,7 @@ use synthesizer_process::{
     execution_cost_v2,
 };
 use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program};
+use synthesizer_snark::VerifyingKey;
 use utilities::try_vm_runtime;
 
 use aleo_std::prelude::{finish, lap, timer};
@@ -107,9 +108,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Initializes the VM from storage.
     #[inline]
     pub fn from(store: ConsensusStore<N, C>) -> Result<Self> {
-        // Initialize a new process.
-        let mut process = Process::load()?;
-
         // Initialize the store for 'credits.aleo'.
         let credits = Program::<N>::credits()?;
         for mapping in credits.mappings().values() {
@@ -124,6 +122,23 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let transaction_store = store.transaction_store();
         // Retrieve the block store.
         let block_store = store.block_store();
+
+        #[cfg(not(any(test, feature = "test")))]
+        let process = {
+            // Determine the latest block height.
+            let latest_block_height = block_store.current_block_height();
+            // Determine the consensus version.
+            let consensus_version = N::CONSENSUS_VERSION(latest_block_height)?; // TODO (raychu86): Record Commitment - Select the proper consensus version.
+            // Initialize a new process based on the consensus version.
+            let mut process = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+                Process::load_v0()?
+            } else {
+                Process::load()?
+            };
+        };
+        #[cfg(any(test, feature = "test"))]
+        // Initialize a new process.
+        let mut process = Process::load()?;
 
         // Retrieve the list of deployment transaction IDs and their associated block heights.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
@@ -251,6 +266,37 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         }
         // Initialize the puzzle.
         convert!(logic)
+    }
+}
+
+impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
+    /// Update the credits program in the VM with the latest verifying keys.
+    fn update_credits_vks(&self) -> Result<()> {
+        // Initialize the store for 'credits.aleo'.
+        let credits = Program::<N>::credits()?;
+
+        // Acquire the process lock.
+        let process = self.process.write();
+
+        // Synthesize the 'credits.aleo' verifying keys.
+        for function_name in credits.functions().keys() {
+            // Remove the proving key.
+            process.remove_proving_key(credits.id(), function_name)?;
+            // Load the verifying key.
+            let verifying_key = N::get_credits_verifying_key(function_name.to_string())?;
+            // Retrieve the number of public and private variables.
+            // Note: This number does *NOT* include the number of constants. This is safe because
+            // this program is never deployed, as it is a first-class citizen of the protocol.
+            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
+            // Insert the verifying key.
+            process.insert_verifying_key(
+                credits.id(),
+                function_name,
+                VerifyingKey::new(verifying_key.clone(), num_variables),
+            )?;
+        }
+
+        Ok(())
     }
 }
 
@@ -410,6 +456,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Next, finalize the transactions.
         match self.finalize(state, block.ratifications(), block.solutions(), block.transactions()) {
             Ok(_ratified_finalize_operations) => {
+                // If the block advances to `ConsensusVersion::V8`, updated the VKs used for the credits program.
+                if N::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap_or_default() == block.height() {
+                    self.update_credits_vks()?;
+                }
                 // Unpause the atomic writes, executing the ones queued from block insertion and finalization.
                 #[cfg(feature = "rocks")]
                 self.block_store().unpause_atomic_writes::<false>()?;
