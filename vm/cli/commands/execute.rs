@@ -47,7 +47,7 @@ impl Execute {
 
         // Execute the request.
         let (response, execution, metrics) =
-            package.execute::<Aleo, _>(self.endpoint, &private_key, self.function, &self.inputs, rng)?; // // TODO (raychu86): Record Commitment - This should be configurable.
+            package.execute::<Aleo, _>(self.endpoint, &private_key, self.function, &self.inputs, rng)?;
 
         // TODO (howardwu): Include the option to execute a fee.
         let fee = None;
