@@ -949,18 +949,8 @@ mod tests {
             // Insert the deployment transaction.
             deployment_store.insert(&transaction).unwrap();
 
-            // If the deployment has a zero edition, then check that the edition does not exist in the `IDEditionMap`.
-            // Otherwise, check that the edition exists in the `IDEditionMap`.
-            match edition {
-                0 => {
-                    let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
-                    assert_eq!(None, candidate);
-                }
-                _ => {
-                    let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
-                    assert_eq!(Some(edition), candidate.as_deref().copied());
-                }
-            }
+            let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+            assert_eq!(Some(edition), candidate.map(|e| *e));
 
             // Retrieve the deployment transaction.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
