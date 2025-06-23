@@ -549,7 +549,7 @@ fn test_process_execute_transfer_public_to_private() {
     // Check that the sender ciphertext is well-formed.
     {
         // Construct a new process.
-        // let process = Process::load().unwrap();
+        let process = Process::load().unwrap();
         // Initialize a new block store.
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
         // Prepare the trace.
@@ -557,7 +557,7 @@ fn test_process_execute_transfer_public_to_private() {
         // Prove the execution.
         let execution = trace.prove_execution::<CurrentAleo, _>("credits.aleo", VarunaVersion::V1, rng).unwrap();
         // Verify the execution.
-        // process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+        process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
         // Ensure there is only one transition.
         assert_eq!(1, execution.transitions().len());
