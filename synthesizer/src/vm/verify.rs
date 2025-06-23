@@ -248,12 +248,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     }
                 }
                 // Enforce the syntax restrictions on the programs based on the current consensus version.
-                let current_block_height = self.block_store().current_block_height();
-                let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
                 deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
                 // Perform additional program checks if the consensus version is V7 or beyond.
                 if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V7)? {
                     deployment.program().check_program_naming_structure()?;
+                } 
+                // Perform additional checks if the consensus version is V8 or beyond.
+                if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V8)? {
+                    deployment.program().check_external_calls()?;
                 }
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {

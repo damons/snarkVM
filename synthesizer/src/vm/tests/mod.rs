@@ -14,7 +14,7 @@
 // limitations under the License.
 
 #[cfg(feature = "test")]
-mod test_redeployment;
+mod test_v8;
 
 #[cfg(feature = "test")]
 use super::*;

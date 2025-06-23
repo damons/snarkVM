@@ -194,7 +194,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         let program = deployment.program();
         // Retrieve the program ID.
         let program_id = *program.id();
-        
+
         // If the deployment edition is greater than zero, then ensure that it increments the latest edition for the program ID.
         let expected_edition = match self.get_latest_edition_for_program(&program_id)? {
             Some(latest_edition) => latest_edition.saturating_add(1),
@@ -981,7 +981,7 @@ mod tests {
             // Ensure the deployment transaction does not exist.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(None, candidate);
-            
+
             // If the edition is zero, then check that the edition is not found.
             // Otherwise, check that the edition is decremented.
             if edition == 0 {
@@ -991,11 +991,11 @@ mod tests {
                 let candidate = deployment_store.edition_map().get_confirmed(&program_id).unwrap();
                 assert_eq!(Some(edition.saturating_sub(1)), candidate.as_deref().copied());
             }
-            
+
             // Ensure the edition is not found in the `IDEditionMap`.
             let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
             assert_eq!(None, candidate);
-            
+
             // Insert the deployment transaction again.
             deployment_store.insert(&transaction).unwrap();
         }
@@ -1039,7 +1039,7 @@ mod tests {
                 let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
                 assert!(candidate.is_some());
             }
-            
+
             // Insert the deployment.
             deployment_store.insert(&transaction).unwrap();
 
@@ -1059,7 +1059,7 @@ mod tests {
                 let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
                 assert!(candidate.is_some());
             }
-            
+
             // Insert the deployment again.
             deployment_store.insert(&transaction).unwrap();
         }

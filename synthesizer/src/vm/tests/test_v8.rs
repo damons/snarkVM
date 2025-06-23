@@ -181,3 +181,58 @@ fn test_credits_cannot_be_redeployed() -> Result<()> {
 
     Ok(())
 }
+
+// This test verifies that a program calling `credits.aleo/upgrade` cannot be deployed after `ConsensusVersion::V8`.
+#[test]
+fn test_upgrade_cannot_be_deployed_after_v8() -> Result<()> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 2, rng);
+
+    // A helper closure to create a program with an upgrade call.
+    let sample_program = |i: usize| Program::from_str(
+        &format!(r"
+import credits.aleo;
+
+program test_upgrade_call_{i}.aleo;
+
+function run:
+    input r0 as credits.aleo/credits.record;
+    call cradits.aleo/upgrade r0 into r1 r2;
+    async run r1 r2 into r3;
+    output r1 as credits.aleo/credits.record;
+    output r3 as test_upgrade_call.aleo/run.future;
+    
+finalize run:
+    input r0 as credits.aleo/upgrade.future;
+    await r0;
+    ",
+    ));
+
+    // Deploy the program before `ConsensusVersion::V8`.
+    let deployment = vm.deploy(&caller_private_key, &sample_program(0)?, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+    
+    // Check that the consensus version is `V8`.
+    let block_height = vm.store.block_store().current_block_height();
+    let consensus_version = CurrentNetwork::CONSENSUS_VERSION(block_height)?;
+    assert_eq!(consensus_version, ConsensusVersion::V8);
+
+    // Attempt to deploy the program after `ConsensusVersion::V8`.
+    let deployment = vm.deploy(&caller_private_key, &sample_program(1)?, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
+
+    Ok(())
+}

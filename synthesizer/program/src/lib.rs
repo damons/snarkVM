@@ -773,7 +773,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 }
 
 impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
-    /// Returns `true` if the program structure is well formed under the following rules:
+    /// Checks that the program structure is well-formed under the following rules:
     ///  1. The program ID must not contain the keyword "aleo" in the program name.
     ///  2. The record name must not contain the keyword "aleo".
     ///  3. Record names must not be prefixes of other record names.
@@ -814,6 +814,22 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             }
         }
 
+        Ok(())
+    }
+    
+    /// Checks that the program does not make external calls to specifically restricted locators.
+    pub fn check_external_calls(&self) -> Result<()> {
+        // Check if the program makes external calls to restricted programs.
+        for function in self.functions.values() {
+            for instruction in function.instructions() {
+                if let Some(CallOperator::Locator(locator)) = instruction.call_operator() {
+                    // Check if the locator is restricted.
+                    if locator.to_string() == "credits.aleo/upgrade" {
+                        bail!("External call to restricted locator '{}'", locator);
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
