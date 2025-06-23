@@ -207,9 +207,9 @@ impl Network for MainnetV0 {
     #[cfg(any(test, feature = "test"))]
     const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4] = [
         (ConsensusVersion::V1, 100),
-        (ConsensusVersion::V3, 100),
-        (ConsensusVersion::V5, 100),
-        (ConsensusVersion::V6, 100),
+        (ConsensusVersion::V3, 101),
+        (ConsensusVersion::V5, 102),
+        (ConsensusVersion::V6, 103),
     ];
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
