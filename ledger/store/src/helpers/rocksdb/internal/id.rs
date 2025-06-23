@@ -295,11 +295,11 @@ enum DataID {
     // Program
     ProgramIDMap,
     KeyValueMap,
-    // Track edition based on transaction ID
-    IDEditionMap,
 
     // For Backwards Compatibility with Existing Databases
     OutputRecordSenderMap,
+    // Track edition based on transaction ID
+    IDEditionMap,
 
     // Testing
     #[cfg(test)]

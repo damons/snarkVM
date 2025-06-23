@@ -194,8 +194,9 @@ fn test_upgrade_cannot_be_deployed_after_v8() -> Result<()> {
     let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 2, rng);
 
     // A helper closure to create a program with an upgrade call.
-    let sample_program = |i: usize| Program::from_str(
-        &format!(r"
+    let sample_program = |i: usize| {
+        Program::from_str(&format!(
+            r"
 import credits.aleo;
 
 program test_upgrade_call_{i}.aleo;
@@ -211,7 +212,8 @@ finalize run:
     input r0 as credits.aleo/upgrade.future;
     await r0;
     ",
-    ));
+        ))
+    };
 
     // Deploy the program before `ConsensusVersion::V8`.
     let deployment = vm.deploy(&caller_private_key, &sample_program(0)?, None, 0, None, rng)?;
@@ -220,7 +222,7 @@ finalize run:
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
-    
+
     // Check that the consensus version is `V8`.
     let block_height = vm.store.block_store().current_block_height();
     let consensus_version = CurrentNetwork::CONSENSUS_VERSION(block_height)?;

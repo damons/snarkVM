@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use super::*;
-use synthesizer_program::StackProgram;
 
 /// Ensures the given iterator has no duplicate elements, and that the ledger
 /// does not already contain a given item.
@@ -252,7 +251,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Perform additional program checks if the consensus version is V7 or beyond.
                 if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V7)? {
                     deployment.program().check_program_naming_structure()?;
-                } 
+                }
                 // Perform additional checks if the consensus version is V8 or beyond.
                 if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V8)? {
                     deployment.program().check_external_calls()?;

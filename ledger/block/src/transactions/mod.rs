@@ -107,9 +107,9 @@ impl<N: Network> Transactions<N> {
         cfg_values!(self.transactions).map(|tx| tx.num_finalize()).sum()
     }
 
-    /// Returns the transactions in the `Transactions` as an `IndexMap`.
-    pub fn transactions(&self) -> &IndexMap<N::TransactionID, ConfirmedTransaction<N>> {
-        &self.transactions
+    /// Returns the index of the transaction with the given ID, if it exists.
+    pub fn index_of(&self, transaction_id: &N::TransactionID) -> Option<usize> {
+        self.transactions.get_index_of(transaction_id)
     }
 }
 

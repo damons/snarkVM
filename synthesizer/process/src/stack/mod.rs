@@ -60,6 +60,7 @@ use console::{
         Request,
         Response,
         U8,
+        U16,
         Value,
         ValueType,
     },
@@ -77,7 +78,6 @@ use locktick::parking_lot::RwLock;
 use parking_lot::RwLock;
 use std::sync::{Arc, Weak};
 
-use console::types::U16;
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
 

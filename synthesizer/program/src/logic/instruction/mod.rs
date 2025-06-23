@@ -385,7 +385,7 @@ impl<N: Network> InstructionTrait<N> for Instruction<N> {
         // Check if the given name matches any opcode (in its entirety; including past the first '.' if it exists).
         Instruction::<N>::OPCODES.iter().any(|opcode| **opcode == name)
     }
-    
+
     /// Returns the `CallOperator` if the instruction is a `call` instruction, otherwise `None`.
     #[inline]
     fn call_operator(&self) -> Option<&CallOperator<N>> {

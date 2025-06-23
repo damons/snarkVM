@@ -816,7 +816,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 
         Ok(())
     }
-    
+
     /// Checks that the program does not make external calls to specifically restricted locators.
     pub fn check_external_calls(&self) -> Result<()> {
         // Check if the program makes external calls to restricted programs.

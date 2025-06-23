@@ -71,7 +71,7 @@ use synthesizer_process::{
     execution_cost_v1,
     execution_cost_v2,
 };
-use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program};
+use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program, StackProgram};
 use synthesizer_snark::VerifyingKey;
 use utilities::try_vm_runtime;
 
@@ -127,17 +127,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let block_store = store.block_store();
 
         #[cfg(not(any(test, feature = "test")))]
-        let process = {
+        let mut process = {
             // Determine the latest block height.
             let latest_block_height = block_store.current_block_height();
             // Determine the consensus version.
             let consensus_version = N::CONSENSUS_VERSION(latest_block_height)?; // TODO (raychu86): Record Commitment - Select the proper consensus version.
             // Initialize a new process based on the consensus version.
-            let mut process = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+            if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
                 Process::load_v0()?
             } else {
                 Process::load()?
-            };
+            }
         };
         #[cfg(any(test, feature = "test"))]
         // Initialize a new process.
@@ -160,7 +160,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     bail!("Transactions for deployment transaction '{hash}' is not found in storage.")
                 };
                 // Find the index of the deployment transaction ID in the block's transactions.
-                let Some(index) = transactions.transactions().get_index_of(transaction_id.deref()) else {
+                let Some(index) = transactions.index_of(transaction_id.deref()) else {
                     bail!("Transaction for deployment transaction '{transaction_id}' is not found in storage.")
                 };
                 Ok((transaction_id, (height, index)))

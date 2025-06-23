@@ -217,11 +217,10 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.owner_map().insert((program_id, edition), *owner)?;
             // Store the program.
             self.program_map().insert((program_id, edition), program.clone())?;
-            // If the edition is greater than zero, then store it in the `IDEditionMap`.
-            // This is done because `ConsensusVersion::V8` supports a one-time redeployment for programs, which supports non-zero editions.
-            if edition > 0 {
-                self.id_edition_map().insert(*transaction_id, edition)?;
-            }
+            // Store the edition in the ID edition map.
+            // Note: Prior to `ConsensusVersion::V8`, the edition is always zero.
+            //  `ConsensusVersion::V8` allows the edition to be one via a one-time redeployment.
+            self.id_edition_map().insert(*transaction_id, edition)?;
 
             // Store the verifying keys and certificates.
             for (function_name, (verifying_key, certificate)) in deployment.verifying_keys() {
