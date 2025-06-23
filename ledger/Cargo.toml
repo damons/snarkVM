@@ -57,7 +57,7 @@ serial = [
   "ledger-store/serial",
   "synthesizer/serial"
 ]
-test = [ "console/test", "ledger-block/test", "ledger-store/test" ]
+test = [ "console/test", "ledger-block/test", "ledger-store/test", "synthesizer/test" ]
 test-helpers = [
   "ledger-test-helpers",
   "ledger-committee/test-helpers",
@@ -176,3 +176,8 @@ path = "../circuit"
 
 [dev-dependencies.snarkvm-utilities]
 path = "../utilities"
+
+[dev-dependencies.synthesizer]
+package = "snarkvm-synthesizer"
+path = "../synthesizer"
+features = [ "test" ]

@@ -29,7 +29,7 @@ use console::{
     program::{Identifier, Literal, Plaintext, ProgramID, Record, Value},
     types::{Field, U64},
 };
-use ledger_block::{Fee, Transaction};
+use ledger_block::{Fee, Output, Transaction, Transition};
 use ledger_query::Query;
 use ledger_store::{
     BlockStorage,
@@ -492,10 +492,14 @@ fn test_process_execute_transfer_public_to_private() {
     let rng = &mut TestRng::default();
     // Initialize a new caller account.
     let caller_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
-    let _caller_view_key = ViewKey::try_from(&caller_private_key).unwrap();
+    let caller_view_key = ViewKey::try_from(&caller_private_key).unwrap();
     let caller = Address::try_from(&caller_private_key).unwrap();
+    // Initialize a new recipient address.
+    let recipient_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+    let recipient_view_key = ViewKey::try_from(&recipient_private_key).unwrap();
+    let recipient = Address::try_from(&recipient_private_key).unwrap();
     // Declare the input value.
-    let r0 = Value::<CurrentNetwork>::from_str(&format!("{caller}")).unwrap();
+    let r0 = Value::<CurrentNetwork>::from_str(&format!("{recipient}")).unwrap();
     let r1 = Value::<CurrentNetwork>::from_str("99_000_000_000_000_u64").unwrap();
 
     // Construct the process.
@@ -520,7 +524,7 @@ fn test_process_execute_transfer_public_to_private() {
 
     // Declare the expected output value.
     let r2 = Value::from_str(&format!(
-        "{{ owner: {caller}.private, microcredits: 99_000_000_000_000_u64.private, _nonce: {nonce}.public, _version: 1u8.public }}"
+        "{{ owner: {recipient}.private, microcredits: 99_000_000_000_000_u64.private, _nonce: {nonce}.public, _version: 1u8.public }}"
     ))
     .unwrap();
 
@@ -537,12 +541,51 @@ fn test_process_execute_transfer_public_to_private() {
     assert_eq!(authorization.len(), 1);
 
     // Execute the request.
-    let (response, _trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
+    let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
     let candidate = response.outputs();
     assert_eq!(2, candidate.len());
     assert_eq!(r2, candidate[0]);
 
-    // process.verify_execution::<true>(&execution).unwrap();
+    // Check that the sender ciphertext is well-formed.
+    {
+        // Construct a new process.
+        let process = Process::load().unwrap();
+        // Initialize a new block store.
+        let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
+        // Prepare the trace.
+        trace.prepare(&Query::from(block_store)).unwrap();
+        // Prove the execution.
+        let execution = trace.prove_execution::<CurrentAleo, _>("credits.aleo", VarunaVersion::V1, rng).unwrap();
+        // Verify the execution.
+        process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+
+        // Ensure there is only one transition.
+        assert_eq!(1, execution.transitions().len());
+        // Retrieve the transition.
+        let transition: Transition<_> = execution.into_transitions().next().unwrap();
+        // Ensure the transition program ID and function name are correct.
+        assert_eq!(transition.program_id(), program.id());
+        assert_eq!(transition.function_name(), &Identifier::from_str("transfer_public_to_private").unwrap());
+        // Ensure the transition has 2 inputs and 2 outputs.
+        assert_eq!(2, transition.inputs().len());
+        assert_eq!(2, transition.outputs().len());
+        // Ensure the first output is a record.
+        assert!(matches!(transition.outputs()[0], Output::Record(..)));
+
+        // Retrieve the first output.
+        let output = transition.outputs()[0].clone();
+        // Decrypt the sender ciphertext.
+        let expected_caller = output.decrypt_sender_ciphertext(&recipient_view_key).unwrap();
+        // Ensure the caller address matches the expected caller.
+        assert_eq!(Some(caller), expected_caller);
+
+        // Ensure decryption fails with the caller view key.
+        assert!(output.decrypt_sender_ciphertext(&caller_view_key).is_err());
+
+        // Ensure decryption fails with a different view key.
+        let different_view_key = ViewKey::try_from(&PrivateKey::<CurrentNetwork>::new(rng).unwrap()).unwrap();
+        assert!(output.decrypt_sender_ciphertext(&different_view_key).is_err());
+    }
 
     // use circuit::Environment;
     //
@@ -1301,7 +1344,7 @@ finalize compute:
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1414,7 +1457,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1545,7 +1588,7 @@ finalize mint_public:
     let execution = trace.prove_execution::<CurrentAleo, _>("token", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1713,7 +1756,7 @@ finalize init:
     let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1828,7 +1871,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1958,7 +2001,7 @@ function a:
     let execution = trace.prove_execution::<CurrentAleo, _>("two", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
@@ -2145,7 +2188,7 @@ fn test_complex_execution_order() {
     let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]
@@ -2256,7 +2299,7 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2365,7 +2408,7 @@ function compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
 #[test]

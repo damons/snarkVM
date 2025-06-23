@@ -18,6 +18,7 @@ mod serialize;
 mod string;
 
 use console::{
+    account::{Address, ViewKey},
     network::prelude::*,
     program::{Ciphertext, Future, Plaintext, Record, TransitionLeaf},
     types::{Field, Group},
@@ -161,7 +162,58 @@ impl<N: Network> Output<N> {
             _ => None,
         }
     }
+}
 
+impl<N: Network> Output<N> {
+    /// Returns the sender address, given the account view key of the record owner.
+    ///
+    /// If the output is not a record or does not contain a sender ciphertext, it returns `Ok(None)`.
+    /// If the record does not belong to the given account view key, it returns `Err`.
+    /// If the sender ciphertext is malformed or cannot be decrypted, it returns `Err`.
+    pub fn decrypt_sender_ciphertext(&self, account_view_key: &ViewKey<N>) -> Result<Option<Address<N>>> {
+        // Retrieve the record ciphertext and sender ciphertext, if they exist.
+        let (record_ciphertext, sender_ciphertext) = match self {
+            Output::Record(_, _, Some(record_ciphertext), Some(sender_ciphertext)) => {
+                (record_ciphertext, sender_ciphertext)
+            }
+            // If the output is not a record or does not contain a sender ciphertext, return `None`.
+            _ => return Ok(None),
+        };
+
+        // Compute the record view key.
+        let record_view_key = (*record_ciphertext.nonce() * **account_view_key).to_x_coordinate();
+        // Retrieve the record owner.
+        let expected_owner = match record_ciphertext.owner().is_public() {
+            true => record_ciphertext.owner().decrypt_with_randomizer(&[])?,
+            false => {
+                // Prepare the randomizer for the record owner.
+                let randomizers = N::hash_many_psd8(&[N::encryption_domain(), record_view_key], 1);
+                ensure!(randomizers.len() == 1, "Expected exactly one randomizer for the record owner");
+                // Decrypt the record owner using the randomizer.
+                record_ciphertext.owner().decrypt_with_randomizer(&[randomizers[0]])?
+            }
+        };
+        // Ensure this record belongs to the given account view key.
+        ensure!(
+            *expected_owner == account_view_key.to_address(),
+            "The record does not belong to the given account view key"
+        );
+
+        // Compute the encryption randomizer for the sender ciphertext.
+        let Ok(randomizer) = N::hash_psd4(&[N::encryption_domain(), record_view_key, Field::one()]) else {
+            bail!("Failed to compute the encryption randomizer for the sender ciphertext");
+        };
+        // Decrypt the sender ciphertext using the record view key.
+        let sender_x_coordinate = *sender_ciphertext - randomizer;
+        // Recover the sender address.
+        match Address::from_field(&sender_x_coordinate) {
+            Ok(sender_address) => Ok(Some(sender_address)),
+            Err(error) => bail!("Failed to recover the sender address - {error}"),
+        }
+    }
+}
+
+impl<N: Network> Output<N> {
     /// Returns the public verifier inputs for the proof.
     pub fn verifier_inputs(&self) -> impl '_ + Iterator<Item = N::Field> {
         // Append the output ID.
@@ -226,18 +278,19 @@ impl<N: Network> Output<N> {
                 }
             }
             Output::Record(_, checksum, Some(record_ciphertext), sender_ciphertext) => {
-                // Ensure the record version is set to Version 1.
-                // Attention: The record version is currently on Version 1. If the record version is updated, change this value.
-                ensure!(**record_ciphertext.version() == 1, "The record version must be set to Version 1");
-
                 // If the record version is set to Version 0, ensure the sender ciphertext is `None`.
                 // If the record version is set to Version 1 or higher, ensure the sender ciphertext is `Some` and non-zero.
                 if **record_ciphertext.version() == 0 {
                     ensure!(sender_ciphertext.is_none(), "The sender ciphertext must be None for Version 0 records");
-                } else {
+                } else if **record_ciphertext.version() == 1 {
                     ensure!(sender_ciphertext.is_some(), "The sender ciphertext must be non-empty");
                     // Note: The sender ciphertext feature can become optional or deactivated by removing this check.
                     ensure!(sender_ciphertext.unwrap() != Field::zero(), "The sender ciphertext must be non-zero");
+                } else {
+                    bail!(
+                        "The record version must be set to Version 0 or 1, but found Version {}",
+                        **record_ciphertext.version()
+                    );
                 }
 
                 // Ensure the record ciphertext hash matches the checksum.
