@@ -1932,9 +1932,10 @@ finalize transfer_public:
         // Initialize an RNG.
         let rng = &mut TestRng::default();
 
+        // TODO: Fix this test by adding additional constraints to `Committee::new_genesis`
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize + 1,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize + 5,
             rng,
         );
 
