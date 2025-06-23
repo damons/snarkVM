@@ -376,12 +376,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// use `VM::check_transaction` instead.
     #[inline]
     fn check_deployment_internal<R: CryptoRng + Rng>(&self, deployment: &Deployment<N>, rng: &mut R) -> Result<()> {
+        // Retrieve the block height.
+        let block_height = self.block_store().current_block_height();
+        // Determine which consensus version to use.
+        let consensus_version = N::CONSENSUS_VERSION(block_height)?;
+
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the deployment.
                 let deployment = cast_ref!(&deployment as Deployment<$network>);
                 // Verify the deployment.
-                $process.verify_deployment::<$aleo, _>(&deployment, rng)
+                $process.verify_deployment::<$aleo, _>(consensus_version, &deployment, rng)
             }};
         }
 

@@ -1302,7 +1302,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1414,7 +1414,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1541,7 +1541,7 @@ finalize mint_public:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1670,7 +1670,7 @@ finalize mint_public:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program0, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1710,7 +1710,7 @@ finalize init:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program1, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1828,7 +1828,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -2257,7 +2257,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -2429,9 +2429,9 @@ fn test_process_deploy_credits_program() {
     let deployment = empty_process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 
     // Ensure the deployment is valid on the empty process.
-    empty_process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    empty_process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Ensure the deployment is not valid on the standard process.
-    assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, rng).is_err());
+    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).is_err());
 
     // Create a new `credits.aleo` program.
     let program = Program::from_str(
@@ -2453,9 +2453,9 @@ function compute:
     let deployment = empty_process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 
     // Ensure the deployment is valid on the empty process.
-    empty_process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    empty_process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Ensure the deployment is not valid on the standard process.
-    assert!(process.verify_deployment::<CurrentAleo, _>(&deployment, rng).is_err());
+    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).is_err());
 }
 
 #[test]
@@ -2484,7 +2484,7 @@ function {function_name}:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(&deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.

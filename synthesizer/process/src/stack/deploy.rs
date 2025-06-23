@@ -58,6 +58,7 @@ impl<N: Network> Stack<N> {
     #[inline]
     pub fn verify_deployment<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
+        _consensus_version: ConsensusVersion,
         deployment: &Deployment<N>,
         rng: &mut R,
     ) -> Result<()> {
@@ -98,6 +99,13 @@ impl<N: Network> Stack<N> {
             deployment.program().functions().len() == deployment.verifying_keys().len(),
             "The number of functions in the program does not match the number of verifying keys"
         );
+
+        #[cfg(not(any(test, feature = "test")))]
+        // Skip the certificate verification if the consensus version is before ConsensusVersion::V8.
+        if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&_consensus_version) {
+            finish!(timer);
+            return Ok(());
+        }
 
         // Create a seeded rng to use for input value and sub-stack generation.
         // This is needed to ensure that the verification results of deployments are consistent across all parties,
