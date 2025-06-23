@@ -135,6 +135,7 @@ path = "../store"
 [dev-dependencies.synthesizer-process]
 package = "snarkvm-synthesizer-process"
 path = "../../synthesizer/process"
+features = [ "test" ]
 
 [dev-dependencies.once_cell]
 version = "1.18"
