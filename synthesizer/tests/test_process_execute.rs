@@ -126,7 +126,7 @@ fn run_test(process: Process<CurrentNetwork>, test: &ProgramTest) -> serde_yaml:
 
                     let mut run_test = || -> serde_yaml::Value {
                         // Authorize the execution.
-                        let authorization = match process.authorize::<CurrentAleo, _>(
+                        let authorization = match process.authorize_checked::<CurrentAleo, _>(
                             &private_key,
                             program_id,
                             function_name,
