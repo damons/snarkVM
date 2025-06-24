@@ -161,8 +161,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         lap!(timer, "Perform input checks");
 
         // Initialize the registers.
-        let mut registers =
-            Registers::<N, A>::new(call_stack.clone(), self.get_register_types(function.name())?.clone());
+        let mut registers = Registers::<N, A>::new(call_stack, self.get_register_types(function.name())?.clone());
         // Set the transition signer.
         registers.set_signer(signer);
         // Set the transition caller.
@@ -260,7 +259,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         finish!(timer);
 
         // If the circuit is in `Authorize` mode, then save the transition.
-        if let CallStack::Authorize(_, _, authorization) = &call_stack {
+        if let CallStack::Authorize(_, _, authorization) = registers.call_stack_ref() {
             // Construct the transition.
             let transition = Transition::from(&request, &response, &function.output_types(), &output_registers)?;
             // Add the transition to the authorization.

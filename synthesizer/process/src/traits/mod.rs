@@ -91,4 +91,7 @@ pub trait StackProgramTypes<N: Network> {
 pub trait RegistersCall<N: Network> {
     /// Returns the current call stack.
     fn call_stack(&self) -> CallStack<N>;
+
+    /// Returns a reference to the current call stack.
+    fn call_stack_ref(&self) -> &CallStack<N>;
 }
