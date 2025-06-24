@@ -26,6 +26,7 @@ use snarkvm_utilities::{
     Valid,
     Validate,
     Write,
+    dev_println,
 };
 
 use anyhow::{Result, anyhow, bail, ensure};
@@ -408,8 +409,7 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
 
         // Download the powers of two.
         for num_powers in &download_queue {
-            #[cfg(debug_assertions)]
-            println!("Loading {num_powers} powers");
+            dev_println!("Loading {num_powers} powers");
 
             // Download the universal SRS powers if they're not already on disk.
             let additional_bytes = match *num_powers {
@@ -490,8 +490,7 @@ impl<E: PairingEngine> PowersOfBetaG<E> {
         let mut final_powers = Vec::with_capacity(final_num_powers);
         // If the `target_degree` exceeds the current `degree`, proceed to download the new powers.
         for num_powers in &download_queue {
-            #[cfg(debug_assertions)]
-            println!("Loading {num_powers} shifted powers");
+            dev_println!("Loading {num_powers} shifted powers");
 
             // Download the universal SRS powers if they're not already on disk.
             let additional_bytes = match *num_powers {

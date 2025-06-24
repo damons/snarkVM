@@ -15,7 +15,6 @@
 
 mod prepare;
 
-#[cfg(debug_assertions)]
 use crate::Stack;
 
 use console::{
@@ -230,8 +229,7 @@ impl<N: Network> InclusionAssignment<N> {
         // Enforce the state path from leaf to root is correct.
         A::assert(state_path.verify(&is_global, &local_state_root));
 
-        #[cfg(debug_assertions)]
-        Stack::log_circuit::<A, _>(&format!("State Path for {}", self.serial_number));
+        Stack::log_circuit::<A>(format_args!("State Path for {}", self.serial_number));
 
         // Eject the assignment and reset the circuit environment.
         Ok(A::eject_assignment_and_reset())
