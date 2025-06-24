@@ -67,7 +67,7 @@ impl<N: Network> Stack<N> {
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
-        let timer = timer!("Stack::authorize");
+        let timer = timer!("Stack::authorize_checked");
 
         // Get the program ID.
         let program_id = *self.program.id();
