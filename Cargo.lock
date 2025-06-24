@@ -3598,6 +3598,7 @@ dependencies = [
  "snarkvm-console",
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-snark",
+ "snarkvm-utilities",
 ]
 
 [[package]]

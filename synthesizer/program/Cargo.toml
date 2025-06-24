@@ -40,6 +40,11 @@ version = "=3.8.0"
 default-features = false
 features = [ "account", "network", "program", "types" ]
 
+[dependencies.snarkvm-utilities]
+path = "../../utilities"
+version = "=3.8.0"
+default-features = false
+
 [dependencies.indexmap]
 version = "2.0"
 features = [ "serde", "rayon" ]

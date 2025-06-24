@@ -1836,6 +1836,14 @@ function transfer:
         // 5. Check that the records can be spent after migration
         // ----------------------------------------------------------------------------------------
 
+        // Re-deploy the program.
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+        assert_eq!(next_block.transactions().num_accepted(), 1);
+        assert_eq!(next_block.transactions().num_rejected(), 0);
+        assert_eq!(next_block.aborted_transaction_ids().len(), 0);
+        vm.add_next_block(&next_block).unwrap();
+
         let transfer_2 = {
             let inputs = [
                 Value::<CurrentNetwork>::Record(minted_records[0].clone()),

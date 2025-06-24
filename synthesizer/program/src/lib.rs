@@ -92,11 +92,14 @@ use console::{
     },
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
 };
+use snarkvm_utilities::cfg_iter;
 
 use console::prelude::Itertools;
 use indexmap::{IndexMap, IndexSet};
-use rayon::iter::ParallelIterator;
 use std::collections::BTreeSet;
+
+#[cfg(not(feature = "serial"))]
+use rayon::prelude::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum ProgramDefinition {
@@ -821,7 +824,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// Checks that the program does not make external calls to `credits.aleo/upgrade`.
     pub fn check_external_calls_to_credits_upgrade(&self) -> Result<()> {
         // Check if the program makes external calls to `credits.aleo/upgrade`.
-        self.functions().par_values().flat_map(|function| function.instructions()).try_for_each(|instruction| {
+        cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).try_for_each(|instruction| {
             if let Some(CallOperator::Locator(locator)) = instruction.call_operator() {
                 // Check if the locator is restricted.
                 if locator.to_string() == "credits.aleo/upgrade" {
