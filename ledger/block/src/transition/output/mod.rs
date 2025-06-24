@@ -278,10 +278,14 @@ impl<N: Network> Output<N> {
                 }
             }
             Output::Record(_, checksum, Some(record_ciphertext), sender_ciphertext) => {
+                // Construct the checksum preimage.
+                let mut preimage = record_ciphertext.to_bits_le();
                 // If the record version is set to Version 0, ensure the sender ciphertext is `None`.
                 // If the record version is set to Version 1 or higher, ensure the sender ciphertext is `Some` and non-zero.
                 if **record_ciphertext.version() == 0 {
                     ensure!(sender_ciphertext.is_none(), "The sender ciphertext must be None for Version 0 records");
+                    // Truncate the last 8 bits of the preimage, as Version 0 records do not include the version in serialization.
+                    preimage.truncate(preimage.len().saturating_sub(8));
                 } else if **record_ciphertext.version() == 1 {
                     ensure!(sender_ciphertext.is_some(), "The sender ciphertext must be non-empty");
                     // Note: The sender ciphertext feature can become optional or deactivated by removing this check.
@@ -294,7 +298,7 @@ impl<N: Network> Output<N> {
                 }
 
                 // Ensure the record ciphertext hash matches the checksum.
-                match N::hash_bhp1024(&record_ciphertext.to_bits_le()) {
+                match N::hash_bhp1024(&preimage) {
                     Ok(candidate_hash) => Ok(checksum == &candidate_hash),
                     Err(error) => Err(error),
                 }
