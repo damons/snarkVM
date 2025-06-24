@@ -19,9 +19,12 @@ use crate::vm::test_helpers::*;
 
 use console::{account::ViewKey, network::ConsensusVersion};
 use ledger_store::ConsensusStore;
-use synthesizer_program::Program;
+use synthesizer_program::{Program, StackProgram};
 
+use crate::vm::test_helpers::sample_vm_at_height;
 use aleo_std::StorageMode;
+use console::program::ProgramOwner;
+use ledger_block::{Deployment, Transaction};
 
 // This test checks that:
 //  - an existing program cannot be redeployed before `ConsensusVersion::V8`
@@ -210,11 +213,9 @@ fn test_credits_cannot_be_redeployed() -> Result<()> {
 }
 
 // This test:
-// - verifies that a program calling `credits.aleo/upgrade` can be deployed before `ConsensusVersion::V8`
-// - verifies that a program calling `credits.aleo/upgrade` cannot be executed before `ConsensusVersion::V8`
-// - verifies that `credits.aleo/upgrade` cannot be executed before `ConsensusVersion::V8`
-// - verifies that a program calling `credits.aleo/upgrade` cannot be executed after `ConsensusVersion::V8`
+// - verifies that a program calling `credits.aleo/upgrade` cannot be deployed before `ConsensusVersion::V8`
 // - verifies that a program calling `credits.aleo/upgrade` cannot be deployed after `ConsensusVersion::V8`.
+// - verifies that `credits.aleo/upgrade` cannot be executed before `ConsensusVersion::V8`
 // - verifies that `credits.aleo/upgrade` can be executed after `ConsensusVersion::V8`.
 #[test]
 fn test_credits_upgrade() -> Result<()> {
@@ -224,7 +225,7 @@ fn test_credits_upgrade() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 4, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 3, rng);
 
     // A helper closure to create a program with an upgrade call.
     let sample_program = |i: usize| {
@@ -251,9 +252,9 @@ finalize run:
     // Deploy the program before `ConsensusVersion::V8`.
     let deployment = vm.deploy(&caller_private_key, &sample_program(0)?, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_accepted(), 0);
     assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
     vm.add_next_block(&block)?;
 
     // Extract a record from the genesis block and `split` it into two smaller records.
@@ -281,22 +282,8 @@ finalize run:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Attempt to use the first record for the upgrade call, before `ConsensusVersion::V8`.
+    // Extract the split record.
     let record = block.transactions().records().next().unwrap().1.decrypt(&caller_view_key)?;
-    let execute = vm.execute(
-        &caller_private_key,
-        ("test_upgrade_call_0.aleo", "run"),
-        vec![Value::Record(record.clone())].into_iter(),
-        None,
-        0,
-        None,
-        rng,
-    )?;
-    let block = sample_next_block(&vm, &caller_private_key, &[execute], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
-    vm.add_next_block(&block)?;
 
     // Attempt to execute the `upgrade` function directly before `ConsensusVersion::V8`.
     let execute = vm.execute(
@@ -318,21 +305,6 @@ finalize run:
     let block_height = vm.store.block_store().current_block_height();
     let consensus_version = CurrentNetwork::CONSENSUS_VERSION(block_height)?;
     assert_eq!(consensus_version, ConsensusVersion::V8);
-
-    // Attempt to execute the program after `ConsensusVersion::V8`.
-    let execute = vm.execute(
-        &caller_private_key,
-        ("test_upgrade_call_0.aleo", "run"),
-        vec![Value::Record(record.clone())].into_iter(),
-        None,
-        0,
-        None,
-        rng,
-    )?;
-    let block = sample_next_block(&vm, &caller_private_key, &[execute], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
 
     // Attempt to deploy the program after `ConsensusVersion::V8`.
     let deployment = vm.deploy(&caller_private_key, &sample_program(1)?, None, 0, None, rng)?;
@@ -356,6 +328,140 @@ finalize run:
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
+
+    Ok(())
+}
+
+// This test verifies that:
+//   - a program cannot be redeployed in the same block as its deployment
+//   - an edition 0 program cannot be executed if it is deployed after `ConsensusVersion::V8`
+//   - a program can be redeployed using the exact same deployment, different fee, and in a different block, after `ConsensusVersion::V8`
+#[test]
+fn test_deploy_and_redeploy() -> Result<()> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize a second caller.
+    let other_private_key = sample_genesis_private_key(rng);
+    let address = Address::try_from(&other_private_key)?;
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+
+    // Send some credits to the second caller.
+    let transfer = vm.execute(
+        &caller_private_key,
+        ("credits.aleo", "transfer_public"),
+        [Value::from_str(&address.to_string())?, Value::from_str("1000000u64")?].iter(),
+        None,
+        0,
+        None,
+        rng,
+    )?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transfer], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Initialize the program.
+    let program = Program::from_str(
+        r"
+program test_deploy_and_redeploy.aleo;
+
+function dummy:
+    ",
+    )?;
+
+    // Deploy the program.
+    let transaction_0 = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let deployment_0 = transaction_0.deployment().expect("Expected a deployment transaction");
+    // Generate a second deployment transaction with an incremented edition and a different fee.
+    let deployment_1 = Deployment::new(
+        deployment_0.edition() + 1,
+        deployment_0.program().clone(),
+        deployment_0.verifying_keys().clone(),
+    )?;
+    let fee_authorization = vm.authorize_fee_public(
+        &other_private_key,
+        *transaction_0.base_fee_amount()?,
+        *transaction_0.priority_fee_amount()?,
+        deployment_1.to_deployment_id()?,
+        rng,
+    )?;
+    let fee = vm.execute_fee_authorization(fee_authorization, None, rng)?;
+    let owner = ProgramOwner::new(&other_private_key, deployment_1.to_deployment_id()?, rng)?;
+    let transaction_1 = Transaction::from_deployment(owner, deployment_1, fee)?;
+    // Attempt to deploy both programs in the same block.
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction_0.clone(), transaction_1], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
+
+    // Check the edition of the deployed program.
+    let edition = *vm.process().read().get_stack("test_deploy_and_redeploy.aleo")?.program_edition();
+    assert_eq!(edition, 0);
+
+    // Attempt to execute the program immediately after deployment.
+    let execute = vm.execute(
+        &caller_private_key,
+        ("test_deploy_and_redeploy.aleo", "dummy"),
+        Vec::<Value<CurrentNetwork>>::new().iter(),
+        None,
+        0,
+        None,
+        rng,
+    )?;
+    let block = sample_next_block(&vm, &caller_private_key, &[execute], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
+
+    // Redeploy the program with the other private key, using the original deployment.
+    let deployment = Deployment::new(1, program.clone(), deployment_0.verifying_keys().clone())?;
+    let fee_authorization = vm.authorize_fee_public(
+        &other_private_key,
+        *transaction_0.base_fee_amount()?,
+        *transaction_0.priority_fee_amount()?,
+        deployment.to_deployment_id()?,
+        rng,
+    )?;
+    let fee = vm.execute_fee_authorization(fee_authorization, None, rng)?;
+    let owner = ProgramOwner::new(&other_private_key, deployment.to_deployment_id()?, rng)?;
+    let transaction = Transaction::from_deployment(owner, deployment, fee)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Check that the program can now be executed.
+    let execute = vm.execute(
+        &caller_private_key,
+        ("test_deploy_and_redeploy.aleo", "dummy"),
+        Vec::<Value<CurrentNetwork>>::new().iter(),
+        None,
+        0,
+        None,
+        rng,
+    )?;
+    let block = sample_next_block(&vm, &caller_private_key, &[execute], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Verify that the program cannot be redeployed further.
+    let deployment = vm.deploy(&other_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
 
     Ok(())
 }

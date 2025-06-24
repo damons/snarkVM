@@ -258,11 +258,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     if consensus_version >= ConsensusVersion::V7 {
                         deployment.program().check_program_naming_structure()?;
                     }
-                    // Perform additional checks if the consensus version is V8 or beyond.
-                    if consensus_version >= ConsensusVersion::V8 {
-                        deployment.program().check_external_calls()?;
-                    }
                 }
+                // Check that the program does not make any calls to `credits.aleo/upgrade`.
+                // Note: This is safe to check for programs deployed before `ConsensusVersion::V8` because `credits.aleo/upgrade` was not yet introduced.
+                deployment.program().check_external_calls_to_credits_upgrade()?;
 
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {
@@ -1542,7 +1541,7 @@ mod credits_migration_tests {
     #[test]
     fn test_inclusion_local_records() {
         // 1. Check that records that have not been upgraded can't be spent via calls
-        // 2. Check that upgrades cannot be called via another program
+        // 2. Check that `credits.aleo/upgrade` can be called invoked directly.
         // 3. Check that local records can be spent and checked properly.
         let rng = &mut TestRng::default();
 
@@ -1562,33 +1561,8 @@ mod credits_migration_tests {
         let records = genesis.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
         let genesis_records = records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
 
-        // Initialize the programs.
-        let program_0 = Program::from_str(
-            r"
-import credits.aleo;
-
-program call_upgrade.aleo;
-
-function multi_upgrade:
-    input r0 as credits.aleo/credits.record;
-    input r1 as credits.aleo/credits.record;
-    call credits.aleo/upgrade r0 into r2 r3;
-    call credits.aleo/upgrade r1 into r4 r5;
-    async multi_upgrade r3 r5 into r6;
-    output r2 as credits.aleo/credits.record;
-    output r4 as credits.aleo/credits.record;
-    output r6 as call_upgrade.aleo/multi_upgrade.future;
-
-finalize multi_upgrade:
-    input r0 as credits.aleo/upgrade.future;
-    input r1 as credits.aleo/upgrade.future;
-    await r0;
-    await r1;
-        ",
-        )
-        .unwrap();
-
-        let program_1 = Program::from_str(
+        // Deploy the program.
+        let program = Program::from_str(
             r"
 import credits.aleo;
 
@@ -1615,17 +1589,9 @@ function local_transfer:
     ",
         )
         .unwrap();
-        // Deploy the programs.
-        let deployment_0 = vm.deploy(&private_key, &program_0, None, 1, None, rng).unwrap();
-        let deployment_1 = vm.deploy(&private_key, &program_1, None, 1, None, rng).unwrap();
-        vm.add_next_block(
-            &crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment_0], rng).unwrap(),
-        )
-        .unwrap();
-        vm.add_next_block(
-            &crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment_1], rng).unwrap(),
-        )
-        .unwrap();
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
+        vm.add_next_block(&crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap())
+            .unwrap();
 
         // Create a split transaction before the migration.
         let split_transaction = {
@@ -1685,20 +1651,7 @@ function local_transfer:
         );
 
         // ----------------------------------------------------------------------------------------
-        // 2. Check that `credits.aleo/upgrade` cannot be called via another program
-        // ----------------------------------------------------------------------------------------
-
-        let inputs = [
-            Value::<CurrentNetwork>::Record(split_records[0].clone()),
-            Value::<CurrentNetwork>::Record(split_records[2].clone()),
-        ]
-        .into_iter();
-        let multi_upgrade =
-            vm.execute(&private_key, ("call_upgrade.aleo", "multi_upgrade"), inputs, None, 0, None, rng).unwrap();
-        assert!(vm.check_transaction(&multi_upgrade, None, rng).is_err());
-
-        // ----------------------------------------------------------------------------------------
-        // 3. Check that `credits.aleo/upgrade` can be invoked.
+        // 2. Check that `credits.aleo/upgrade` can be invoked by a user.
         // ----------------------------------------------------------------------------------------
 
         // Upgrade an old record
@@ -1723,7 +1676,8 @@ function local_transfer:
         assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 4. Check that local transfers cannot be invoked until the program is re-deployed.
+        // 3. Check that local transfers cannot be invoked until the program is re-deployed.
+        //    After the program is re-deployed, local transfers should work.
         // ----------------------------------------------------------------------------------------
 
         // Get the inputs.
@@ -1752,7 +1706,7 @@ function local_transfer:
         vm.add_next_block(&next_block).unwrap();
 
         // Re-deploy the program.
-        let deployment = vm.deploy(&private_key, &program_1, None, 1, None, rng).unwrap();
+        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
         let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
         assert_eq!(next_block.transactions().num_accepted(), 1);
         assert_eq!(next_block.transactions().num_rejected(), 0);

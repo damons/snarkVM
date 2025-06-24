@@ -3592,6 +3592,7 @@ dependencies = [
  "paste",
  "rand",
  "rand_chacha",
+ "rayon",
  "serde_json",
  "snarkvm-circuit",
  "snarkvm-console",

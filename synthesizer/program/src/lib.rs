@@ -95,6 +95,7 @@ use console::{
 
 use console::prelude::Itertools;
 use indexmap::{IndexMap, IndexSet};
+use rayon::iter::ParallelIterator;
 use std::collections::BTreeSet;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -817,19 +818,18 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         Ok(())
     }
 
-    /// Checks that the program does not make external calls to specifically restricted locators.
-    pub fn check_external_calls(&self) -> Result<()> {
-        // Check if the program makes external calls to restricted programs.
-        for function in self.functions.values() {
-            for instruction in function.instructions() {
-                if let Some(CallOperator::Locator(locator)) = instruction.call_operator() {
-                    // Check if the locator is restricted.
-                    if locator.to_string() == "credits.aleo/upgrade" {
-                        bail!("External call to restricted locator '{}'", locator);
-                    }
+    /// Checks that the program does not make external calls to `credits.aleo/upgrade`.
+    pub fn check_external_calls_to_credits_upgrade(&self) -> Result<()> {
+        // Check if the program makes external calls to `credits.aleo/upgrade`.
+        self.functions().par_values().flat_map(|function| function.instructions()).try_for_each(|instruction| {
+            if let Some(CallOperator::Locator(locator)) = instruction.call_operator() {
+                // Check if the locator is restricted.
+                if locator.to_string() == "credits.aleo/upgrade" {
+                    bail!("External call to restricted locator '{}'", locator)
                 }
             }
-        }
+            Ok(())
+        })?;
         Ok(())
     }
 }
