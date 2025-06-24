@@ -150,12 +150,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 for transition in execution.transitions() {
                     // Get the stack.
                     let stack = process.get_stack(transition.program_id())?;
+                    // Get the program ID.
+                    let program_id = *stack.program_id();
                     // If the program edition is zero, then fail.
-                    if stack.program_id() != &ProgramID::from_str("credits.aleo")? && stack.program_edition().is_zero()
-                    {
+                    if program_id != ProgramID::from_str("credits.aleo")? && stack.program_edition().is_zero() {
                         drop(process); // Drop the process lock. 
                         bail!(
-                            "Invalid execution transaction '{id}' - program edition cannot be zero for `ConsensusVersion::V8` or greater. Please redeploy the program."
+                            "Invalid execution transaction '{id}' - the program edition for '{program_id}' cannot be zero for `ConsensusVersion::V8` or greater. Please redeploy the program."
                         );
                     }
                 }
@@ -246,16 +247,23 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         );
                     }
                 }
+
                 // Enforce the syntax restrictions on the programs based on the current consensus version.
-                deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
-                // Perform additional program checks if the consensus version is V7 or beyond.
-                if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V7)? {
-                    deployment.program().check_program_naming_structure()?;
+                // Note: We do not enforce this restriction for programs with edition one, since they may have been deployed before the restrictions were introduced.
+                //  However, we do enforce that programs with edition one, EXACTLY match their previous edition.
+                if deployment.edition() == 0 {
+                    // Check restricted keywords for the consensus version.
+                    deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
+                    // Perform additional program checks if the consensus version is V7 or beyond.
+                    if consensus_version >= ConsensusVersion::V7 {
+                        deployment.program().check_program_naming_structure()?;
+                    }
+                    // Perform additional checks if the consensus version is V8 or beyond.
+                    if consensus_version >= ConsensusVersion::V8 {
+                        deployment.program().check_external_calls()?;
+                    }
                 }
-                // Perform additional checks if the consensus version is V8 or beyond.
-                if self.block_store().current_block_height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V8)? {
-                    deployment.program().check_external_calls()?;
-                }
+
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {
                     // TODO (raychu86): Record Commitment - Add logic to NOT verify deployments created prior to migration.
@@ -1534,7 +1542,7 @@ mod credits_migration_tests {
     #[test]
     fn test_inclusion_local_records() {
         // 1. Check that records that have not been upgraded can't be spent via calls
-        // 2. Check that upgrades can be called via another program
+        // 2. Check that upgrades cannot be called via another program
         // 3. Check that local records can be spent and checked properly.
         let rng = &mut TestRng::default();
 
@@ -1554,12 +1562,12 @@ mod credits_migration_tests {
         let records = genesis.transitions().cloned().flat_map(Transition::into_records).collect::<IndexMap<_, _>>();
         let genesis_records = records.values().map(|record| record.decrypt(&view_key).unwrap()).collect::<Vec<_>>();
 
-        // Deploy the program.
-        let program = Program::from_str(
+        // Initialize the programs.
+        let program_0 = Program::from_str(
             r"
 import credits.aleo;
 
-program test_local_calls.aleo;
+program call_upgrade.aleo;
 
 function multi_upgrade:
     input r0 as credits.aleo/credits.record;
@@ -1569,13 +1577,22 @@ function multi_upgrade:
     async multi_upgrade r3 r5 into r6;
     output r2 as credits.aleo/credits.record;
     output r4 as credits.aleo/credits.record;
-    output r6 as test_local_calls.aleo/multi_upgrade.future;
+    output r6 as call_upgrade.aleo/multi_upgrade.future;
 
 finalize multi_upgrade:
     input r0 as credits.aleo/upgrade.future;
     input r1 as credits.aleo/upgrade.future;
     await r0;
     await r1;
+        ",
+        )
+        .unwrap();
+
+        let program_1 = Program::from_str(
+            r"
+import credits.aleo;
+
+program test_local_calls.aleo;
 
 function proxy_transfer:
     input r0 as credits.aleo/credits.record;
@@ -1598,9 +1615,17 @@ function local_transfer:
     ",
         )
         .unwrap();
-        let deployment = vm.deploy(&private_key, &program, None, 1, None, rng).unwrap();
-        vm.add_next_block(&crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap())
-            .unwrap();
+        // Deploy the programs.
+        let deployment_0 = vm.deploy(&private_key, &program_0, None, 1, None, rng).unwrap();
+        let deployment_1 = vm.deploy(&private_key, &program_1, None, 1, None, rng).unwrap();
+        vm.add_next_block(
+            &crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment_0], rng).unwrap(),
+        )
+        .unwrap();
+        vm.add_next_block(
+            &crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment_1], rng).unwrap(),
+        )
+        .unwrap();
 
         // Create a split transaction before the migration.
         let split_transaction = {
@@ -1660,7 +1685,7 @@ function local_transfer:
         );
 
         // ----------------------------------------------------------------------------------------
-        // 2. Check that upgrades cannot be called via another program
+        // 2. Check that `credits.aleo/upgrade` cannot be called via another program
         // ----------------------------------------------------------------------------------------
 
         let inputs = [
@@ -1669,11 +1694,11 @@ function local_transfer:
         ]
         .into_iter();
         let multi_upgrade =
-            vm.execute(&private_key, ("test_local_calls.aleo", "multi_upgrade"), inputs, None, 0, None, rng).unwrap();
+            vm.execute(&private_key, ("call_upgrade.aleo", "multi_upgrade"), inputs, None, 0, None, rng).unwrap();
         assert!(vm.check_transaction(&multi_upgrade, None, rng).is_err());
 
         // ----------------------------------------------------------------------------------------
-        // 3. Check that local records can be spent and checked properly.
+        // 3. Check that `credits.aleo/upgrade` can be invoked.
         // ----------------------------------------------------------------------------------------
 
         // Upgrade an old record
@@ -1697,18 +1722,52 @@ function local_transfer:
         let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
         assert!(vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).is_err());
 
-        // Create a transaction with local transfers
-        let local_transfer = {
-            let inputs = [
-                Value::<CurrentNetwork>::Record(upgraded_records[0].clone()),
-                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
-                Value::<CurrentNetwork>::from_str("10u64").unwrap(),
-            ]
-            .into_iter();
-            vm.execute(&private_key, ("test_local_calls.aleo", "local_transfer"), inputs, None, 0, None, rng).unwrap()
-        };
+        // ----------------------------------------------------------------------------------------
+        // 4. Check that local transfers cannot be invoked until the program is re-deployed.
+        // ----------------------------------------------------------------------------------------
 
+        // Get the inputs.
+        let inputs = [
+            Value::<CurrentNetwork>::Record(upgraded_records[0].clone()),
+            Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
+            Value::<CurrentNetwork>::from_str("10u64").unwrap(),
+        ];
+
+        // Create a transaction with local transfers, which should fail, because the program has not been re-deployed.
+        let local_transfer = vm
+            .execute(
+                &private_key,
+                ("test_local_calls.aleo", "local_transfer"),
+                inputs.clone().into_iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[local_transfer], rng).unwrap();
+        assert_eq!(next_block.transactions().num_accepted(), 0);
+        assert_eq!(next_block.transactions().num_rejected(), 0);
+        assert_eq!(next_block.aborted_transaction_ids().len(), 1);
+        vm.add_next_block(&next_block).unwrap();
+
+        // Re-deploy the program.
+        let deployment = vm.deploy(&private_key, &program_1, None, 1, None, rng).unwrap();
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+        assert_eq!(next_block.transactions().num_accepted(), 1);
+        assert_eq!(next_block.transactions().num_rejected(), 0);
+        assert_eq!(next_block.aborted_transaction_ids().len(), 0);
+        vm.add_next_block(&next_block).unwrap();
+
+        // Execute the local transfer again.
+        let local_transfer = vm
+            .execute(&private_key, ("test_local_calls.aleo", "local_transfer"), inputs.into_iter(), None, 0, None, rng)
+            .unwrap();
         assert!(vm.check_transaction(&local_transfer, None, rng).is_ok());
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[local_transfer], rng).unwrap();
+        assert_eq!(next_block.transactions().num_accepted(), 1);
+        assert_eq!(next_block.transactions().num_rejected(), 0);
+        assert_eq!(next_block.aborted_transaction_ids().len(), 0);
     }
 
     #[cfg(feature = "test")]
