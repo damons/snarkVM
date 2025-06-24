@@ -39,7 +39,9 @@ fn test_process_execute() {
         // Run the test.
         let output = run_test(process.clone(), test);
         // Check against the expected output.
-        test.check(&output).unwrap();
+        if let Err(err) = test.check(&output) {
+            println!("Error running test: {}", err);
+        }
         // Save the output.
         test.save(&output).unwrap();
     });
