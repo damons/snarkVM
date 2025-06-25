@@ -136,24 +136,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Construct the transaction checksum.
         let checksum = Data::<Transaction<N>>::Buffer(transaction.to_bytes_le()?.into()).to_checksum::<N>()?;
 
-        // We first acquire a read lock on the process to ensure that the programs are not updated while we are verifying the transaction.
-        // This lock is held for the duration of the transaction verification.
-        // Note: The calls to `check_deployment_internal` and `check_execution_internal` will also acquire a read lock on the process.
-        let process = self.process.read();
-
-        // A helper function to get the program checksums for each transition in a transaction, in order.
-        let get_program_checksums = |transaction: &Transaction<N>| {
-            // Get the program editions for each transition in the transaction.
+        // A helper function to get the program editions each transition in a transaction, in order.
+        let get_program_editions = |transaction: &Transaction<N>| {
             transaction
                 .transitions()
                 .map(|transition| {
-                    process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
+                    self.process().read().get_stack(transition.program_id()).map(|stack| *stack.program_edition())
                 })
                 .collect::<Result<Vec<_>>>()
         };
 
         // Prepare the cache key.
-        let cache_key = (transaction.id(), get_program_checksums(transaction)?);
+        let cache_key = (transaction.id(), get_program_editions(transaction)?);
 
         // Check if the transaction exists in the partially-verified cache.
         let is_partially_verified = self.partially_verified_transactions.read().peek(&cache_key) == Some(&checksum);
@@ -546,20 +540,17 @@ mod tests {
     fn create_cache_key(
         vm: &VM<CurrentNetwork, LedgerType>,
         transaction: &Transaction<CurrentNetwork>,
-    ) -> (<CurrentNetwork as Network>::TransactionID, Vec<Field<CurrentNetwork>>) {
-        // Acquire a read lock on the process to ensure that the editions are not updated while we are reading them.
-        let process_lock = vm.process();
-        let process = process_lock.read();
-        // Get the program checksums.
-        let program_checksums = transaction
+    ) -> (<CurrentNetwork as Network>::TransactionID, Vec<U16<CurrentNetwork>>) {
+        // Get the program editions.
+        let program_editions = transaction
             .transitions()
             .map(|transition| {
-                process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
+                vm.process().read().get_stack(transition.program_id()).map(|stack| *stack.program_edition())
             })
             .collect::<Result<Vec<_>>>()
             .unwrap();
         // Return the cache key.
-        (transaction.id(), program_checksums)
+        (transaction.id(), program_editions)
     }
 
     #[test]

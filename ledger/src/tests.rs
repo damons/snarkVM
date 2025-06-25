@@ -17,7 +17,7 @@ use crate::{
     Ledger,
     RecordsFilter,
     advance::split_candidate_solutions,
-    test_helpers::{CurrentAleo, CurrentLedger, CurrentNetwork},
+    test_helpers::{CurrentAleo, CurrentConsensusStorage, CurrentLedger, CurrentNetwork},
 };
 use aleo_std::StorageMode;
 use console::{
@@ -38,8 +38,6 @@ use synthesizer::{
     vm::VM,
 };
 
-use crate::test_helpers::CurrentConsensusStorage;
-use console::types::Field;
 use indexmap::{IndexMap, IndexSet};
 use rand::seq::SliceRandom;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -287,16 +285,11 @@ impl TestChainBuilder {
 fn create_cache_key(
     vm: &VM<CurrentNetwork, CurrentConsensusStorage>,
     transaction: &Transaction<CurrentNetwork>,
-) -> (<CurrentNetwork as Network>::TransactionID, Vec<Field<CurrentNetwork>>) {
-    // Acquire a read lock on the process to ensure that the editions are not updated while we are reading them.
-    let process_lock = vm.process();
-    let process = process_lock.read();
+) -> (<CurrentNetwork as Network>::TransactionID, Vec<U16<CurrentNetwork>>) {
     // Get the program editions.
     let program_editions = transaction
         .transitions()
-        .map(|transition| {
-            process.get_stack(transition.program_id()).and_then(|stack| stack.program_checksum_as_field())
-        })
+        .map(|transition| vm.process().read().get_stack(transition.program_id()).map(|stack| *stack.program_edition()))
         .collect::<Result<Vec<_>>>()
         .unwrap();
     // Return the cache key.

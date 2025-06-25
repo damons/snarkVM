@@ -31,7 +31,7 @@ use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
     program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Response, Value},
-    types::{Field, Group, U64},
+    types::{Field, Group, U16, U64},
 };
 use ledger_block::{
     Block,
@@ -83,7 +83,7 @@ use rayon::prelude::*;
 // The key for the partially-verified transactions cache.
 // The key is a tuple of the transaction ID and a list of program checksums for the transitions in the transaction.
 // Note: If a program is upgraded and its contents are changed, then the program checksums will change, invalidating the previously cached result.
-type TransactionCacheKey<N> = (<N as Network>::TransactionID, Vec<Field<N>>);
+type TransactionCacheKey<N> = (<N as Network>::TransactionID, Vec<U16<N>>);
 
 #[derive(Clone)]
 pub struct VM<N: Network, C: ConsensusStorage<N>> {
