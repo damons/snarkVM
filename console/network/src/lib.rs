@@ -29,14 +29,27 @@ pub use helpers::*;
 mod canary_v0;
 pub use canary_v0::*;
 
+mod consensus_heights;
+pub use consensus_heights::*;
+
 mod mainnet_v0;
 pub use mainnet_v0::*;
 
 mod testnet_v0;
+
 pub use testnet_v0::*;
 
 pub mod prelude {
-    pub use crate::{ConsensusVersion, Network, consensus_config_value, environment::prelude::*};
+    pub use crate::{
+        CANARY_V0_CONSENSUS_VERSION_HEIGHTS,
+        ConsensusVersion,
+        MAINNET_V0_CONSENSUS_VERSION_HEIGHTS,
+        Network,
+        TEST_CONSENSUS_VERSION_HEIGHTS,
+        TESTNET_V0_CONSENSUS_VERSION_HEIGHTS,
+        consensus_config_value,
+        environment::prelude::*,
+    };
 }
 
 use crate::environment::prelude::*;

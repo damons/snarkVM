@@ -136,29 +136,11 @@ impl Network for CanaryV0 {
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
-        (ConsensusVersion::V1, 0),
-        (ConsensusVersion::V2, 2_900_000),
-        (ConsensusVersion::V3, 4_560_000),
-        (ConsensusVersion::V4, 5_730_000),
-        (ConsensusVersion::V5, 5_780_000),
-        (ConsensusVersion::V6, 6_240_000),
-        (ConsensusVersion::V7, 6_895_000),
-        (ConsensusVersion::V8, 999_999_999),
-    ];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = CANARY_V0_CONSENSUS_VERSION_HEIGHTS;
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
-        (ConsensusVersion::V1, 0),
-        (ConsensusVersion::V2, 10),
-        (ConsensusVersion::V3, 11),
-        (ConsensusVersion::V4, 12),
-        (ConsensusVersion::V5, 13),
-        (ConsensusVersion::V6, 14),
-        (ConsensusVersion::V7, 15),
-        (ConsensusVersion::V8, 16),
-    ];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = TEST_CONSENSUS_VERSION_HEIGHTS;
     /// The genesis block coinbase target.
     #[cfg(not(feature = "test_targets"))]
     const GENESIS_COINBASE_TARGET: u64 = (1u64 << 29).saturating_sub(1);
