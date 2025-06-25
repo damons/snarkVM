@@ -16,7 +16,7 @@
 use super::*;
 
 use ledger_committee::{MAX_DELEGATORS, MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE};
-use utilities::cfg_sort_by_cached_key;
+use utilities::{cfg_sort_by_cached_key, defer};
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Speculates on the given list of transactions in the VM.
@@ -280,21 +280,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // we choose to acquire the write lock for the entire duration of this atomic batch.
             let process = self.process.write();
 
-            // A helper function abort an atomic batch with an error message while rolling back changes to the stacks in `Process`.
-            let abort_with_error = |error: String| -> Result<
-                (
-                    Ratifications<N>,
-                    Vec<ConfirmedTransaction<N>>,
-                    Vec<(Transaction<N>, String)>,
-                    Vec<FinalizeOperation<N>>,
-                ),
-                String,
-            > {
-                // Rollback the stacks in the process.
+            // Revert any unstaged stacks, when the function returns.
+            defer! {
                 process.revert_stacks();
-                // Note: This will abort the entire atomic batch.
-                Err(error)
-            };
+            }
 
             // Initialize a list of the confirmed transactions.
             let mut confirmed = Vec::with_capacity(num_transactions);
@@ -384,7 +373,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             false => match process.finalize_deployment(state, store, deployment, fee) {
                                 // Construct the accepted deploy transaction.
                                 Ok((stack, finalize)) => {
-                                    // Stage the stack in the process.
+                                    // Add the stack to the process with the option to be reverted.
                                     process.stage_stack(stack);
                                     // Add the program id to the list of deployments.
                                     deployments.insert(*deployment.program_id());
@@ -483,7 +472,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     Err(error) => {
                         eprintln!("Critical bug in speculate: {error}\n\n{transaction}");
                         // Note: This will abort the entire atomic batch.
-                        return abort_with_error(format!("Failed to speculate on transaction - {error}"));
+                        return Err(format!("Failed to speculate on transaction - {error}"));
                     }
                 }
             }
@@ -491,7 +480,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // Ensure all transactions were processed.
             if confirmed.len() + aborted.len() != num_transactions {
                 // Note: This will abort the entire atomic batch.
-                return abort_with_error("Not all transactions were processed in 'VM::atomic_speculate'".to_string());
+                return Err("Not all transactions were processed in 'VM::atomic_speculate'".to_string());
             }
 
             /* Perform the ratifications after finalize. */
@@ -507,9 +496,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         confirmed.iter().map(|tx| Ok(*tx.priority_fee_amount()?)).sum::<Result<u64>>()
                     else {
                         // Note: This will abort the entire atomic batch.
-                        return abort_with_error(
-                            "Failed to calculate the transaction fees during speculation".to_string(),
-                        );
+                        return Err("Failed to calculate the transaction fees during speculation".to_string());
                     };
 
                     // Compute the block reward.
@@ -538,7 +525,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Store the finalize operations from the post-ratify.
                 Ok(operations) => ratified_finalize_operations.extend(operations),
                 // Note: This will abort the entire atomic batch.
-                Err(e) => return abort_with_error(format!("Failed to post-ratify - {e}")),
+                Err(e) => return Err(format!("Failed to post-ratify - {e}")),
             }
 
             /* Construct the ratifications after speculation. */
@@ -547,7 +534,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 Ratifications::try_from_iter(reward_ratifications.into_iter().chain(ratifications.into_iter()))
             else {
                 // Note: This will abort the entire atomic batch.
-                return abort_with_error("Failed to construct the ratifications after speculation".to_string());
+                return Err("Failed to construct the ratifications after speculation".to_string());
             };
 
             // Revert the changes to the stacks in the process, as this is a dry-run.
@@ -614,13 +601,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // we choose to acquire the write lock for the entire duration of this atomic batch.
             let process = self.process.write();
 
-            // A helper function abort an atomic batch with an error message while rolling back changes to the stacks in `Process`.
-            let abort_with_error = |error: String| -> Result<Vec<FinalizeOperation<N>>, String> {
-                // Rollback the stacks in the process.
+            // Revert any unstaged stacks, before the function returns.
+            defer! {
                 process.revert_stacks();
-                // Note: This will abort the entire atomic batch.
-                Err(error)
-            };
+            }
 
             // Finalize the transactions.
             for (index, transaction) in transactions.iter().enumerate() {
@@ -630,7 +614,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Ensure the index matches the expected index.
                 if index != transaction.index() {
                     // Note: This will abort the entire atomic batch.
-                    return abort_with_error(format!("Mismatch in {} transaction index", transaction.variant()));
+                    return Err(format!("Mismatch in {} transaction index", transaction.variant()));
                 }
                 // Process the transaction in an isolated atomic batch.
                 // - If the transaction succeeds, the finalize operations are stored.
@@ -641,26 +625,24 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         let (deployment, fee) = match transaction {
                             Transaction::Deploy(_, _, _, deployment, fee) => (deployment, fee),
                             // Note: This will abort the entire atomic batch.
-                            _ => return abort_with_error("Expected deploy transaction".to_string()),
+                            _ => return Err("Expected deploy transaction".to_string()),
                         };
                         // The finalize operation here involves appending the 'stack', and adding the program to the finalize tree.
                         match process.finalize_deployment(state, store, deployment, fee) {
                             // Ensure the finalize operations match the expected.
                             Ok((stack, finalize_operations)) => match finalize == &finalize_operations {
-                                // Store the stack.
+                                // Add the stack the process with the option to be reverted.
                                 true => process.stage_stack(stack),
                                 // Note: This will abort the entire atomic batch.
                                 false => {
-                                    return abort_with_error(format!(
+                                    return Err(format!(
                                         "Mismatch in finalize operations for an accepted deploy - (found: {finalize_operations:?}, expected: {finalize:?})"
                                     ));
                                 }
                             },
                             // Note: This will abort the entire atomic batch.
                             Err(error) => {
-                                return abort_with_error(format!(
-                                    "Failed to finalize an accepted deploy transaction - {error}"
-                                ));
+                                return Err(format!("Failed to finalize an accepted deploy transaction - {error}"));
                             }
                         };
                         Ok(())
@@ -670,7 +652,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         let (execution, fee) = match transaction {
                             Transaction::Execute(_, _, execution, fee) => (execution, fee),
                             // Note: This will abort the entire atomic batch.
-                            _ => return abort_with_error("Expected execute transaction".to_string()),
+                            _ => return Err("Expected execute transaction".to_string()),
                         };
                         // The finalize operation here involves calling 'update_key_value',
                         // and update the respective leaves of the finalize tree.
@@ -679,16 +661,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             Ok(finalize_operations) => {
                                 if finalize != &finalize_operations {
                                     // Note: This will abort the entire atomic batch.
-                                    return abort_with_error(format!(
+                                    return Err(format!(
                                         "Mismatch in finalize operations for an accepted execute - (found: {finalize_operations:?}, expected: {finalize:?})"
                                     ));
                                 }
                             }
                             // Note: This will abort the entire atomic batch.
                             Err(error) => {
-                                return abort_with_error(format!(
-                                    "Failed to finalize an accepted execute transaction - {error}"
-                                ));
+                                return Err(format!("Failed to finalize an accepted execute transaction - {error}"));
                             }
                         }
                         Ok(())
@@ -697,24 +677,22 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         // Extract the rejected deployment.
                         let Some(deployment) = rejected.deployment() else {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error("Expected rejected deployment".to_string());
+                            return Err("Expected rejected deployment".to_string());
                         };
                         // Compute the expected deployment ID.
                         let Ok(expected_deployment_id) = deployment.to_deployment_id() else {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error(
-                                "Failed to compute the deployment ID for a rejected deployment".to_string(),
-                            );
+                            return Err("Failed to compute the deployment ID for a rejected deployment".to_string());
                         };
                         // Retrieve the candidate deployment ID.
                         let Ok(candidate_deployment_id) = fee.deployment_or_execution_id() else {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error("Failed to retrieve the deployment ID from the fee".to_string());
+                            return Err("Failed to retrieve the deployment ID from the fee".to_string());
                         };
                         // Ensure this fee corresponds to the deployment.
                         if candidate_deployment_id != expected_deployment_id {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error("Mismatch in fee for a rejected deploy transaction".to_string());
+                            return Err("Mismatch in fee for a rejected deploy transaction".to_string());
                         }
                         // Lastly, finalize the fee.
                         match process.finalize_fee(state, store, fee) {
@@ -722,16 +700,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             Ok(finalize_operations) => {
                                 if finalize != &finalize_operations {
                                     // Note: This will abort the entire atomic batch.
-                                    return abort_with_error(format!(
+                                    return Err(format!(
                                         "Mismatch in finalize operations for a rejected deploy - (found: {finalize_operations:?}, expected: {finalize:?})"
                                     ));
                                 }
                             }
                             // Note: This will abort the entire atomic batch.
                             Err(_e) => {
-                                return abort_with_error(
-                                    "Failed to finalize the fee in a rejected deploy transaction".to_string(),
-                                );
+                                return Err("Failed to finalize the fee in a rejected deploy transaction".to_string());
                             }
                         }
                         Ok(())
@@ -740,24 +716,22 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         // Extract the rejected execution.
                         let Some(execution) = rejected.execution() else {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error("Expected rejected execution".to_string());
+                            return Err("Expected rejected execution".to_string());
                         };
                         // Compute the expected execution ID.
                         let Ok(expected_execution_id) = execution.to_execution_id() else {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error(
-                                "Failed to compute the execution ID for a rejected execution".to_string(),
-                            );
+                            return Err("Failed to compute the execution ID for a rejected execution".to_string());
                         };
                         // Retrieve the candidate execution ID.
                         let Ok(candidate_execution_id) = fee.deployment_or_execution_id() else {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error("Failed to retrieve the execution ID from the fee".to_string());
+                            return Err("Failed to retrieve the execution ID from the fee".to_string());
                         };
                         // Ensure this fee corresponds to the execution.
                         if candidate_execution_id != expected_execution_id {
                             // Note: This will abort the entire atomic batch.
-                            return abort_with_error("Mismatch in fee for a rejected execute transaction".to_string());
+                            return Err("Mismatch in fee for a rejected execute transaction".to_string());
                         }
                         // Lastly, finalize the fee.
                         match process.finalize_fee(state, store, fee) {
@@ -765,22 +739,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             Ok(finalize_operations) => {
                                 if finalize != &finalize_operations {
                                     // Note: This will abort the entire atomic batch.
-                                    return abort_with_error(format!(
+                                    return Err(format!(
                                         "Mismatch in finalize operations for a rejected execute - (found: {finalize_operations:?}, expected: {finalize:?})"
                                     ));
                                 }
                             }
                             // Note: This will abort the entire atomic batch.
                             Err(_e) => {
-                                return abort_with_error(
-                                    "Failed to finalize the fee in a rejected execute transaction".to_string(),
-                                );
+                                return Err("Failed to finalize the fee in a rejected execute transaction".to_string());
                             }
                         }
                         Ok(())
                     }
                     // Note: This will abort the entire atomic batch.
-                    _ => return abort_with_error("Invalid confirmed transaction type".to_string()),
+                    _ => return Err("Invalid confirmed transaction type".to_string()),
                 };
                 lap!(timer, "Finalizing transaction {}", transaction.id());
 
@@ -791,7 +763,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     Err(error) => {
                         eprintln!("Critical bug in finalize: {error}\n\n{transaction}");
                         // Note: This will abort the entire atomic batch.
-                        return abort_with_error(format!("Failed to finalize on transaction - {error}"));
+                        return Err(format!("Failed to finalize on transaction - {error}"));
                     }
                 }
             }
@@ -802,7 +774,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Store the finalize operations from the post-ratify.
                 Ok(operations) => ratified_finalize_operations.extend(operations),
                 // Note: This will abort the entire atomic batch.
-                Err(e) => return abort_with_error(format!("Failed to post-ratify - {e}")),
+                Err(e) => return Err(format!("Failed to post-ratify - {e}")),
             }
 
             /* Start the commit process. */
