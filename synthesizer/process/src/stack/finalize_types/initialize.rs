@@ -208,7 +208,7 @@ impl<N: Network> FinalizeTypes<N> {
             Command::Set(set) => self.check_set(stack, set)?,
             Command::BranchEq(branch_eq) => self.check_branch(stack, positions, branch_eq)?,
             Command::BranchNeq(branch_neq) => self.check_branch(stack, positions, branch_neq)?,
-            // Note that the `Position`s are checked for uniqueness when constructing `Finalize`.
+            // Note that the `Position`s are checked for uniqueness when constructing `Finalize` or `Constructor`.
             Command::Position(_) => (),
         }
         Ok(())
@@ -653,10 +653,10 @@ impl<N: Network> FinalizeTypes<N> {
                 _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
             },
             Opcode::Async => {
-                bail!("Instruction 'async' is not allowed in 'finalize'");
+                bail!("Instruction 'async' is not allowed in 'finalize' or 'constructor'.");
             }
             Opcode::Call => {
-                bail!("Instruction 'call' is not allowed in 'finalize'");
+                bail!("Instruction 'call' is not allowed in 'finalize' or 'constructor'.");
             }
             Opcode::Cast(opcode) => match opcode {
                 "cast" => {

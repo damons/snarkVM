@@ -879,7 +879,7 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
         self.storage.edition_map().contains_key_confirmed(program_id)
     }
 
-    /// Returns `true` if the given program ID and edition exists.
+    /// Returns `true` if the given program ID and edition exist.
     pub fn contains_program_id_and_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<bool> {
         self.storage.reverse_id_map().contains_key_confirmed(&(*program_id, edition))
     }

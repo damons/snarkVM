@@ -1299,7 +1299,7 @@ constructor:
     Ok(())
 }
 
-// This tests verifies that anyone can upgrade a program whose `upgradable` metadata is set to `true` and has an intentionally empty constructor.
+// This test verifies that anyone can upgrade a program whose that explicitly places no restrictions on upgrades in the constructor.
 #[test]
 fn test_anyone_can_upgrade() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -1401,9 +1401,7 @@ constructor:
     Ok(())
 }
 
-// This test checks that the following program variants cannot be upgraded:
-//  - a program with no constructor
-//  - a program with a constructor that restricts upgrades
+// This test checks that a program the fixes the expected edition cannot be upgraded.
 #[test]
 fn test_non_upgradable_programs() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -2345,4 +2343,163 @@ fn test_credits_executions() {
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
+}
+
+// This tests verifies that:
+//   - A set of programs with cyclic imports can be deployed.
+//   - A set of programs with cyclic calls cannot be deployed.
+#[test]
+fn test_cyclic_imports_and_call_graphs() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap(), rng);
+
+    // Define the programs with cyclic imports.
+    let program_a_v0 = Program::from_str(
+        r"
+program cyclic_import_a.aleo;
+
+function foo:
+    assert.eq true true;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    let program_b_v0 = Program::from_str(
+        r"
+import cyclic_import_a.aleo;
+
+program cyclic_import_b.aleo;
+
+function bar:
+    call cyclic_import_a.aleo/foo;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    let program_a_v1 = Program::from_str(
+        r"
+import cyclic_import_b.aleo;
+
+program cyclic_import_a.aleo;
+
+function foo:
+    assert.eq true true;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    let program_a_v2 = Program::from_str(
+        r"
+import cyclic_import_b.aleo;
+
+program cyclic_import_a.aleo;
+
+function foo:
+    call cyclic_import_b.aleo/bar;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    // Deploy the first version of program A.
+    let transaction = vm.deploy(&caller_private_key, &program_a_v0, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the first version of program B.
+    let transaction = vm.deploy(&caller_private_key, &program_b_v0, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Execute `foo` and `bar`.
+    let execution_foo = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_a.aleo", "foo"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let execution_bar = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_b.aleo", "bar"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[execution_foo, execution_bar], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Upgrade program A to version 1.
+    let transaction = vm.deploy(&caller_private_key, &program_a_v1, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Execute `foo` and `bar`.
+    let execution_foo = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_a.aleo", "foo"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let execution_bar = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_b.aleo", "bar"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[execution_foo, execution_bar], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Attempt to upgrade program A to version 2.
+    let result = vm.deploy(&caller_private_key, &program_a_v2, None, 0, None, rng);
+    assert!(result.is_err());
 }

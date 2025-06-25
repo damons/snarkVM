@@ -25,6 +25,8 @@ pub trait CommandTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes 
     fn branch_to(&self) -> Option<&Identifier<N>>;
     /// Returns the position name, if the command is a position command.
     fn position(&self) -> Option<&Identifier<N>>;
+    /// Returns `true` if the command is an async instruction.
+    fn is_async(&self) -> bool;
     /// Returns `true` if the command is a call instruction.
     fn is_call(&self) -> bool;
     /// Returns `true` if the command is a cast to record instruction.

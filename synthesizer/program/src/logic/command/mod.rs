@@ -110,6 +110,11 @@ impl<N: Network> CommandTrait<N> for Command<N> {
         }
     }
 
+    /// Returns `true` if the command is an async instruction.
+    fn is_async(&self) -> bool {
+        matches!(self, Command::Instruction(Instruction::Async(_)))
+    }
+
     /// Returns `true` if the command is a call instruction.
     #[inline]
     fn is_call(&self) -> bool {

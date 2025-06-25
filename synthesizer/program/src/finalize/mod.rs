@@ -122,6 +122,8 @@ impl<N: Network, Command: CommandTrait<N>> FinalizeCore<N, Command> {
             );
         }
 
+        // Ensure the command is not an async instruction.
+        ensure!(!command.is_async(), "Forbidden operation: Finalize cannot invoke an 'async' instruction");
         // Ensure the command is not a call instruction.
         ensure!(!command.is_call(), "Forbidden operation: Finalize cannot invoke a 'call'");
         // Ensure the command is not a cast to record instruction.

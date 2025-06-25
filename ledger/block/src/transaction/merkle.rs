@@ -116,7 +116,7 @@ impl<N: Network> Transaction<N> {
         // Ensure the fee index is within the Merkle tree size.
         ensure!(
             fee_index <= N::MAX_FUNCTIONS,
-            "The fee index ('{fee_index}') in the transaction tree must be less than {}",
+            "The fee index ('{fee_index}') in the transaction tree must be at most {}",
             N::MAX_FUNCTIONS
         );
         // Ensure the fee index is within the Merkle tree size.

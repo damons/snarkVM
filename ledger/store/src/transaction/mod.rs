@@ -482,7 +482,7 @@ impl<N: Network, T: TransactionStorage<N>> TransactionStore<N, T> {
         self.storage.deployment_store().contains_program_id(program_id)
     }
 
-    /// Returns `true` if the given program ID and edition exists.
+    /// Returns `true` if the given program ID and edition exist.
     pub fn contains_program_id_and_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<bool> {
         self.storage.deployment_store().contains_program_id_and_edition(program_id, edition)
     }

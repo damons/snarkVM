@@ -461,12 +461,17 @@ fn cost_in_microcredits<N: Network>(
             // Queue the futures to be tallied.
             for input in finalize.inputs() {
                 if let FinalizeType::Future(future) = input.finalize_type() {
-                    // Get the external stack for the future.
-                    let external_stack = stack_ref.get_external_stack(future.program_id())?;
                     // Increment the number of finalize blocks seen.
                     num_finalizes += 1;
+                    // If the locator matches the program ID of the provided stack, use it directly.
+                    // Otherwise, retrieve the external stack.
+                    let stack = if future.program_id() == stack.program().id() {
+                        StackRef::Internal(stack)
+                    } else {
+                        StackRef::External(stack_ref.get_external_stack(future.program_id())?)
+                    };
                     // Queue the future.
-                    finalizes.push((StackRef::External(external_stack), *future.resource()));
+                    finalizes.push((stack, *future.resource()));
                 }
             }
             // Get the finalize types.
