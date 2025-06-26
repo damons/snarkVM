@@ -64,10 +64,10 @@ use snarkvm_console_collections::merkle_tree::{MerklePath, MerkleTree};
 use snarkvm_console_types::{Field, Group, Scalar};
 use snarkvm_curves::PairingEngine;
 
+use enum_iterator::{Sequence, last};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
-use enum_iterator::{last, Sequence};
 
 /// A helper type for the BHP Merkle tree.
 pub type BHPMerkleTree<N, const DEPTH: u8> = MerkleTree<N, BHP1024<N>, BHP512<N>, DEPTH>;
@@ -108,7 +108,7 @@ pub enum ConsensusVersion {
 
 impl ConsensusVersion {
     pub fn latest() -> Self {
-        last::<ConsensusVersion>().unwrap() 
+        last::<ConsensusVersion>().unwrap()
     }
 }
 
@@ -605,7 +605,7 @@ mod tests {
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
     }
-    
+
     #[test]
     fn test_latest_consensus_version() {
         assert_eq!(ConsensusVersion::latest(), ConsensusVersion::V8); // UPDATE ME, if changed.
