@@ -67,6 +67,7 @@ use snarkvm_curves::PairingEngine;
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
+use enum_iterator::{last, Sequence};
 
 /// A helper type for the BHP Merkle tree.
 pub type BHPMerkleTree<N, const DEPTH: u8> = MerkleTree<N, BHP1024<N>, BHP512<N>, DEPTH>;
@@ -84,7 +85,7 @@ pub(crate) type VarunaVerifyingKey<N> = CircuitVerifyingKey<<N as Environment>::
 
 /// The different consensus versions.
 /// If you need the version active for a specific height, see: `N::CONSENSUS_VERSION`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Sequence)]
 pub enum ConsensusVersion {
     /// V1: The initial genesis consensus version.
     V1 = 1,
@@ -103,6 +104,12 @@ pub enum ConsensusVersion {
     /// V8: Support for program upgradability.
     // TODO (@d0cd): Update uses of V8 once consensus version is decided
     V8 = 8,
+}
+
+impl ConsensusVersion {
+    pub fn latest() -> Self {
+        last::<ConsensusVersion>().unwrap() 
+    }
 }
 
 pub trait Network:
@@ -597,5 +604,10 @@ mod tests {
         max_certificates_increasing::<CanaryV0>();
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
+    }
+    
+    #[test]
+    fn test_latest_consensus_version() {
+        assert_eq!(ConsensusVersion::latest(), ConsensusVersion::V8); // UPDATE ME, if changed.
     }
 }

@@ -3135,6 +3135,7 @@ name = "snarkvm-console-network"
 version = "3.7.1"
 dependencies = [
  "anyhow",
+ "enum-iterator",
  "indexmap 2.9.0",
  "itertools 0.11.0",
  "lazy_static",
