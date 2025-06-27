@@ -67,6 +67,7 @@ wasm = [
   "synthesizer-program/wasm",
   "synthesizer-snark/wasm"
 ]
+dev-print = [ "utilities/dev-print" ]
 
 [[bench]]
 name = "kary_merkle_tree"

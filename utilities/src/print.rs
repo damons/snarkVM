@@ -14,7 +14,7 @@
 // limitations under the License.
 
 /// If the `dev-print` feature is enabled, `println`.
-#[cfg(feature = "dev-print")]
+#[cfg(any(feature = "dev-print", test))]
 #[macro_export]
 macro_rules! dev_println {
     ($($x: tt)*) => {
@@ -23,14 +23,14 @@ macro_rules! dev_println {
 }
 
 /// If the `dev-print` feature is enabled, `println`.
-#[cfg(not(feature = "dev-print"))]
+#[cfg(not(any(feature = "dev-print", test)))]
 #[macro_export]
 macro_rules! dev_println {
     ($($x: tt)*) => {};
 }
 
 /// If the `dev-print` feature is enabled, `eprintln`.
-#[cfg(feature = "dev-print")]
+#[cfg(any(feature = "dev-print", test))]
 #[macro_export]
 macro_rules! dev_eprintln {
     ($($x: tt)*) => {
@@ -39,7 +39,7 @@ macro_rules! dev_eprintln {
 }
 
 /// If the `dev-print` feature is enabled, `eprintln`.
-#[cfg(not(feature = "dev-print"))]
+#[cfg(not(any(feature = "dev-print", test)))]
 #[macro_export]
 macro_rules! dev_eprintln {
     ($($x: tt)*) => {};

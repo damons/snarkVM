@@ -42,6 +42,7 @@ synthesis = [
 ]
 timer = [ "aleo-std/timer" ]
 wasm = [ "console/wasm" ]
+dev-print = [ "snarkvm-utilities/dev-print" ]
 
 [dependencies.circuit]
 package = "snarkvm-circuit"
