@@ -2416,8 +2416,11 @@ fn test_process_deploy_credits_program() {
     let rng = &mut TestRng::default();
 
     // Initialize an empty process without the `credits` program.
-    let empty_process =
-        Process { universal_srs: UniversalSRS::<CurrentNetwork>::load().unwrap(), stacks: Default::default() };
+    let empty_process = Process {
+        universal_srs: UniversalSRS::<CurrentNetwork>::load().unwrap(),
+        stacks: Default::default(),
+        old_stacks: Default::default(),
+    };
 
     // Construct the process.
     let process = Process::load().unwrap();

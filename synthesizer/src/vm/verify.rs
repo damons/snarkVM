@@ -251,6 +251,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Enforce the syntax restrictions on the programs based on the current consensus version.
                 // Note: We do not enforce this restriction for programs with edition one, since they may have been deployed before the restrictions were introduced.
                 //  However, we do enforce that programs with edition one, EXACTLY match their previous edition.
+                // TODO(@d0cd) This logic will need to be updated to handle programs with constructors, once upgradability rolls in.
                 if deployment.edition() == 0 {
                     // Check restricted keywords for the consensus version.
                     deployment.program().check_restricted_keywords_for_consensus_version(consensus_version)?;
@@ -265,7 +266,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
                 // Verify the deployment if it has not been verified before.
                 if !is_partially_verified {
-                    // TODO (raychu86): Record Commitment - Add logic to NOT verify deployments created prior to migration.
                     // Verify the deployment.
                     match try_vm_runtime!(|| self.check_deployment_internal(deployment, rng)) {
                         Ok(result) => result?,

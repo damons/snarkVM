@@ -57,6 +57,12 @@ impl<N: Network> Deployment<N> {
     pub fn check_is_ordered(&self) -> Result<()> {
         let program_id = self.program.id();
 
+        // Ensure the edition is either zero or one.
+        ensure!(
+            self.edition == 0 || self.edition == 1,
+            "Deployed the wrong edition (expected 0 or 1, found '{}').",
+            self.edition
+        );
         // Ensure the program contains functions.
         ensure!(
             !self.program.functions().is_empty(),
