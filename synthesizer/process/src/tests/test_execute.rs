@@ -13,14 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    CallStack,
-    InclusionVersion,
-    Process,
-    Stack,
-    Trace,
-    traits::{StackEvaluate, StackExecute},
-};
+use crate::{CallStack, InclusionVersion, Process, Stack, StackTrait as _, Trace};
 use algorithms::snark::varuna::VarunaVersion;
 use circuit::{Aleo, network::AleoV0};
 use console::{
@@ -38,7 +31,7 @@ use ledger_store::{
     FinalizeStore,
     helpers::memory::{BlockMemory, FinalizeMemory},
 };
-use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program, StackProgram};
+use synthesizer_program::{FinalizeGlobalState, FinalizeStoreTrait, Program, StackTrait};
 use synthesizer_snark::UniversalSRS;
 
 use aleo_std::StorageMode;

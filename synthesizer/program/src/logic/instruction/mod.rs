@@ -32,8 +32,7 @@ use crate::traits::{
     RegistersSignerCircuit,
     RegistersStore,
     RegistersStoreCircuit,
-    StackMatches,
-    StackProgram,
+    StackTrait,
 };
 use console::{
     network::Network,
@@ -410,7 +409,7 @@ impl<N: Network> Instruction<N> {
     #[inline]
     pub fn evaluate(
         &self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &impl StackTrait<N>,
         registers: &mut (impl RegistersSigner<N> + RegistersLoad<N> + RegistersStore<N>),
     ) -> Result<()> {
         instruction!(self, |instruction| instruction.evaluate(stack, registers))
@@ -420,7 +419,7 @@ impl<N: Network> Instruction<N> {
     #[inline]
     pub fn execute<A: circuit::Aleo<Network = N>>(
         &self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &impl StackTrait<N>,
         registers: &mut (impl RegistersSignerCircuit<N, A> + RegistersLoadCircuit<N, A> + RegistersStoreCircuit<N, A>),
     ) -> Result<()> {
         instruction!(self, |instruction| instruction.execute::<A>(stack, registers))
@@ -430,7 +429,7 @@ impl<N: Network> Instruction<N> {
     #[inline]
     pub fn finalize(
         &self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &impl StackTrait<N>,
         registers: &mut (impl RegistersLoad<N> + RegistersStore<N>),
     ) -> Result<()> {
         instruction!(self, |instruction| instruction.finalize(stack, registers))
@@ -440,7 +439,7 @@ impl<N: Network> Instruction<N> {
     #[inline]
     pub fn output_types(
         &self,
-        stack: &impl StackProgram<N>,
+        stack: &impl StackTrait<N>,
         input_types: &[RegisterType<N>],
     ) -> Result<Vec<RegisterType<N>>> {
         instruction!(self, |instruction| instruction.output_types(stack, input_types))

@@ -71,7 +71,7 @@ use synthesizer_process::{
     execution_cost_v1,
     execution_cost_v2,
 };
-use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program, StackProgram};
+use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program, StackTrait as _};
 use synthesizer_snark::VerifyingKey;
 use utilities::try_vm_runtime;
 
