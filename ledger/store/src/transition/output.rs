@@ -15,7 +15,6 @@
 
 use crate::{
     atomic_batch_scope,
-    cow_to_copied,
     helpers::{Map, MapRead},
 };
 use console::{
@@ -279,14 +278,14 @@ pub trait OutputStorage<N: Network>: Clone + Send + Sync {
             (Output::Record($output_id:ident, $output:expr)) => {
                 match $output {
                     Cow::Borrowed((checksum, Some(record))) => Output::Record($output_id, *checksum, Some(record.clone()), match self.record_sender_map().get_confirmed(&record.nonce())? {
-                        Some(sender) => cow_to_copied!(sender),
+                        Some(sender) => *sender,
                         None => None,
                     }),
                     Cow::Borrowed((checksum, None)) => Output::Record($output_id, *checksum, None, None),
                     Cow::Owned((checksum, Some(record))) => {
                         let record_nonce = *record.nonce(); // We extract the nonce here to avoid cloning the entire record.
                         Output::Record($output_id, checksum, Some(record), match self.record_sender_map().get_confirmed(&record_nonce)? {
-                            Some(sender) => cow_to_copied!(sender),
+                            Some(sender) => *sender,
                             None => None,
                         })
                     },
