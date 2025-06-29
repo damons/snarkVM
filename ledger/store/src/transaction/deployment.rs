@@ -23,9 +23,9 @@ use console::{
     network::prelude::*,
     program::{Identifier, ProgramID, ProgramOwner},
 };
-use ledger_block::{Deployment, Fee, Transaction};
-use synthesizer_program::Program;
-use synthesizer_snark::{Certificate, VerifyingKey};
+use snarkvm_ledger_block::{Deployment, Fee, Transaction};
+use snarkvm_synthesizer_program::Program;
+use snarkvm_synthesizer_snark::{Certificate, VerifyingKey};
 
 use aleo_std_storage::StorageMode;
 use anyhow::Result;
@@ -907,8 +907,8 @@ mod tests {
         let deployment_store = DeploymentMemory::open(fee_store).unwrap();
 
         // Sample the transactions.
-        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(0, true, rng);
-        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, false, rng);
+        let transaction_0 = snarkmv_ledger_test_helpers::sample_deployment_transaction(0, true, rng);
+        let transaction_1 = snarkmv_ledger_test_helpers::sample_deployment_transaction(1, false, rng);
         let transactions = vec![transaction_0, transaction_1];
 
         for transaction in transactions {
@@ -976,8 +976,8 @@ mod tests {
         let deployment_store = DeploymentMemory::open(fee_store).unwrap();
 
         // Sample the transactions.
-        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(0, true, rng);
-        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, false, rng);
+        let transaction_0 = snarkvm_ledger_test_helpers::sample_deployment_transaction(0, true, rng);
+        let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, false, rng);
         let transactions = vec![transaction_0, transaction_1];
 
         for transaction in transactions {
