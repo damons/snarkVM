@@ -111,10 +111,7 @@ version = "1"
 optional = true
 
 [dependencies.rocksdb]
-# TODO: switch back to the version once 0.24 is released
-# version = "0.24"
-git = "https://github.com/rust-rocksdb/rust-rocksdb.git"
-rev = "55d68c30c8d5a1924b794678d9f468f3559c2685"
+version = "0.21"
 default-features = false
 features = [ "lz4" ]
 optional = true
