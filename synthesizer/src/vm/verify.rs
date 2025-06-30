@@ -510,7 +510,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Verify the fee, if it has not been partially-verified before.
         let verification = match is_partially_verified {
             true => Ok(()),
-            false => self.process.read().verify_fee(varuna_version, inclusion_version, fee, deployment_or_execution_id),
+            false => self.process.read().verify_fee(
+                consensus_version,
+                varuna_version,
+                inclusion_version,
+                fee,
+                deployment_or_execution_id,
+            ),
         };
         lap!(timer, "Verify the fee");
 
