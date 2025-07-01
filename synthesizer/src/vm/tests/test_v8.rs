@@ -155,12 +155,7 @@ function dummy2:
     vm.add_next_block(&block)?;
 
     // Attempt to redeploy the program again after `ConsensusVersion::V8`.
-    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
-    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
-    vm.add_next_block(&block)?;
+    assert!(vm.deploy(&caller_private_key, &program, None, 0, None, rng).is_err());
 
     // Drop the VM.
     drop(vm);
@@ -170,7 +165,7 @@ function dummy2:
 
     // Check that the latest block.
     let latest_block = vm.store.block_store().current_block_height();
-    assert_eq!(latest_block, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? + 4);
+    assert_eq!(latest_block, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? + 3);
 
     // Check that the program can still be executed.
     let execute = vm.execute(
@@ -456,12 +451,7 @@ function dummy:
     vm.add_next_block(&block)?;
 
     // Verify that the program cannot be redeployed further.
-    let deployment = vm.deploy(&other_private_key, &program, None, 0, None, rng)?;
-    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng)?;
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
-    vm.add_next_block(&block)?;
+    assert!(vm.deploy(&other_private_key, &program, None, 0, None, rng).is_err());
 
     Ok(())
 }
