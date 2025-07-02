@@ -43,4 +43,6 @@ workspace = true
 features = [ "derive" ]
 
 [features]
+default = [ ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
+serial = [ "snarkvm-utilities/serial" ]

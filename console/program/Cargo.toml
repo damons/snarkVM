@@ -56,3 +56,6 @@ features = [ "preserve_order" ]
 
 [dev-dependencies.bincode]
 workspace = true
+
+[lints.clippy]
+manual_div_ceil = "allow"

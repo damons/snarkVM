@@ -26,4 +26,5 @@ workspace = true
 [dev-dependencies.snarkvm-utilities]
 workspace = true
 
-[features]
+[lints.clippy]
+manual_div_ceil = "allow"

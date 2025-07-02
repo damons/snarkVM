@@ -43,6 +43,6 @@ pub enum SerializationError {
 
 impl From<SerializationError> for std::io::Error {
     fn from(error: SerializationError) -> Self {
-        std::io::Error::new(std::io::ErrorKind::Other, format!("{error}"))
+        std::io::Error::other(format!("{error}"))
     }
 }

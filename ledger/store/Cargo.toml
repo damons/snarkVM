@@ -128,3 +128,6 @@ workspace = true
 
 [dev-dependencies.tracing-test]
 version = "0.2"
+
+[lints.clippy]
+uninlined_format_args = "allow"

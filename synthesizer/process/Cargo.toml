@@ -141,3 +141,6 @@ workspace = true
 
 [dev-dependencies.tempfile]
 workspace = true
+
+[lints.clippy]
+uninlined_format_args = "allow"

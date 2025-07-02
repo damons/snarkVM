@@ -22,3 +22,6 @@ workspace = true
 
 [dev-dependencies.anyhow]
 workspace = true
+
+[lints.clippy]
+manual_div_ceil = "allow"

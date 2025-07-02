@@ -54,5 +54,5 @@ pub mod serialize;
 pub use serialize::*;
 
 pub fn error<S: ToString>(msg: S) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::Other, msg.to_string())
+    std::io::Error::other(msg.to_string())
 }

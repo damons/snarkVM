@@ -70,3 +70,6 @@ workspace = true
 profiler = [ "aleo-std/profiler" ]
 serial = [ ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
+
+[lints.clippy]
+manual_div_ceil = "allow"
