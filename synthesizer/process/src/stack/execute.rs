@@ -442,7 +442,7 @@ impl<N: Network> Stack<N> {
             lap!(timer, "Save the transition");
         }
         // If the circuit is in `CheckDeployment` mode, then save the assignment.
-        else if let CallStack::CheckDeployment(_, _, ref assignments, _, _) = registers.call_stack_ref() {
+        else if let CallStack::CheckDeployment(_, _, assignments, _, _) = registers.call_stack_ref() {
             // Construct the call metrics.
             let metrics = CallMetrics {
                 program_id: *self.program_id(),
@@ -457,7 +457,7 @@ impl<N: Network> Stack<N> {
             lap!(timer, "Save the circuit assignment");
         }
         // If the circuit is in `Execute` mode, then execute the circuit into a transition.
-        else if let CallStack::Execute(_, ref trace) = registers.call_stack_ref() {
+        else if let CallStack::Execute(_, trace) = registers.call_stack_ref() {
             registers.ensure_console_and_circuit_registers_match()?;
 
             // Construct the transition.
@@ -484,7 +484,7 @@ impl<N: Network> Stack<N> {
             )?;
         }
         // If the circuit is in `PackageRun` mode, then save the assignment.
-        else if let CallStack::PackageRun(_, _, ref assignments) = registers.call_stack_ref() {
+        else if let CallStack::PackageRun(_, _, assignments) = registers.call_stack_ref() {
             // Construct the call metrics.
             let metrics = CallMetrics {
                 program_id: *self.program_id(),
