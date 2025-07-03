@@ -385,21 +385,12 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         match self.id_edition_map().get_confirmed(transaction_id)? {
             Some(edition) => Ok(Some(cow_to_copied!(edition))),
             None => {
-                // Get the program ID associated with the transaction ID.
-                let program_id = match self.get_program_id(transaction_id)? {
-                    Some(program_id) => program_id,
-                    None => return Ok(None),
+                // Check if the program exists in the store.
+                if self.get_program_id(transaction_id)?.is_none() {
+                    return Ok(None);
                 };
-                // Get the latest edition for the program ID.
-                let latest_edition = match self.get_latest_edition_for_program(&program_id)? {
-                    Some(edition) => edition,
-                    None => return Ok(None),
-                };
-                // Verify that the latest edition is zero.
-                // Prior to `ConsensusVersion::V8`, this must be the case because if a program is not in the `IDEditionMap` but exists,
+                // Prior to `ConsensusVersion::V8`, if a program is not in the `IDEditionMap` but exists,
                 // then it must have been deployed when editions were exclusively zero.
-                ensure!(latest_edition == 0, "Failed to get the edition for transaction '{transaction_id}'");
-                // Return the edition.
                 Ok(Some(0))
             }
         }
