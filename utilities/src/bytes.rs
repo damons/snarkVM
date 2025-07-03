@@ -96,6 +96,7 @@ pub trait FromBytesUnchecked {
     }
 }
 
+/// Helper struct to serialize an object.
 pub struct ToBytesSerializer<T: ToBytes>(PhantomData<T>);
 
 impl<T: ToBytes> ToBytesSerializer<T> {

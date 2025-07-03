@@ -20,11 +20,18 @@ edition = "2024"
 name = "block"
 path = "benches/block.rs"
 harness = false
+required-features = [ "test-helpers", "rocks" ]
 
 [[bench]]
 name = "bonded_mapping"
 path = "benches/bonded_mapping.rs"
 harness = false
+
+[[bench]]
+name = "store"
+path = "benches/store.rs"
+harness = false
+required-features = [ "test-helpers", "rocks" ]
 
 [[bench]]
 name = "dag"
@@ -72,7 +79,8 @@ test = [
 test-helpers = [
   "snarkvm-ledger-test-helpers",
   "snarkvm-ledger-committee/test-helpers",
-  "snarkvm-ledger-narwhal/test-helpers"
+  "snarkvm-ledger-narwhal/test-helpers",
+  "dep:snarkvm-circuit"
 ]
 test_targets = [
   "snarkvm-console/test_targets",
@@ -90,6 +98,10 @@ workspace = true
 
 [dependencies.snarkvm-ledger-committee]
 workspace = true
+
+[dependencies.snarkvm-circuit]
+workspace = true
+optional = true
 
 [dependencies.snarkvm-ledger-narwhal]
 workspace = true
@@ -155,12 +167,20 @@ workspace = true
 workspace = true
 features = [ "filesystem" ]
 
+[dev-dependencies.snarkvm-ledger]
+workspace = true
+features = [ "test-helpers" ]
+
 [dev-dependencies.snarkvm-ledger-block]
 workspace = true
 features = [ "test" ]
 
 [dev-dependencies.snarkvm-ledger-test-helpers]
 workspace = true
+
+[dev-dependencies.aleo-std-storage]
+version = "1"
+default-features = false
 
 [dev-dependencies.serde_json]
 workspace = true
