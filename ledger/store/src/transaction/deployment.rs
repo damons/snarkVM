@@ -637,7 +637,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         };
 
         // Retrieve the owner.
-        let owner = match self.get_latest_owner(deployment.program_id())? {
+        let owner = match self.get_owner_with_edition(deployment.program_id(), deployment.edition())? {
             Some(owner) => owner,
             None => bail!("Failed to get the owner for transaction '{transaction_id}'"),
         };
