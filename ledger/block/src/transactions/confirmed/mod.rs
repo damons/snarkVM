@@ -71,10 +71,11 @@ impl<N: Network> ConfirmedTransaction<N> {
                     finalize_operations.len()
                 );
             }
-            // Ensure the number of program mappings matches the number of 'InitializeMapping' finalize operations.
-            if num_initialize_mappings != program.mappings().len() {
+            // Ensure the number of 'InitializeMapping' finalize operations either matches the number of program mappings or is zero.
+            // The first case happens when a program is initially deployed. The second case happens when a program is re-deployed.
+            if num_initialize_mappings != program.mappings().len() && num_initialize_mappings != 0 {
                 bail!(
-                    "Transaction '{}' (deploy) must contain '{}' 'InitializeMapping' operations (found '{num_initialize_mappings}')",
+                    "Transaction '{}' (deploy) must contain either '{}' or zero 'InitializeMapping' operations (found '{num_initialize_mappings}')",
                     transaction.id(),
                     program.mappings().len(),
                 )

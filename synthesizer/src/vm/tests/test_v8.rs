@@ -31,6 +31,7 @@ use ledger_block::{Deployment, Transaction};
 //  - an existing program cannot be redeployed with different code after `ConsensusVersion::V8`
 //  - an existing program can be redeployed with the same code after `ConsensusVersion::V8`
 //  - an existing program can only be redeployed once after `ConsensusVersion::V8`
+//  - a program with a mapping can be redeployed after `ConsensusVersion::V8`
 //  - after `ConsensusVersion::V8`, existing programs cannot be executed until they are redeployed.
 //  - the VM can be loaded from a store at the very end.
 #[test]
@@ -62,12 +63,18 @@ fn test_redeployment() -> Result<()> {
     let program = Program::from_str(
         r"
 program test_redeployment.aleo;
+mapping foo:
+    key as address.public;
+    value as u64.public;
 function dummy:
     ",
     )?;
     let program_diff = Program::from_str(
         r"
 program test_redeployment.aleo;
+mapping foo:
+    key as address.public;
+    value as u64.public;
 function dummy:
 function dummy2:
     ",
