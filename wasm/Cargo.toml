@@ -48,6 +48,7 @@ ledger = [
 ]
 synthesizer = [ "snarkvm-synthesizer" ]
 utilities = [ "snarkvm-utilities" ]
+dev-print = [ "snarkvm-utilities/dev-print" ]
 
 [dependencies.snarkvm-console]
 path = "../console"

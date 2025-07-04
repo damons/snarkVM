@@ -56,6 +56,9 @@ pub use bits::*;
 pub mod bytes;
 pub use bytes::*;
 
+#[macro_use]
+mod print;
+
 pub mod error;
 pub use error::*;
 

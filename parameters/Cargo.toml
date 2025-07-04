@@ -31,6 +31,7 @@ no_std_out = [ ]
 remote = [ "curl" ]
 rocks = [ "snarkvm-ledger-store/rocks" ]
 wasm = [ "encoding", "js-sys", "web-sys" ]
+dev-print = [ "snarkvm-utilities/dev-print" ]
 
 [dependencies.snarkvm-curves]
 path = "../curves"
