@@ -87,6 +87,7 @@ pub enum ConsensusVersion {
     V6 = 6,
     /// V7: Update to program rules.
     V7 = 7,
+    V8 = 8,
 }
 
 pub trait Network:
@@ -136,9 +137,9 @@ pub trait Network:
     /// The cost in microcredits per constraint for the deployment transaction.
     const SYNTHESIS_FEE_MULTIPLIER: u64 = 25; // 25 microcredits per constraint
     /// The maximum number of variables in a deployment.
-    const MAX_DEPLOYMENT_VARIABLES: u64 = 1 << 20; // 1,048,576 variables
+    const MAX_DEPLOYMENT_VARIABLES: u64 = (1 << 20) + (1 << 19); // 1,572,864 variables
     /// The maximum number of constraints in a deployment.
-    const MAX_DEPLOYMENT_CONSTRAINTS: u64 = 1 << 20; // 1,048,576 constraints
+    const MAX_DEPLOYMENT_CONSTRAINTS: u64 = (1 << 20) + (1 << 19); // 1,572,864 constraints
     /// The maximum number of microcredits that can be spent as a fee.
     const MAX_FEE: u64 = 1_000_000_000_000_000;
     /// The maximum number of microcredits that can be spent on a transaction's finalize scope.
@@ -226,7 +227,7 @@ pub trait Network:
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 7];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8];
     ///  A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: This value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
