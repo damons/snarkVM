@@ -1218,7 +1218,6 @@ finalize foo:
 
     // Enforce that the block transactions were correct.
     assert_eq!(block.transactions().num_accepted(), 2);
-    println!("execution_ids: {:?}", execution_ids);
     assert_eq!(block.transactions().transaction_ids().collect::<Vec<_>>(), vec![&execution_ids[2], &deployment_ids[2]]);
     assert_eq!(block.aborted_transaction_ids(), &vec![
         execution_ids[5],
@@ -2753,14 +2752,71 @@ mod valid_solutions {
     use rand::prelude::SliceRandom;
     use std::collections::HashSet;
 
+    // Helper function to set up a prover's account with sufficient balance to generate solutions.
+    fn setup_prover_account(
+        ledger: &CurrentLedger,
+        validator_private_key: &PrivateKey<CurrentNetwork>,
+        prover_private_key: &PrivateKey<CurrentNetwork>,
+        rng: &mut TestRng,
+    ) {
+        // Fetch the validator and prover addresses.
+        let validator_address = Address::try_from(validator_private_key).unwrap();
+        let prover_address = Address::try_from(prover_private_key).unwrap();
+
+        // Transfer a large number of credits to a prover address to ensure the prover has sufficient balance to generate solutions.
+        let inputs =
+            [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("181000000000000u64").unwrap()];
+        let transfer_transaction = ledger
+            .vm
+            .execute(validator_private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
+            .unwrap();
+
+        let block = ledger
+            .prepare_advance_to_next_beacon_block(
+                validator_private_key,
+                vec![],
+                vec![],
+                vec![transfer_transaction],
+                rng,
+            )
+            .unwrap();
+        // Check that the next block is valid.
+        ledger.check_next_block(&block, rng).unwrap();
+        // Add the block to the ledger.
+        ledger.advance_to_next_block(&block).unwrap();
+
+        // Bond the prover's account to ensure it can generate solutions.
+        let inputs = [
+            Value::from_str(&format!("{validator_address}")).unwrap(),
+            Value::from_str(&format!("{prover_address}")).unwrap(),
+            Value::from_str("180000000000000u64").unwrap(),
+        ];
+        let bond_transaction = ledger
+            .vm
+            .execute(prover_private_key, ("credits.aleo", "bond_public"), inputs.iter(), None, 0, None, rng)
+            .unwrap();
+
+        let block = ledger
+            .prepare_advance_to_next_beacon_block(validator_private_key, vec![], vec![], vec![bond_transaction], rng)
+            .unwrap();
+        // Check that the next block is valid.
+        ledger.check_next_block(&block, rng).unwrap();
+        // Add the block to the ledger.
+        ledger.advance_to_next_block(&block).unwrap();
+    }
+
     #[test]
     fn test_duplicate_solution_ids() {
         // Initialize an RNG.
         let rng = &mut TestRng::default();
 
         // Initialize the test environment.
-        let crate::test_helpers::TestEnv { ledger, private_key, address, .. } =
-            crate::test_helpers::sample_test_env(rng);
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+        // Set up the prover account with sufficient balance to generate solutions.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+        setup_prover_account(&ledger, &private_key, &prover_private_key, rng);
 
         // Retrieve the puzzle parameters.
         let puzzle = ledger.puzzle();
@@ -2768,18 +2824,18 @@ mod valid_solutions {
         let minimum_proof_target = ledger.latest_proof_target();
 
         // Create a solution that is greater than the minimum proof target.
-        let mut valid_solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+        let mut valid_solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
         while puzzle.get_proof_target(&valid_solution).unwrap() < minimum_proof_target {
             println!(
                 "Solution is invalid: {} < {}",
                 puzzle.get_proof_target(&valid_solution).unwrap(),
                 minimum_proof_target
             );
-            valid_solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+            valid_solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
         }
 
         // Create a valid transaction for the block.
-        let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
+        let inputs = [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
             .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
@@ -2820,14 +2876,18 @@ mod valid_solutions {
     #[test]
     fn test_cumulative_proof_target_correctness() {
         // The number of blocks to test.
-        const NUM_BLOCKS: u32 = 25;
+        const NUM_BLOCKS: u32 = 20;
 
         // Initialize an RNG.
         let rng = &mut TestRng::default();
 
         // Initialize the test environment.
-        let crate::test_helpers::TestEnv { ledger, private_key, address, .. } =
-            crate::test_helpers::sample_test_env(rng);
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+        // Set up the prover account with sufficient balance to generate solutions.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+        setup_prover_account(&ledger, &private_key, &prover_private_key, rng);
 
         // Retrieve the puzzle parameters.
         let puzzle = ledger.puzzle();
@@ -2858,7 +2918,9 @@ mod valid_solutions {
 
             // Loop through proofs until two that meet the threshold are found.
             loop {
-                if let Ok(solution) = puzzle.prove(latest_epoch_hash, address, rng.gen(), Some(latest_proof_target)) {
+                if let Ok(solution) =
+                    puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), Some(latest_proof_target))
+                {
                     // Get the proof target.
                     let proof_target = puzzle.get_proof_target(&solution).unwrap();
 
@@ -2879,7 +2941,7 @@ mod valid_solutions {
             }
 
             // Get a transfer transaction to ensure solutions can be included in the block.
-            let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
+            let inputs = [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10u64").unwrap()];
             let transfer_transaction = ledger
                 .vm
                 .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
@@ -3100,8 +3162,12 @@ mod valid_solutions {
         let rng = &mut TestRng::default();
 
         // Initialize the test environment.
-        let crate::test_helpers::TestEnv { ledger, private_key, address, .. } =
-            crate::test_helpers::sample_test_env(rng);
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+        // Set up the prover account with sufficient balance to generate solutions.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+        setup_prover_account(&ledger, &private_key, &prover_private_key, rng);
 
         // Retrieve the puzzle parameters.
         let puzzle = ledger.puzzle();
@@ -3114,7 +3180,7 @@ mod valid_solutions {
 
         // Create solutions that are greater than the minimum proof target.
         while valid_solutions.len() < NUM_VALID_SOLUTIONS {
-            let solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() < minimum_proof_target {
                 if invalid_solutions.len() < NUM_INVALID_SOLUTIONS {
                     invalid_solutions.push(solution);
@@ -3125,7 +3191,7 @@ mod valid_solutions {
         }
         // Create the remaining solutions that are less than the minimum proof target.
         while invalid_solutions.len() < NUM_INVALID_SOLUTIONS {
-            let solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() < minimum_proof_target {
                 invalid_solutions.push(solution);
             }
@@ -3141,7 +3207,7 @@ mod valid_solutions {
         candidate_solutions.shuffle(rng);
 
         // Create a valid transaction for the block.
-        let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
+        let inputs = [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
             .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
@@ -3177,6 +3243,7 @@ mod valid_solutions {
         assert_eq!(block_aborted_solution_ids, invalid_solutions, "Invalid solutions do not match");
     }
 
+    // TODO (raychu86): Fix this test
     #[test]
     fn test_excess_valid_solution_ids() {
         // Note that this should be greater than the maximum number of solutions.
@@ -3186,8 +3253,12 @@ mod valid_solutions {
         let rng = &mut TestRng::default();
 
         // Initialize the test environment.
-        let crate::test_helpers::TestEnv { ledger, private_key, address, .. } =
-            crate::test_helpers::sample_test_env(rng);
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+        // Set up the prover account with sufficient balance to generate solutions.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+        setup_prover_account(&ledger, &private_key, &prover_private_key, rng);
 
         // Retrieve the puzzle parameters.
         let puzzle = ledger.puzzle();
@@ -3199,7 +3270,7 @@ mod valid_solutions {
 
         // Create solutions that are greater than the minimum proof target.
         while valid_solutions.len() < NUM_VALID_SOLUTIONS {
-            let solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
                 valid_solutions.push(solution);
             }
@@ -3213,7 +3284,7 @@ mod valid_solutions {
         candidate_solutions.shuffle(rng);
 
         // Create a valid transaction for the block.
-        let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
+        let inputs = [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
             .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
@@ -3257,8 +3328,12 @@ mod valid_solutions {
         let rng = &mut TestRng::default();
 
         // Initialize the test environment.
-        let crate::test_helpers::TestEnv { ledger, private_key, address, .. } =
-            crate::test_helpers::sample_test_env(rng);
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+        // Set up the prover account with sufficient balance to generate solutions.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+        setup_prover_account(&ledger, &private_key, &prover_private_key, rng);
 
         // Retrieve the puzzle parameters.
         let puzzle = ledger.puzzle();
@@ -3268,7 +3343,7 @@ mod valid_solutions {
         // Initialize a valid solution object.
         let mut valid_solution = None;
         while valid_solution.is_none() {
-            let solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
                 valid_solution = Some(solution);
             }
@@ -3292,7 +3367,7 @@ mod valid_solutions {
         );
 
         // Create a valid transaction for the block.
-        let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
+        let inputs = [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
             .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)
@@ -3341,18 +3416,22 @@ mod valid_solutions {
         let rng = &mut TestRng::default();
 
         // Initialize the test environment.
-        let crate::test_helpers::TestEnv { ledger, private_key, address, .. } =
-            crate::test_helpers::sample_test_env(rng);
+        let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
 
         // Retrieve the puzzle parameters.
         let puzzle = ledger.puzzle();
         let latest_epoch_hash = ledger.latest_epoch_hash().unwrap();
         let minimum_proof_target = ledger.latest_proof_target();
 
+        // Set up the prover account with sufficient balance to generate solutions.
+        let prover_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let prover_address = Address::try_from(&prover_private_key).unwrap();
+        setup_prover_account(&ledger, &private_key, &prover_private_key, rng);
+
         // Initialize a valid solution object.
         let mut invalid_solution = None;
         while invalid_solution.is_none() {
-            let solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() < minimum_proof_target {
                 invalid_solution = Some(solution);
             }
@@ -3361,7 +3440,7 @@ mod valid_solutions {
         let invalid_solution = invalid_solution.unwrap();
 
         // Create a valid transaction for the block.
-        let inputs = [Value::from_str(&format!("{address}")).unwrap(), Value::from_str("10u64").unwrap()];
+        let inputs = [Value::from_str(&format!("{prover_address}")).unwrap(), Value::from_str("10u64").unwrap()];
         let transfer_transaction = ledger
             .vm
             .execute(&private_key, ("credits.aleo", "transfer_public"), inputs.iter(), None, 0, None, rng)

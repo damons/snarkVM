@@ -45,6 +45,7 @@ wasm = [
   "synthesizer-snark/wasm"
 ]
 timer = [ "aleo-std/timer" ]
+dev-print = [ "utilities/dev-print" ]
 
 [[bench]]
 name = "stack_operations"
