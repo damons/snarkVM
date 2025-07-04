@@ -16,7 +16,7 @@
 use super::*;
 
 use ledger_committee::{MAX_DELEGATORS, MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE};
-use utilities::{cfg_sort_by_cached_key, defer};
+use utilities::{cfg_sort_by_cached_key, defer, dev_eprintln};
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Speculates on the given list of transactions in the VM.
@@ -363,8 +363,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                 Ok(result) => result,
                                 Err(error) => {
                                     // Note: On failure, skip this transaction, and continue speculation.
-                                    #[cfg(debug_assertions)]
-                                    eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
+                                    dev_eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
                                     // Store the aborted transaction.
                                     aborted.push((transaction.clone(), error.to_string()));
                                     // Continue to the next transaction.
@@ -387,8 +386,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     Ok(result) => result,
                                     Err(error) => {
                                         // Note: On failure, skip this transaction, and continue speculation.
-                                        #[cfg(debug_assertions)]
-                                        eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
+                                        dev_eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
                                         // Store the aborted transaction.
                                         aborted.push((transaction.clone(), error.to_string()));
                                         // Continue to the next transaction.
@@ -426,8 +424,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                         }
                                         Err(error) => {
                                             // Note: On failure, skip this transaction, and continue speculation.
-                                            #[cfg(debug_assertions)]
-                                            eprintln!("Failed to finalize the fee in a rejected execute - {error}");
+                                            dev_eprintln!("Failed to finalize the fee in a rejected execute - {error}");
                                             // Store the aborted transaction.
                                             aborted.push((transaction.clone(), error.to_string()));
                                             // Continue to the next transaction.

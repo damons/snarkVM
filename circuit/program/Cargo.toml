@@ -59,3 +59,4 @@ version = "0.8"
 [features]
 default = [ "enable_console" ]
 enable_console = [ "console" ]
+dev-print = [ "snarkvm-utilities/dev-print" ]

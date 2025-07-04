@@ -21,7 +21,6 @@ pub use assignment_v0::*;
 mod assignment;
 pub use assignment::*;
 
-#[cfg(debug_assertions)]
 use crate::Stack;
 
 use circuit::{
