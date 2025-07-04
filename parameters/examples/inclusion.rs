@@ -79,8 +79,7 @@ fn write_metadata(filename: &str, metadata: &Value) -> Result<()> {
 
 /// Returns the assignment for verifying the state path.
 #[allow(clippy::type_complexity)]
-pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assignment<N::Field>, StatePath<N>, Field<N>)>
-{
+pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assignment<N::Field>, StatePath<N>, Field<N>)> {
     // Initialize the consensus store.
     let store = ConsensusStore::<N, LedgerType<N>>::open(StorageMode::new_test(None))?;
     // Initialize a new VM.
@@ -109,17 +108,16 @@ pub fn sample_assignment_v0<N: Network, A: Aleo<Network = N>>() -> Result<(Assig
     let serial_number = Record::<N, Plaintext<N>>::serial_number_from_gamma(&gamma, *commitment)?;
 
     // Construct the assignment for the inclusion circuit.
-    let assignment =
-        InclusionV0Assignment::new(state_path.clone(), *commitment, gamma, serial_number, Default::default(), true)
-            .to_circuit_assignment::<A>()?;
+    let assignment = InclusionV0Assignment::new(state_path.clone(), *commitment, gamma, serial_number, Default::default(), true)
+        .to_circuit_assignment::<A>()?;
 
     Ok((assignment, state_path, serial_number))
 }
 
 /// Returns the assignment for verifying the state path.
 #[allow(clippy::type_complexity)]
-pub fn sample_assignment<N: Network, A: Aleo<Network = N>>()
--> Result<(Assignment<N::Field>, StatePath<N>, Field<N>, bool, u32)> {
+pub fn sample_assignment<N: Network, A: Aleo<Network = N>>() -> Result<(Assignment<N::Field>, StatePath<N>, Field<N>, bool, u32)>
+{
     // Initialize the consensus store.
     let store = ConsensusStore::<N, LedgerType<N>>::open(StorageMode::new_test(None))?;
     // Initialize a new VM.
@@ -198,8 +196,7 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
             &proof
         ));
         // Ensure using the wrong varuna version is not valid.
-        let wrong_varuna_version =
-            if varuna_version == VarunaVersion::V1 { VarunaVersion::V2 } else { VarunaVersion::V1 };
+        let wrong_varuna_version = if varuna_version == VarunaVersion::V1 { VarunaVersion::V2 } else { VarunaVersion::V1 };
         assert!(!verifying_key.verify(
             inclusion_function_name,
             wrong_varuna_version,
@@ -236,10 +233,8 @@ pub fn inclusion<N: Network, A: Aleo<Network = N>>() -> Result<()> {
     write_remote(&format!("{inclusion_function_name}.prover"), &proving_key_checksum, &proving_key_bytes)?;
     write_local(&format!("{inclusion_function_name}.verifier"), &verifying_key_bytes)?;
 
-    commands.push(format!(
-        "upload \"{}\"",
-        versioned_filename(&format!("{inclusion_function_name}.prover"), &proving_key_checksum)
-    ));
+    commands
+        .push(format!("upload \"{}\"", versioned_filename(&format!("{inclusion_function_name}.prover"), &proving_key_checksum)));
 
     // Print the commands.
     println!("\nNow, perform the following operations:\n");

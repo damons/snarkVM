@@ -1167,8 +1167,8 @@ mod credits_migration_tests {
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
-    const RECORD_UPGRADE_LIMIT: u64 = 500_000_000_000u64;
-    const TOTAL_UPGRADE_LIMIT: u64 = 3_000_000_000_000u64;
+    const RECORD_UPGRADE_LIMIT: u64 = 1_000_000_000_000u64;
+    const TOTAL_UPGRADE_LIMIT: u64 = 4_000_000_000_000u64;
 
     #[cfg(feature = "test")]
     #[test]
@@ -1408,7 +1408,7 @@ mod credits_migration_tests {
                     Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                     _ => panic!("Invalid record"),
                 };
-                assert!(amount <= 500_000_000_000u64);
+                assert!(amount <= RECORD_UPGRADE_LIMIT);
                 total_upgraded += amount;
                 let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
                 vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()

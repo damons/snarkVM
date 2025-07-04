@@ -71,6 +71,17 @@ lazy_static! {
     /// The Poseidon hash function, using a rate of 8.
     pub static ref CANARY_POSEIDON_8: Poseidon8<CanaryV0> = Poseidon8::<CanaryV0>::setup("AleoPoseidon8").expect("Failed to setup Poseidon8");
 
+    pub static ref CANARY_CREDITS_V0_PROVING_KEYS: IndexMap<String, Arc<VarunaProvingKey<Console>>> = {
+        let mut map = IndexMap::new();
+        snarkvm_parameters::insert_canary_credit_v0_keys!(map, VarunaProvingKey<Console>, Prover);
+        map
+    };
+    pub static ref CANARY_CREDITS_V0_VERIFYING_KEYS: IndexMap<String, Arc<VarunaVerifyingKey<Console>>> = {
+        let mut map = IndexMap::new();
+        snarkvm_parameters::insert_canary_credit_v0_keys!(map, VarunaVerifyingKey<Console>, Verifier);
+        map
+    };
+
     pub static ref CANARY_CREDITS_PROVING_KEYS: IndexMap<String, Arc<VarunaProvingKey<Console>>> = {
         let mut map = IndexMap::new();
         snarkvm_parameters::insert_canary_credit_keys!(map, VarunaProvingKey<Console>, Prover);
@@ -212,6 +223,20 @@ impl Network for CanaryV0 {
     /// Returns the restrictions list as a JSON-compatible string.
     fn restrictions_list_as_str() -> &'static str {
         snarkvm_parameters::canary::RESTRICTIONS_LIST
+    }
+
+    /// Returns the proving key for the given function name in the v0 version of `credits.aleo`.
+    fn get_credits_v0_proving_key(function_name: String) -> Result<&'static Arc<VarunaProvingKey<Self>>> {
+        CANARY_CREDITS_V0_PROVING_KEYS
+            .get(&function_name)
+            .ok_or_else(|| anyhow!("Proving key (v0) for credits.aleo/{function_name}' not found"))
+    }
+
+    /// Returns the verifying key for the given function name in the v0 version of `credits.aleo`.
+    fn get_credits_v0_verifying_key(function_name: String) -> Result<&'static Arc<VarunaVerifyingKey<Self>>> {
+        CANARY_CREDITS_V0_VERIFYING_KEYS
+            .get(&function_name)
+            .ok_or_else(|| anyhow!("Verifying key (v0) for credits_v0.aleo/{function_name}' not found"))
     }
 
     /// Returns the proving key for the given function name in `credits.aleo`.
