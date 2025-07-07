@@ -44,6 +44,26 @@ impl<N: Network> Process<N> {
         }
         lap!(timer, "Insert the verifying keys");
 
+        // Determine which mappings must be initialized.
+        let mappings = match deployment.edition().is_zero() {
+            true => deployment.program().mappings().values().collect::<Vec<_>>(),
+            false => {
+                // Get the existing stack.
+                let existing_stack = self.get_stack(deployment.program_id())?;
+                // Get the existing mappings.
+                let existing_mappings = existing_stack.program().mappings();
+                // Determine and return the new mappings
+                let mut new_mappings = Vec::new();
+                for mapping in deployment.program().mappings().values() {
+                    if !existing_mappings.contains_key(mapping.name()) {
+                        new_mappings.push(mapping);
+                    }
+                }
+                new_mappings
+            }
+        };
+        lap!(timer, "Retrieve the mappings to initialize");
+
         // Initialize the mappings, and store their finalize operations.
         atomic_batch_scope!(store, {
             // Initialize a list for the finalize operations.
@@ -61,8 +81,8 @@ impl<N: Network> Process<N> {
 
             // Retrieve the program ID.
             let program_id = deployment.program_id();
-            // Iterate over the mappings.
-            for mapping in deployment.program().mappings().values() {
+            // Iterate over the mappings that must be initialized.
+            for mapping in mappings {
                 // Initialize the mapping.
                 finalize_operations.push(store.initialize_mapping(*program_id, *mapping.name())?);
             }

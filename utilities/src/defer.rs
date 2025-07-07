@@ -13,19 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::CallOperator;
+/// A `Defer` holds a closure that is executed when the instance is dropped.
+pub struct Defer<F: FnOnce()> {
+    f: Option<F>,
+}
 
-use console::{
-    network::Network,
-    prelude::{FromBytes, Parser, ToBytes},
-    program::Register,
-};
+impl<F: FnOnce()> Defer<F> {
+    pub fn new(f: F) -> Self {
+        Defer { f: Some(f) }
+    }
+}
 
-pub trait InstructionTrait<N: Network>: Clone + PartialEq + Eq + Parser + FromBytes + ToBytes + Send + Sync {
-    /// Returns the destination registers of the instruction.
-    fn destinations(&self) -> Vec<Register<N>>;
-    /// Returns `true` if the given name is a reserved opcode.
-    fn is_reserved_opcode(name: &str) -> bool;
-    /// Returns the `CallOperator` if the instruction is a `call` instruction, otherwise `None`.
-    fn call_operator(&self) -> Option<&CallOperator<N>>;
+impl<F: FnOnce()> Drop for Defer<F> {
+    fn drop(&mut self) {
+        if let Some(f) = self.f.take() {
+            f();
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! defer {
+    ($($body:tt)*) => {
+        let _defer_guard = $crate::Defer::new(|| { $($body)* });
+    };
 }

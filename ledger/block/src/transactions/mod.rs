@@ -106,6 +106,11 @@ impl<N: Network> Transactions<N> {
     pub fn num_finalize(&self) -> usize {
         cfg_values!(self.transactions).map(|tx| tx.num_finalize()).sum()
     }
+
+    /// Returns the index of the transaction with the given ID, if it exists.
+    pub fn index_of(&self, transaction_id: &N::TransactionID) -> Option<usize> {
+        self.transactions.get_index_of(transaction_id)
+    }
 }
 
 impl<N: Network> Transactions<N> {

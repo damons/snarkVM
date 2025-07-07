@@ -3593,11 +3593,13 @@ dependencies = [
  "paste",
  "rand",
  "rand_chacha",
+ "rayon",
  "serde_json",
  "snarkvm-circuit",
  "snarkvm-console",
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-snark",
+ "snarkvm-utilities",
 ]
 
 [[package]]
