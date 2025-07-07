@@ -190,6 +190,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Check whether the authorization is for a valid program edition.
+        authorization.check_valid_edition(&self.process.read(), consensus_version)?;
         // Determine which Varuna version to use.
         let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             true => VarunaVersion::V1,
@@ -235,6 +237,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+        // Check whether the authorization is for a valid program edition.
+        authorization.check_valid_edition(&self.process.read(), consensus_version)?;
         // Determine which Varuna version to use.
         let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
             true => VarunaVersion::V1,

@@ -19,6 +19,7 @@ mod string;
 
 use console::{network::prelude::*, program::Request, types::Field};
 use ledger_block::{Transaction, Transition};
+use synthesizer_program::StackProgram;
 
 use indexmap::IndexMap;
 #[cfg(feature = "locktick")]
@@ -146,6 +147,28 @@ impl<N: Network> Authorization<N> {
             }
             _ => false,
         }
+    }
+
+    /// Checks whether the authorization is for a valid program edition.
+    pub fn check_valid_edition(&self, process: &crate::Process<N>, consensus_version: ConsensusVersion) -> Result<()> {
+        // Determine the root transition's program ID.
+        let root_program_id = {
+            let transitions = self.transitions.read();
+            *transitions
+                .first()
+                .map(|(_, t)| t.program_id())
+                .ok_or_else(|| anyhow!("No transitions found in the Authorization."))?
+        };
+        // There is only one credits.aleo edition, so we can safely skip this case.
+        if root_program_id.to_string() != "credits.aleo" {
+            // Get the program's current edition.
+            let program_edition = *process.get_stack(root_program_id)?.program_edition();
+            // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
+            if consensus_version >= ConsensusVersion::V8 && program_edition == 0 {
+                bail!("Cannot execute {} on edition {program_edition}", root_program_id.to_string());
+            }
+        }
+        Ok(())
     }
 }
 
