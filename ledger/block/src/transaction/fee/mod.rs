@@ -255,6 +255,7 @@ pub mod test_helpers {
                 rng,
             )
             .unwrap();
+
         // Construct the fee trace.
         let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 

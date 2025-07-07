@@ -134,6 +134,19 @@ impl<N: Network> Authorization<N> {
             _ => false,
         }
     }
+
+    /// Returns `true` if the authorization is for call to `credits.aleo/upgrade`.
+    pub fn is_upgrade(&self) -> bool {
+        let requests = self.requests.read();
+        match requests.len() {
+            1 => {
+                let program_id = requests[0].program_id().to_string();
+                let function_name = requests[0].function_name().to_string();
+                &program_id == "credits.aleo" && &function_name == "upgrade"
+            }
+            _ => false,
+        }
+    }
 }
 
 impl<N: Network> Authorization<N> {

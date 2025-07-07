@@ -113,6 +113,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
     ).unwrap();
     let record_ciphertext = record.encrypt(randomizer).unwrap();
     let record_checksum = CurrentNetwork::hash_bhp1024(&record_ciphertext.to_bits_le()).unwrap();
+    // Sample a sender ciphertext.
+    let sender_ciphertext = match record_ciphertext.version().is_zero() {
+        true => None,
+        false => Some(Uniform::rand(rng)),
+    };
 
     vec![
         (transition_id, input),
@@ -122,8 +127,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
         (Uniform::rand(rng), Output::Public(plaintext_hash, Some(plaintext))),
         (Uniform::rand(rng), Output::Private(Uniform::rand(rng), None)),
         (Uniform::rand(rng), Output::Private(ciphertext_hash, Some(ciphertext))),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None)),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext))),
+        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None, sender_ciphertext)),
+        (
+            Uniform::rand(rng),
+            Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext), sender_ciphertext),
+        ),
         (Uniform::rand(rng), Output::ExternalRecord(Uniform::rand(rng))),
     ]
 }
@@ -163,9 +171,9 @@ function compute:
 }
 
 /// Samples a rejected deployment.
-pub fn sample_rejected_deployment(is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
+pub fn sample_rejected_deployment(edition: u16, is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
     // Sample a deploy transaction.
-    let deployment = match crate::sample_deployment_transaction(is_fee_private, rng) {
+    let deployment = match crate::sample_deployment_transaction(edition, is_fee_private, rng) {
         Transaction::Deploy(_, _, _, deployment, _) => (*deployment).clone(),
         _ => unreachable!(),
     };
@@ -353,11 +361,19 @@ function large_transaction:
 /****************************************** Transaction *******************************************/
 
 /// Samples a random deployment transaction with a private or public fee.
-pub fn sample_deployment_transaction(is_fee_private: bool, rng: &mut TestRng) -> Transaction<CurrentNetwork> {
+pub fn sample_deployment_transaction(
+    edition: u16,
+    is_fee_private: bool,
+    rng: &mut TestRng,
+) -> Transaction<CurrentNetwork> {
     // Sample a private key.
     let private_key = PrivateKey::new(rng).unwrap();
     // Sample a deployment.
     let deployment = crate::sample_deployment(rng);
+    // Create a new deployment with the desired edition.
+    let deployment =
+        Deployment::<CurrentNetwork>::new(edition, deployment.program().clone(), deployment.verifying_keys().clone())
+            .unwrap();
 
     // Compute the deployment ID.
     let deployment_id = deployment.to_deployment_id().unwrap();

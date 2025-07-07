@@ -44,6 +44,11 @@ impl<N: Network> Package<N> {
         #[cfg(feature = "aleo-cli")]
         println!("🚀 Executing '{}'...\n", locator.to_string().bold());
 
+        // Prepare the query.
+        let query = Query::<_, BlockMemory<_>>::from(endpoint);
+        // Fetch the consensus version.
+        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
+
         // Construct the process.
         let process = self.get_process()?;
         // Authorize the function call.
@@ -108,14 +113,10 @@ impl<N: Network> Package<N> {
         // Retrieve the call metrics.
         let call_metrics = trace.call_metrics().to_vec();
 
-        // Prepare the query.
-        let query = Query::<_, BlockMemory<_>>::from(endpoint);
         // Determine which Varuna version to use.
-        let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
         // Prepare the trace.
         trace.prepare(&query)?;

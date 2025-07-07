@@ -70,7 +70,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Compute the authorization.
         let authorization = self.authorize(private_key, program_id, function_name, inputs, rng)?;
         // Determine if a fee is required.
-        let is_fee_required = !authorization.is_split();
+        let is_fee_required = !(authorization.is_split() || authorization.is_upgrade());
         // Determine if a priority fee is declared.
         let is_priority_fee_declared = priority_fee_in_microcredits > 0;
         // Compute the execution.
@@ -80,10 +80,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             true => {
                 // Compute the minimum execution cost.
                 let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-                let (minimum_execution_cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
-                    execution_cost_v1(&self.process().read(), &execution)?
-                } else {
-                    execution_cost_v2(&self.process().read(), &execution)?
+                let (minimum_execution_cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
+                    true => execution_cost_v1(&self.process().read(), &execution)?,
+                    false => execution_cost_v2(&self.process().read(), &execution)?,
                 };
                 // Compute the execution ID.
                 let execution_id = execution.to_execution_id()?;
@@ -189,14 +188,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Locator::new(*request.program_id(), *request.function_name()).to_string()
         };
 
-        // Determine which Varuna version to use.
+        // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        // Determine which Varuna version to use.
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
-
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the authorization.
@@ -235,14 +233,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     ) -> Result<Fee<N>> {
         let timer = timer!("VM::execute_fee_authorization_raw");
 
-        // Determine which Varuna version to use.
+        // Determine the consensus version.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        // Determine which Varuna version to use.
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
-
         macro_rules! logic {
             ($process:expr, $network:path, $aleo:path) => {{
                 // Prepare the authorization.
@@ -628,13 +625,13 @@ finalize test:
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
-        assert_eq!(3693, transaction_size_in_bytes, "Update me if serialization has changed");
+        assert_eq!(3759, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
         assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
         if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
-            assert_eq!(2242, execution_size_in_bytes, "Update me if serialization has changed");
+            assert_eq!(2308, execution_size_in_bytes, "Update me if serialization has changed");
         }
     }
 
@@ -731,13 +728,13 @@ finalize test:
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
-        assert_eq!(3538, transaction_size_in_bytes, "Update me if serialization has changed");
+        assert_eq!(3571, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
         assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
         if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
-            assert_eq!(2087, execution_size_in_bytes, "Update me if serialization has changed");
+            assert_eq!(2120, execution_size_in_bytes, "Update me if serialization has changed");
         }
     }
 
@@ -769,13 +766,13 @@ finalize test:
 
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
-        assert_eq!(2166, transaction_size_in_bytes, "Update me if serialization has changed");
+        assert_eq!(2232, transaction_size_in_bytes, "Update me if serialization has changed");
 
         // Assert the size of the execution.
         assert!(matches!(transaction, Transaction::Execute(_, _, _, _)));
         if let Transaction::Execute(_, _, execution, _) = &transaction {
             let execution_size_in_bytes = execution.to_bytes_le().unwrap().len();
-            assert_eq!(2131, execution_size_in_bytes, "Update me if serialization has changed");
+            assert_eq!(2197, execution_size_in_bytes, "Update me if serialization has changed");
         }
     }
 
@@ -796,7 +793,7 @@ finalize test:
 
         // Assert the size of the transition.
         let fee_size_in_bytes = fee.to_bytes_le().unwrap().len();
-        assert_eq!(2043, fee_size_in_bytes, "Update me if serialization has changed");
+        assert_eq!(2076, fee_size_in_bytes, "Update me if serialization has changed");
     }
 
     #[test]

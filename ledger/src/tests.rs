@@ -2726,11 +2726,14 @@ function foo:
             };
             let deployment = deployment_tx.deployment().unwrap().clone();
             for _ in 0..ITERATIONS {
-                let result =
-                    match try_vm_runtime!(|| process.read().verify_deployment::<CurrentAleo, _>(&deployment, rng)) {
-                        Ok(result) => result.is_ok(),
-                        Err(_) => false,
-                    };
+                let result = match try_vm_runtime!(|| process.read().verify_deployment::<CurrentAleo, _>(
+                    ConsensusVersion::V8,
+                    &deployment,
+                    rng
+                )) {
+                    Ok(result) => result.is_ok(),
+                    Err(_) => false,
+                };
                 assert_eq!(result, expected_result);
             }
         };
