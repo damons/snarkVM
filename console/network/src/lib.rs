@@ -87,6 +87,7 @@ pub enum ConsensusVersion {
     V6 = 6,
     /// V7: Update to program rules.
     V7 = 7,
+    /// V8: Update to inclusion version.
     V8 = 8,
 }
 
@@ -263,6 +264,10 @@ pub trait Network:
         Self::MAX_CERTIFICATES.last().map_or(Err(anyhow!("No MAX_CERTIFICATES defined.")), |(_, value)| Ok(*value))
     }
 
+    /// Returns the block height where the the inclusion proof will be updated.
+    #[allow(non_snake_case)]
+    fn INCLUSION_UPGRADE_HEIGHT() -> Result<u32>;
+
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8];
 
@@ -274,6 +279,12 @@ pub trait Network:
 
     /// Returns the verifying key for the given function name in `credits.aleo`.
     fn get_credits_verifying_key(function_name: String) -> Result<&'static Arc<VarunaVerifyingKey<Self>>>;
+
+    /// Returns the `proving key` for the inclusion_v0 circuit.
+    fn inclusion_v0_proving_key() -> &'static Arc<VarunaProvingKey<Self>>;
+
+    /// Returns the `verifying key` for the inclusion_v0 circuit.
+    fn inclusion_v0_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>>;
 
     /// Returns the `proving key` for the inclusion circuit.
     fn inclusion_proving_key() -> &'static Arc<VarunaProvingKey<Self>>;

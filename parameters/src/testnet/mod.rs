@@ -19,7 +19,7 @@ pub use genesis::*;
 /// The restrictions list as a JSON-compatible string.
 pub const RESTRICTIONS_LIST: &str = include_str!("./resources/restrictions.json");
 
-const REMOTE_URL: &str = "https://parameters.aleo.org/testnet";
+const REMOTE_URL: &str = "https://parameters.provable.com/testnet";
 
 // BondPublic
 impl_remote!(BondPublicProver, REMOTE_URL, "resources/", "bond_public", "prover");
@@ -63,6 +63,9 @@ impl_local!(FeePrivateVerifier, "resources/", "fee_private", "verifier");
 // FeePublic
 impl_remote!(FeePublicProver, REMOTE_URL, "resources/", "fee_public", "prover");
 impl_local!(FeePublicVerifier, "resources/", "fee_public", "verifier");
+// Upgrade
+impl_remote!(UpgradeProver, REMOTE_URL, "resources/", "upgrade", "prover");
+impl_local!(UpgradeVerifier, "resources/", "upgrade", "verifier");
 
 #[macro_export]
 macro_rules! insert_testnet_credit_keys {
@@ -83,6 +86,7 @@ macro_rules! insert_testnet_credit_keys {
             $crate::insert_testnet_key!($map, string, $type<$network>, ("split", $crate::testnet::[<Split $variant>]::load_bytes()));
             $crate::insert_testnet_key!($map, string, $type<$network>, ("fee_private", $crate::testnet::[<FeePrivate $variant>]::load_bytes()));
             $crate::insert_testnet_key!($map, string, $type<$network>, ("fee_public", $crate::testnet::[<FeePublic $variant>]::load_bytes()));
+            $crate::insert_testnet_key!($map, string, $type<$network>, ("upgrade", $crate::testnet::[<Upgrade $variant>]::load_bytes()));
         }
     }};
 }
@@ -100,6 +104,8 @@ macro_rules! insert_testnet_key {
 }
 
 // Inclusion
+impl_remote!(InclusionV0Prover, REMOTE_URL, "resources/", "inclusion_v0", "prover");
+impl_local!(InclusionV0Verifier, "resources/", "inclusion_v0", "verifier");
 impl_remote!(InclusionProver, REMOTE_URL, "resources/", "inclusion", "prover");
 impl_local!(InclusionVerifier, "resources/", "inclusion", "verifier");
 
@@ -107,6 +113,10 @@ impl_local!(InclusionVerifier, "resources/", "inclusion", "verifier");
 pub const NETWORK_INCLUSION_FUNCTION_NAME: &str = "inclusion";
 
 lazy_static! {
+    pub static ref INCLUSION_V0_PROVING_KEY: Vec<u8> =
+        InclusionV0Prover::load_bytes().expect("Failed to load inclusion_v0 proving key");
+    pub static ref INCLUSION_V0_VERIFYING_KEY: Vec<u8> =
+        InclusionV0Verifier::load_bytes().expect("Failed to load inclusion_v0 verifying key");
     pub static ref INCLUSION_PROVING_KEY: Vec<u8> =
         InclusionProver::load_bytes().expect("Failed to load inclusion proving key");
     pub static ref INCLUSION_VERIFYING_KEY: Vec<u8> =
@@ -136,6 +146,8 @@ mod tests {
         FeePrivateVerifier::load_bytes().expect("Failed to load fee_private verifier");
         FeePublicProver::load_bytes().expect("Failed to load fee_public prover");
         FeePublicVerifier::load_bytes().expect("Failed to load fee_public verifier");
+        UpgradeProver::load_bytes().expect("Failed to load upgrade prover");
+        UpgradeVerifier::load_bytes().expect("Failed to load upgrade verifier");
         InclusionProver::load_bytes().expect("Failed to load inclusion prover");
         InclusionVerifier::load_bytes().expect("Failed to load inclusion verifier");
     }

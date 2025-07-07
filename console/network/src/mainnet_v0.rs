@@ -201,6 +201,12 @@ impl Network for MainnetV0 {
     /// The network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
 
+    /// Returns the block height where the the inclusion proof will be updated.
+    #[allow(non_snake_case)]
+    fn INCLUSION_UPGRADE_HEIGHT() -> Result<u32> {
+        Self::CONSENSUS_HEIGHT(ConsensusVersion::V8)
+    }
+
     /// Returns the genesis block bytes.
     fn genesis_bytes() -> &'static [u8] {
         snarkvm_parameters::mainnet::GenesisBytes::load_bytes()
@@ -223,6 +229,30 @@ impl Network for MainnetV0 {
         CREDITS_VERIFYING_KEYS
             .get(&function_name)
             .ok_or_else(|| anyhow!("Verifying key for credits.aleo/{function_name}' not found"))
+    }
+
+    /// Returns the `proving key` for the inclusion_v0 circuit.
+    fn inclusion_v0_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
+        static INSTANCE: OnceCell<Arc<VarunaProvingKey<Console>>> = OnceCell::new();
+        INSTANCE.get_or_init(|| {
+            // Skipping the first byte, which is the encoded version.
+            Arc::new(
+                CircuitProvingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_V0_PROVING_KEY[1..])
+                    .expect("Failed to load inclusion_v0 proving key."),
+            )
+        })
+    }
+
+    /// Returns the `verifying key` for the inclusion_v0 circuit.
+    fn inclusion_v0_verifying_key() -> &'static Arc<VarunaVerifyingKey<Self>> {
+        static INSTANCE: OnceCell<Arc<VarunaVerifyingKey<Console>>> = OnceCell::new();
+        INSTANCE.get_or_init(|| {
+            // Skipping the first byte, which is the encoded version.
+            Arc::new(
+                CircuitVerifyingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_V0_VERIFYING_KEY[1..])
+                    .expect("Failed to load inclusion_v0 verifying key."),
+            )
+        })
     }
 
     /// Returns the `proving key` for the inclusion circuit.

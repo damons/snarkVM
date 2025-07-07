@@ -309,6 +309,12 @@ impl<N: Network> Transition<N> {
 }
 
 impl<N: Network> Transition<N> {
+    /// Returns `true` if this is a `credits.aleo/*` transition.
+    #[inline]
+    pub fn is_credits(&self) -> bool {
+        self.program_id.to_string() == "credits.aleo"
+    }
+
     /// Returns `true` if this is a `bond_public` transition.
     #[inline]
     pub fn is_bond_public(&self) -> bool {
@@ -361,6 +367,15 @@ impl<N: Network> Transition<N> {
             && self.outputs.len() == 2
             && self.program_id.to_string() == "credits.aleo"
             && self.function_name.to_string() == "split"
+    }
+
+    /// Returns `true` if this is an `upgrade` transition.
+    #[inline]
+    pub fn is_upgrade(&self) -> bool {
+        self.inputs.len() == 1
+            && self.outputs.len() == 2
+            && self.program_id.to_string() == "credits.aleo"
+            && self.function_name.to_string() == "upgrade"
     }
 }
 

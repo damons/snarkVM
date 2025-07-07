@@ -59,7 +59,15 @@ use ledger_store::{
     TransitionStore,
     atomic_finalize,
 };
-use synthesizer_process::{Authorization, Process, Trace, deployment_cost, execution_cost_v1, execution_cost_v2};
+use synthesizer_process::{
+    Authorization,
+    InclusionVersion,
+    Process,
+    Trace,
+    deployment_cost,
+    execution_cost_v1,
+    execution_cost_v2,
+};
 use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program};
 use utilities::try_vm_runtime;
 
