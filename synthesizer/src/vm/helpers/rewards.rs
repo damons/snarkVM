@@ -293,7 +293,7 @@ mod tests {
         let commissions: IndexMap<Address<CurrentNetwork>, u8> =
             committee.members().iter().map(|(address, (_, _, commission))| (*address, *commission)).collect();
         // Print the commissions from the indexmap
-        println!("commissions: {:?}", commissions);
+        println!("commissions: {commissions:?}");
         // Create a map of validators to the sum of their commissions
         let mut total_commissions: IndexMap<Address<CurrentNetwork>, u64> = Default::default();
 

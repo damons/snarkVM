@@ -140,6 +140,3 @@ serial = [
 ]
 test_exports = [ ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
-
-[lints.clippy]
-manual_div_ceil = "allow"

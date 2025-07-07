@@ -25,6 +25,3 @@ workspace = true
 
 [dev-dependencies.snarkvm-utilities]
 workspace = true
-
-[lints.clippy]
-uninlined_format_args = "allow"

@@ -51,6 +51,3 @@ private_key = [ "compute_key" ]
 signature = [ "compute_key" ]
 view_key = [ ]
 test = [ ]
-
-[lints.clippy]
-manual_div_ceil = "allow"

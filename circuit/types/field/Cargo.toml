@@ -16,6 +16,3 @@ workspace = true
 
 [dependencies.snarkvm-circuit-types-boolean]
 workspace = true
-
-[lints.clippy]
-manual_div_ceil = "allow"

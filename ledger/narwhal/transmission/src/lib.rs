@@ -27,6 +27,7 @@ use snarkvm_ledger_block::Transaction;
 use snarkvm_ledger_narwhal_data::Data;
 use snarkvm_ledger_puzzle::Solution;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Eq)]
 pub enum Transmission<N: Network> {
     /// A ratification.

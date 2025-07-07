@@ -83,6 +83,3 @@ string = [
   "snarkvm-console-types-integers"
 ]
 serial = [ "snarkvm-console-network-environment/serial" ]
-
-[lints.clippy]
-manual_div_ceil = "allow"

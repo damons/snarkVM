@@ -48,6 +48,3 @@ workspace = true
 
 [features]
 dev-print = [ "snarkvm-utilities/dev-print" ]
-
-[lints.clippy]
-needless_as_bytes = "allow"

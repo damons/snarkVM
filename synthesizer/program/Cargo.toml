@@ -77,7 +77,3 @@ workspace = true
 [dev-dependencies.snarkvm-synthesizer-process]
 workspace = true
 features = [ "test" ]
-
-[lints.clippy]
-needless_as_bytes = "allow"
-uninlined_format_args = "allow"

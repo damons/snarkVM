@@ -51,6 +51,3 @@ features = [ "preserve_order" ]
 
 [dev-dependencies.bincode]
 workspace = true
-
-[lints.clippy]
-large_enum_variant = "allow"
