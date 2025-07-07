@@ -113,6 +113,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
     ).unwrap();
     let record_ciphertext = record.encrypt(randomizer).unwrap();
     let record_checksum = CurrentNetwork::hash_bhp1024(&record_ciphertext.to_bits_le()).unwrap();
+    // Sample a sender ciphertext.
+    let sender_ciphertext = match record_ciphertext.version().is_zero() {
+        true => None,
+        false => Some(Uniform::rand(rng)),
+    };
 
     vec![
         (transition_id, input),
@@ -122,8 +127,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
         (Uniform::rand(rng), Output::Public(plaintext_hash, Some(plaintext))),
         (Uniform::rand(rng), Output::Private(Uniform::rand(rng), None)),
         (Uniform::rand(rng), Output::Private(ciphertext_hash, Some(ciphertext))),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None)),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext))),
+        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None, sender_ciphertext)),
+        (
+            Uniform::rand(rng),
+            Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext), sender_ciphertext),
+        ),
         (Uniform::rand(rng), Output::ExternalRecord(Uniform::rand(rng))),
     ]
 }

@@ -239,10 +239,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             .find_block_height_from_state_root(execution.global_state_root())?
                             .unwrap_or_default();
                         let consensus_version = N::CONSENSUS_VERSION(block_height)?;
-                        let (cost, (_, _)) = if consensus_version == ConsensusVersion::V1 {
-                            execution_cost_v1(&self.process().read(), execution)?
-                        } else {
-                            execution_cost_v2(&self.process().read(), execution)?
+                        let (cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
+                            true => execution_cost_v1(&self.process().read(), execution)?,
+                            false => execution_cost_v2(&self.process().read(), execution)?,
                         };
                         // Ensure the cost does not exceed the transaction spend limit.
                         ensure!(
@@ -324,19 +323,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Determine which consensus version to use.
         let consensus_version = N::CONSENSUS_VERSION(block_height)?;
         // Determine which Varuna version to use.
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
         // Determine the inclusion version to use.
         let is_network_behind_upgrade_height = block_height < N::INCLUSION_UPGRADE_HEIGHT()?;
-        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version)
+        let inclusion_version = match (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version)
             || is_network_behind_upgrade_height
         {
-            InclusionVersion::V0
-        } else {
-            InclusionVersion::V1
+            true => InclusionVersion::V0,
+            false => InclusionVersion::V1,
         };
 
         // Perform checks if the execution contains `credits.aleo/upgrade`.
@@ -345,7 +342,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             if matches!(inclusion_version, InclusionVersion::V0) {
                 bail!("Execution verification failed - `credits.aleo/upgrade` cannot be called yet");
             }
-
             // Do not allow upgrades to be callable by other programs.
             // This is to prevent local records from being upgraded, which would ignore the record block height checks.
             if execution.transitions().len() > 1 {
@@ -356,7 +352,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Verify the execution proof, if it has not been partially-verified before.
         let verification = match is_partially_verified {
             true => Ok(()),
-            false => self.process.read().verify_execution(varuna_version, inclusion_version, execution),
+            false => {
+                self.process.read().verify_execution(consensus_version, varuna_version, inclusion_version, execution)
+            }
         };
         lap!(timer, "Verify the execution");
 
@@ -396,25 +394,29 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Determine which Varuna version to use.
         let consensus_version = N::CONSENSUS_VERSION(block_height)?;
-        let varuna_version = if (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
-            VarunaVersion::V1
-        } else {
-            VarunaVersion::V2
+        let varuna_version = match (ConsensusVersion::V1..=ConsensusVersion::V3).contains(&consensus_version) {
+            true => VarunaVersion::V1,
+            false => VarunaVersion::V2,
         };
         // Determine the inclusion version to use.
         let is_network_behind_upgrade_height = block_height < N::INCLUSION_UPGRADE_HEIGHT()?;
-        let inclusion_version = if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version)
+        let inclusion_version = match (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version)
             || is_network_behind_upgrade_height
         {
-            InclusionVersion::V0
-        } else {
-            InclusionVersion::V1
+            true => InclusionVersion::V0,
+            false => InclusionVersion::V1,
         };
 
         // Verify the fee, if it has not been partially-verified before.
         let verification = match is_partially_verified {
             true => Ok(()),
-            false => self.process.read().verify_fee(varuna_version, inclusion_version, fee, deployment_or_execution_id),
+            false => self.process.read().verify_fee(
+                consensus_version,
+                varuna_version,
+                inclusion_version,
+                fee,
+                deployment_or_execution_id,
+            ),
         };
         lap!(timer, "Verify the fee");
 
@@ -1165,8 +1167,8 @@ mod credits_migration_tests {
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
-    const RECORD_UPGRADE_LIMIT: u64 = 500_000_000_000u64;
-    const TOTAL_UPGRADE_LIMIT: u64 = 3_000_000_000_000u64;
+    const RECORD_UPGRADE_LIMIT: u64 = 1_000_000_000_000u64;
+    const TOTAL_UPGRADE_LIMIT: u64 = 4_000_000_000_000u64;
 
     #[cfg(feature = "test")]
     #[test]
@@ -1406,7 +1408,7 @@ mod credits_migration_tests {
                     Some(Entry::Private(Plaintext::Literal(Literal::U64(amount), _))) => **amount,
                     _ => panic!("Invalid record"),
                 };
-                assert!(amount <= 500_000_000_000u64);
+                assert!(amount <= RECORD_UPGRADE_LIMIT);
                 total_upgraded += amount;
                 let inputs = [Value::<CurrentNetwork>::Record(record_to_spend)].into_iter();
                 vm.execute(&private_key, ("credits.aleo", "upgrade"), inputs, None, 0, None, rng).unwrap()

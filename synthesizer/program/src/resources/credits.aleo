@@ -1057,7 +1057,7 @@ function upgrade:
     input r0 as credits.record;
 
     // Check if the record amount is at most 500,000 credits.
-    lte r0.microcredits 500_000_000_000u64 into r1;
+    lte r0.microcredits 1_000_000_000_000u64 into r1;
     // Ensure that the record amount is at most 500,000 credits.
     assert.eq r1 true;
 
@@ -1079,9 +1079,9 @@ finalize upgrade:
     get.or_use pool[aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc] 0u64 into r1;
     // Increment the pool by the record amount.
     add r1 r0 into r2;
-    // Determine if the total number of migrated credits is less than or equal to 3_000_000 credits.
-    lte r2 3_000_000_000_000u64 into r3;
-    // Enforce that the total number of migrated credits is less than or equal to 3_000_000 credits.
+    // Determine if the total number of migrated credits is less than or equal to 4_000_000 credits.
+    lte r2 4_000_000_000_000u64 into r3;
+    // Enforce that the total number of migrated credits is less than or equal to 4_000_000 credits.
     assert.eq r3 true;
 
     // Set the new pool size.

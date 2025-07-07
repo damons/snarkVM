@@ -185,6 +185,45 @@ impl<N: Network> Process<N> {
         Ok(process)
     }
 
+    /// Initializes a new process with the V0 credits.aleo verifiying keys.
+    #[inline]
+    pub fn load_v0() -> Result<Self> {
+        let timer = timer!("Process::load_v0");
+
+        // Initialize the process.
+        let mut process = Self { universal_srs: UniversalSRS::load()?, stacks: Default::default() };
+        lap!(timer, "Initialize process");
+
+        // Initialize the 'credits.aleo' program.
+        let program = Program::credits()?;
+        lap!(timer, "Load credits program");
+
+        // Compute the 'credits.aleo' program stack.
+        let stack = Stack::new(&process, &program)?;
+        lap!(timer, "Initialize stack");
+
+        // Synthesize the 'credits.aleo' verifying keys.
+        for function_name in program.functions().keys() {
+            // Load the verifying key.
+            let verifying_key = N::get_credits_v0_verifying_key(function_name.to_string())?;
+            // Retrieve the number of public and private variables.
+            // Note: This number does *NOT* include the number of constants. This is safe because
+            // this program is never deployed, as it is a first-class citizen of the protocol.
+            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
+            // Insert the verifying key.
+            stack.insert_verifying_key(function_name, VerifyingKey::new(verifying_key.clone(), num_variables))?;
+            lap!(timer, "Load verifying key for {function_name}");
+        }
+        lap!(timer, "Load circuit keys");
+
+        // Add the stack to the process.
+        process.add_stack(stack);
+
+        finish!(timer, "Process::load_v0");
+        // Return the process.
+        Ok(process)
+    }
+
     /// Initializes a new process without downloading the 'credits.aleo' circuit keys (for web contexts).
     #[inline]
     #[cfg(feature = "wasm")]
@@ -272,6 +311,13 @@ impl<N: Network> Process<N> {
         self.get_stack(program_id)?.insert_proving_key(function_name, proving_key)
     }
 
+    /// Removes the given proving key, for the given program ID and function name.
+    #[inline]
+    pub fn remove_proving_key(&self, program_id: &ProgramID<N>, function_name: &Identifier<N>) -> Result<()> {
+        self.get_stack(program_id)?.remove_proving_key(function_name);
+        Ok(())
+    }
+
     /// Inserts the given verifying key, for the given program ID and function name.
     #[inline]
     pub fn insert_verifying_key(
@@ -281,6 +327,13 @@ impl<N: Network> Process<N> {
         verifying_key: VerifyingKey<N>,
     ) -> Result<()> {
         self.get_stack(program_id)?.insert_verifying_key(function_name, verifying_key)
+    }
+
+    /// Removes the given verifying key, for the given program ID and function name.
+    #[inline]
+    pub fn remove_verifying_key(&self, program_id: &ProgramID<N>, function_name: &Identifier<N>) -> Result<()> {
+        self.get_stack(program_id)?.remove_verifying_key(function_name);
+        Ok(())
     }
 
     /// Synthesizes the proving and verifying key for the given program ID and function name.
