@@ -550,8 +550,8 @@ mod tests {
 
     /// Ensure that consensus *heights* are unique and incrementing.
     fn consensus_constants_increasing_heights<N: Network>() {
-        let mut previous_height = N::_CONSENSUS_VERSION_HEIGHTS.first().unwrap().1;
-        for (version, height) in N::_CONSENSUS_VERSION_HEIGHTS.iter().skip(1) {
+        let mut previous_height = N::CONSENSUS_VERSION_HEIGHTS().first().unwrap().1;
+        for (version, height) in N::CONSENSUS_VERSION_HEIGHTS().iter().skip(1) {
             assert!(*height > previous_height);
             previous_height = *height;
             // Ensure that N::CONSENSUS_VERSION returns the expected value.
@@ -565,7 +565,7 @@ mod tests {
     fn consensus_constants_valid_heights<N: Network>() {
         for (version, value) in N::MAX_CERTIFICATES.iter() {
             // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
-            let height = N::_CONSENSUS_VERSION_HEIGHTS.iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
             // Double-check that consensus_config_value returns the correct value.
             assert_eq!(consensus_config_value!(N, MAX_CERTIFICATES, height).unwrap(), *value);
         }
