@@ -247,7 +247,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// (a checkpoint can be used to completely replace the original ledger).
     #[cfg(feature = "rocks")]
     pub fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
-        Ok(self.vm.block_store().backup_database(path).map_err(|err| anyhow!(err))?)
+        self.vm.block_store().backup_database(path).map_err(|err| anyhow!(err))
     }
 
     /// Loads the provers and the number of solutions they have submitted for the current epoch.
