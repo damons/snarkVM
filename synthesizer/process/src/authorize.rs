@@ -45,19 +45,18 @@ impl<N: Network> Process<N> {
         self.get_stack(program_id)?.authorize_checked::<A, R>(private_key, function_name, inputs, rng)
     }
 
-    /// Authorizes calls to public credits.aleo functions for the given request.
-    // TODO: we could generalize to any function without private inputs or outputs.
+    /// Authorizes a call to the program function for the given inputs.
+    /// Compared to `authorize`, no private key is needed, but this only works for single public requests.
     #[inline]
-    pub fn authorize_credits_public<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
+    pub fn authorize_request<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
-        private_key: &PrivateKey<N>,
         request: Request<N>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
-        // Initialize the program id credits.aleo.
-        let program_id = ProgramID::from_str("credits.aleo")?;
+        // Initialize the program id.
+        let program_id = request.program_id();
         // Authorize the call.
-        self.get_stack(program_id)?.authorize_credits_public::<A, R>(private_key, request, rng)
+        self.get_stack(program_id)?.authorize_request::<A, R>(request, rng)
     }
 
     /// Authorizes the fee given the credits record, the fee amount (in microcredits),
