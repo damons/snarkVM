@@ -19,7 +19,7 @@ use crate::vm::test_helpers::*;
 
 use console::{account::ViewKey, network::ConsensusVersion};
 use ledger_store::ConsensusStore;
-use synthesizer_program::{Program, StackProgram};
+use synthesizer_program::{Program, StackTrait as _};
 
 use crate::vm::test_helpers::sample_vm_at_height;
 use aleo_std::StorageMode;
