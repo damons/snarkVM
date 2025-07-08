@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, InclusionVersion, Process, Stack, StackTrait as _, Trace};
+use crate::{CallStack, InclusionVersion, Process, Stack, Trace};
 use algorithms::snark::varuna::VarunaVersion;
 use circuit::{Aleo, network::AleoV0};
 use console::{
