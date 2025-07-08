@@ -115,7 +115,7 @@ impl<N: Network> Process<N> {
                         #[cfg(any(test, feature = "test"))]
                         ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
                     } else {
-                        ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
+                        ensure!(record.version().is_one(), "Output record must be Version 1 before Consensus V8");
                     }
                 }
                 // Ensure the output is valid.
