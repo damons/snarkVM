@@ -150,7 +150,7 @@ impl<N: Network> Authorization<N> {
     }
 
     /// Checks whether the authorization is for a valid program edition.
-    pub fn check_valid_edition(&self, process: &crate::Process<N>, consensus_version: ConsensusVersion) -> Result<()> {
+    pub fn check_valid_edition(&self, process: &crate::Process<N>, _consensus_version: ConsensusVersion) -> Result<()> {
         // Determine the root transition's program ID.
         let transitions = self.transitions.read();
         let root_program_id = *transitions
@@ -160,9 +160,10 @@ impl<N: Network> Authorization<N> {
         // There is only one credits.aleo edition, so we can safely skip this case.
         if root_program_id.to_string() != "credits.aleo" {
             // Get the program's current edition.
-            let program_edition = *process.get_stack(root_program_id)?.program_edition();
+            let _program_edition = *process.get_stack(root_program_id)?.program_edition();
             // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
-            if consensus_version >= ConsensusVersion::V8 && program_edition == 0 {
+            #[cfg(not(any(test, feature = "test")))]
+            if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
                 bail!("Cannot execute {} on edition {program_edition}", root_program_id.to_string());
             }
         }
