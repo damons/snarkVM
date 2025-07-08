@@ -164,7 +164,7 @@ impl<N: Network> Authorization<N> {
             // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
             #[cfg(not(any(test, feature = "test")))]
             if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
-                bail!("Cannot execute {} on edition {program_edition}", root_program_id.to_string());
+                bail!("Cannot execute {} on edition {_program_edition}", root_program_id.to_string());
             }
         }
         Ok(())
