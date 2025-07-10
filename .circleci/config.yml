@@ -783,10 +783,14 @@ jobs:
       - setup_environment:
           cache_key: v1.3.0-rust-1.88.0-snarkvm-clippy-cache
       - run:
-          name: Check Clippy
-          no_output_timeout: 35m
+          name: Check Clippy (default features)
+          timeout: 20m
           command: |
             cargo clippy --workspace --all-targets -- -D warnings
+      - run:
+          name: Check Clippy (all features)
+          timeout: 20m
+          command: |
             cargo clippy --workspace --all-targets --all-features -- -D warnings
       - clear_environment:
           cache_key: v1.3.0-rust-1.88.0-snarkvm-clippy-cache
