@@ -162,6 +162,10 @@ impl<N: Network> Authorization<N> {
             // Get the program's current edition.
             let _program_edition = *process.get_stack(root_program_id)?.program_edition();
             // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
+            // TODO: Once upgradability lands, this check will be different. We
+            // can't just check the program edition anymore, it will need to be
+            // programs that are edition 0 with no constructor that can't be
+            // called.
             #[cfg(not(any(test, feature = "test")))]
             if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
                 bail!("Cannot execute {root_program_id} on edition {_program_edition}");
