@@ -44,7 +44,7 @@ commands:
             choco uninstall -y rust
             # Install rust with rustup.
             Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "C:\rustup-init.exe"
-            & C:\rustup-init.exe -y --default-toolchain "1.83.0-x86_64-pc-windows-msvc" --no-modify-path --profile minimal # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+            & C:\rustup-init.exe -y --default-toolchain "1.88.0-x86_64-pc-windows-msvc" --no-modify-path --profile minimal # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
             $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
             # Verify the installation.
             cargo --version --verbose
@@ -66,22 +66,35 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v1.3.0-rust-1.83.0-snarkvm-stable-cache
+        default: v1.3.0-rust-1.88.0-snarkvm-stable-cache
     steps:
       - run: set -e
       - run:
-          name: Prepare environment and install dependencies
+          name: Prepare environment variables and install dependencies
           command: |
-            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            echo 'export "RUSTC_WRAPPER"="$CIRCLE_WORKING_DIRECTORY/.bin/sccache"' >> $BASH_ENV
             echo 'export "SCCACHE_CACHE_SIZE"="200M"' >> $BASH_ENV
+
+            # Disable incremental builds so that sccache works as expected
+            echo 'export CARGO_INCREMENTAL=0' >> "$BASH_ENV"
+      - run:
+          name: Install sccache
+          command: |
             export WORK_DIR="$CIRCLE_WORKING_DIRECTORY/.cache/sccache"
             export SCCACHE_DIR="$CIRCLE_WORKING_DIRECTORY/.cache/sccache"
+            export SCCACHE_VERSION=v0.10.0
+            export SCCACHE_PKG="sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl"
+                 
             mkdir -p "$CIRCLE_WORKING_DIRECTORY/.bin"
-            wget https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-unknown-linux-musl.tar.gz
-            tar -C "$CIRCLE_WORKING_DIRECTORY/.bin" -xvf sccache-v0.3.0-x86_64-unknown-linux-musl.tar.gz
-            chmod +x $CIRCLE_WORKING_DIRECTORY/.bin/sccache-v0.3.0-x86_64-unknown-linux-musl/sccache
-            mv $CIRCLE_WORKING_DIRECTORY/.bin/sccache-v0.3.0-x86_64-unknown-linux-musl/sccache /home/circleci/bin/sccache
-            rm -rf "/home/circleci/.cargo/registry"
+            wget "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/$SCCACHE_PKG.tar.gz"
+            tar -C "$CIRCLE_WORKING_DIRECTORY/.bin" -xvf "$SCCACHE_PKG.tar.gz"
+            chmod +x "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache"
+            mv "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache" "$CIRCLE_WORKING_DIRECTORY/.bin/sccache"
+            rm -rf "$CIRCLE_WORKING_DIRECTORY/.cargo/registry"
+
+      - run:
+          name: Install debian packages
+          command: |
             DEBIAN_FRONTEND=noninteractive sudo apt-get update
             DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends clang llvm-dev llvm pkg-config xz-utils make libssl-dev libssl-dev
       - restore_cache:
@@ -93,7 +106,7 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v1.3.0-rust-1.83.0-snarkvm-stable-cache
+        default: v1.3.0-rust-1.88.0-snarkvm-stable-cache
     steps:
       - run: (sccache -s || true)
       - run: set +e
