@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, InclusionVersion, Process, Stack, StackTrait as _, Trace};
-use algorithms::snark::varuna::VarunaVersion;
+use crate::{CallStack, InclusionVersion, Process, Stack, Trace};
 use circuit::{Aleo, network::AleoV0};
 use console::{
     account::{Address, PrivateKey, ViewKey},
@@ -22,8 +21,9 @@ use console::{
     program::{Identifier, Literal, Plaintext, ProgramID, Record, Value},
     types::{Field, U64},
 };
+use snarkvm_algorithms::snark::varuna::VarunaVersion;
 use snarkvm_ledger_block::{Fee, Output, Transaction, Transition};
-use ledger_query::Query;
+use snarkvm_ledger_query::Query;
 use snarkvm_ledger_store::{
     BlockStorage,
     BlockStore,

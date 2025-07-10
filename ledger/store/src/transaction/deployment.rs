@@ -907,8 +907,8 @@ mod tests {
         let deployment_store = DeploymentMemory::open(fee_store).unwrap();
 
         // Sample the transactions.
-        let transaction_0 = snarkmv_ledger_test_helpers::sample_deployment_transaction(0, true, rng);
-        let transaction_1 = snarkmv_ledger_test_helpers::sample_deployment_transaction(1, false, rng);
+        let transaction_0 = snarkvm_ledger_test_helpers::sample_deployment_transaction(0, true, rng);
+        let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, false, rng);
         let transactions = vec![transaction_0, transaction_1];
 
         for transaction in transactions {
