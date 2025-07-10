@@ -66,7 +66,7 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v1.3.0-rust-1.88.0-snarkvm-stable-cache
+        default: v4.0.0-rust-1.88.0-snarkvm-stable-cache
     steps:
       - run: set -e
       - run:
@@ -106,7 +106,7 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v1.3.0-rust-1.88.0-snarkvm-stable-cache
+        default: v4.0.0-rust-1.88.0-snarkvm-stable-cache
     steps:
       - run: (sccache -s || true)
       - run: set +e
@@ -131,13 +131,13 @@ commands:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v1.3.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+          cache_key: v4.0.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
       - run:
           name: "Run Tests"
           no_output_timeout: 30m
           command: RUST_MIN_STACK=67108864 cargo test --package=<< parameters.workspace_member >> << parameters.flags >>
       - clear_environment:
-          cache_key: v1.3.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+          cache_key: v4.0.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
 
   install_rust_nightly:
     description: "Install Rust nightly toolchain"
@@ -722,7 +722,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-wasm-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-wasm-cache
       - run:
           no_output_timeout: 30m
           command: |
@@ -739,7 +739,7 @@ jobs:
             # Run the tests
             cd wasm && wasm-pack test --node
       - clear_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-wasm-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-wasm-cache
 
   check-fmt:
     executor: rust-docker
@@ -748,13 +748,13 @@ jobs:
       - checkout
       - install_rust_nightly
       - setup_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-fmt-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-fmt-cache
       - run:
           name: Check style
           no_output_timeout: 35m
           command: cargo +nightly fmt --all -- --check
       - clear_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-fmt-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-fmt-cache
 
   check-unused-dependencies:
     executor: rust-docker
@@ -762,7 +762,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v3.3.1-rust-1.88.0-machete-cache
+          cache_key: v4.0.0-rust-1.88.0-machete-cache
       - run:
           name: Check for unused dependencies
           no_output_timeout: 10m
@@ -770,7 +770,7 @@ jobs:
             cargo install cargo-machete@0.7.0
             cargo machete
       - clear_environment:
-          cache_key: v3.3.1-rust-1.88.0-machete-cache
+          cache_key: v4.0.0-rust-1.88.0-machete-cache
 
   check-cargo-audit:
     executor: rust-docker
@@ -778,7 +778,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v3.3.1-rust-1.88.0-cargo-audit-cache
+          cache_key: v4.0.0-rust-1.88.0-cargo-audit-cache
       - run:
           name:  Check for security vulnerabilities
           no_output_timeout: 10m
@@ -786,7 +786,7 @@ jobs:
             cargo install cargo-audit@0.21.2 --locked
             cargo audit -D warnings
       - clear_environment:
-          cache_key: v3.3.1-rust-1.88.0-cargo-audit-cache
+          cache_key: v4.0.0-rust-1.88.0-cargo-audit-cache
 
   check-clippy:
     executor: rust-docker
@@ -794,7 +794,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-clippy-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-clippy-cache
       - run:
           name: Check Clippy (default features)
           timeout: 20m
@@ -806,7 +806,7 @@ jobs:
           command: |
             cargo clippy --workspace --all-targets --all-features -- -D warnings
       - clear_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-clippy-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-clippy-cache
 
   check-all-targets:
     executor: rust-docker
@@ -814,13 +814,13 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-all-targets-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-all-targets-cache
       - run:
           name: Check all targets
           no_output_timeout: 35m
           command: cargo check --release --workspace --all-targets
       - clear_environment:
-          cache_key: v1.3.0-rust-1.88.0-snarkvm-all-targets-cache
+          cache_key: v4.0.0-rust-1.88.0-snarkvm-all-targets-cache
 
   verify-windows:
     executor:
