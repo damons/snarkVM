@@ -177,44 +177,21 @@ impl<N: Network> Authorization<N> {
     /// Checks whether the authorization creates valid records.
     pub fn check_valid_records(&self, consensus_version: ConsensusVersion) -> Result<()> {
         let transitions = self.transitions.read();
-        // Collect the transition's records.
-        let records = transitions.values().map(|transition| {
-            let program_id = transition.program_id();
-            let function_name = transition.function_name();
-            let input_records = transition.outputs().iter().filter_map(|output| output.record());
-            let output_records = transition.outputs().iter().filter_map(|output| output.record());
-            (program_id, function_name, input_records, output_records)
-        });
+        // Collect the transition's output records.
+        let output_records = transitions
+            .values()
+            .flat_map(|transition| transition.outputs().iter().filter_map(|output| output.record()));
         // Ensure the records are valid.
-        for (program_id, function_name, input_records, output_records) in records {
-            for (_, record) in output_records {
-                // If the consensus version are before `ConsensusVersion::V8`, ensure the output record is on Version 0.
-                // if the consensus version is on or after `ConsensusVersion::V8`, ensure the output record is on Version 1.
-                if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
-                    #[cfg(not(any(test, feature = "test")))]
-                    ensure!(record.version().is_zero(), "Output record must be Version 0 before Consensus V8");
-                    #[cfg(any(test, feature = "test"))]
-                    ensure!(record.version().is_one(), "Output record must be Version 1 before Consensus V8");
-                } else {
-                    ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
-                }
-            }
-            for (_, record) in input_records {
-                // if the consensus version is on or after `ConsensusVersion::V8`,
-                // Ensure version 0 credits.aleo records can only be used when calling upgrade().
-                if consensus_version >= ConsensusVersion::V8
-                    && **record.version() == 0
-                    && program_id.to_string() == "credits.aleo"
-                    && function_name.to_string() != "upgrade"
-                {
-                    bail!(
-                        "Cannot input record version {} on consensus version {:?} for program {} and function {}",
-                        record.version(),
-                        consensus_version,
-                        program_id,
-                        function_name
-                    );
-                }
+        for (_, record) in output_records {
+            // If the consensus version are before `ConsensusVersion::V8`, ensure the output record is on Version 0.
+            // if the consensus version is on or after `ConsensusVersion::V8`, ensure the output record is on Version 1.
+            if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+                #[cfg(not(any(test, feature = "test")))]
+                ensure!(record.version().is_zero(), "Output record must be Version 0 before Consensus V8");
+                #[cfg(any(test, feature = "test"))]
+                ensure!(record.version().is_one(), "Output record must be Version 1 before Consensus V8");
+            } else {
+                ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
             }
         }
         Ok(())
