@@ -50,7 +50,7 @@ impl<N: Network> Stack<N> {
         // Construct the call stack.
         let call_stack = CallStack::Authorize(vec![request], *private_key, authorization.clone());
         // Construct the authorization from the function.
-        let _response = self.evaluate_function::<A, R>(call_stack, caller, root_tvk, rng)?;
+        let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, rng)?;
         finish!(timer, "Construct the authorization from the function");
 
         // Return the authorization.
@@ -58,16 +58,16 @@ impl<N: Network> Stack<N> {
     }
 
     /// Authorizes a call to the program function for the given inputs.
-    /// Compared to `authorize`, this method also checks for circuit satisfiability of the request.
+    /// Compared to `authorize`, this method does not check for circuit satisfiability of the request.
     #[inline]
-    pub fn authorize_checked<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
+    pub fn authorize_unchecked<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         function_name: impl TryInto<Identifier<N>>,
         inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
         rng: &mut R,
     ) -> Result<Authorization<N>> {
-        let timer = timer!("Stack::authorize_checked");
+        let timer = timer!("Stack::authorize_unchecked");
 
         // Get the program ID.
         let program_id = *self.program.id();
@@ -92,7 +92,7 @@ impl<N: Network> Stack<N> {
         // Construct the call stack.
         let call_stack = CallStack::Authorize(vec![request], *private_key, authorization.clone());
         // Construct the authorization from the function.
-        let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, rng)?;
+        let _response = self.evaluate_function::<A, R>(call_stack, caller, root_tvk, rng)?;
         finish!(timer, "Construct the authorization from the function");
 
         // Return the authorization.

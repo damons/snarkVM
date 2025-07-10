@@ -31,9 +31,9 @@ impl<N: Network> Process<N> {
     }
 
     /// Authorizes a call to the program function for the given inputs.
-    /// Compared to `authorize`, this method also checks for circuit satisfiability of the request.
+    /// Compared to `authorize`, this method does not check for circuit satisfiability of the request.
     #[inline]
-    pub fn authorize_checked<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
+    pub fn authorize_unchecked<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
         program_id: impl TryInto<ProgramID<N>>,
@@ -42,7 +42,7 @@ impl<N: Network> Process<N> {
         rng: &mut R,
     ) -> Result<Authorization<N>> {
         // Authorize the call.
-        self.get_stack(program_id)?.authorize_checked::<A, R>(private_key, function_name, inputs, rng)
+        self.get_stack(program_id)?.authorize_unchecked::<A, R>(private_key, function_name, inputs, rng)
     }
 
     /// Authorizes the fee given the credits record, the fee amount (in microcredits),
