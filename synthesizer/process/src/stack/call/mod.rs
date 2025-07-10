@@ -30,9 +30,9 @@ use synthesizer_program::{
     StackTrait,
 };
 
-pub trait CallTrait<N: Network, R: CryptoRng + Rng> {
+pub trait CallTrait<N: Network> {
     /// Evaluates the instruction.
-    fn evaluate<A: circuit::Aleo<Network = N>>(
+    fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &Stack<N>,
         registers: &mut Registers<N, A>,
@@ -40,7 +40,7 @@ pub trait CallTrait<N: Network, R: CryptoRng + Rng> {
     ) -> Result<()>;
 
     /// Executes the instruction.
-    fn execute<A: circuit::Aleo<Network = N>>(
+    fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &Stack<N>,
         registers: &mut Registers<N, A>,
@@ -48,10 +48,10 @@ pub trait CallTrait<N: Network, R: CryptoRng + Rng> {
     ) -> Result<()>;
 }
 
-impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
+impl<N: Network> CallTrait<N> for Call<N> {
     /// Evaluates the instruction.
     #[inline]
-    fn evaluate<A: circuit::Aleo<Network = N>>(
+    fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &Stack<N>,
         registers: &mut Registers<N, A>,
@@ -160,7 +160,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
 
     /// Executes the instruction.
     #[inline]
-    fn execute<A: circuit::Aleo<Network = N>>(
+    fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &Stack<N>,
         registers: &mut Registers<N, A>,
