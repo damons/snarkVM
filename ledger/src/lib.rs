@@ -243,6 +243,15 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         Ok(ledger)
     }
 
+    /// Creates a rocksdb checkpoint in the specified directory, which needs to not exist at the
+    /// moment of calling. The checkpoints are based on hard links, which means they can both be
+    /// incremental (i.e. they aren't full physical copies), and used as full rollback points
+    /// (a checkpoint can be used to completely replace the original ledger).
+    #[cfg(feature = "rocks")]
+    pub fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+        self.vm.block_store().backup_database(path).map_err(|err| anyhow!(err))
+    }
+
     /// Loads the provers and the number of solutions they have submitted for the current epoch.
     pub fn load_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
         // Fetch the block heights that belong to the current epoch.

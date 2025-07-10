@@ -218,4 +218,10 @@ impl<N: Network> BlockStorage<N> for BlockDB<N> {
     fn transaction_store(&self) -> &TransactionStore<N, Self::TransactionStorage> {
         &self.transaction_store
     }
+
+    #[cfg(feature = "rocks")]
+    fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String> {
+        // Any map can be used to retrieve the common RocksDB instance.
+        self.id_map().backup_database(path)
+    }
 }
