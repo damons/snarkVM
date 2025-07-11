@@ -37,10 +37,11 @@ use synthesizer_program::{
 
 pub trait CallTrait<N: Network> {
     /// Evaluates the instruction.
-    fn evaluate<A: circuit::Aleo<Network = N>>(
+    fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
         registers: &mut Registers<N, A>,
+        rng: &mut R,
     ) -> Result<()>;
 
     /// Executes the instruction.
@@ -61,10 +62,11 @@ pub trait CallTrait<N: Network> {
 impl<N: Network> CallTrait<N> for Call<N> {
     /// Evaluates the instruction.
     #[inline]
-    fn evaluate<A: circuit::Aleo<Network = N>>(
+    fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
         registers: &mut Registers<N, A>,
+        rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Call::evaluate");
 
@@ -116,10 +118,38 @@ impl<N: Network> CallTrait<N> for Call<N> {
             if function.inputs().len() != inputs.len() {
                 bail!("Expected {} inputs, found {}", function.inputs().len(), inputs.len())
             }
+
+            // Get the 'root_tvk'.
+            let root_tvk = Some(registers.root_tvk()?);
+
+            // Get the call stack.
+            let mut call_stack = registers.call_stack();
+
+            // In Authorize mode, we need to compute the new request and push it onto the call stack.
+            if let CallStack::Authorize(ref mut requests, private_key, authorization) = &mut call_stack {
+                // Set 'is_root'.
+                let is_root = false;
+                // Compute the request.
+                let request = Request::sign(
+                    private_key,
+                    *substack.program_id(),
+                    *function.name(),
+                    inputs.iter(),
+                    &function.input_types(),
+                    root_tvk,
+                    is_root,
+                    rng,
+                )?;
+                // Add the request to the requests.
+                requests.push(request.clone());
+                // Add the request to the authorization.
+                authorization.push(request.clone())?;
+            };
+
             // Set the (console) caller.
             let console_caller = Some(*stack.program_id());
             // Evaluate the function.
-            let response = substack.evaluate_function::<A>(registers.call_stack(), console_caller)?;
+            let response = substack.evaluate_function::<A, R>(call_stack, console_caller, root_tvk, rng)?;
             // Load the outputs.
             response.outputs().to_vec()
         }
@@ -141,7 +171,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
 
     /// Executes the instruction.
     #[inline]
-    fn execute<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
+    fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
         registers: &mut (
@@ -237,12 +267,12 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 // Check if the substack has a proving key or not.
                 let pk_missing = !substack.contains_proving_key(function.name());
 
-                match registers.call_stack() {
+                match registers.call_stack_ref() {
                     // If the circuit is in authorize mode, then add any external calls to the stack.
                     CallStack::Authorize(_, private_key, authorization) => {
                         // Compute the request.
                         let request = Request::sign(
-                            &private_key,
+                            private_key,
                             *substack.program_id(),
                             *function.name(),
                             inputs.iter(),
@@ -270,7 +300,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                     CallStack::Synthesize(_, private_key, ..) if pk_missing => {
                         // Compute the request.
                         let request = Request::sign(
-                            &private_key,
+                            private_key,
                             *substack.program_id(),
                             *function.name(),
                             inputs.iter(),
@@ -296,7 +326,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                     CallStack::Synthesize(_, private_key, _) | CallStack::CheckDeployment(_, private_key, ..) => {
                         // Compute the request.
                         let request = Request::sign(
-                            &private_key,
+                            private_key,
                             *substack.program_id(),
                             *function.name(),
                             inputs.iter(),
@@ -307,7 +337,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                         )?;
 
                         // Compute the address.
-                        let address = Address::try_from(&private_key)?;
+                        let address = Address::try_from(private_key)?;
 
                         // For each output, if it's a record, compute the randomizer and nonce.
                         let outputs = function
@@ -364,7 +394,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                     CallStack::PackageRun(_, private_key, ..) => {
                         // Compute the request.
                         let request = Request::sign(
-                            &private_key,
+                            private_key,
                             *substack.program_id(),
                             *function.name(),
                             inputs.iter(),
@@ -400,8 +430,12 @@ impl<N: Network> CallTrait<N> for Call<N> {
                         })?;
 
                         // Evaluate the function, and load the outputs.
-                        let console_response =
-                            substack.evaluate_function::<A>(registers.call_stack().replicate(), console_caller)?;
+                        let console_response = substack.evaluate_function::<A, R>(
+                            registers.call_stack(),
+                            console_caller,
+                            root_tvk,
+                            rng,
+                        )?;
                         // Execute the request.
                         let response =
                             substack.execute_function::<A, R>(registers.call_stack(), console_caller, root_tvk, rng)?;
