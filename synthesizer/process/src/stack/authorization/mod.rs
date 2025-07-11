@@ -153,22 +153,21 @@ impl<N: Network> Authorization<N> {
     pub fn check_valid_edition(&self, process: &crate::Process<N>, _consensus_version: ConsensusVersion) -> Result<()> {
         // Determine the root transition's program ID.
         let transitions = self.transitions.read();
-        let root_program_id = *transitions
-            .first()
-            .map(|(_, t)| t.program_id())
-            .ok_or_else(|| anyhow!("No transitions found in the Authorization."))?;
-        // There is only one credits.aleo edition, so we can safely skip this case.
-        if root_program_id.to_string() != "credits.aleo" {
-            // Get the program's current edition.
-            let _program_edition = *process.get_stack(root_program_id)?.program_edition();
-            // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
-            // TODO: Once upgradability lands, this check will be different. We
-            // can't just check the program edition anymore, it will need to be
-            // programs that are edition 0 with no constructor that can't be
-            // called.
-            #[cfg(not(any(test, feature = "test")))]
-            if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
-                bail!("Cannot execute {root_program_id} on edition {_program_edition}");
+        let program_ids = transitions.iter().map(|(_, t)| t.program_id());
+        for program_id in program_ids {
+            // There is only one credits.aleo edition, so we can safely skip this case.
+            if program_id.to_string() != "credits.aleo" {
+                // Get the program's current edition.
+                let _program_edition = *process.get_stack(program_id)?.program_edition();
+                // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
+                // TODO: Once upgradability lands, this check will be different. We
+                // can't just check the program edition anymore, it will need to be
+                // programs that are edition 0 with no constructor that can't be
+                // called.
+                #[cfg(not(any(test, feature = "test")))]
+                if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
+                    bail!("Cannot execute {root_program_id} on edition {_program_edition}");
+                }
             }
         }
         Ok(())
