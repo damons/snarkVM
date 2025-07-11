@@ -670,7 +670,7 @@ fn sample_genesis_block_and_components_raw(
         rng,
     )
     .unwrap();
-    assert!(block.header().is_genesis(), "Failed to initialize a genesis block");
+    assert!(block.header().is_genesis().unwrap(), "Failed to initialize a genesis block");
     // Return the block, transaction, and private key.
     (block, transactions, private_key)
 }

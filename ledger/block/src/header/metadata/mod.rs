@@ -23,6 +23,7 @@ mod verify;
 
 use console::{network::prelude::*, types::Field};
 
+use anyhow::Context;
 use core::marker::PhantomData;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -81,39 +82,33 @@ impl<N: Network> Metadata<N> {
             _phantom: PhantomData,
         };
         // Ensure the header is valid.
-        match metadata.is_valid() {
-            true => Ok(metadata),
-            false => bail!("Invalid block metadata: {:?}", metadata),
+        match metadata.check_validity() {
+            Ok(()) => Ok(metadata),
+            Err(err) => bail!("Invalid block metadata: {err}"),
         }
     }
 
     /// Returns `true` if the block metadata is well-formed.
-    pub fn is_valid(&self) -> bool {
-        match self.height == 0u32 {
-            true => self.is_genesis(),
-            false => {
-                // Ensure the network ID is correct.
-                self.network == N::ID
-                    // Ensure the round is nonzero.
-                    && self.round != 0u64
-                    // Ensure the height is nonzero.
-                    && self.height != 0u32
-                    // Ensure the round is at least as large as the height.
-                    && self.round >= self.height as u64
-                    // Ensure the coinbase target is at or above the minimum.
-                    && self.coinbase_target >= N::GENESIS_COINBASE_TARGET
-                    // Ensure the proof target is at or above the minimum.
-                    && self.proof_target >= N::GENESIS_PROOF_TARGET
-                    // Ensure the coinbase target is larger than the proof target.
-                    && self.coinbase_target > self.proof_target
-                    // Ensure the last coinbase target is at or above the minimum.
-                    && self.last_coinbase_target >= N::GENESIS_COINBASE_TARGET
-                    // Ensure the last coinbase timestamp is after the genesis timestamp.
-                    && self.last_coinbase_timestamp >= N::GENESIS_TIMESTAMP
-                    // Ensure the timestamp in the block is after the genesis timestamp.
-                    && self.timestamp > N::GENESIS_TIMESTAMP
+    pub fn check_validity(&self) -> Result<()> {
+        if self.height == 0u32 {
+            if !self.is_genesis().with_context(|| "Genesis block check failed")? {
+                bail!("Block at height 0 is not a genesis block");
             }
+            return Ok(());
         }
+
+        // Ensure the network ID is correct.
+        ensure!(self.network == N::ID, "Invalid network ID");
+        ensure!(self.round > 0u64, "Invalid round");
+        ensure!(self.round >= self.height as u64, "Round must be greater or equal to height");
+        ensure!(self.coinbase_target >= N::GENESIS_COINBASE_TARGET, "Invalid coinbase target");
+        ensure!(self.proof_target >= N::GENESIS_PROOF_TARGET, "Invalid proof target");
+        ensure!(self.coinbase_target > self.proof_target, "Invalid coinbase target");
+        ensure!(self.last_coinbase_target >= N::GENESIS_COINBASE_TARGET, "Invalid last coinbase target");
+        ensure!(self.last_coinbase_timestamp >= N::GENESIS_TIMESTAMP, "Ensure last coinbase timestamp");
+        ensure!(self.timestamp > N::GENESIS_TIMESTAMP, "Invalid timeestamp");
+
+        Ok(())
     }
 }
 

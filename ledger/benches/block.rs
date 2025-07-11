@@ -25,7 +25,10 @@ type CurrentNetwork = MainnetV0;
 
 /// Loads the genesis block.
 fn load_genesis_block() -> Block<CurrentNetwork> {
-    Block::<CurrentNetwork>::from_bytes_le(CurrentNetwork::genesis_bytes()).unwrap()
+    match Block::<CurrentNetwork>::from_bytes_le(CurrentNetwork::genesis_bytes()) {
+        Ok(block) => block,
+        Err(err) => panic!("Failed to load genesis block: {err:?}"),
+    }
 }
 
 /// Helper method to benchmark serialization.

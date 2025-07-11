@@ -33,7 +33,10 @@ impl<N: Network> Metadata<N> {
         current_timestamp: i64,
     ) -> Result<()> {
         // Ensure the block metadata is well-formed.
-        ensure!(self.is_valid(), "Metadata is malformed in block {expected_height}");
+        if let Err(err) = self.check_validity() {
+            bail!("Metadata is malformed in block {expected_height}: {err}");
+        }
+
         // Ensure the round is correct.
         ensure!(
             self.round == expected_round,

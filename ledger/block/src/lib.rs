@@ -714,7 +714,7 @@ pub mod test_helpers {
             rng,
         )
         .unwrap();
-        assert!(block.header().is_genesis(), "Failed to initialize a genesis block");
+        assert!(block.header().is_genesis().unwrap(), "Failed to initialize a genesis block");
         // Return the block, transaction, and private key.
         (block, transaction, private_key)
     }
