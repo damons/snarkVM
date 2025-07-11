@@ -21,9 +21,6 @@ impl<E: Environment, I: IntegerType> Integer<E, I> {
     /// This method is commonly-used by hash-to-integer algorithms,
     /// where the hash output does not need to preserve the full base field.
     pub fn from_field_lossy(field: &Field<E>) -> Self {
-        // Note: We are reconstituting the integer from the base field.
-        // This is safe as the number of bits in the integer is less than the base field modulus,
-        // and thus will always fit within a single base field element.
         debug_assert!(I::BITS < Field::<E>::size_in_bits() as u64);
 
         // Truncate the field to the size of the integer domain.
