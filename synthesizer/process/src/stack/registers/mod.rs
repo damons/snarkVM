@@ -61,6 +61,12 @@ impl<N: Network, A: circuit::Aleo<Network = N>> Registers<N, A> {
         self.call_stack.clone()
     }
 
+    /// Returns a reference to the current call stack.
+    #[inline]
+    pub fn call_stack_ref(&self) -> &CallStack<N> {
+        &self.call_stack
+    }
+
     /// Initializes a new set of registers, given the call stack.
     #[inline]
     pub fn new(call_stack: CallStack<N>, register_types: RegisterTypes<N>) -> Self {
