@@ -166,7 +166,7 @@ impl<N: Network> Authorization<N> {
                 // called.
                 #[cfg(not(any(test, feature = "test")))]
                 if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
-                    bail!("Cannot execute {root_program_id} on edition {_program_edition}");
+                    bail!("Cannot execute {program_id} on edition {_program_edition}");
                 }
             }
         }
