@@ -113,6 +113,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
     ).unwrap();
     let record_ciphertext = record.encrypt(randomizer).unwrap();
     let record_checksum = CurrentNetwork::hash_bhp1024(&record_ciphertext.to_bits_le()).unwrap();
+    // Sample a sender ciphertext.
+    let sender_ciphertext = match record_ciphertext.version().is_zero() {
+        true => None,
+        false => Some(Uniform::rand(rng)),
+    };
 
     vec![
         (transition_id, input),
@@ -122,8 +127,11 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
         (Uniform::rand(rng), Output::Public(plaintext_hash, Some(plaintext))),
         (Uniform::rand(rng), Output::Private(Uniform::rand(rng), None)),
         (Uniform::rand(rng), Output::Private(ciphertext_hash, Some(ciphertext))),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None)),
-        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext))),
+        (Uniform::rand(rng), Output::Record(Uniform::rand(rng), Uniform::rand(rng), None, sender_ciphertext)),
+        (
+            Uniform::rand(rng),
+            Output::Record(Uniform::rand(rng), record_checksum, Some(record_ciphertext), sender_ciphertext),
+        ),
         (Uniform::rand(rng), Output::ExternalRecord(Uniform::rand(rng))),
     ]
 }
@@ -203,9 +211,14 @@ function compute:
 }
 
 /// Samples a rejected deployment.
-pub fn sample_rejected_deployment(version: u8, is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
+pub fn sample_rejected_deployment(
+    version: u8,
+    edition: u16,
+    is_fee_private: bool,
+    rng: &mut TestRng,
+) -> Rejected<CurrentNetwork> {
     // Sample a deploy transaction.
-    let deployment = match crate::sample_deployment_transaction(version, is_fee_private, rng) {
+    let deployment = match crate::sample_deployment_transaction(version, edition, is_fee_private, rng) {
         Transaction::Deploy(_, _, _, deployment, _) => (*deployment).clone(),
         _ => unreachable!(),
     };
@@ -294,7 +307,7 @@ pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng
     block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
 
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the fee.
     let fee = trace.prove_fee::<CurrentAleo, _>(VarunaVersion::V1, rng).unwrap();
 
@@ -347,7 +360,7 @@ pub fn sample_fee_public(deployment_or_execution_id: Field<CurrentNetwork>, rng:
     block_store.insert(&FromStr::from_str(&block.to_string()).unwrap()).unwrap();
 
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the fee.
     let fee = trace.prove_fee::<CurrentAleo, _>(VarunaVersion::V1, rng).unwrap();
 
@@ -395,6 +408,7 @@ function large_transaction:
 /// Samples a random deployment transaction with a private or public fee.
 pub fn sample_deployment_transaction(
     version: u8,
+    edition: u16,
     is_fee_private: bool,
     rng: &mut TestRng,
 ) -> Transaction<CurrentNetwork> {
@@ -412,6 +426,15 @@ pub fn sample_deployment_transaction(
         }
         _ => panic!("Invalid deployment version: {version}"),
     };
+    // Create a new deployment with the desired edition.
+    let deployment = Deployment::<CurrentNetwork>::new(
+        edition,
+        deployment.program().clone(),
+        deployment.verifying_keys().clone(),
+        deployment.program_checksum().cloned(),
+        deployment.program_owner().cloned(),
+    )
+    .unwrap();
 
     // Compute the deployment ID.
     let deployment_id = deployment.to_deployment_id().unwrap();
@@ -455,7 +478,7 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
             let program = large_transaction_program();
 
             // Construct the process.
-            let process = synthesizer_process::Process::load().unwrap();
+            let mut process = synthesizer_process::Process::load().unwrap();
             // Add the program.
             process.add_program(&program).unwrap();
 
@@ -483,7 +506,7 @@ pub fn sample_large_execution_transaction(rng: &mut TestRng) -> Transaction<Curr
                 .unwrap();
 
             // Prepare the assignments.
-            trace.prepare(ledger_query::Query::from(block_store)).unwrap();
+            trace.prepare(&ledger_query::Query::from(block_store)).unwrap();
             // Compute the proof and construct the execution.
             let execution = trace.prove_execution::<CurrentAleo, _>("testing.aleo", VarunaVersion::V1, rng).unwrap();
             // Reconstruct the execution from bytes.
@@ -552,12 +575,20 @@ pub fn sample_genesis_block_and_components(
     INSTANCE.get_or_init(|| crate::sample_genesis_block_and_components_raw(rng)).clone()
 }
 
+pub fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwork> {
+    static INSTANCE: OnceCell<PrivateKey<CurrentNetwork>> = OnceCell::new();
+    *INSTANCE.get_or_init(|| {
+        // Initialize a new caller.
+        PrivateKey::<CurrentNetwork>::new(rng).unwrap()
+    })
+}
+
 /// Samples a random genesis block, the transaction from the genesis block, and the genesis private key.
 fn sample_genesis_block_and_components_raw(
     rng: &mut TestRng,
 ) -> (Block<CurrentNetwork>, Transaction<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
     // Sample the genesis private key.
-    let private_key = PrivateKey::new(rng).unwrap();
+    let private_key = sample_genesis_private_key(rng);
     let address = Address::<CurrentNetwork>::try_from(private_key).unwrap();
 
     // Prepare the locator.
@@ -579,7 +610,7 @@ fn sample_genesis_block_and_components_raw(
     let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
     // Prepare the assignments.
-    trace.prepare(Query::from(block_store)).unwrap();
+    trace.prepare(&Query::from(block_store)).unwrap();
     // Compute the proof and construct the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>(locator.0, VarunaVersion::V1, rng).unwrap();
     // Convert the execution.

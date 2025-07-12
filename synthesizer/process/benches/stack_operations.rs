@@ -22,12 +22,12 @@ use console::{
     types::Field,
 };
 use snarkvm_synthesizer_process::{Process, Stack};
-use synthesizer_program::{Program, StackProgram};
+use synthesizer_program::{Program, StackTrait};
 
 use circuit::prelude::bail;
 use console::{network::Network, prelude::SizeInDataBits};
 use criterion::{BatchSize, Criterion};
-use rand::{Rng, distributions::Alphanumeric};
+use rand::{Rng as _, distributions::Alphanumeric};
 use std::str::FromStr;
 use utilities::TestRng;
 

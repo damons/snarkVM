@@ -16,7 +16,7 @@
 mod bytes;
 mod parse;
 
-use crate::traits::CommandTrait;
+use crate::Command;
 
 use console::{
     network::prelude::*,
@@ -26,18 +26,18 @@ use console::{
 use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct ConstructorCore<N: Network, Command: CommandTrait<N>> {
+pub struct ConstructorCore<N: Network> {
     /// The commands, in order of execution.
-    commands: Vec<Command>,
+    commands: Vec<Command<N>>,
     /// The number of write commands.
     num_writes: u16,
     /// A mapping from `Position`s to their index in `commands`.
     positions: HashMap<Identifier<N>, usize>,
 }
 
-impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
+impl<N: Network> ConstructorCore<N> {
     /// Returns the constructor commands.
-    pub fn commands(&self) -> &[Command] {
+    pub fn commands(&self) -> &[Command<N>] {
         &self.commands
     }
 
@@ -52,13 +52,13 @@ impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
     }
 }
 
-impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
+impl<N: Network> ConstructorCore<N> {
     /// Adds the given command to constructor.
     ///
     /// # Errors
     /// This method will halt if the maximum number of commands has been reached.
     #[inline]
-    pub fn add_command(&mut self, command: Command) -> Result<()> {
+    pub fn add_command(&mut self, command: Command<N>) -> Result<()> {
         // Ensure the maximum number of commands has not been exceeded.
         ensure!(self.commands.len() < N::MAX_COMMANDS, "Cannot add more than {} commands", N::MAX_COMMANDS);
         // Ensure the number of write commands has not been exceeded.
@@ -113,7 +113,7 @@ impl<N: Network, Command: CommandTrait<N>> ConstructorCore<N, Command> {
     }
 }
 
-impl<N: Network, Command: CommandTrait<N>> TypeName for ConstructorCore<N, Command> {
+impl<N: Network> TypeName for ConstructorCore<N> {
     /// Returns the type name as a string.
     #[inline]
     fn type_name() -> &'static str {

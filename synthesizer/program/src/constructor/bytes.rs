@@ -15,7 +15,7 @@
 
 use super::*;
 
-impl<N: Network, Command: CommandTrait<N>> FromBytes for ConstructorCore<N, Command> {
+impl<N: Network> FromBytes for ConstructorCore<N> {
     /// Reads the constructor from a buffer.
     #[inline]
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
@@ -39,7 +39,7 @@ impl<N: Network, Command: CommandTrait<N>> FromBytes for ConstructorCore<N, Comm
     }
 }
 
-impl<N: Network, Command: CommandTrait<N>> ToBytes for ConstructorCore<N, Command> {
+impl<N: Network> ToBytes for ConstructorCore<N> {
     /// Writes the constructor to a buffer.
     #[inline]
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {

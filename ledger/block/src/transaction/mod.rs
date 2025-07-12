@@ -139,6 +139,19 @@ impl<N: Network> Transaction<N> {
             _ => false,
         }
     }
+
+    /// Returns `true` if this transaction contains a call to `credits.aleo/upgrade`.
+    #[inline]
+    pub fn contains_upgrade(&self) -> bool {
+        match self {
+            // Case 1 - The transaction contains a transition that calls 'credits.aleo/upgrade'.
+            Transaction::Execute(_, _, execution, _) => {
+                execution.transitions().any(|transition| transition.is_upgrade())
+            }
+            // Otherwise, return 'false'.
+            _ => false,
+        }
+    }
 }
 
 impl<N: Network> Transaction<N> {
@@ -443,6 +456,7 @@ pub mod test_helpers {
     /// Samples a random deployment transaction with a private or public fee.
     pub fn sample_deployment_transaction(
         version: u8,
+        edition: u16,
         is_fee_private: bool,
         rng: &mut TestRng,
     ) -> Transaction<CurrentNetwork> {
@@ -450,9 +464,9 @@ pub mod test_helpers {
         let private_key = PrivateKey::new(rng).unwrap();
         // Sample a deployment.
         let deployment = match version {
-            1 => crate::transaction::deployment::test_helpers::sample_deployment_v1(rng),
+            1 => crate::transaction::deployment::test_helpers::sample_deployment_v1(edition, rng),
             2 => {
-                let mut deployment = crate::transaction::deployment::test_helpers::sample_deployment_v2(rng);
+                let mut deployment = crate::transaction::deployment::test_helpers::sample_deployment_v2(edition, rng);
                 // Set the program owner to the address of the private key.
                 deployment.set_program_owner_raw(Some(Address::try_from(&private_key).unwrap()));
                 // Return the deployment.
@@ -523,10 +537,14 @@ mod tests {
 
         // Transaction IDs are created using `transaction_tree`.
         for expected in [
-            crate::transaction::test_helpers::sample_deployment_transaction(1, true, rng),
-            crate::transaction::test_helpers::sample_deployment_transaction(1, false, rng),
-            crate::transaction::test_helpers::sample_deployment_transaction(2, true, rng),
-            crate::transaction::test_helpers::sample_deployment_transaction(2, false, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), true, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), true, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), false, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), false, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), true, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), true, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
+            crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
             crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng),
             crate::transaction::test_helpers::sample_execution_transaction_with_fee(false, rng),
         ]

@@ -31,7 +31,7 @@ impl<N: Network> DeployRequest<N> {
 
     /// Sends the request to the given endpoint.
     pub fn send(&self, endpoint: &str) -> Result<DeployResponse<N>> {
-        Ok(ureq::post(endpoint).send_json(self)?.into_json()?)
+        Ok(ureq::post(endpoint).send_json(self)?.body_mut().read_json()?)
     }
 
     /// Returns the program.
@@ -124,7 +124,7 @@ impl<N: Network> Package<N> {
         println!("⏳ Deploying '{}'...\n", program_id.to_string().bold());
 
         // Construct the process.
-        let process = Process::<N>::load()?;
+        let mut process = Process::<N>::load()?;
 
         // Add program imports to the process.
         let imports_directory = self.imports_directory();

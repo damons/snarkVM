@@ -13,12 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    CallOperator,
-    Opcode,
-    Operand,
-    traits::{FinalizeStoreTrait, RegistersLoad, RegistersStore, StackMatches, StackProgram},
-};
+use crate::{CallOperator, FinalizeStoreTrait, Opcode, Operand, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
     program::{Register, Value},
@@ -102,9 +97,9 @@ impl<N: Network> GetOrUse<N> {
     #[inline]
     pub fn finalize(
         &self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &impl StackTrait<N>,
         store: &impl FinalizeStoreTrait<N>,
-        registers: &mut (impl RegistersLoad<N> + RegistersStore<N>),
+        registers: &mut impl RegistersTrait<N>,
     ) -> Result<()> {
         // Determine the program ID and mapping name.
         let (program_id, mapping_name) = match self.mapping {

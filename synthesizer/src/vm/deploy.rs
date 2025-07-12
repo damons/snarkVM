@@ -28,16 +28,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         program: &Program<N>,
         fee_record: Option<Record<N, Plaintext<N>>>,
         priority_fee_in_microcredits: u64,
-        query: Option<Query<N, C::BlockStorage>>,
+        query: Option<&dyn QueryTrait<N>>,
         rng: &mut R,
     ) -> Result<Transaction<N>> {
         // Compute the deployment.
         let mut deployment = self.deploy_raw(program, rng)?;
         // Ensure the transaction is not empty.
         ensure!(!deployment.program().functions().is_empty(), "Attempted to create an empty transaction deployment");
+        // Get a default query if one is not provided.
+        let query = match query {
+            Some(q) => q,
+            None => &Query::VM(self.block_store().clone()),
+        };
         // If the `CONSENSUS_VERSION` is less than `V8`, unset the program checksum and the owner.
         // Otherwise, swap the default owner with the address of the private key.
-        let query = query.clone().unwrap_or(Query::VM(self.block_store().clone()));
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
         if consensus_version < ConsensusVersion::V8 {
             deployment.set_program_checksum_raw(None);

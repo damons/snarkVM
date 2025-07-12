@@ -15,7 +15,7 @@
 
 use super::*;
 
-impl<N: Network, Command: CommandTrait<N>> Parser for ConstructorCore<N, Command> {
+impl<N: Network> Parser for ConstructorCore<N> {
     /// Parses a string into constructor.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
@@ -43,7 +43,7 @@ impl<N: Network, Command: CommandTrait<N>> Parser for ConstructorCore<N, Command
     }
 }
 
-impl<N: Network, Command: CommandTrait<N>> FromStr for ConstructorCore<N, Command> {
+impl<N: Network> FromStr for ConstructorCore<N> {
     type Err = Error;
 
     /// Returns a constructor from a string literal.
@@ -60,14 +60,14 @@ impl<N: Network, Command: CommandTrait<N>> FromStr for ConstructorCore<N, Comman
     }
 }
 
-impl<N: Network, Command: CommandTrait<N>> Debug for ConstructorCore<N, Command> {
+impl<N: Network> Debug for ConstructorCore<N> {
     /// Prints the constructor as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network, Command: CommandTrait<N>> Display for ConstructorCore<N, Command> {
+impl<N: Network> Display for ConstructorCore<N> {
     /// Prints the constructor as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Write the constructor to a string.

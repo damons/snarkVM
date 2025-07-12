@@ -62,8 +62,17 @@ use ledger_store::{
     TransitionStore,
     atomic_finalize,
 };
-use synthesizer_process::{Authorization, Process, Trace, deployment_cost, execution_cost_v1, execution_cost_v2};
-use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program, StackProgram};
+use synthesizer_process::{
+    Authorization,
+    InclusionVersion,
+    Process,
+    Trace,
+    deployment_cost,
+    execution_cost_v1,
+    execution_cost_v2,
+};
+use synthesizer_program::{FinalizeGlobalState, FinalizeOperation, FinalizeStoreTrait, Program, StackTrait as _};
+use synthesizer_snark::VerifyingKey;
 use utilities::try_vm_runtime;
 
 use aleo_std::prelude::{finish, lap, timer};
@@ -107,9 +116,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Initializes the VM from storage.
     #[inline]
     pub fn from(store: ConsensusStore<N, C>) -> Result<Self> {
-        // Initialize a new process.
-        let mut process = Process::load()?;
-
         // Initialize the store for 'credits.aleo'.
         let credits = Program::<N>::credits()?;
         for mapping in credits.mappings().values() {
@@ -124,6 +130,23 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         let transaction_store = store.transaction_store();
         // Retrieve the block store.
         let block_store = store.block_store();
+
+        #[cfg(not(any(test, feature = "test")))]
+        let mut process = {
+            // Determine the latest block height.
+            let latest_block_height = block_store.current_block_height();
+            // Determine the consensus version.
+            let consensus_version = N::CONSENSUS_VERSION(latest_block_height)?; // TODO (raychu86): Record Commitment - Select the proper consensus version.
+            // Initialize a new process based on the consensus version.
+            if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+                Process::load_v0()?
+            } else {
+                Process::load()?
+            }
+        };
+        #[cfg(any(test, feature = "test"))]
+        // Initialize a new process.
+        let mut process = Process::load()?;
 
         // Retrieve the list of deployment transaction IDs and their associated block heights.
         let deployment_ids = transaction_store.deployment_transaction_ids().collect::<Vec<_>>();
@@ -142,7 +165,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     bail!("Transactions for deployment transaction '{hash}' is not found in storage.")
                 };
                 // Find the index of the deployment transaction ID in the block's transactions.
-                let Some(index) = transactions.transactions().get_index_of(transaction_id.deref()) else {
+                let Some(index) = transactions.index_of(transaction_id.deref()) else {
                     bail!("Transaction for deployment transaction '{transaction_id}' is not found in storage.")
                 };
                 Ok((transaction_id, (height, index)))
@@ -419,11 +442,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Next, finalize the transactions.
         match self.finalize(state, block.ratifications(), block.solutions(), block.transactions()) {
             Ok(_ratified_finalize_operations) => {
+                // If the block advances to `ConsensusVersion::V8`, updated the VKs used for the credits program.
+                if N::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap_or_default() == block.height() {
+                    self.update_credits_verifying_keys()?;
+                }
                 // Unpause the atomic writes, executing the ones queued from block insertion and finalization.
                 #[cfg(feature = "rocks")]
                 self.block_store().unpause_atomic_writes::<false>()?;
-                // If the block advances to `ConsensusVersion::V4`, clear the partial verification cache.
-                if N::CONSENSUS_HEIGHT(ConsensusVersion::V4).unwrap_or_default() == block.height() {
+                // If the block advances to a new consensus version, clear the partial verification cache.
+                // TODO: This may have performance implications if the version
+                // list grows large as it is in the hot path.
+                if N::CONSENSUS_VERSION_HEIGHTS.iter().any(|(_, height)| height == &block.height()) {
                     self.partially_verified_transactions().write().clear();
                 }
                 Ok(())
@@ -453,6 +482,37 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 Err(finalize_error)
             }
         }
+    }
+}
+
+impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
+    /// Update the `credits.aleo` program in the VM with the latest verifying keys.
+    fn update_credits_verifying_keys(&self) -> Result<()> {
+        // Initialize the store for 'credits.aleo'.
+        let credits = Program::<N>::credits()?;
+
+        // Acquire the process lock.
+        let process = self.process.write();
+
+        // Synthesize the 'credits.aleo' verifying keys.
+        for function_name in credits.functions().keys() {
+            // Remove the proving key.
+            process.remove_proving_key(credits.id(), function_name)?;
+            // Load the verifying key.
+            let verifying_key = N::get_credits_verifying_key(function_name.to_string())?;
+            // Retrieve the number of public and private variables.
+            // Note: This number does *NOT* include the number of constants. This is safe because
+            // this program is never deployed, as it is a first-class citizen of the protocol.
+            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
+            // Insert the verifying key.
+            process.insert_verifying_key(
+                credits.id(),
+                function_name,
+                VerifyingKey::new(verifying_key.clone(), num_variables),
+            )?;
+        }
+
+        Ok(())
     }
 }
 
@@ -1106,7 +1166,7 @@ function a:
             // Note: `deployment_transaction_ids` is sorted lexicographically by transaction ID, so the order may change if we update internal methods.
             assert_eq!(
                 deployment_transaction_ids,
-                vec![deployment_4.id(), deployment_3.id(), deployment_2.id(), deployment_1.id()],
+                vec![deployment_1.id(), deployment_2.id(), deployment_4.id(), deployment_3.id()],
                 "Update me if serialization has changed"
             );
         }
@@ -1385,7 +1445,8 @@ program synthesis_overload.aleo;
 function do:
     input r0 as [[u128; 32u32]; 2u32].private;
     hash.sha3_256 r0 into r1 as field;
-    output r1 as field.public;",
+    hash.sha3_256 r0 into r2 as field;
+    output r2 as field.public;",
         )
         .unwrap();
 
@@ -1419,8 +1480,10 @@ function do:
     cast 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 into r0 as [u32; 32u32];
     cast r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 into r1 as [[u32; 32u32]; 32u32];
     cast r1 r1 r1 r1 r1 into r2 as [[[u32; 32u32]; 32u32]; 5u32];
-    hash.bhp1024 r2 into r3 as u32;
-    output r3 as u32.private;
+    cast r1 r1 r1 r1 r1 into r3 as [[[u32; 32u32]; 32u32]; 5u32];
+    hash.bhp1024 r2 into r4 as u32;
+    hash.bhp1024 r3 into r5 as u32;
+    output r4 as u32.private;
 function do2:
     cast 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 0u32 into r0 as [u32; 32u32];
     cast r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 into r1 as [[u32; 32u32]; 32u32];
@@ -1807,7 +1870,7 @@ finalize do:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_894_244, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_894_112, "Update me if the initial balance changes.");
 
         // Transfer credits from the caller to the recipient.
         let transaction = vm
@@ -1844,7 +1907,7 @@ finalize do:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_843_183, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_843_051, "Update me if the initial balance changes.");
 
         // Check the balance of the recipient.
         let balance = match vm
@@ -1898,7 +1961,7 @@ finalize do:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_894_244, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_894_112, "Update me if the initial balance changes.");
 
         // Transfer credits from the caller to the recipient.
         let transaction = vm
@@ -1935,7 +1998,7 @@ finalize do:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_843_163, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_843_031, "Update me if the initial balance changes.");
 
         // Check the balance of the recipient.
         let balance = match vm
@@ -1989,7 +2052,7 @@ finalize do:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_894_244, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_894_112, "Update me if the initial balance changes.");
 
         // Initialize a wrapper program, importing `credits.aleo` and calling `transfer_public`.
         let program = Program::from_str(
@@ -2060,7 +2123,7 @@ finalize transfer_public:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_996_914_808, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_996_914_676, "Update me if the initial balance changes.");
 
         // Check the balance of the `credits_wrapper` program.
         let balance = match vm
@@ -2112,7 +2175,7 @@ finalize transfer_public:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_996_862_283, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_996_862_151, "Update me if the initial balance changes.");
 
         // Check the balance of the `credits_wrapper` program.
         let balance = match vm
@@ -2181,7 +2244,7 @@ finalize transfer_public:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_894_244, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_894_112, "Update me if the initial balance changes.");
 
         // Initialize a wrapper program, importing `credits.aleo` and calling `transfer_public`.
         let program = Program::from_str(
@@ -2251,7 +2314,7 @@ finalize transfer_public_as_signer:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_996_821_793, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_996_821_661, "Update me if the initial balance changes.");
 
         // Check the `credits_wrapper` program does not have any balance.
         let balance = vm
@@ -2316,7 +2379,7 @@ finalize transfer_public_as_signer:
             Some(Value::Plaintext(Plaintext::Literal(Literal::U64(balance), _))) => *balance,
             _ => panic!("Expected a valid balance"),
         };
-        assert_eq!(balance, 182_499_999_894_244, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_999_894_112, "Update me if the initial balance changes.");
 
         // Check that the recipient does not have a public balance.
         let balance = vm
@@ -2406,7 +2469,7 @@ finalize transfer_public_to_private:
             _ => panic!("Expected a valid balance"),
         };
 
-        assert_eq!(balance, 182_499_996_071_881, "Update me if the initial balance changes.");
+        assert_eq!(balance, 182_499_995_667_116, "Update me if the initial balance changes.");
 
         // Check that the `credits_wrapper` program has a balance of 0.
         let balance = match vm
@@ -3059,7 +3122,7 @@ function check:
         assert!(vm.contains_program(&ProgramID::from_str("grandparent_program.aleo").unwrap()));
 
         // Initialize the process.
-        let process = Process::<CurrentNetwork>::load().unwrap();
+        let mut process = Process::<CurrentNetwork>::load().unwrap();
 
         // Load the child and parent program
         process.add_program(&child_program_1).unwrap();
@@ -3229,73 +3292,6 @@ function adder:
 
         // Check that only `child_program.aleo` is in the VM.
         assert!(vm.process().read().contains_program(&ProgramID::from_str("child_program.aleo").unwrap()));
-    }
-
-    #[cfg(feature = "test")]
-    #[test]
-    fn test_deploy_and_execute_in_same_block_fails() {
-        let rng = &mut TestRng::default();
-
-        // Initialize a new caller.
-        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
-
-        // Initialize the genesis block.
-        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
-
-        // Initialize the VM.
-        let vm = crate::vm::test_helpers::sample_vm();
-        vm.add_next_block(&genesis).unwrap();
-
-        // Deploy and execute a program in the same block.
-        let program = Program::from_str(
-            r"
-program adder_program.aleo;
-
-function adder:
-    input r0 as u64.public;
-    input r1 as u64.public;
-    add r0 r1 into r2;
-    output r2 as u64.public;
-        ",
-        )
-        .unwrap();
-
-        // Initialize an "off-chain" VM to generate the deployment and execution.
-        let off_chain_vm = sample_vm();
-        off_chain_vm.add_next_block(&genesis).unwrap();
-        // Deploy the program.
-        let deployment = off_chain_vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
-        // Check that the account has enough to pay for the deployment.
-        assert_eq!(*deployment.fee_amount().unwrap(), 2483025);
-        // Add the program to the off-chain VM.
-        off_chain_vm.process().write().add_program(&program).unwrap();
-        // Execute the program.
-        let transaction = off_chain_vm
-            .execute(
-                &caller_private_key,
-                ("adder_program.aleo", "adder"),
-                [Value::from_str("1u64").unwrap(), Value::from_str("2u64").unwrap()].iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-        // Verify the transaction.
-        off_chain_vm.check_transaction(&transaction, None, rng).unwrap();
-        // Check that the account has enough to pay for the execution.
-        assert_eq!(*transaction.fee_amount().unwrap(), 1283);
-        // Drop the off-chain VM.
-        drop(off_chain_vm);
-
-        let block = sample_next_block(&vm, &caller_private_key, &[deployment, transaction], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 1);
-        assert_eq!(block.transactions().num_rejected(), 0);
-        assert_eq!(block.aborted_transaction_ids().len(), 1);
-        vm.add_next_block(&block).unwrap();
-
-        // Check that the program was deployed.
-        assert!(vm.process().read().contains_program(&ProgramID::from_str("adder_program.aleo").unwrap()));
     }
 
     // Note: Do not change the prefix `test_vm_upgrade` of this test as CI uses it to detect the test.
@@ -3552,7 +3548,7 @@ function baz:
 
         // Generate the deployments.
         // Note that we are attempting to upgrade twice with consecutive editions.
-        let process = Process::load().unwrap();
+        let mut process = Process::load().unwrap();
         process.add_program(&program_v0).unwrap();
         let mut deployment_v1 = process.deploy::<CurrentAleo, _>(&program_v1, rng).unwrap();
         deployment_v1.set_program_owner_raw(Some(Address::try_from(&private_key_1).unwrap()));
@@ -3746,5 +3742,71 @@ function fly:
         } else {
             panic!("Expected an error, but the deployment was accepted.")
         }
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_deploy_and_execute_in_same_block_fails() {
+        let rng = &mut TestRng::default();
+
+        // Initialize a new caller.
+        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        vm.add_next_block(&genesis).unwrap();
+
+        // Deploy and execute a program in the same block.
+        let program = Program::from_str(
+            r"
+program adder_program.aleo;
+function adder:
+    input r0 as u64.public;
+    input r1 as u64.public;
+    add r0 r1 into r2;
+    output r2 as u64.public;
+        ",
+        )
+        .unwrap();
+
+        // Initialize an "off-chain" VM to generate the deployment and execution.
+        let off_chain_vm = sample_vm();
+        off_chain_vm.add_next_block(&genesis).unwrap();
+        // Deploy the program.
+        let deployment = off_chain_vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+        // Check that the account has enough to pay for the deployment.
+        assert_eq!(*deployment.fee_amount().unwrap(), 2483025);
+        // Add the program to the off-chain VM.
+        off_chain_vm.process().write().add_program(&program).unwrap();
+        // Execute the program.
+        let transaction = off_chain_vm
+            .execute(
+                &caller_private_key,
+                ("adder_program.aleo", "adder"),
+                [Value::from_str("1u64").unwrap(), Value::from_str("2u64").unwrap()].iter(),
+                None,
+                0,
+                None,
+                rng,
+            )
+            .unwrap();
+        // Verify the transaction.
+        off_chain_vm.check_transaction(&transaction, None, rng).unwrap();
+        // Check that the account has enough to pay for the execution.
+        assert_eq!(*transaction.fee_amount().unwrap(), 1283);
+        // Drop the off-chain VM.
+        drop(off_chain_vm);
+
+        let block = sample_next_block(&vm, &caller_private_key, &[deployment, transaction], rng).unwrap();
+        assert_eq!(block.transactions().num_accepted(), 1);
+        assert_eq!(block.transactions().num_rejected(), 0);
+        assert_eq!(block.aborted_transaction_ids().len(), 1);
+        vm.add_next_block(&block).unwrap();
+
+        // Check that the program was deployed.
+        assert!(vm.process().read().contains_program(&ProgramID::from_str("adder_program.aleo").unwrap()));
     }
 }

@@ -28,9 +28,6 @@ pub use stack::*;
 mod trace;
 pub use trace::*;
 
-mod traits;
-pub use traits::*;
-
 mod authorize;
 mod deploy;
 mod evaluate;
@@ -52,19 +49,7 @@ use console::{
 };
 use ledger_block::{Deployment, Execution, Fee, Input, Output, Transaction, Transition};
 use ledger_store::{FinalizeStorage, FinalizeStore, atomic_batch_scope};
-use synthesizer_program::{
-    Branch,
-    Closure,
-    Command,
-    FinalizeGlobalState,
-    FinalizeOperation,
-    Instruction,
-    Program,
-    RegistersLoad,
-    RegistersStore,
-    StackKeys,
-    StackProgram,
-};
+use synthesizer_program::{Branch, Command, FinalizeGlobalState, FinalizeOperation, Instruction, Program, StackTrait};
 use synthesizer_snark::{ProvingKey, UniversalSRS, VerifyingKey};
 
 use aleo_std::prelude::{finish, lap, timer};
@@ -95,7 +80,7 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process:setup");
 
         // Initialize the process.
-        let process =
+        let mut process =
             Self { universal_srs: UniversalSRS::load()?, stacks: Default::default(), old_stacks: Default::default() };
         lap!(timer, "Initialize process");
 
@@ -123,24 +108,24 @@ impl<N: Network> Process<N> {
     }
 
     /// Adds a new program to the process.
-    /// If the program exists, then the existing program is replaced and discarded.
+    /// If the program exists, then the existing program is replaced and the original stack is returned..
     /// If you intend to `execute` the program, use `deploy` and `finalize_deployment` instead.
     #[inline]
-    pub fn add_program(&self, program: &Program<N>) -> Result<()> {
+    pub fn add_program(&mut self, program: &Program<N>) -> Result<Option<Arc<Stack<N>>>> {
         // Initialize the 'credits.aleo' program ID.
         let credits_program_id = ProgramID::<N>::from_str("credits.aleo")?;
         // If the program is not 'credits.aleo', compute the program stack, and add it to the process.
         if program.id() != &credits_program_id {
-            self.add_stack(Stack::new(self, program)?);
+            return Ok(self.add_stack(Stack::new(self, program)?));
         }
-        Ok(())
+        Ok(None)
     }
 
     /// Adds a new stack to the process.
-    /// If the program already exists, then the existing stack is replaced and discarded.
+    /// If the program already exists, then the existing stack is replaced and the original stack is returned.
     /// If you intend to `execute` the program, use `deploy` and `finalize_deployment` instead.
     #[inline]
-    pub fn add_stack(&self, stack: Stack<N>) -> Option<Arc<Stack<N>>> {
+    pub fn add_stack(&mut self, stack: Stack<N>) -> Option<Arc<Stack<N>>> {
         // Get the program ID.
         let program_id = *stack.program_id();
         // Arc the stack first to limit the scope of the write lock.
@@ -200,7 +185,7 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process::load");
 
         // Initialize the process.
-        let process =
+        let mut process =
             Self { universal_srs: UniversalSRS::load()?, stacks: Default::default(), old_stacks: Default::default() };
         lap!(timer, "Initialize process");
 
@@ -234,12 +219,52 @@ impl<N: Network> Process<N> {
         Ok(process)
     }
 
+    /// Initializes a new process with the V0 credits.aleo verifiying keys.
+    #[inline]
+    pub fn load_v0() -> Result<Self> {
+        let timer = timer!("Process::load_v0");
+
+        // Initialize the process.
+        let mut process =
+            Self { universal_srs: UniversalSRS::load()?, stacks: Default::default(), old_stacks: Default::default() };
+        lap!(timer, "Initialize process");
+
+        // Initialize the 'credits.aleo' program.
+        let program = Program::credits()?;
+        lap!(timer, "Load credits program");
+
+        // Compute the 'credits.aleo' program stack.
+        let stack = Stack::new(&process, &program)?;
+        lap!(timer, "Initialize stack");
+
+        // Synthesize the 'credits.aleo' verifying keys.
+        for function_name in program.functions().keys() {
+            // Load the verifying key.
+            let verifying_key = N::get_credits_v0_verifying_key(function_name.to_string())?;
+            // Retrieve the number of public and private variables.
+            // Note: This number does *NOT* include the number of constants. This is safe because
+            // this program is never deployed, as it is a first-class citizen of the protocol.
+            let num_variables = verifying_key.circuit_info.num_public_and_private_variables as u64;
+            // Insert the verifying key.
+            stack.insert_verifying_key(function_name, VerifyingKey::new(verifying_key.clone(), num_variables))?;
+            lap!(timer, "Load verifying key for {function_name}");
+        }
+        lap!(timer, "Load circuit keys");
+
+        // Add the stack to the process.
+        process.add_stack(stack);
+
+        finish!(timer, "Process::load_v0");
+        // Return the process.
+        Ok(process)
+    }
+
     /// Initializes a new process without downloading the 'credits.aleo' circuit keys (for web contexts).
     #[inline]
     #[cfg(feature = "wasm")]
     pub fn load_web() -> Result<Self> {
         // Initialize the process.
-        let process =
+        let mut process =
             Self { universal_srs: UniversalSRS::load()?, stacks: Default::default(), old_stacks: Default::default() };
 
         // Initialize the 'credits.aleo' program.
@@ -322,6 +347,13 @@ impl<N: Network> Process<N> {
         self.get_stack(program_id)?.insert_proving_key(function_name, proving_key)
     }
 
+    /// Removes the given proving key, for the given program ID and function name.
+    #[inline]
+    pub fn remove_proving_key(&self, program_id: &ProgramID<N>, function_name: &Identifier<N>) -> Result<()> {
+        self.get_stack(program_id)?.remove_proving_key(function_name);
+        Ok(())
+    }
+
     /// Inserts the given verifying key, for the given program ID and function name.
     #[inline]
     pub fn insert_verifying_key(
@@ -331,6 +363,13 @@ impl<N: Network> Process<N> {
         verifying_key: VerifyingKey<N>,
     ) -> Result<()> {
         self.get_stack(program_id)?.insert_verifying_key(function_name, verifying_key)
+    }
+
+    /// Removes the given verifying key, for the given program ID and function name.
+    #[inline]
+    pub fn remove_verifying_key(&self, program_id: &ProgramID<N>, function_name: &Identifier<N>) -> Result<()> {
+        self.get_stack(program_id)?.remove_verifying_key(function_name);
+        Ok(())
     }
 
     /// Synthesizes the proving and verifying key for the given program ID and function name.
@@ -390,7 +429,7 @@ pub mod test_helpers {
         let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
         // Prepare the assignments from the block store.
-        trace.prepare(ledger_query::Query::from(block_store)).unwrap();
+        trace.prepare(&ledger_query::Query::from(block_store)).unwrap();
 
         // Get the locator.
         let locator = format!("{:?}:{function_name:?}", program.id());
@@ -490,7 +529,7 @@ function compute:
                 assert_eq!(trace.transitions().len(), 1);
 
                 // Prepare the trace.
-                trace.prepare(Query::from(block_store)).unwrap();
+                trace.prepare(&Query::from(block_store)).unwrap();
                 // Compute the execution.
                 trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V1, rng).unwrap()
             })
@@ -509,7 +548,7 @@ function compute:
     /// Initializes a new process with the given program.
     pub(crate) fn sample_process(program: &Program<CurrentNetwork>) -> Process<CurrentNetwork> {
         // Construct a new process.
-        let process = Process::load().unwrap();
+        let mut process = Process::load().unwrap();
         // Add the program to the process.
         process.add_program(program).unwrap();
         // Return the process.

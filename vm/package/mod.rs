@@ -20,7 +20,6 @@ mod execute;
 mod is_build_required;
 mod run;
 
-pub use build::{BuildRequest, BuildResponse};
 pub use deploy::{DeployRequest, DeployResponse};
 
 use crate::{
@@ -38,9 +37,8 @@ use crate::{
     },
     prelude::{Deserialize, Deserializer, Serialize, SerializeStruct, Serializer},
     synthesizer::{
-        process::{Assignments, CallMetrics, CallStack, Process, StackExecute},
-        program::{CallOperator, Instruction, Program, StackProgram},
-        snark::{ProvingKey, VerifyingKey},
+        process::{Assignments, CallMetrics, CallStack, Process},
+        program::{CallOperator, Instruction, Program, StackTrait},
     },
 };
 
@@ -156,7 +154,7 @@ impl<N: Network> Package<N> {
     /// Returns a new process for the package.
     pub fn get_process(&self) -> Result<Process<N>> {
         // Create the process.
-        let process = Process::load()?;
+        let mut process = Process::load()?;
 
         // Prepare the imports directory.
         let imports_directory = self.imports_directory();
@@ -193,7 +191,7 @@ pub(crate) mod test_helpers {
     type CurrentNetwork = MainnetV0;
 
     fn temp_dir() -> PathBuf {
-        tempfile::tempdir().expect("Failed to open temporary directory").into_path()
+        tempfile::tempdir().expect("Failed to open temporary directory").keep()
     }
 
     /// Samples a (temporary) package containing a `token.aleo` program.
@@ -550,7 +548,7 @@ function bar:
         // Ensure the build directory does *not* exist.
         assert!(!package.build_directory().exists());
         // Build the package.
-        package.build::<CurrentAleo>(None).unwrap();
+        package.build::<CurrentAleo>().unwrap();
         // Ensure the build directory exists.
         assert!(package.build_directory().exists());
 

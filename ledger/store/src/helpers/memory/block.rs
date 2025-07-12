@@ -211,4 +211,9 @@ impl<N: Network> BlockStorage<N> for BlockMemory<N> {
     fn transaction_store(&self) -> &TransactionStore<N, Self::TransactionStorage> {
         &self.transaction_store
     }
+
+    #[cfg(feature = "rocks")]
+    fn backup_database<P: AsRef<std::path::Path>>(&self, _path: P) -> Result<(), String> {
+        Err("Unavailable in memory-only mode".to_owned())
+    }
 }

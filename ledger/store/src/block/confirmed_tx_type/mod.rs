@@ -53,7 +53,7 @@ pub mod test_helpers {
     /// Samples a rejected deploy.
     pub(crate) fn sample_rejected_deploy(version: u8, rng: &mut TestRng) -> ConfirmedTxType<CurrentNetwork> {
         // Sample the rejected deployment.
-        let rejected = ledger_test_helpers::sample_rejected_deployment(version, rng.gen(), rng);
+        let rejected = ledger_test_helpers::sample_rejected_deployment(version, rng.gen(), rng.gen(), rng);
         // Return the rejected deploy.
         ConfirmedTxType::RejectedDeploy(rng.gen(), rejected)
     }

@@ -15,7 +15,7 @@
 
 use super::*;
 use console::program::{FinalizeType, Future, Register};
-use synthesizer_program::{Await, FinalizeRegistersState, Operand};
+use synthesizer_program::{Await, FinalizeRegistersState, Operand, RegistersTrait};
 use utilities::try_vm_runtime;
 
 use std::collections::HashSet;
@@ -139,11 +139,10 @@ impl<N: Network> Process<N> {
 
         // Construct the call graph.
         let consensus_version = N::CONSENSUS_VERSION(state.block_height())?;
-        let call_graph = if (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
-            self.construct_call_graph(execution)?
-        // If the height is greater than or equal to `ConsensusVersion::V3`, then provide an empty call graph, as it is no longer used during finalization.
-        } else {
-            HashMap::new()
+        let call_graph = match (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
+            true => self.construct_call_graph(execution)?,
+            // If the height is greater than or equal to `ConsensusVersion::V3`, then provide an empty call graph, as it is no longer used during finalization.
+            false => HashMap::new(),
         };
 
         atomic_batch_scope!(store, {
@@ -201,11 +200,10 @@ fn finalize_fee_transition<N: Network, P: FinalizeStorage<N>>(
 ) -> Result<Vec<FinalizeOperation<N>>> {
     // Construct the call graph.
     let consensus_version = N::CONSENSUS_VERSION(state.block_height())?;
-    let call_graph = if (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
-        HashMap::from([(*fee.transition_id(), Vec::new())])
-    } else {
+    let call_graph = match (ConsensusVersion::V1..=ConsensusVersion::V2).contains(&consensus_version) {
+        true => HashMap::from([(*fee.transition_id(), Vec::new())]),
         // If the height is greater than or equal to `ConsensusVersion::V3`, then provide an empty call graph, as it is no longer used during finalization.
-        HashMap::new()
+        false => HashMap::new(),
     };
 
     // Finalize the transition.
@@ -574,13 +572,12 @@ fn setup_await<N: Network>(
 }
 
 // A helper function that returns the index to branch to.
-#[inline]
 fn branch_to<N: Network, const VARIANT: u8>(
     counter: usize,
     branch: &Branch<N, VARIANT>,
     positions: &HashMap<Identifier<N>, usize>,
     stack: &Stack<N>,
-    registers: &impl RegistersLoad<N>,
+    registers: &impl RegistersTrait<N>,
 ) -> Result<usize> {
     // Retrieve the inputs.
     let first = registers.load(stack, branch.first())?;
@@ -659,7 +656,7 @@ function compute:
         .unwrap();
 
         // Initialize a new process.
-        let process = Process::load().unwrap();
+        let mut process = Process::load().unwrap();
         // Deploy the program.
         let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 

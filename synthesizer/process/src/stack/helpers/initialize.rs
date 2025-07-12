@@ -29,18 +29,11 @@ impl<N: Network> Stack<N> {
                 // Retrieve the stack for the program.
                 let stack = process.get_stack(program.id())?;
                 // Retrieve the program edition.
-                let mut edition = **stack.program_edition();
-                // If the program does not match the existing program, increment the edition.
-                if stack.program() != program {
-                    edition = edition
-                        .checked_add(1)
-                        .ok_or_else(|| anyhow!("Overflow while incrementing the program edition"))?;
-                }
-                // Output the edition
-                edition
+                let edition = *stack.program_edition();
+                // Increment the edition.
+                edition.checked_add(1).ok_or_else(|| anyhow!("Overflow while incrementing the program edition"))?
             }
         };
-
         // Construct the stack for the program.
         let mut stack = Self {
             program: program.clone(),

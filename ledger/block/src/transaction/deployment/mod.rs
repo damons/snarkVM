@@ -93,8 +93,8 @@ impl<N: Network> Deployment<N> {
             // It must be the case that this program was deployed before upgradability was introduced.
             None => {
                 ensure!(
-                    self.edition == 0,
-                    "If the program checksum is absent, then the edition must be zero, but found {}",
+                    self.edition == 0 || self.edition == 1,
+                    "If the program checksum is absent, then the edition must be 0 or 1, but found {}",
                     self.edition
                 );
             }
@@ -272,7 +272,7 @@ pub mod test_helpers {
     type CurrentNetwork = MainnetV0;
     type CurrentAleo = circuit::network::AleoV0;
 
-    pub(crate) fn sample_deployment_v1(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+    pub(crate) fn sample_deployment_v1(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
         INSTANCE
             .get_or_init(|| {
@@ -301,6 +301,15 @@ function compute:
                 deployment.set_program_checksum_raw(None);
                 // Unset the owner.
                 deployment.set_program_owner_raw(None);
+                // Create a new deployment with the desired edition.
+                let deployment = Deployment::<CurrentNetwork>::new(
+                    edition,
+                    deployment.program().clone(),
+                    deployment.verifying_keys().clone(),
+                    deployment.program_checksum().cloned(),
+                    deployment.program_owner().cloned(),
+                )
+                .unwrap();
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()
@@ -308,7 +317,7 @@ function compute:
             .clone()
     }
 
-    pub(crate) fn sample_deployment_v2(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+    pub(crate) fn sample_deployment_v2(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceCell<Deployment<CurrentNetwork>> = OnceCell::new();
         INSTANCE
             .get_or_init(|| {
@@ -337,6 +346,15 @@ function compute:
                 assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
                 // Assert that the deployment has an owner.
                 assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
+                // Create a new deployment with the desired edition.
+                let deployment = Deployment::<CurrentNetwork>::new(
+                    edition,
+                    deployment.program().clone(),
+                    deployment.verifying_keys().clone(),
+                    deployment.program_checksum().cloned(),
+                    deployment.program_owner().cloned(),
+                )
+                .unwrap();
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()

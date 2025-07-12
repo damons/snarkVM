@@ -16,7 +16,7 @@
 use super::*;
 
 use ledger_committee::{MAX_DELEGATORS, MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE};
-use utilities::{cfg_sort_by_cached_key, defer};
+use utilities::{cfg_sort_by_cached_key, defer, dev_eprintln};
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Speculates on the given list of transactions in the VM.
@@ -281,6 +281,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let process = self.process.write();
 
             // Revert any unstaged stacks, when the function returns.
+            // Note. This function does not call `commit_stacks` so the staged stacks will always be reverted
+            //  regardless of whether the function succeeds or fails.
             defer! {
                 process.revert_stacks();
             }
@@ -361,8 +363,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                 Ok(result) => result,
                                 Err(error) => {
                                     // Note: On failure, skip this transaction, and continue speculation.
-                                    #[cfg(debug_assertions)]
-                                    eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
+                                    dev_eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
                                     // Store the aborted transaction.
                                     aborted.push((transaction.clone(), error.to_string()));
                                     // Continue to the next transaction.
@@ -385,8 +386,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     Ok(result) => result,
                                     Err(error) => {
                                         // Note: On failure, skip this transaction, and continue speculation.
-                                        #[cfg(debug_assertions)]
-                                        eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
+                                        dev_eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
                                         // Store the aborted transaction.
                                         aborted.push((transaction.clone(), error.to_string()));
                                         // Continue to the next transaction.
@@ -424,8 +424,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                         }
                                         Err(error) => {
                                             // Note: On failure, skip this transaction, and continue speculation.
-                                            #[cfg(debug_assertions)]
-                                            eprintln!("Failed to finalize the fee in a rejected execute - {error}");
+                                            dev_eprintln!("Failed to finalize the fee in a rejected execute - {error}");
                                             // Store the aborted transaction.
                                             aborted.push((transaction.clone(), error.to_string()));
                                             // Continue to the next transaction.
@@ -437,8 +436,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                 // This is a foundational bug - the caller is violating protocol rules.
                                 // It is possible that a `credits.aleo/split` transaction has no fee. However, it
                                 // is a simple transition without finalize operations and should not fail here.
+                                // If a `credits.aleo/upgrade` transaction has no fee and fails, we simply abort it.
                                 // Note: This will abort the entire atomic batch.
-                                None => Err("Rejected execute transaction has no fee".to_string()),
+                                None => {
+                                    // Abort the upgrade transaction.
+                                    if transaction.contains_upgrade() && execution.len() == 1 {
+                                        aborted.push((
+                                            transaction.clone(),
+                                            "Failed to finalize a `credits.aleo/upgrade` call with no fee".to_string(),
+                                        ));
+                                        // Continue to the next transaction.
+                                        continue 'outer;
+                                    }
+                                    Err("Rejected execute transaction has no fee".to_string())
+                                }
                             },
                         }
                     }
@@ -601,7 +612,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // we choose to acquire the write lock for the entire duration of this atomic batch.
             let process = self.process.write();
 
-            // Revert any unstaged stacks, before the function returns.
+            // Revert any unstaged stacks, when the function returns.
+            // Note. `commit_stacks` is called at the bottom of this function after successful finalization.
+            //  The staged stacks are only reverted if the function returns an error.
             defer! {
                 process.revert_stacks();
             }
@@ -631,7 +644,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         match process.finalize_deployment(state, store, deployment, fee) {
                             // Ensure the finalize operations match the expected.
                             Ok((stack, finalize_operations)) => match finalize == &finalize_operations {
-                                // Add the stack the process with the option to be reverted.
+                                // Add the stack to the process with the option to be reverted.
                                 true => process.stage_stack(stack),
                                 // Note: This will abort the entire atomic batch.
                                 false => {
@@ -1616,7 +1629,8 @@ finalize transfer_public:
 
         // Prepare the additional fee.
         let view_key = ViewKey::<CurrentNetwork>::try_from(caller_private_key).unwrap();
-        let credits = Some(unspent_records.pop().unwrap().decrypt(&view_key).unwrap());
+        let unspent_record = unspent_records.pop().unwrap();
+        let credits = Some(unspent_record.decrypt(&view_key).unwrap());
 
         // Execute.
         let transaction = vm
@@ -1934,9 +1948,10 @@ finalize transfer_public:
         // Initialize an RNG.
         let rng = &mut TestRng::default();
 
+        // TODO: Fix this test by adding additional constraints to `Committee::new_genesis`
         // Initialize the validators with the maximum number of validators before consensus v3.
         let validators = sample_validators::<CurrentNetwork>(
-            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize + 1,
+            consensus_config_value!(CurrentNetwork, MAX_CERTIFICATES, 0).unwrap() as usize + 5,
             rng,
         );
 
@@ -2818,7 +2833,7 @@ finalize compute:
             // Note that the first validator is used to execute additional transactions in `VM::genesis_quorum`.
             // Therefore, the balance of the first validator will be different from the expected balance.
             if entry.0 == Plaintext::from_str(&first_validator.to_string()).unwrap() {
-                assert_eq!(entry.1, Value::from_str("144991999894244u64").unwrap());
+                assert_eq!(entry.1, Value::from_str("144991999894112u64").unwrap());
             } else {
                 assert!(expected_account.contains(entry));
             }

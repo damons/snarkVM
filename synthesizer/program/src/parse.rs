@@ -15,20 +15,18 @@
 
 use super::*;
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Parser
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> Parser for ProgramCore<N> {
     /// Parses a string into a program.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
         // A helper to parse a program.
-        enum P<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
-            Constructor(ConstructorCore<N, Command>),
+        enum P<N: Network> {
+            Constructor(ConstructorCore<N>),
             M(Mapping<N>),
             S(StructType<N>),
             R(RecordType<N>),
-            C(ClosureCore<N, Instruction>),
-            F(FunctionCore<N, Instruction, Command>),
+            C(ClosureCore<N>),
+            F(FunctionCore<N>),
         }
 
         // Parse the imports from the string.
@@ -46,26 +44,22 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
         // Parse the semicolon ';' keyword from the string.
         let (string, _) = tag(";")(string)?;
 
-        fn intermediate<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>>(
-            string: &str,
-        ) -> ParserResult<P<N, Instruction, Command>> {
+        fn intermediate<N: Network>(string: &str) -> ParserResult<P<N>> {
             // Parse the whitespace and comments from the string.
             let (string, _) = Sanitizer::parse(string)?;
 
-            if string.starts_with(ConstructorCore::<N, Command>::type_name()) {
-                map(ConstructorCore::parse, |constructor| P::<N, Instruction, Command>::Constructor(constructor))(
-                    string,
-                )
+            if string.starts_with(ConstructorCore::<N>::type_name()) {
+                map(ConstructorCore::parse, |constructor| P::<N>::Constructor(constructor))(string)
             } else if string.starts_with(Mapping::<N>::type_name()) {
-                map(Mapping::parse, |mapping| P::<N, Instruction, Command>::M(mapping))(string)
+                map(Mapping::parse, |mapping| P::<N>::M(mapping))(string)
             } else if string.starts_with(StructType::<N>::type_name()) {
-                map(StructType::parse, |struct_| P::<N, Instruction, Command>::S(struct_))(string)
+                map(StructType::parse, |struct_| P::<N>::S(struct_))(string)
             } else if string.starts_with(RecordType::<N>::type_name()) {
-                map(RecordType::parse, |record| P::<N, Instruction, Command>::R(record))(string)
-            } else if string.starts_with(ClosureCore::<N, Instruction>::type_name()) {
-                map(ClosureCore::parse, |closure| P::<N, Instruction, Command>::C(closure))(string)
-            } else if string.starts_with(FunctionCore::<N, Instruction, Command>::type_name()) {
-                map(FunctionCore::parse, |function| P::<N, Instruction, Command>::F(function))(string)
+                map(RecordType::parse, |record| P::<N>::R(record))(string)
+            } else if string.starts_with(ClosureCore::<N>::type_name()) {
+                map(ClosureCore::parse, |closure| P::<N>::C(closure))(string)
+            } else if string.starts_with(FunctionCore::<N>::type_name()) {
+                map(FunctionCore::parse, |function| P::<N>::F(function))(string)
             } else {
                 Err(Err::Error(make_error(string, ErrorKind::Alt)))
             }
@@ -77,7 +71,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
         let (string, _) = Sanitizer::parse(string)?;
 
         // Initialize a new program.
-        let mut program = match ProgramCore::<N, Instruction, Command>::new(id) {
+        let mut program = match ProgramCore::<N>::new(id) {
             Ok(program) => program,
             Err(error) => {
                 eprintln!("{error}");
@@ -118,9 +112,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> FromStr
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> FromStr for ProgramCore<N> {
     type Err = Error;
 
     /// Returns a program from a string literal.
@@ -140,18 +132,14 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Fro
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Debug
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> Debug for ProgramCore<N> {
     /// Prints the program as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Display
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> Display for ProgramCore<N> {
     /// Prints the program as a string.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if !self.imports.is_empty() {

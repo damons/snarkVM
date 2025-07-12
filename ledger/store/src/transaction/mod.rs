@@ -547,16 +547,17 @@ mod tests {
     use super::*;
     use crate::helpers::memory::{TransactionMemory, TransitionMemory};
 
+    /// TODO (@d0cd) Better tests.
     #[test]
     fn test_insert_get_remove() {
         let rng = &mut TestRng::default();
 
         // Sample the transactions.
         for transaction in [
-            ledger_test_helpers::sample_deployment_transaction(1, true, rng),
-            ledger_test_helpers::sample_deployment_transaction(1, false, rng),
-            ledger_test_helpers::sample_deployment_transaction(2, true, rng),
-            ledger_test_helpers::sample_deployment_transaction(2, false, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, 1, false, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
             ledger_test_helpers::sample_fee_private_transaction(rng),
@@ -594,12 +595,13 @@ mod tests {
     fn test_find_transaction_id() {
         let rng = &mut TestRng::default();
 
+        // TODO (@d0cd) Better tests.
         // Sample the transactions.
         for transaction in [
-            ledger_test_helpers::sample_deployment_transaction(1, true, rng),
-            ledger_test_helpers::sample_deployment_transaction(1, false, rng),
-            ledger_test_helpers::sample_deployment_transaction(2, true, rng),
-            ledger_test_helpers::sample_deployment_transaction(2, false, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(1, 1, false, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng),
+            ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
             ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
             ledger_test_helpers::sample_fee_private_transaction(rng),

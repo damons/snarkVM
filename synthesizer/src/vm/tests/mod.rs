@@ -14,7 +14,10 @@
 // limitations under the License.
 
 #[cfg(feature = "test")]
-mod test_vm_upgrade;
+mod test_v8;
+
+#[cfg(feature = "test")]
+mod test_v9;
 
 #[cfg(feature = "test")]
 use super::*;

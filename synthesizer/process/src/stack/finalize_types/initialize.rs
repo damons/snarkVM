@@ -20,7 +20,7 @@ impl<N: Network> FinalizeTypes<N> {
     /// Checks that the given constructor is well-formed for the given stack.
     #[inline]
     pub(super) fn initialize_finalize_types_from_constructor(
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         constructor: &Constructor<N>,
     ) -> Result<Self> {
         // Initialize a map of registers to their types.
@@ -50,10 +50,7 @@ impl<N: Network> FinalizeTypes<N> {
     /// whose finalize is not well-formed, but it is not possible to execute a program whose finalize
     /// is not well-formed.
     #[inline]
-    pub(super) fn initialize_finalize_types_from_finalize(
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        finalize: &Finalize<N>,
-    ) -> Result<Self> {
+    pub(super) fn initialize_finalize_types_from_finalize(stack: &Stack<N>, finalize: &Finalize<N>) -> Result<Self> {
         // Initialize a map of registers to their types.
         let mut finalize_types = Self { inputs: IndexMap::new(), destinations: IndexMap::new() };
 
@@ -156,12 +153,7 @@ impl<N: Network> FinalizeTypes<N> {
 impl<N: Network> FinalizeTypes<N> {
     /// Ensure the given input register is well-formed.
     #[inline]
-    fn check_input(
-        &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        register: &Register<N>,
-        finalize_type: &FinalizeType<N>,
-    ) -> Result<()> {
+    fn check_input(&mut self, stack: &Stack<N>, register: &Register<N>, finalize_type: &FinalizeType<N>) -> Result<()> {
         // Ensure the register type is defined in the program.
         match finalize_type {
             FinalizeType::Plaintext(PlaintextType::Literal(..)) => (),
@@ -193,7 +185,7 @@ impl<N: Network> FinalizeTypes<N> {
     #[inline]
     fn check_command(
         &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         positions: &HashMap<Identifier<N>, usize>,
         command: &Command<N>,
     ) -> Result<()> {
@@ -216,7 +208,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Checks that the given `await` command is well-formed.
     #[inline]
-    fn check_await(&mut self, stack: &(impl StackMatches<N> + StackProgram<N>), await_: &Await<N>) -> Result<()> {
+    fn check_await(&mut self, stack: &Stack<N>, await_: &Await<N>) -> Result<()> {
         // Ensure that the register is a locator.
         ensure!(
             matches!(await_.register(), Register::Locator(..)),
@@ -237,7 +229,7 @@ impl<N: Network> FinalizeTypes<N> {
     #[inline]
     fn check_branch<const VARIANT: u8>(
         &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         positions: &HashMap<Identifier<N>, usize>,
         branch: &Branch<N, VARIANT>,
     ) -> Result<()> {
@@ -275,11 +267,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensures the given `contains` command is well-formed.
     #[inline]
-    fn check_contains(
-        &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        contains: &Contains<N>,
-    ) -> Result<()> {
+    fn check_contains(&mut self, stack: &Stack<N>, contains: &Contains<N>) -> Result<()> {
         // Retrieve the mapping.
         let mapping = match contains.mapping() {
             CallOperator::Locator(locator) => {
@@ -342,7 +330,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensures the given `get` command is well-formed.
     #[inline]
-    fn check_get(&mut self, stack: &(impl StackMatches<N> + StackProgram<N>), get: &Get<N>) -> Result<()> {
+    fn check_get(&mut self, stack: &Stack<N>, get: &Get<N>) -> Result<()> {
         // Retrieve the mapping.
         let mapping = match get.mapping() {
             CallOperator::Locator(locator) => {
@@ -405,11 +393,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensures the given `get.or_use` command is well-formed.
     #[inline]
-    fn check_get_or_use(
-        &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        get_or_use: &GetOrUse<N>,
-    ) -> Result<()> {
+    fn check_get_or_use(&mut self, stack: &Stack<N>, get_or_use: &GetOrUse<N>) -> Result<()> {
         // Retrieve the mapping.
         let mapping = match get_or_use.mapping() {
             CallOperator::Locator(locator) => {
@@ -487,11 +471,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensure the given `rand.chacha` command is well-formed.
     #[inline]
-    fn check_rand_chacha(
-        &mut self,
-        _stack: &(impl StackMatches<N> + StackProgram<N>),
-        rand_chacha: &RandChaCha<N>,
-    ) -> Result<()> {
+    fn check_rand_chacha(&mut self, _stack: &Stack<N>, rand_chacha: &RandChaCha<N>) -> Result<()> {
         // Ensure the number of operands is within bounds.
         if rand_chacha.operands().len() > MAX_ADDITIONAL_SEEDS {
             bail!("The number of operands must be <= {MAX_ADDITIONAL_SEEDS}")
@@ -517,7 +497,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensures the given `set` command is well-formed.
     #[inline]
-    fn check_set(&self, stack: &(impl StackMatches<N> + StackProgram<N>), set: &Set<N>) -> Result<()> {
+    fn check_set(&self, stack: &Stack<N>, set: &Set<N>) -> Result<()> {
         // Ensure the declared mapping in `set` is defined in the program.
         if !stack.program().contains_mapping(set.mapping_name()) {
             bail!("Mapping '{}' in '{}' is not defined.", set.mapping_name(), stack.program_id())
@@ -558,7 +538,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensures the given `remove` command is well-formed.
     #[inline]
-    fn check_remove(&self, stack: &(impl StackMatches<N> + StackProgram<N>), remove: &Remove<N>) -> Result<()> {
+    fn check_remove(&self, stack: &Stack<N>, remove: &Remove<N>) -> Result<()> {
         // Ensure the declared mapping in `remove` is defined in the program.
         if !stack.program().contains_mapping(remove.mapping_name()) {
             bail!("Mapping '{}' in '{}' is not defined.", remove.mapping_name(), stack.program_id())
@@ -584,11 +564,7 @@ impl<N: Network> FinalizeTypes<N> {
 
     /// Ensures the given instruction is well-formed.
     #[inline]
-    fn check_instruction(
-        &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        instruction: &Instruction<N>,
-    ) -> Result<()> {
+    fn check_instruction(&mut self, stack: &Stack<N>, instruction: &Instruction<N>) -> Result<()> {
         // Ensure the opcode is well-formed.
         self.check_instruction_opcode(stack, instruction)?;
 
@@ -624,11 +600,7 @@ impl<N: Network> FinalizeTypes<N> {
     /// Ensures the opcode is a valid opcode and corresponds to the correct instruction.
     /// This method is called when adding a new closure or function to the program.
     #[inline]
-    fn check_instruction_opcode(
-        &mut self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        instruction: &Instruction<N>,
-    ) -> Result<()> {
+    fn check_instruction_opcode(&mut self, stack: &Stack<N>, instruction: &Instruction<N>) -> Result<()> {
         match instruction.opcode() {
             Opcode::Literal(opcode) => {
                 // Ensure the opcode **is** a reserved opcode.
@@ -757,7 +729,7 @@ impl<N: Network> FinalizeTypes<N> {
     // /// Checks the cast operation is well-formed.
     // fn check_cast_operation<const VARIANT: u8>(
     //     &self,
-    //     stack: &(impl StackMatches<N> + StackProgram<N>),
+    //     stack: &impl StackTrait<N>,
     //     operation: &CastOperation<N, VARIANT>,
     // ) -> Result<()> {
     //     // Ensure the operation has one destination register.

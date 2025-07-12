@@ -125,7 +125,10 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Construct the deployments.
-        for expected in [test_helpers::sample_deployment_v1(rng), test_helpers::sample_deployment_v2(rng)] {
+        for expected in [
+            test_helpers::sample_deployment_v1(Uniform::rand(rng), rng),
+            test_helpers::sample_deployment_v2(Uniform::rand(rng), rng),
+        ] {
             // Check the byte representation.
             let expected_bytes = expected.to_bytes_le()?;
             assert_eq!(expected, Deployment::read_le(&expected_bytes[..])?);

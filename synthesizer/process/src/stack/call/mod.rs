@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, Registers, RegistersCall, StackEvaluate, StackExecute, stack::Address};
+use crate::{CallStack, Registers, Stack, stack::Address};
 use aleo_std::prelude::{finish, lap, timer};
 use console::{
     account::Field,
@@ -24,36 +24,21 @@ use synthesizer_program::{
     Call,
     CallOperator,
     Operand,
-    RegistersLoad,
-    RegistersLoadCircuit,
-    RegistersSigner,
-    RegistersSignerCircuit,
-    RegistersStore,
-    RegistersStoreCircuit,
-    StackKeys,
-    StackMatches,
-    StackProgram,
+    RegistersCircuit as _,
+    RegistersSigner as _,
+    RegistersTrait as _,
+    StackTrait,
 };
 
 pub trait CallTrait<N: Network> {
     /// Evaluates the instruction.
-    fn evaluate<A: circuit::Aleo<Network = N>>(
-        &self,
-        stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
-        registers: &mut Registers<N, A>,
-    ) -> Result<()>;
+    fn evaluate<A: circuit::Aleo<Network = N>>(&self, stack: &Stack<N>, registers: &mut Registers<N, A>) -> Result<()>;
 
     /// Executes the instruction.
     fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
-        registers: &mut (
-                 impl RegistersCall<N>
-                 + RegistersSigner<N>
-                 + RegistersSignerCircuit<N, A>
-                 + RegistersLoadCircuit<N, A>
-                 + RegistersStoreCircuit<N, A>
-             ),
+        stack: &Stack<N>,
+        registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()>;
 }
@@ -61,11 +46,7 @@ pub trait CallTrait<N: Network> {
 impl<N: Network> CallTrait<N> for Call<N> {
     /// Evaluates the instruction.
     #[inline]
-    fn evaluate<A: circuit::Aleo<Network = N>>(
-        &self,
-        stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
-        registers: &mut Registers<N, A>,
-    ) -> Result<()> {
+    fn evaluate<A: circuit::Aleo<Network = N>>(&self, stack: &Stack<N>, registers: &mut Registers<N, A>) -> Result<()> {
         let timer = timer!("Call::evaluate");
 
         // Load the operands values.
@@ -143,14 +124,8 @@ impl<N: Network> CallTrait<N> for Call<N> {
     #[inline]
     fn execute<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
-        registers: &mut (
-                 impl RegistersCall<N>
-                 + RegistersSigner<N>
-                 + RegistersSignerCircuit<N, A>
-                 + RegistersLoadCircuit<N, A>
-                 + RegistersStoreCircuit<N, A>
-             ),
+        stack: &Stack<N>,
+        registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Call::execute");
@@ -354,6 +329,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
 
                         // Execute the request.
                         let response = crate::Response::new(
+                            request.signer(),
                             request.network_id(),
                             substack.program().id(),
                             function.name(),
@@ -478,6 +454,16 @@ impl<N: Network> CallTrait<N> for Call<N> {
             A::assert(check_input_ids);
             lap!(timer, "Checked the input ids");
 
+            // Retrieve the output registers.
+            let output_registers = function
+                .outputs()
+                .iter()
+                .map(|output| match output.operand() {
+                    Operand::Register(register) => Some(register.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
             // Inject the outputs as `Mode::Private` (with the 'tcm' and output IDs as `Mode::Public`).
             let outputs = circuit::Response::process_outputs_from_callback(
                 &network_id,
@@ -488,6 +474,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 &tcm,
                 response.outputs().to_vec(),
                 &function.output_types(),
+                &output_registers,
             );
             lap!(timer, "Checked the outputs");
             // Return the circuit outputs.

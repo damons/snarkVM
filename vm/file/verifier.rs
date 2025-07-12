@@ -203,7 +203,7 @@ mod tests {
     type CurrentAleo = snarkvm_circuit::AleoV0;
 
     fn temp_dir() -> std::path::PathBuf {
-        tempfile::tempdir().expect("Failed to open temporary directory").into_path()
+        tempfile::tempdir().expect("Failed to open temporary directory").keep()
     }
 
     #[test]
@@ -228,7 +228,7 @@ function compute:
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
 
         // Construct the process.
-        let process = Process::load().unwrap();
+        let mut process = Process::load().unwrap();
         // Add the program to the process.
         process.add_program(&program).unwrap();
 

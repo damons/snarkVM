@@ -35,6 +35,8 @@ use anyhow::Result;
 use core::marker::PhantomData;
 use std::borrow::Cow;
 
+// TODO (@d0cd) Document DB invariants
+
 /// A trait for deployment storage.
 pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// The mapping of `transaction ID` to `program ID`.
@@ -209,6 +211,16 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         // Retrieve the checksum.
         let checksum = deployment.program_checksum();
 
+        // If the deployment edition is greater than zero, then ensure that it increments the latest edition for the program ID.
+        let expected_edition = match self.get_latest_edition_for_program(&program_id)? {
+            Some(latest_edition) => latest_edition.saturating_add(1),
+            None => 0,
+        };
+        ensure!(
+            edition == expected_edition,
+            "Failed to insert deployment transaction '{transaction_id}' for program '{program_id}', expected edition {expected_edition}, found edition {edition}"
+        );
+
         atomic_batch_scope!(self, {
             // Store the program ID.
             self.id_map().insert(*transaction_id, program_id)?;
@@ -221,8 +233,14 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             self.owner_map().insert((program_id, edition), *owner)?;
             // Store the program.
             self.program_map().insert((program_id, edition), program.clone())?;
-            // If the checksum exists, then store it and also store the edition into the `IDEditionMap`.
-            // This is done because the existence of the checksum implies a migration at the V8 consensus height.
+
+            // Store the edition in the ID edition map.
+            // Note: Prior to `ConsensusVersion::V8`, the edition is always zero.
+            //  `ConsensusVersion::V8` allows the edition to be one via a one-time redeployment.
+            self.id_edition_map().insert(*transaction_id, edition)?;
+
+            // If the checksum exists, then store it and also store the edition into the `ChecksumMap`.
+            // This is done because the existence of the checksum implies a migration at the V9 consensus height.
             // This migration enables program upgrades.
             if let Some(checksum) = checksum {
                 self.id_edition_map().insert(*transaction_id, edition)?;
@@ -285,6 +303,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
                 // If the removed edition is 0, then remove the program ID from the latest edition map.
                 true => self.edition_map().remove(&program_id)?,
                 // Otherwise, decrement the edition.
+                // Note: This is safe because the VM enforces that the edition is always incremented.
                 false => self.edition_map().insert(program_id, edition.saturating_sub(1))?,
             }
 
@@ -393,21 +412,13 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         match self.id_edition_map().get_confirmed(transaction_id)? {
             Some(edition) => Ok(Some(cow_to_copied!(edition))),
             None => {
-                // Get the program ID associated with the transaction ID.
-                let program_id = match self.get_program_id(transaction_id)? {
-                    Some(program_id) => program_id,
-                    None => return Ok(None),
+                // TODO (@d0cd) Can this be simplified further?
+                // Check if the program exists in the store.
+                if self.get_program_id(transaction_id)?.is_none() {
+                    return Ok(None);
                 };
-                // Get the latest edition for the program ID.
-                let latest_edition = match self.get_latest_edition_for_program(&program_id)? {
-                    Some(edition) => edition,
-                    None => return Ok(None),
-                };
-                // Verify that the latest edition is zero.
-                // Prior to `ConsensusVersion::V8`, this must be the case because if a program is not in the `IDEditionMap` but exists,
-                // then it must have been deployed before program upgrades were introduced.
-                ensure!(latest_edition == 0, "Failed to get the edition for transaction '{transaction_id}'");
-                // Return the edition.
+                // Prior to `ConsensusVersion::V8`, if a program is not in the `IDEditionMap` but exists,
+                // then it must have been deployed when editions were exclusively zero.
                 Ok(Some(0))
             }
         }
@@ -667,7 +678,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         };
 
         // Retrieve the owner.
-        let owner = match self.get_latest_owner(deployment.program_id())? {
+        let owner = match self.get_owner_with_edition(deployment.program_id(), deployment.edition())? {
             Some(owner) => owner,
             None => bail!("Failed to get the owner for transaction '{transaction_id}'"),
         };
@@ -944,24 +955,24 @@ mod tests {
     fn test_insert_get_remove() {
         let rng = &mut TestRng::default();
 
+        // Initialize a new transition store.
+        let transition_store = TransitionStore::open(StorageMode::Test(None)).unwrap();
+        // Initialize a new fee store.
+        let fee_store = FeeStore::open(transition_store).unwrap();
+        // Initialize a new deployment store.
+        let deployment_store = DeploymentMemory::open(fee_store).unwrap();
+
         // Sample the transactions.
-        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(1, true, rng);
-        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, false, rng);
-        let transaction_2 = ledger_test_helpers::sample_deployment_transaction(2, true, rng);
-        let transaction_3 = ledger_test_helpers::sample_deployment_transaction(2, false, rng);
-        let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3];
+        // TODO (@d0cd) Better testing.
+        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(0, 0, true, rng);
+        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, 0, false, rng);
+        let transactions = vec![transaction_0, transaction_1];
 
         for transaction in transactions {
             let transaction_id = transaction.id();
             let program_id = *transaction.deployment().unwrap().program_id();
             let checksum = transaction.deployment().unwrap().program_checksum();
-
-            // Initialize a new transition store.
-            let transition_store = TransitionStore::open(StorageMode::Test(None)).unwrap();
-            // Initialize a new fee store.
-            let fee_store = FeeStore::open(transition_store).unwrap();
-            // Initialize a new deployment store.
-            let deployment_store = DeploymentMemory::open(fee_store).unwrap();
+            let edition = transaction.deployment().unwrap().edition();
 
             // Ensure the deployment transaction does not exist.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
@@ -970,30 +981,37 @@ mod tests {
             // Insert the deployment transaction.
             deployment_store.insert(&transaction).unwrap();
 
-            // If the deployment has a checksum, then verify that the checksum exists in the `ChecksumMap` and that the edition exists in the `IDEditionMap`.
-            // Otherwise, verify that the checksum does not exist and that the ID-edition map is empty.
+            // If the deployment has a checksum, then check that it exists in the checksum map.
             match checksum {
                 Some(checksum) => {
-                    let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
+                    let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, edition)).unwrap();
                     assert_eq!(Some(checksum), candidate.as_deref());
-                    let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
-                    assert_eq!(Some(0), candidate.as_deref().copied());
                 }
                 None => {
-                    let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
-                    assert_eq!(None, candidate);
-                    let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+                    let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, edition)).unwrap();
                     assert_eq!(None, candidate);
                 }
             }
 
+            // Check that the transaction exists in the ID edition map
+            let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+            assert_eq!(Some(edition), candidate.map(|e| *e));
+
             // Retrieve the deployment transaction.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
-            assert_eq!(Some(transaction), candidate);
+            assert_eq!(Some(transaction.clone()), candidate);
+
+            // Retrieve the edition for the transaction and verify that it is matches.
+            let actual = deployment_store.get_edition_for_transaction(&transaction_id).unwrap();
+            assert_eq!(Some(edition), actual);
+
+            // Retrieve the latest edition for the program ID and verify that it matches.
+            let actual = deployment_store.get_latest_edition_for_program(&program_id).unwrap();
+            assert_eq!(Some(edition), actual);
 
             // Retrieve the latest edition and verify that it is zero.
-            let edition = deployment_store.get_edition_for_transaction(&transaction_id).unwrap();
-            assert_eq!(Some(0), edition);
+            let latest_edition = deployment_store.get_edition_for_transaction(&transaction_id).unwrap();
+            assert_eq!(Some(0), latest_edition);
 
             // Remove the deployment.
             deployment_store.remove(&transaction_id).unwrap();
@@ -1002,15 +1020,26 @@ mod tests {
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(None, candidate);
 
-            // Ensure the edition is not found.
-            let candidate = deployment_store.edition_map().get_confirmed(&program_id).unwrap();
-            assert_eq!(None, candidate);
-            let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
-            assert_eq!(None, candidate);
+            // If the edition is zero, then check that the edition is not found.
+            // Otherwise, check that the edition is decremented.
+            if edition == 0 {
+                let candidate = deployment_store.edition_map().get_confirmed(&program_id).unwrap();
+                assert_eq!(None, candidate);
+            } else {
+                let candidate = deployment_store.edition_map().get_confirmed(&program_id).unwrap();
+                assert_eq!(Some(edition.saturating_sub(1)), candidate.as_deref().copied());
+            }
 
             // Ensure the checksum is not found.
             let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
             assert_eq!(None, candidate);
+
+            // Ensure the edition is not found in the `IDEditionMap`.
+            let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
+            assert_eq!(None, candidate);
+
+            // Insert the deployment transaction again.
+            deployment_store.insert(&transaction).unwrap();
         }
     }
 
@@ -1018,34 +1047,41 @@ mod tests {
     fn test_find_transaction_id() {
         let rng = &mut TestRng::default();
 
+        // Initialize a new transition store.
+        let transition_store = TransitionStore::open(StorageMode::Test(None)).unwrap();
+        // Initialize a new fee store.
+        let fee_store = FeeStore::open(transition_store).unwrap();
+        // Initialize a new deployment store.
+        let deployment_store = DeploymentMemory::open(fee_store).unwrap();
+
         // Sample the transactions.
-        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(1, true, rng);
-        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, false, rng);
-        let transaction_2 = ledger_test_helpers::sample_deployment_transaction(2, true, rng);
-        let transaction_3 = ledger_test_helpers::sample_deployment_transaction(2, false, rng);
+        // TODO (@d0cd) Better testing.
+        let transaction_0 = ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng);
+        let transaction_1 = ledger_test_helpers::sample_deployment_transaction(1, 0, false, rng);
+        let transaction_2 = ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng);
+        let transaction_3 = ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng);
         let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3];
 
         for transaction in transactions {
             let transaction_id = transaction.id();
-            let program_id = match transaction {
-                Transaction::Deploy(_, _, _, ref deployment, _) => *deployment.program_id(),
+            let (program_id, edition) = match transaction {
+                Transaction::Deploy(_, _, _, ref deployment, _) => (*deployment.program_id(), deployment.edition()),
                 _ => panic!("Incorrect transaction type"),
             };
-
-            // Initialize a new transition store.
-            let transition_store = TransitionStore::open(StorageMode::Test(None)).unwrap();
-            // Initialize a new fee store.
-            let fee_store = FeeStore::open(transition_store).unwrap();
-            // Initialize a new deployment store.
-            let deployment_store = DeploymentMemory::open(fee_store).unwrap();
 
             // Ensure the deployment transaction does not exist.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(None, candidate);
 
-            // Ensure the transaction ID is not found.
-            let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-            assert_eq!(None, candidate);
+            // If the edition is zero, then check that a transaction is not found.
+            // Otherwise, check that the transaction is found.
+            if edition == 0 {
+                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
+                assert_eq!(None, candidate);
+            } else {
+                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
+                assert!(candidate.is_some());
+            }
 
             // Insert the deployment.
             deployment_store.insert(&transaction).unwrap();
@@ -1057,9 +1093,18 @@ mod tests {
             // Remove the deployment.
             deployment_store.remove(&transaction_id).unwrap();
 
-            // Ensure the transaction ID is not found.
-            let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-            assert_eq!(None, candidate);
+            // If the edition is zero, then check that a transaction is not found.
+            // Otherwise, check that the transaction is found.
+            if edition == 0 {
+                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
+                assert_eq!(None, candidate);
+            } else {
+                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
+                assert!(candidate.is_some());
+            }
+
+            // Insert the deployment again.
+            deployment_store.insert(&transaction).unwrap();
         }
     }
 }

@@ -15,7 +15,7 @@
 
 use super::*;
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
+impl<N: Network> ProgramCore<N> {
     /// Returns the checksum of the program.
     ///
     /// The checksum is a 32-byte hash of the program's source code in string format.
