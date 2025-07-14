@@ -24,6 +24,7 @@ license = "Apache-2.0"
 edition = "2021"
 
 [features]
+filesystem = [ "aleo-std/storage" ]
 large_params = [ ]
 locktick = [ "dep:locktick" ]
 no_std_out = [ ]
@@ -39,7 +40,6 @@ workspace = true
 
 [dependencies.aleo-std]
 workspace = true
-features = [ "storage" ]
 
 [dependencies.anyhow]
 workspace = true
@@ -93,8 +93,8 @@ version = "0.3.64"
 features = [ "XmlHttpRequest" ]
 optional = true
 
-[target."cfg(not(target_family = \"wasm\"))".dependencies.curl]
-version = "0.4.43"
+[target.'cfg(all(not(target_family = "wasm"), not(target_env = "sgx")))'.dependencies]
+curl = "0.4.43"
 
 [dev-dependencies.snarkvm-algorithms]
 workspace = true

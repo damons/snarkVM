@@ -37,6 +37,7 @@ default = [
   "account",
   "algorithms",
   "collections",
+  "filesystem",
   "network",
   "program",
   "types"
@@ -50,6 +51,7 @@ test = [
 account = [ "network", "snarkvm-console-account" ]
 algorithms = [ "snarkvm-console-algorithms" ]
 collections = [ "algorithms", "snarkvm-console-collections" ]
+filesystem = [ "snarkvm-console-network/filesystem" ]
 network = [ "collections", "snarkvm-console-network" ]
 program = [ "network", "snarkvm-console-program" ]
 serial = [ "snarkvm-console-collections/serial" ]
