@@ -18,8 +18,7 @@ use console::{network::prelude::*, program::StatePath, types::Field};
 
 use anyhow::{Result, anyhow};
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Clone)]
 pub struct StaticQuery<N: Network> {
@@ -98,7 +97,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use snarkvm::console::network::TestnetV0;
+    use console::network::TestnetV0;
 
     #[test]
     fn test_static_query_parse() {
