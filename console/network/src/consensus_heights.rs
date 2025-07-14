@@ -16,7 +16,7 @@
 use crate::ConsensusVersion;
 
 /// The consensus version height for `CanaryV0`.
-pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
+pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V1, 0),
     (ConsensusVersion::V2, 2_900_000),
     (ConsensusVersion::V3, 4_560_000),
@@ -24,11 +24,12 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
     (ConsensusVersion::V5, 5_780_000),
     (ConsensusVersion::V6, 6_240_000),
     (ConsensusVersion::V7, 6_895_000),
-    (ConsensusVersion::V8, 999_999_999),
+    (ConsensusVersion::V8, 7_565_000),
+    (ConsensusVersion::V9, 999_999_999),
 ];
 
 /// The consensus version height for `MainnetV0`.
-pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
+pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V1, 0),
     (ConsensusVersion::V2, 2_800_000),
     (ConsensusVersion::V3, 4_900_000),
@@ -36,11 +37,12 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
     (ConsensusVersion::V5, 7_060_000),
     (ConsensusVersion::V6, 7_560_000),
     (ConsensusVersion::V7, 7_570_000),
-    (ConsensusVersion::V8, 999_999_999),
+    (ConsensusVersion::V8, 9_417_000),
+    (ConsensusVersion::V9, 999_999_999),
 ];
 
 /// The consensus version heights for `TestnetV0`.
-pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
+pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V1, 0),
     (ConsensusVersion::V2, 2_950_000),
     (ConsensusVersion::V3, 4_800_000),
@@ -48,11 +50,12 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
     (ConsensusVersion::V5, 6_765_000),
     (ConsensusVersion::V6, 7_600_000),
     (ConsensusVersion::V7, 8_365_000),
-    (ConsensusVersion::V8, 999_999_999),
+    (ConsensusVersion::V8, 9_155_000),
+    (ConsensusVersion::V9, 999_999_999),
 ];
 
 /// The consensus version heights for `TestConsensusV0`.
-pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
+pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V1, 0),
     (ConsensusVersion::V2, 10),
     (ConsensusVersion::V3, 11),
@@ -61,4 +64,5 @@ pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
     (ConsensusVersion::V6, 14),
     (ConsensusVersion::V7, 15),
     (ConsensusVersion::V8, 16),
+    (ConsensusVersion::V9, 17),
 ];

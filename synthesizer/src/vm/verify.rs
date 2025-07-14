@@ -154,7 +154,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             //   - have edition 0
             //   - and the program does not have a constructor.
             // then fail.
-
             if consensus_version >= ConsensusVersion::V8
                 && program_id != ProgramID::from_str("credits.aleo")?
                 && edition.is_zero()
@@ -201,13 +200,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if consensus_version < ConsensusVersion::V8 {
                     ensure!(
                         deployment.edition().is_zero(),
-                        "Invalid deployment transaction '{id}' - edition should be zero for `ConsensusVersion::V7 or lower`",
+                        "Invalid deployment transaction '{id}' - edition should be zero before `ConsensusVersion::V8`",
                     );
                 }
                 if consensus_version < ConsensusVersion::V9 {
                     ensure!(
                         deployment.edition() <= 1,
-                        "Invalid deployment transaction '{id}' - edition should be zero or one for `ConsensusVersion::V8` or lower"
+                        "Invalid deployment transaction '{id}' - edition should be zero or one for before `ConsensusVersion::V9`"
                     );
                     ensure!(
                         deployment.program_checksum().is_none(),
@@ -219,7 +218,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     );
                     ensure!(
                         !deployment.program().contains_v9_syntax(),
-                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V8`"
+                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V9`"
                     );
                 }
                 if consensus_version <= ConsensusVersion::V9 {

@@ -3303,9 +3303,9 @@ function adder:
         // Initialize a new caller.
         let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-        // Initialize the VM at the V8 height.
-        let v8_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap();
-        let vm = crate::vm::test_helpers::sample_vm_at_height(v8_height, rng);
+        // Initialize the VM at the V9 height.
+        let v9_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap();
+        let vm = crate::vm::test_helpers::sample_vm_at_height(v9_height, rng);
 
         // Deploy the upgradable program.
         let program_v0 = Program::from_str(
@@ -3464,9 +3464,9 @@ finalize set_first:
         // Initialize a new caller.
         let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-        // Initialize the VM at the V8 height.
-        let v8_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap();
-        let vm = crate::vm::test_helpers::sample_vm_at_height(v8_height, rng);
+        // Initialize the VM at the V9 height.
+        let v9_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap();
+        let vm = crate::vm::test_helpers::sample_vm_at_height(v9_height, rng);
 
         // Deploy the upgradable program.
         let program_v0 = Program::from_str(

@@ -104,8 +104,7 @@ pub trait StackTrait<N: Network> {
     fn program_edition(&self) -> U16<N>;
 
     /// Returns the program owner.
-    /// The program owner should only be set for programs that were deployed after `ConsensusVersion::V8`
-    /// when the program owner was enforced by consensus.
+    /// The program owner should only be set for programs that are deployed after `ConsensusVersion::V9` is active.
     fn program_owner(&self) -> &Option<Address<N>>;
 
     /// Sets the program owner.

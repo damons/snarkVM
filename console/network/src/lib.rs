@@ -253,7 +253,7 @@ pub trait Network:
 
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `N::CONSENSUS_VERSION`
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8];
+    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9];
     ///  A list of (consensus_version, size) pairs indicating the maximum number of validators in a committee.
     //  Note: This value must **not** decrease without considering the impact on serialization.
     //  Decreasing this value will break backwards compatibility of serialization without explicit
@@ -629,6 +629,6 @@ mod tests {
 
     #[test]
     fn test_latest_consensus_version() {
-        assert_eq!(ConsensusVersion::latest(), ConsensusVersion::V8); // UPDATE ME, if changed.
+        assert_eq!(ConsensusVersion::latest(), ConsensusVersion::V9); // UPDATE ME, if changed.
     }
 }

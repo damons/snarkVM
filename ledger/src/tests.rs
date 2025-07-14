@@ -3530,9 +3530,9 @@ mod valid_solutions {
         let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
         let caller_private_key = private_key;
 
-        // Advance the ledger past the V8 block height.
-        let v8_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?;
-        for _ in ledger.latest_height()..v8_height {
+        // Advance the ledger past the V9 block height.
+        let v9_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?;
+        for _ in ledger.latest_height()..v9_height {
             let block =
                 ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![], rng)?;
             ledger.advance_to_next_block(&block)?;

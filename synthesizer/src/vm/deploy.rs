@@ -40,10 +40,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             Some(q) => q,
             None => &Query::VM(self.block_store().clone()),
         };
-        // If the `CONSENSUS_VERSION` is less than `V8`, unset the program checksum and the owner.
+        // If the `CONSENSUS_VERSION` is less than `V9`, unset the program checksum and the owner.
         // Otherwise, swap the default owner with the address of the private key.
         let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-        if consensus_version < ConsensusVersion::V8 {
+        if consensus_version < ConsensusVersion::V9 {
             deployment.set_program_checksum_raw(None);
             deployment.set_program_owner_raw(None)
         } else {

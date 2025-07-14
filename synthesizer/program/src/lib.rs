@@ -906,7 +906,7 @@ impl<N: Network> ProgramCore<N> {
                 }
             }
         }
-        // Return `false` since no V8 syntax was found.
+        // Return `false` since no V9 syntax was found.
         false
     }
 }

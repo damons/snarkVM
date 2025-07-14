@@ -237,6 +237,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             // Store the edition in the ID edition map.
             // Note: Prior to `ConsensusVersion::V8`, the edition is always zero.
             //  `ConsensusVersion::V8` allows the edition to be one via a one-time redeployment.
+            //  `ConsensusVersion::V9` introduces upgradability which allows editions to be incremented up to `u16::MAX`
             self.id_edition_map().insert(*transaction_id, edition)?;
 
             // If the checksum exists, then store it and also store the edition into the `ChecksumMap`.

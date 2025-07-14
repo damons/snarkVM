@@ -25,19 +25,19 @@ use console::network::ConsensusVersion;
 use std::panic::AssertUnwindSafe;
 
 // This test checks that:
-//   - programs without constructors can be deployed before V8
-//   - programs with constructors cannot be deployed before V8
-//   - programs without constructor cannot be deployed after V8
-//   - program with constructors can be deployed after V8
+//   - programs without constructors can be deployed before V9
+//   - programs with constructors cannot be deployed before V9
+//   - programs without constructor cannot be deployed after V9
+//   - program with constructors can be deployed after V9
 #[test]
-fn test_constructor_requires_v8() -> Result<()> {
+fn test_constructor_requires_v9() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 2, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)? - 2, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -76,8 +76,8 @@ function dummy:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Verify that the VM is at the V8 height.
-    assert_eq!(vm.block_store().current_block_height(), CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?);
+    // Verify that the VM is at the V9 height.
+    assert_eq!(vm.block_store().current_block_height(), CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -131,7 +131,7 @@ fn test_simple_upgrade() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Initialize the program.
     let program = Program::from_str(
@@ -267,8 +267,8 @@ fn test_editions_are_sequential() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize two VMs.
-    let off_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
-    let on_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let off_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
+    let on_chain_vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the three versions of the program.
     let program_v0 = Program::from_str(
@@ -393,7 +393,7 @@ fn test_upgrade_with_records() -> Result<()> {
     let caller_view_key = ViewKey::try_from(&caller_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -574,7 +574,7 @@ fn test_upgrade_with_mappings() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the two versions of the program.
     let program_v0 = Program::from_str(
@@ -787,7 +787,7 @@ fn test_upgrade_with_dependents() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the two versions of the dependency program.
     let dependency_v0 = Program::from_str(
@@ -1078,7 +1078,7 @@ fn test_failing_init_block() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the programs.
     let passing_program = Program::from_str(
@@ -1141,7 +1141,7 @@ fn test_anyone_can_upgrade() -> Result<()> {
     let unrelated_caller_address_1 = Address::try_from(&unrelated_caller_private_key_1)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Fund the unrelated callers.
     let transfer_1 = vm.execute(
@@ -1237,7 +1237,7 @@ fn test_non_upgradable_programs() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     let program_1_v0 = Program::from_str(
         r"
@@ -1285,7 +1285,7 @@ fn test_downgrade_upgradable_program() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(
@@ -1399,7 +1399,7 @@ fn test_lock_upgrade_to_checksum() -> Result<()> {
     let caller_address = Address::try_from(&caller_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(&format!(
@@ -1613,7 +1613,7 @@ fn test_upgrade_without_changing_contents_fails() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?, rng);
 
     // Define the program.
     let program_v0 = Program::from_str(
@@ -1671,7 +1671,7 @@ fn test_credits_is_not_upgradable() {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap(), rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
 
     // Add a function to the credits program.
     let credits_program = Program::<CurrentNetwork>::credits().unwrap();
@@ -1690,7 +1690,7 @@ fn test_existing_programs_cannot_be_upgraded() -> Result<()> {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 2, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)? - 2, rng);
 
     // Define the programs.
     let program_0_v0 = Program::from_str(
@@ -1764,8 +1764,8 @@ constructor:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Assert that the VM is after the V8 height.
-    assert_eq!(vm.block_store().current_block_height(), CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?);
+    // Assert that the VM is after the V9 height.
+    assert_eq!(vm.block_store().current_block_height(), CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9)?);
 
     // Attempt to upgrade the first program.
     let result = vm.deploy(&caller_private_key, &program_0_v1_without_constructor, None, 0, None, rng);
@@ -1800,7 +1800,7 @@ fn test_simple_admin_upgrade() {
     let caller_address = Address::try_from(&caller_private_key).unwrap();
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap(), rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
 
     // Generate a separate caller.
     let separate_caller_private_key = PrivateKey::new(rng).unwrap();
@@ -1892,7 +1892,7 @@ fn test_verification_cache() {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap(), rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(
@@ -1963,11 +1963,11 @@ constructor:
 }
 
 // This test verifies that
-//   - a program deployed before `V8` does not have an owner.
+//   - a program deployed before `V9` does not have an owner.
 //   - `credits.aleo` does not have an owner.
-//   - a program deployed after `V8` has an owner.
+//   - a program deployed after `V9` has an owner.
 #[test]
-fn test_program_deployed_before_v8_do_not_have_owner() {
+fn test_program_deployed_before_v9_do_not_have_owner() {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
@@ -1975,17 +1975,17 @@ fn test_program_deployed_before_v8_do_not_have_owner() {
     let caller_address = Address::try_from(&caller_private_key).unwrap();
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap() - 1, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() - 1, rng);
 
     // Define the programs.
-    let program_before_v8 = Program::from_str(
+    let program_before_v9 = Program::from_str(
         r"
 program test_program_0.aleo;
 function foo:",
     )
     .unwrap();
 
-    let program_after_v8 = Program::from_str(
+    let program_after_v9 = Program::from_str(
         r"
 program test_program_1.aleo;
 function foo:
@@ -1996,7 +1996,7 @@ constructor:
     .unwrap();
 
     // Deploy the first program.
-    let transaction = vm.deploy(&caller_private_key, &program_before_v8, None, 0, None, rng).unwrap();
+    let transaction = vm.deploy(&caller_private_key, &program_before_v9, None, 0, None, rng).unwrap();
     // Check that the deployment does not have an owner or checksum.
     assert!(transaction.deployment().unwrap().program_checksum().is_none());
     assert!(transaction.deployment().unwrap().program_owner().is_none());
@@ -2008,7 +2008,7 @@ constructor:
     vm.add_next_block(&block).unwrap();
 
     // Deploy the second program.
-    let transaction = vm.deploy(&caller_private_key, &program_after_v8, None, 0, None, rng).unwrap();
+    let transaction = vm.deploy(&caller_private_key, &program_after_v9, None, 0, None, rng).unwrap();
     // Check that the deployment has an owner and checksum.
     assert!(transaction.deployment().unwrap().program_checksum().is_some());
     assert!(transaction.deployment().unwrap().program_owner().is_some());
@@ -2039,7 +2039,7 @@ fn test_old_execution_is_aborted_after_upgrade() {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap(), rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
 
     // Define the programs.
     let program_v0 = Program::from_str(
@@ -2112,7 +2112,7 @@ function dummy2:",
     vm.add_next_block(&block).unwrap();
 }
 
-// This test verifies that `credits.aleo` transactions can be executed and added to blocks after the upgrade to V8.
+// This test verifies that `credits.aleo` transactions can be executed and added to blocks after the upgrade to V9.
 #[test]
 fn test_credits_executions() {
     let rng = &mut TestRng::default();
@@ -2123,7 +2123,7 @@ fn test_credits_executions() {
 
     // Initialize the VM.
     let vm: crate::VM<CurrentNetwork, LedgerType> =
-        sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap() - 1, rng);
+        sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() - 1, rng);
 
     // Generate two executions of `transfer_public`.
     let transfer_1 = vm
@@ -2159,8 +2159,8 @@ fn test_credits_executions() {
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block).unwrap();
 
-    // Skip to consensus height V8.
-    while vm.block_store().current_block_height() <= CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap() {
+    // Skip to consensus height V9.
+    while vm.block_store().current_block_height() <= CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() {
         let block = sample_next_block(&vm, &caller_private_key, &[], rng).unwrap();
         vm.add_next_block(&block).unwrap();
     }
@@ -2183,7 +2183,7 @@ fn test_cyclic_imports_and_call_graphs() {
     let caller_private_key = sample_genesis_private_key(rng);
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8).unwrap(), rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
 
     // Define the programs with cyclic imports.
     let program_a_v0 = Program::from_str(

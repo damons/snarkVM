@@ -213,8 +213,7 @@ impl<N: Network> StackTrait<N> for Stack<N> {
     }
 
     /// Sets the program owner.
-    /// The program owner should only be set for programs that were deployed after `ConsensusVersion::V8`
-    /// when the program owner was enforced by consensus.
+    /// The program owner should only be set for programs that are deployed after `ConsensusVersion::V9` is active.
     fn set_program_owner(&mut self, program_owner: Option<Address<N>>) {
         self.program_owner = program_owner;
     }
