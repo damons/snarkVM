@@ -3413,8 +3413,11 @@ dependencies = [
 name = "snarkvm-ledger-query"
 version = "3.8.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "reqwest",
+ "serde",
+ "serde_json",
  "snarkvm-console",
  "snarkvm-ledger-store",
  "snarkvm-synthesizer-program",
