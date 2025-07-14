@@ -18,7 +18,7 @@ use super::*;
 use crate::vm::test_helpers::*;
 
 use console::{account::ViewKey, program::Value};
-use synthesizer_program::{Program, StackTrait};
+use snarkvm_synthesizer_program::{Program, StackTrait};
 
 use crate::vm::test_helpers::sample_vm_at_height;
 use console::network::ConsensusVersion;

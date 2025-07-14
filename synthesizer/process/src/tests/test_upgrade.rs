@@ -18,7 +18,7 @@
 /// These tests *DO NOT*: check the semantic correctness of the upgrades.
 use crate::{Process, Stack};
 use console::network::{MainnetV0, prelude::*};
-use synthesizer_program::{Program, StackTrait};
+use snarkvm_synthesizer_program::{Program, StackTrait};
 
 type CurrentNetwork = MainnetV0;
 

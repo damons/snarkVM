@@ -66,8 +66,7 @@ use snarkvm_curves::PairingEngine;
 
 use enum_iterator::{Sequence, last};
 use indexmap::IndexMap;
-use once_cell::sync::OnceCell;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// A helper type for the BHP Merkle tree.
 pub type BHPMerkleTree<N, const DEPTH: u8> = MerkleTree<N, BHP1024<N>, BHP512<N>, DEPTH>;

@@ -15,7 +15,7 @@
 
 use crate::{CurrentNetwork, ExpectedTest, get_expectation_path, print_difference};
 
-use console::{account::PrivateKey, program::Identifier};
+use snarkvm_console::{account::PrivateKey, program::Identifier};
 use snarkvm_synthesizer::program::Program;
 
 use anyhow::{Result, bail};
@@ -74,6 +74,11 @@ impl ProgramTest {
     /// Returns the start height for the test.
     pub fn start_height(&self) -> u32 {
         self.start_height
+    }
+
+    /// Returns the path to the expectation file.
+    pub fn path(&self) -> &PathBuf {
+        &self.path
     }
 }
 

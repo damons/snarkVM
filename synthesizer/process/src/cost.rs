@@ -19,8 +19,8 @@ use console::{
     prelude::*,
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
-use ledger_block::{Deployment, Execution, Transaction};
-use synthesizer_program::{CastType, Command, Instruction, Operand};
+use snarkvm_ledger_block::{Deployment, Execution, Transaction};
+use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
 
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
 pub fn deployment_cost<N: Network>(
@@ -494,7 +494,7 @@ mod tests {
     use circuit::{Aleo, AleoCanaryV0, AleoTestnetV0, AleoV0};
 
     use console::network::{CanaryV0, MainnetV0, TestnetV0};
-    use synthesizer_program::Program;
+    use snarkvm_synthesizer_program::Program;
 
     // Test program with two functions just below and above the size threshold.
     const SIZE_BOUNDARY_PROGRAM: &str = r#"

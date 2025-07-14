@@ -33,7 +33,7 @@ use console::{
     },
     types::U32,
 };
-use synthesizer_program::{
+use snarkvm_synthesizer_program::{
     Await,
     Branch,
     CallOperator,

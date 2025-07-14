@@ -40,8 +40,8 @@ use console::{
     program::{Identifier, ProgramID, ProgramOwner},
     types::U8,
 };
-use synthesizer_program::Program;
-use synthesizer_snark::{Certificate, Proof, VerifyingKey};
+use snarkvm_synthesizer_program::Program;
+use snarkvm_synthesizer_snark::{Certificate, Proof, VerifyingKey};
 
 /// A database transaction storage.
 #[derive(Clone)]
