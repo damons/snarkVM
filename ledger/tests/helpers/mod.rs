@@ -14,26 +14,26 @@
 // limitations under the License.
 
 use aleo_std::StorageMode;
-use console::{
+use snarkvm_console::{
     account::{Address, PrivateKey},
     network::MainnetV0,
     prelude::*,
 };
-use ledger_narwhal::{BatchCertificate, BatchHeader, Subdag};
-use ledger_store::ConsensusStore;
 use snarkvm_ledger::{Block, Ledger};
-use synthesizer::vm::VM;
-use time::OffsetDateTime;
+use snarkvm_ledger_narwhal::{BatchCertificate, BatchHeader, Subdag};
+use snarkvm_ledger_store::ConsensusStore;
+use snarkvm_synthesizer::vm::VM;
 
 use indexmap::{IndexMap, IndexSet};
 use std::collections::{BTreeMap, HashMap};
+use time::OffsetDateTime;
 
 pub type CurrentNetwork = MainnetV0;
 
 #[cfg(not(feature = "rocks"))]
-pub type LedgerType<N> = ledger_store::helpers::memory::ConsensusMemory<N>;
+pub type LedgerType<N> = snarkvm_ledger_store::helpers::memory::ConsensusMemory<N>;
 #[cfg(feature = "rocks")]
-pub type LedgerType<N> = ledger_store::helpers::rocksdb::ConsensusDB<N>;
+pub type LedgerType<N> = snarkvm_ledger_store::helpers::rocksdb::ConsensusDB<N>;
 
 /// Helper to build chains with custom structures for testing.
 pub struct TestChainBuilder {
@@ -61,7 +61,7 @@ pub struct TestChainBuilder {
 pub struct BlockOptions {
     /// Do not include votes to the previous leader certificate
     pub skip_votes: bool,
-    /// Do not generate certificates for the specific node indicies (to simulate a partition).
+    /// Do not generate certificates for the specific node indices (to simulate a partition).
     pub skip_nodes: Vec<usize>,
 }
 
@@ -72,7 +72,7 @@ impl TestChainBuilder {
         // Initialize the store.
         let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
         // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
-        let seed: u64 = rng.gen();
+        let seed: u64 = rng.r#gen();
         let genesis_rng = &mut TestRng::from_seed(seed);
         let genesis_block = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
 
@@ -83,7 +83,7 @@ impl TestChainBuilder {
         Self::from_genesis(private_keys, genesis_block)
     }
 
-    /// Initialize the builder with the specified commitee and gensis block
+    /// Initialize the builder with the specified committee and gensis block
     pub fn from_genesis(private_keys: Vec<PrivateKey<CurrentNetwork>>, genesis_block: Block<CurrentNetwork>) -> Self {
         // Initialize the ledger with the genesis block.
         let ledger = Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(
