@@ -69,8 +69,6 @@ pub type FiatShamirParameters<N> = <FiatShamir<N> as AlgebraicSponge<Fq<N>, 2>>:
 pub(crate) type VarunaProvingKey<N> = CircuitProvingKey<<N as Environment>::PairingCurve, VarunaHidingMode>;
 pub(crate) type VarunaVerifyingKey<N> = CircuitVerifyingKey<<N as Environment>::PairingCurve>;
 
-static CONSENSUS_VERSION_HEIGHTS: OnceCell<[(ConsensusVersion, u32); 8]> = OnceCell::new();
-
 /// The different consensus versions.
 /// If you need the version active for a specific height, see: `N::CONSENSUS_VERSION`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
@@ -92,6 +90,11 @@ pub enum ConsensusVersion {
     /// V8: Update to inclusion version, record commitment version, and introduces sender ciphertexts.
     V8 = 8,
 }
+
+/// The number of consensus versions.
+const NUM_CONSENSUS_VERSIONS: usize = 8;
+/// A list of consensus versions and their corresponding block heights.
+static CONSENSUS_VERSION_HEIGHTS: OnceCell<[(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS]> = OnceCell::new();
 
 pub trait Network:
     'static
@@ -247,27 +250,63 @@ pub trait Network:
         // Initialize the consensus version heights directly from the constant.
         CONSENSUS_VERSION_HEIGHTS.get_or_init(|| Self::_CONSENSUS_VERSION_HEIGHTS)
     }
-    /// Returns the list of consensus versions.
+    /// Returns the list of test consensus versions.
     #[allow(non_snake_case)]
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
-    fn CONSENSUS_VERSION_HEIGHTS() -> &'static [(ConsensusVersion, u32); 8] {
+    fn CONSENSUS_VERSION_HEIGHTS() -> &'static [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
+        // NOTE: this closure may panic, as it is only called during startup.
         CONSENSUS_VERSION_HEIGHTS.get_or_init(|| {
-            // Initialize the consensus version heights from the constant.
-            let mut consensus_versions = Self::_CONSENSUS_VERSION_HEIGHTS;
+            // Define consensus version heights used for testing.
+            let mut test_consensus_heights = Self::_CONSENSUS_VERSION_HEIGHTS;
+            // Assert that the genesis height is 0.
+            assert_eq!(test_consensus_heights[0].1, 0, "Genesis height must be 0.");
             // Set the first height after genesis to 10.
-            consensus_versions[1].1 = 10;
+            test_consensus_heights[1].1 = 10;
             // Set each consecutive height to be 1 greater than the previous one.
-            for i in 2..consensus_versions.len() {
-                consensus_versions[i].1 = consensus_versions[i - 1].1 + 1;
+            for i in 2..test_consensus_heights.len() {
+                test_consensus_heights[i].1 = test_consensus_heights[i - 1].1 + 1;
             }
-            // Optionally override the final height for testing consensus version upgrades.
-            if let Some(s) = option_env!("LATEST_CONSENSUS_HEIGHT") {
-                let h: u32 = s.parse().expect("invalid LATEST_CONSENSUS_HEIGHT");
-                consensus_versions[consensus_versions.len() - 1].1 = h;
+            // Read the heights from the environment variable if it exists.
+            let Ok(height_string) = std::env::var("CONSENSUS_VERSION_HEIGHTS") else {
+                // Otherwise, return the default test consensus heights.
+                return test_consensus_heights;
+            };
+            // Parse the heights from the environment variable.
+            let parsed_test_consensus_heights = height_string
+                .replace(" ", "")
+                .split(",")
+                .map(|height| height.parse::<u32>().unwrap())
+                .collect::<Vec<_>>();
+            // Set the parsed heights in the test consensus heights.
+            for (i, height) in parsed_test_consensus_heights.into_iter().enumerate() {
+                test_consensus_heights[i] = (Self::TEST_CONSENSUS_VERSION_HEIGHTS[i].0, height);
             }
-            consensus_versions
+            // Ensure the consensus heights are of the expected length.
+            if test_consensus_heights.len() != NUM_CONSENSUS_VERSIONS {
+                panic!("Expected {} heights, but got {}", NUM_CONSENSUS_VERSIONS, test_consensus_heights.len());
+            }
+            // Ensure the consensus heights are strictly increasing.
+            for window in test_consensus_heights.windows(2) {
+                if window[0] >= window[1] {
+                    panic!("Heights must be strictly increasing, but found: {:?}", window);
+                }
+            }
+            test_consensus_heights
         })
     }
+    /// A set of incrementing consensus version heights used for tests.
+    #[allow(non_snake_case)]
+    #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
+    const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
+        (ConsensusVersion::V1, 0),
+        (ConsensusVersion::V2, 10),
+        (ConsensusVersion::V3, 11),
+        (ConsensusVersion::V4, 12),
+        (ConsensusVersion::V5, 13),
+        (ConsensusVersion::V6, 14),
+        (ConsensusVersion::V7, 15),
+        (ConsensusVersion::V8, 16),
+    ];
     /// Returns the consensus version which is active at the given height.
     #[allow(non_snake_case)]
     fn CONSENSUS_VERSION(seek_height: u32) -> anyhow::Result<ConsensusVersion> {
