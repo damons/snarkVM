@@ -19,6 +19,7 @@ mod string;
 
 use console::{network::prelude::*, program::Request, types::Field};
 use ledger_block::{Transaction, Transition};
+use synthesizer_program::StackProgram;
 
 use indexmap::IndexMap;
 #[cfg(feature = "locktick")]
@@ -146,6 +147,53 @@ impl<N: Network> Authorization<N> {
             }
             _ => false,
         }
+    }
+
+    /// Checks whether the authorization is for a valid program edition.
+    pub fn check_valid_edition(&self, process: &crate::Process<N>, _consensus_version: ConsensusVersion) -> Result<()> {
+        // Determine the root transition's program ID.
+        let transitions = self.transitions.read();
+        let program_ids = transitions.iter().map(|(_, t)| t.program_id());
+        for program_id in program_ids {
+            // There is only one credits.aleo edition, so we can safely skip this case.
+            if program_id.to_string() != "credits.aleo" {
+                // Get the program's current edition.
+                let _program_edition = *process.get_stack(program_id)?.program_edition();
+                // If we're past ConsensusVersion::V8, ensure new stacks are not on edition 0.
+                // TODO: Once upgradability lands, this check will be different. We
+                // can't just check the program edition anymore, it will need to be
+                // programs that are edition 0 with no constructor that can't be
+                // called.
+                #[cfg(not(any(test, feature = "test")))]
+                if _consensus_version >= ConsensusVersion::V8 && _program_edition == 0 {
+                    bail!("Cannot execute {program_id} on edition {_program_edition}");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Checks whether the authorization creates valid records.
+    pub fn check_valid_records(&self, consensus_version: ConsensusVersion) -> Result<()> {
+        let transitions = self.transitions.read();
+        // Collect the transition's output records.
+        let output_records = transitions
+            .values()
+            .flat_map(|transition| transition.outputs().iter().filter_map(|output| output.record()));
+        // Ensure the records are valid.
+        for (_, record) in output_records {
+            // If the consensus version are before `ConsensusVersion::V8`, ensure the output record is on Version 0.
+            // if the consensus version is on or after `ConsensusVersion::V8`, ensure the output record is on Version 1.
+            if (ConsensusVersion::V1..=ConsensusVersion::V7).contains(&consensus_version) {
+                #[cfg(not(any(test, feature = "test")))]
+                ensure!(record.version().is_zero(), "Output record must be Version 0 before Consensus V8");
+                #[cfg(any(test, feature = "test"))]
+                ensure!(record.version().is_one(), "Output record must be Version 1 before Consensus V8 in tests.");
+            } else {
+                ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
+            }
+        }
+        Ok(())
     }
 }
 
