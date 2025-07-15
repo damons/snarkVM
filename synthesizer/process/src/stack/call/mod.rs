@@ -115,7 +115,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
             let mut call_stack = registers.call_stack();
 
             // In Authorize mode, we need to compute the new request and push it onto the call stack.
-            if let CallStack::Authorize(ref mut requests, private_key, authorization) = &mut call_stack {
+            if let CallStack::Authorize(requests, private_key, authorization) = &mut call_stack {
                 // Set 'is_root'.
                 let is_root = false;
                 // Compute the request.

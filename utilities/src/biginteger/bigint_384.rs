@@ -329,7 +329,7 @@ impl PartialOrd for BigInteger384 {
 }
 impl Distribution<BigInteger384> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> BigInteger384 {
-        BigInteger384(rng.gen())
+        BigInteger384(rng.r#gen())
     }
 }
 impl AsMut<[u64]> for BigInteger384 {

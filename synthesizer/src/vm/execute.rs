@@ -555,7 +555,7 @@ finalize test:
         let query = Query::VM(vm.block_store().clone());
         let (execution, _) = vm.execute_authorization_raw(authorization, &query, rng).unwrap();
         let (cost, _) = execution_cost_v1(&vm.process().read(), &execution).unwrap();
-        println!("Cost: {}", cost);
+        println!("Cost: {cost}");
     }
 
     #[test]

@@ -21,8 +21,8 @@ categories = [
 ]
 include = [ "Cargo.toml", "vm", "README.md", "LICENSE.md" ]
 license = "Apache-2.0"
-edition = "2021"
-rust-version = "1.83.0" # Attention - Change the MSRV in rust-toolchain and in .circleci/config.yml as well
+edition = "2024"
+rust-version = "1.88.0" # Attention - Change the MSRV in rust-toolchain and in .circleci/config.yml as well
 
 [workspace]
 members = [
@@ -170,6 +170,14 @@ wasm = [ "snarkvm-wasm" ]
 test_exports = [ "snarkvm-algorithms/test_exports" ]
 test_targets = [ "snarkvm-console/test_targets" ]
 test_consensus_heights = [ "snarkvm-console/test_consensus_heights" ]
+serial = [
+  "snarkvm-algorithms?/serial",
+  "snarkvm-console?/serial",
+  "snarkvm-curves?/serial",
+  "snarkvm-fields?/serial",
+  "snarkvm-utilities/serial",
+  "snarkvm-ledger?/serial"
+]
 
 [workspace.dependencies.snarkvm-algorithms]
 path = "algorithms"
@@ -588,7 +596,7 @@ version = "0.4.4"
 workspace = true
 
 [dependencies.self_update]
-version = "0.41"
+version = "0.42"
 optional = true
 
 [dependencies.serde_json]

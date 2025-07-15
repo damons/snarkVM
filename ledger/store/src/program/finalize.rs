@@ -353,12 +353,12 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
 
     /// Returns `true` if the given `program ID` and `mapping name` exist.
     fn contains_mapping_confirmed(&self, program_id: &ProgramID<N>, mapping_name: &Identifier<N>) -> Result<bool> {
-        Ok(self.program_id_map().get_confirmed(program_id)?.map_or(false, |m| m.contains(mapping_name)))
+        Ok(self.program_id_map().get_confirmed(program_id)?.is_some_and(|m| m.contains(mapping_name)))
     }
 
     /// Returns `true` if the given `program ID` and `mapping name` exist.
     fn contains_mapping_speculative(&self, program_id: &ProgramID<N>, mapping_name: &Identifier<N>) -> Result<bool> {
-        Ok(self.program_id_map().get_speculative(program_id)?.map_or(false, |m| m.contains(mapping_name)))
+        Ok(self.program_id_map().get_speculative(program_id)?.is_some_and(|m| m.contains(mapping_name)))
     }
 
     /// Returns `true` if the given `program ID`, `mapping name`, and `key` exist.
@@ -1317,7 +1317,7 @@ mod tests {
             }
 
             // Prepare the key and value.
-            let item: u64 = rng.gen();
+            let item: u64 = rng.r#gen();
             let key = Plaintext::from(Literal::Field(Field::from_u64(item)));
             let value = Value::from(Literal::U64(U64::new(item)));
 
