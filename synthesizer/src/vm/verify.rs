@@ -221,7 +221,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V9`"
                     );
                 }
-                if consensus_version <= ConsensusVersion::V9 {
+                if consensus_version >= ConsensusVersion::V9 {
                     ensure!(
                         deployment.program_checksum().is_some(),
                         "Invalid deployment transaction '{id}' - missing program checksum"

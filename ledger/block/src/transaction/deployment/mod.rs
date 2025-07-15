@@ -302,8 +302,9 @@ function compute:
                 // Unset the owner.
                 deployment.set_program_owner_raw(None);
                 // Create a new deployment with the desired edition.
+                // NOte the only valid editions for V1 deployments are 0 and 1.
                 let deployment = Deployment::<CurrentNetwork>::new(
-                    edition,
+                    edition % 2,
                     deployment.program().clone(),
                     deployment.verifying_keys().clone(),
                     deployment.program_checksum().cloned(),
