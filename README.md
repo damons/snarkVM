@@ -69,12 +69,13 @@ snarkvm
 Alternatively, you can install `snarkvm` by building from the source code as follows:
 
 ```bash
-# Download the source code
-git clone --branch mainnet --single-branch https://github.com/ProvableHQ/snarkVM.git 
+# Fetch the repository's development (staging) branch
+git clone --branch staging --single-branch https://github.com/ProvableHQ/snarkVM.git 
 cd snarkVM
-git checkout tags/testnet-beta
+# Optional: pick a specific release of snarkOS
+git checkout v3.8.0
 # Install snarkVM
-cargo install --path .
+cargo install --path . --features=cli
 ```
 
 Now to use `snarkvm`, in your terminal, run:

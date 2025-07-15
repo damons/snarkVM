@@ -23,22 +23,24 @@ macro_rules! try_vm_runtime {
     ($e:expr) => {{
         use std::panic;
 
+        // Store the previous hook (if any).
+        let previous_hook = panic::take_hook();
+
         // Set a custom hook before calling catch_unwind to
         // indicate that the panic was expected and handled.
         panic::set_hook(Box::new(|e| {
-            let msg = e.to_string();
-            let msg = msg.split_ascii_whitespace().skip_while(|&word| word != "panicked").collect::<Vec<&str>>();
-            let mut msg = msg.join(" ");
-            msg = msg.replacen("panicked", "VM safely halted", 1);
             #[cfg(debug_assertions)]
-            eprintln!("{msg}");
+            {
+                let msg = e.to_string().replacen("panicked", "VM safely halted", 1);
+                eprintln!("{msg}");
+            }
         }));
 
         // Perform the operation that may panic.
         let result = panic::catch_unwind(panic::AssertUnwindSafe($e));
 
         // Restore the standard panic hook.
-        let _ = panic::take_hook();
+        panic::set_hook(previous_hook);
 
         // Return the result, allowing regular error-handling.
         result

@@ -68,6 +68,9 @@ workspace = true
 [dependencies.snarkvm-synthesizer-snark]
 workspace = true
 
+[dependencies.snarkvm-utilities]
+workspace = true
+
 [dependencies.anyhow]
 version = "1"
 

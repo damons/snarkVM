@@ -23,9 +23,11 @@ use ahp::prover::{FourthMessage, ThirdMessage};
 use snarkvm_curves::PairingEngine;
 use snarkvm_fields::PrimeField;
 use snarkvm_utilities::{FromBytes, ToBytes, error, serialize::*};
-use std::io::{self, Read, Write};
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    io::{self, Read, Write},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commitments<E: PairingEngine> {

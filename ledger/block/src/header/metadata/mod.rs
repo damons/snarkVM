@@ -81,16 +81,17 @@ impl<N: Network> Metadata<N> {
             timestamp,
             _phantom: PhantomData,
         };
+
         // Ensure the header is valid.
-        match metadata.check_validity() {
-            Ok(()) => Ok(metadata),
-            Err(err) => bail!("Invalid block metadata: {err}"),
-        }
+        metadata.check_validity().with_context(|| "Invalid block metadata")?;
+
+        Ok(metadata)
     }
 
     /// Returns `true` if the block metadata is well-formed.
     pub fn check_validity(&self) -> Result<()> {
         if self.height == 0u32 {
+            // [`Self::is_genesis`] performs its own validity checks.
             if !self.is_genesis().with_context(|| "Genesis block check failed")? {
                 bail!("Block at height 0 is not a genesis block");
             }
@@ -101,13 +102,28 @@ impl<N: Network> Metadata<N> {
         ensure!(self.network == N::ID, "Invalid network ID");
         ensure!(self.round > 0u64, "Invalid round");
         ensure!(self.round >= self.height as u64, "Round must be greater or equal to height");
-        ensure!(self.coinbase_target >= N::GENESIS_COINBASE_TARGET, "Invalid coinbase target");
         ensure!(self.proof_target >= N::GENESIS_PROOF_TARGET, "Invalid proof target");
-        ensure!(self.coinbase_target > self.proof_target, "Invalid coinbase target");
-        ensure!(self.last_coinbase_target >= N::GENESIS_COINBASE_TARGET, "Invalid last coinbase target");
+
         ensure!(self.last_coinbase_timestamp >= N::GENESIS_TIMESTAMP, "Ensure last coinbase timestamp");
         ensure!(self.timestamp > N::GENESIS_TIMESTAMP, "Invalid timeestamp");
 
+        if self.coinbase_target < N::GENESIS_COINBASE_TARGET {
+            bail!(
+                "Invalid coinbase target: Was {actual} but expected {min} or greater.",
+                actual = self.coinbase_target,
+                min = N::GENESIS_COINBASE_TARGET,
+            );
+        }
+
+        if self.proof_target < N::GENESIS_PROOF_TARGET {
+            bail!(
+                "Invalid proof target: Was {actual} but expected {min} or greater.",
+                actual = self.proof_target,
+                min = N::GENESIS_PROOF_TARGET,
+            );
+        }
+
+        ensure!(self.coinbase_target > self.proof_target, "Invalid coinbase target: must be greater than proof target");
         Ok(())
     }
 }

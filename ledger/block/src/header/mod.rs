@@ -74,10 +74,8 @@ impl<N: Network> Header<N> {
             metadata,
         };
         // Ensure the header is valid.
-        match header.check_validity() {
-            Ok(()) => Ok(header),
-            Err(err) => bail!("Invalid block header: {err}"),
-        }
+        header.check_validity().with_context(|| "Invalid block header")?;
+        Ok(header)
     }
 
     /// Returns `true` if the block header is well-formed.

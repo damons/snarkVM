@@ -13,19 +13,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use snarkvm::cli::{CLI, Updater};
+use snarkvm::{
+    cli::{CLI, Updater},
+    utilities::display_error,
+};
 
 use clap::Parser;
 
-fn main() -> anyhow::Result<()> {
+use std::panic::catch_unwind;
+
+fn main() {
     // Parse the given arguments.
     let cli = CLI::parse();
     // Run the updater.
-    println!("{}", Updater::print_cli());
-    // Run the CLI.
-    match cli.command.parse() {
-        Ok(output) => println!("{output}\n"),
-        Err(error) => println!("⚠️  {error}\n"),
+    if let Some(msg) = Updater::print_cli() {
+        println!("{msg}");
     }
-    Ok(())
+
+    // Set a custom hook here to show "pretty" errors when panicking.
+    std::panic::set_hook(Box::new(|err| {
+        eprintln!("⚠️ {}", err.to_string().replace("panicked at", "snarkVM encountered an unexpected error at"));
+    }));
+
+    // Run the CLI.
+    // We use `catch_unwind` here to ensure a panic stops execution and not just a single thread.
+    // Note: `catch_unwind` can be nested without problems.
+    let result = catch_unwind(|| cli.command.parse());
+
+    // Process any errors (including panics).
+    match result {
+        Ok(Ok(output)) => {
+            println!("{output}\n");
+            std::process::exit(0);
+        }
+        Ok(Err(err)) => {
+            // A regular error occurred.
+            display_error(&err);
+            eprintln!();
+            eprintln!("Use `--help` for instructions on how to use this command");
+            std::process::exit(1);
+        }
+        Err(_) => {
+            eprintln!();
+            eprintln!("This is most likely a bug!");
+            eprintln!(
+                "Please report it to the snarkVM developers: https://github.com/ProvableHQ/snarkVM/issues/new?template=bug.md"
+            );
+            std::process::exit(1);
+        }
+    }
 }

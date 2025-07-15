@@ -16,15 +16,16 @@
 use crate::{polycommit::sonic_pc, snark::varuna::ahp::indexer::*};
 use snarkvm_curves::PairingEngine;
 use snarkvm_utilities::{FromBytes, FromBytesDeserializer, ToBytes, ToBytesSerializer, error, serialize::*};
-use std::{
-    io::{self, Read, Write},
-    string::String,
-};
 
 use anyhow::Result;
-use core::{fmt, str::FromStr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    fmt,
+    io::{self, Read, Write},
+    str::FromStr,
+    string::String,
+};
 
 /// Verification key for a specific index (i.e., R1CS matrices).
 #[derive(Debug, Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]

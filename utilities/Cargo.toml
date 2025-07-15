@@ -60,6 +60,9 @@ features = [ "preserve_order" ]
 [dependencies.smol_str]
 version = "0.2"
 
+[dependencies.tracing]
+workspace = true
+
 [dependencies.thiserror]
 workspace = true
 
