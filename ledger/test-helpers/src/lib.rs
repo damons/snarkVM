@@ -141,7 +141,7 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
 
 /******************************************* Deployment *******************************************/
 
-pub fn sample_deployment_v1(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+pub fn sample_deployment_v1(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
     static INSTANCE: OnceLock<Deployment<CurrentNetwork>> = OnceLock::new();
     INSTANCE
         .get_or_init(|| {
@@ -170,6 +170,16 @@ function compute:
             deployment.set_program_checksum_raw(None);
             // Unset the owner.
             deployment.set_program_owner_raw(None);
+            // Create a new deployment with the desired edition.
+            // NOte the only valid editions for V1 deployments are 0 and 1.
+            let deployment = Deployment::<CurrentNetwork>::new(
+                edition % 2,
+                deployment.program().clone(),
+                deployment.verifying_keys().clone(),
+                deployment.program_checksum().cloned(),
+                deployment.program_owner().cloned(),
+            )
+            .unwrap();
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -177,7 +187,7 @@ function compute:
         .clone()
 }
 
-pub fn sample_deployment_v2(rng: &mut TestRng) -> Deployment<CurrentNetwork> {
+pub fn sample_deployment_v2(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
     static INSTANCE: OnceLock<Deployment<CurrentNetwork>> = OnceLock::new();
     INSTANCE
         .get_or_init(|| {
@@ -206,6 +216,15 @@ function compute:
             assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
             // Verify that the owner is set.
             assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
+            // Create a new deployment with the desired edition.
+            let deployment = Deployment::<CurrentNetwork>::new(
+                edition,
+                deployment.program().clone(),
+                deployment.verifying_keys().clone(),
+                deployment.program_checksum().cloned(),
+                deployment.program_owner().cloned(),
+            )
+            .unwrap();
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -419,9 +438,9 @@ pub fn sample_deployment_transaction(
     let private_key = PrivateKey::new(rng).unwrap();
     // Sample a deployment.
     let deployment = match version {
-        1 => sample_deployment_v1(rng),
+        1 => sample_deployment_v1(edition, rng),
         2 => {
-            let mut deployment = sample_deployment_v2(rng);
+            let mut deployment = sample_deployment_v2(edition, rng);
             // Set the program owner to the address of the private key.
             deployment.set_program_owner_raw(Some(Address::try_from(&private_key).unwrap()));
             // Return the deployment.
@@ -429,15 +448,6 @@ pub fn sample_deployment_transaction(
         }
         _ => panic!("Invalid deployment version: {version}"),
     };
-    // Create a new deployment with the desired edition.
-    let deployment = Deployment::<CurrentNetwork>::new(
-        edition,
-        deployment.program().clone(),
-        deployment.verifying_keys().clone(),
-        deployment.program_checksum().cloned(),
-        deployment.program_owner().cloned(),
-    )
-    .unwrap();
 
     // Compute the deployment ID.
     let deployment_id = deployment.to_deployment_id().unwrap();

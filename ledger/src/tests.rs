@@ -3568,7 +3568,7 @@ constructor:
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-        assert_eq!(block.height(), 17);
+        assert_eq!(block.height(), 18);
         assert_eq!(block.transactions().num_accepted(), 1);
         assert_eq!(block.transactions().num_rejected(), 0);
         assert_eq!(block.aborted_transaction_ids().len(), 0);
@@ -3578,7 +3578,7 @@ constructor:
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-        assert_eq!(block.height(), 18);
+        assert_eq!(block.height(), 19);
         assert_eq!(block.transactions().num_accepted(), 0);
         assert_eq!(block.transactions().num_rejected(), 1);
         assert_eq!(block.aborted_transaction_ids().len(), 0);
@@ -3588,7 +3588,7 @@ constructor:
         let transaction = ledger.vm().deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
         let block =
             ledger.prepare_advance_to_next_beacon_block(&caller_private_key, vec![], vec![], vec![transaction], rng)?;
-        assert_eq!(block.height(), 19);
+        assert_eq!(block.height(), 20);
         assert_eq!(block.transactions().num_accepted(), 1);
         assert_eq!(block.transactions().num_rejected(), 0);
         assert_eq!(block.aborted_transaction_ids().len(), 0);
