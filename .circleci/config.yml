@@ -96,7 +96,7 @@ commands:
           name: Install debian packages
           command: |
             DEBIAN_FRONTEND=noninteractive sudo apt-get update
-            DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends clang llvm-dev llvm pkg-config xz-utils make libssl-dev libssl-dev
+            DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends clang llvm-dev llvm lld pkg-config xz-utils make libssl-dev libssl-dev
       - restore_cache:
           keys:
             - << parameters.cache_key >>
@@ -150,9 +150,8 @@ jobs:
     resource_class: << pipeline.parameters.large >>
     steps:
       - checkout
-      - run:
-          no_output_timeout: 30m
-          command: RUST_MIN_STACK=67108864 cargo test
+      - run_test:
+          workspace_member: snarkvm
 
   algorithms:
     executor: rust-docker 
