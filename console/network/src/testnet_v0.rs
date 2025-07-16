@@ -157,7 +157,7 @@ impl Network for TestnetV0 {
         (ConsensusVersion::V5, 6_765_000),
         (ConsensusVersion::V6, 7_600_000),
         (ConsensusVersion::V7, 8_365_000),
-        (ConsensusVersion::V8, 9_155_000),
+        (ConsensusVersion::V8, 9_173_000),
     ];
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
