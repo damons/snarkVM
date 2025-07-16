@@ -240,6 +240,8 @@ impl Network for MainnetV0 {
     }
 
     /// Returns the `proving key` for the inclusion_v0 circuit.
+    #[cfg(not(feature = "wasm"))]
+    /// Returns the `proving key` for the inclusion_v0 circuit.
     fn inclusion_v0_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
         static INSTANCE: OnceLock<Arc<VarunaProvingKey<Console>>> = OnceLock::new();
         INSTANCE.get_or_init(|| {
@@ -248,6 +250,28 @@ impl Network for MainnetV0 {
                 CircuitProvingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_V0_PROVING_KEY[1..])
                     .expect("Failed to load inclusion_v0 proving key."),
             )
+        })
+    }
+
+    #[cfg(feature = "wasm")]
+    /// Returns the `proving key` for the inclusion_v0 circuit.
+    fn inclusion_v0_proving_key(inclusion_key_bytes: Option<Vec<u8>>) -> &'static Arc<VarunaProvingKey<Self>> {
+        static INSTANCE: OnceLock<Arc<VarunaProvingKey<Console>>> = OnceLock::new();
+        INSTANCE.get_or_init(|| {
+            inclusion_key_bytes
+                .map(|bytes| {
+                    snarkvm_parameters::mainnet::InclusionProver::verify_bytes(&bytes)
+                        .expect("Bytes provided did not match expected inclusion checksum.");
+                    Arc::new(
+                        CircuitProvingKey::from_bytes_le(&bytes[1..]).expect("Failed to load inclusion proving key."),
+                    )
+                })
+                .unwrap_or_else(|| {
+                    Arc::new(
+                        CircuitProvingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_V0_PROVING_KEY[1..])
+                            .expect("Failed to load inclusion proving key."),
+                    )
+                })
         })
     }
 
@@ -263,6 +287,7 @@ impl Network for MainnetV0 {
         })
     }
 
+    #[cfg(not(feature = "wasm"))]
     /// Returns the `proving key` for the inclusion circuit.
     fn inclusion_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
         static INSTANCE: OnceLock<Arc<VarunaProvingKey<Console>>> = OnceLock::new();
@@ -272,6 +297,28 @@ impl Network for MainnetV0 {
                 CircuitProvingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_PROVING_KEY[1..])
                     .expect("Failed to load inclusion proving key."),
             )
+        })
+    }
+
+    #[cfg(feature = "wasm")]
+    /// Returns the `proving key` for the inclusion circuit.
+    fn inclusion_proving_key(inclusion_key_bytes: Option<Vec<u8>>) -> &'static Arc<VarunaProvingKey<Self>> {
+        static INSTANCE: OnceLock<Arc<VarunaProvingKey<Console>>> = OnceLock::new();
+        INSTANCE.get_or_init(|| {
+            inclusion_key_bytes
+                .map(|bytes| {
+                    snarkvm_parameters::mainnet::InclusionProver::verify_bytes(&bytes)
+                        .expect("Bytes provided did not match expected inclusion checksum.");
+                    Arc::new(
+                        CircuitProvingKey::from_bytes_le(&bytes[1..]).expect("Failed to load inclusion proving key."),
+                    )
+                })
+                .unwrap_or_else(|| {
+                    Arc::new(
+                        CircuitProvingKey::from_bytes_le(&snarkvm_parameters::mainnet::INCLUSION_PROVING_KEY[1..])
+                            .expect("Failed to load inclusion proving key."),
+                    )
+                })
         })
     }
 
