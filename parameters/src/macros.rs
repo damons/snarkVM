@@ -375,10 +375,13 @@ macro_rules! impl_remote {
 
             #[cfg(feature = "wasm")]
             /// Verify external bytes.
-            pub fn verify_bytes(buffer: &Vec<u8>) -> Result<(), $crate::errors::ParameterError> {
-                let metadata: serde_json::Value = serde_json::from_str(Self::METADATA).expect("Metadata was not well-formatted");
-                let expected_checksum: String = metadata["checksum"].as_str().expect("Failed to parse checksum").to_string();
-                let expected_size: usize = metadata["size"].to_string().parse().expect("Failed to retrieve the file size");
+            pub fn verify_bytes(buffer: &[u8]) -> Result<(), $crate::errors::ParameterError> {
+                let metadata: serde_json::Value =
+                    serde_json::from_str(Self::METADATA).expect("Metadata was not well-formatted");
+                let expected_checksum: String =
+                    metadata[concat!($ftype, "_checksum")].as_str().expect("Failed to parse checksum").to_string();
+                let expected_size: usize =
+                    metadata[concat!($ftype, "_size")].to_string().parse().expect("Failed to retrieve the file size");
 
                 // Ensure the size matches.
                 if buffer.len() != expected_size {
