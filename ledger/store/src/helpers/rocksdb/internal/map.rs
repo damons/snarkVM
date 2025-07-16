@@ -21,7 +21,7 @@ use crate::helpers::{Map, MapRead};
 use core::{fmt, fmt::Debug, hash::Hash, mem};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
-use std::{borrow::Cow, ops::Deref, sync::atomic::Ordering};
+use std::{borrow::Cow, ops::Deref, path::Path, sync::atomic::Ordering};
 use tracing::error;
 
 #[derive(Clone)]
@@ -46,6 +46,13 @@ pub struct InnerDataMap<K: Serialize + DeserializeOwned, V: Serialize + Deserial
     pub(super) atomic_batch: Mutex<Vec<(K, Option<V>)>>,
     /// The checkpoint stack for the batched operations within the map.
     pub(super) checkpoints: Mutex<Vec<usize>>,
+}
+
+impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> InnerDataMap<K, V> {
+    pub fn backup_database<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
+        let checkpoint = rocksdb::checkpoint::Checkpoint::new(&self.database)?;
+        checkpoint.create_checkpoint(path).map_err(|e| e.into_string())
+    }
 }
 
 impl<

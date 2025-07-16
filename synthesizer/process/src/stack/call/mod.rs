@@ -13,33 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, Registers, RegistersCall, StackEvaluate, StackExecute, stack::Address};
+use crate::{CallStack, Registers, Stack, stack::Address};
 use aleo_std::prelude::{finish, lap, timer};
 use console::{
     account::Field,
     network::prelude::*,
     program::{Register, Request, Value, ValueType},
 };
-use synthesizer_program::{
+use snarkvm_synthesizer_program::{
     Call,
     CallOperator,
     Operand,
-    RegistersLoad,
-    RegistersLoadCircuit,
-    RegistersSigner,
-    RegistersSignerCircuit,
-    RegistersStore,
-    RegistersStoreCircuit,
-    StackKeys,
-    StackMatches,
-    StackProgram,
+    RegistersCircuit as _,
+    RegistersSigner as _,
+    RegistersTrait as _,
+    StackTrait,
 };
 
 pub trait CallTrait<N: Network> {
     /// Evaluates the instruction.
     fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()>;
@@ -47,14 +42,8 @@ pub trait CallTrait<N: Network> {
     /// Executes the instruction.
     fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
-        registers: &mut (
-                 impl RegistersCall<N>
-                 + RegistersSigner<N>
-                 + RegistersSignerCircuit<N, A>
-                 + RegistersLoadCircuit<N, A>
-                 + RegistersStoreCircuit<N, A>
-             ),
+        stack: &Stack<N>,
+        registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()>;
 }
@@ -64,7 +53,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
     #[inline]
     fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()> {
@@ -126,7 +115,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
             let mut call_stack = registers.call_stack();
 
             // In Authorize mode, we need to compute the new request and push it onto the call stack.
-            if let CallStack::Authorize(ref mut requests, private_key, authorization) = &mut call_stack {
+            if let CallStack::Authorize(requests, private_key, authorization) = &mut call_stack {
                 // Set 'is_root'.
                 let is_root = false;
                 // Compute the request.
@@ -173,14 +162,8 @@ impl<N: Network> CallTrait<N> for Call<N> {
     #[inline]
     fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
-        registers: &mut (
-                 impl RegistersCall<N>
-                 + RegistersSigner<N>
-                 + RegistersSignerCircuit<N, A>
-                 + RegistersLoadCircuit<N, A>
-                 + RegistersStoreCircuit<N, A>
-             ),
+        stack: &Stack<N>,
+        registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Call::execute");

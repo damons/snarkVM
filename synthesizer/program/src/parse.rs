@@ -15,19 +15,17 @@
 
 use super::*;
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Parser
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> Parser for ProgramCore<N> {
     /// Parses a string into a program.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
         // A helper to parse a program.
-        enum P<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
+        enum P<N: Network> {
             M(Mapping<N>),
             I(StructType<N>),
             R(RecordType<N>),
-            C(ClosureCore<N, Instruction>),
-            F(FunctionCore<N, Instruction, Command>),
+            C(ClosureCore<N>),
+            F(FunctionCore<N>),
         }
 
         // Parse the imports from the string.
@@ -45,22 +43,20 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
         // Parse the semicolon ';' keyword from the string.
         let (string, _) = tag(";")(string)?;
 
-        fn intermediate<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>>(
-            string: &str,
-        ) -> ParserResult<P<N, Instruction, Command>> {
+        fn intermediate<N: Network>(string: &str) -> ParserResult<P<N>> {
             // Parse the whitespace and comments from the string.
             let (string, _) = Sanitizer::parse(string)?;
 
             if string.starts_with(Mapping::<N>::type_name()) {
-                map(Mapping::parse, |mapping| P::<N, Instruction, Command>::M(mapping))(string)
+                map(Mapping::parse, |mapping| P::<N>::M(mapping))(string)
             } else if string.starts_with(StructType::<N>::type_name()) {
-                map(StructType::parse, |struct_| P::<N, Instruction, Command>::I(struct_))(string)
+                map(StructType::parse, |struct_| P::<N>::I(struct_))(string)
             } else if string.starts_with(RecordType::<N>::type_name()) {
-                map(RecordType::parse, |record| P::<N, Instruction, Command>::R(record))(string)
-            } else if string.starts_with(ClosureCore::<N, Instruction>::type_name()) {
-                map(ClosureCore::parse, |closure| P::<N, Instruction, Command>::C(closure))(string)
-            } else if string.starts_with(FunctionCore::<N, Instruction, Command>::type_name()) {
-                map(FunctionCore::parse, |function| P::<N, Instruction, Command>::F(function))(string)
+                map(RecordType::parse, |record| P::<N>::R(record))(string)
+            } else if string.starts_with(ClosureCore::<N>::type_name()) {
+                map(ClosureCore::parse, |closure| P::<N>::C(closure))(string)
+            } else if string.starts_with(FunctionCore::<N>::type_name()) {
+                map(FunctionCore::parse, |function| P::<N>::F(function))(string)
             } else {
                 Err(Err::Error(make_error(string, ErrorKind::Alt)))
             }
@@ -72,7 +68,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
         let (string, _) = Sanitizer::parse(string)?;
 
         // Initialize a new program.
-        let mut program = match ProgramCore::<N, Instruction, Command>::new(id) {
+        let mut program = match ProgramCore::<N>::new(id) {
             Ok(program) => program,
             Err(error) => {
                 eprintln!("{error}");
@@ -112,9 +108,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> FromStr
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> FromStr for ProgramCore<N> {
     type Err = Error;
 
     /// Returns a program from a string literal.
@@ -134,18 +128,14 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Fro
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Debug
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> Debug for ProgramCore<N> {
     /// Prints the program as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Display
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> Display for ProgramCore<N> {
     /// Prints the program as a string.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if !self.imports.is_empty() {
@@ -289,9 +279,9 @@ function compute:
         let gen_struct_string = |n: usize| -> String {
             let mut s = String::with_capacity(CurrentNetwork::MAX_PROGRAM_SIZE);
             for i in 0..n {
-                s.push_str(&format!("struct m{}:\n", i));
+                s.push_str(&format!("struct m{i}:\n"));
                 for j in 0..10 {
-                    s.push_str(&format!("    {}{} as u128;\n", var_name, j));
+                    s.push_str(&format!("    {var_name}{j} as u128;\n"));
                 }
             }
             s
@@ -301,9 +291,9 @@ function compute:
         let gen_record_string = |n: usize| -> String {
             let mut s = String::with_capacity(CurrentNetwork::MAX_PROGRAM_SIZE);
             for i in 0..n {
-                s.push_str(&format!("record r{}:\n    owner as address.private;\n", i));
+                s.push_str(&format!("record r{i}:\n    owner as address.private;\n"));
                 for j in 0..10 {
-                    s.push_str(&format!("    {}{} as u128.private;\n", var_name, j));
+                    s.push_str(&format!("    {var_name}{j} as u128.private;\n"));
                 }
             }
             s
@@ -313,10 +303,7 @@ function compute:
         let gen_mapping_string = |n: usize| -> String {
             let mut s = String::with_capacity(CurrentNetwork::MAX_PROGRAM_SIZE);
             for i in 0..n {
-                s.push_str(&format!(
-                    "mapping {}{}:\n    key as field.public;\n    value as field.public;\n",
-                    var_name, i
-                ));
+                s.push_str(&format!("mapping {var_name}{i}:\n    key as field.public;\n    value as field.public;\n"));
             }
             s
         };
@@ -325,9 +312,9 @@ function compute:
         let gen_closure_string = |n: usize| -> String {
             let mut s = String::with_capacity(CurrentNetwork::MAX_PROGRAM_SIZE);
             for i in 0..n {
-                s.push_str(&format!("closure c{}:\n    input r0 as u128;\n", i));
+                s.push_str(&format!("closure c{i}:\n    input r0 as u128;\n"));
                 for j in 0..10 {
-                    s.push_str(&format!("    add r0 r0 into r{};\n", j));
+                    s.push_str(&format!("    add r0 r0 into r{j};\n"));
                 }
                 s.push_str(&format!("    output r{} as u128;\n", 4000));
             }
@@ -338,7 +325,7 @@ function compute:
         let gen_function_string = |n: usize| -> String {
             let mut s = String::with_capacity(CurrentNetwork::MAX_PROGRAM_SIZE);
             for i in 0..n {
-                s.push_str(&format!("function f{}:\n    add 1u128 1u128 into r0;\n", i));
+                s.push_str(&format!("function f{i}:\n    add 1u128 1u128 into r0;\n"));
                 for j in 0..10 {
                     s.push_str(&format!("    add r0 r0 into r{j};\n"));
                 }
