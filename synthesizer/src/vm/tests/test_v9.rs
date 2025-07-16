@@ -22,6 +22,7 @@ use snarkvm_synthesizer_program::{Program, StackTrait};
 
 use crate::vm::test_helpers::sample_vm_at_height;
 use console::network::ConsensusVersion;
+use snarkvm_utilities::TestRng;
 use std::panic::AssertUnwindSafe;
 
 // This test checks that:
@@ -2329,4 +2330,72 @@ constructor:
     // Attempt to upgrade program A to version 2.
     let result = vm.deploy(&caller_private_key, &program_a_v2, None, 0, None, rng);
     assert!(result.is_err());
+}
+
+// This test checks that a program can only be upgraded after a certain block height.
+#[test]
+fn test_upgrade_after_block_height() -> Result<()> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Initialize the VM at the V9 height.
+    let vm: crate::VM<CurrentNetwork, LedgerType> =
+        sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
+
+    // Define the programs.
+    let program_v0 = Program::from_str(
+        r"
+program upgradable.aleo;
+function foo:
+constructor:
+    branch.eq edition 0u16 to end;
+    gte block.height 20u32 into r0;
+    assert.eq r0 true;
+    position end;
+    ",
+    )?;
+
+    let program_v1 = Program::from_str(
+        r"
+program upgradable.aleo;
+function foo:
+function bar:
+constructor:
+    branch.eq edition 0u16 to end;
+    gte block.height 20u32 into r0;
+    assert.eq r0 true;
+    position end;
+    ",
+    )?;
+
+    // Deploy the first version of the program.
+    let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.height(), 18);
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Attempt to deploy the second version of the program before block height 20.
+    let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.height(), 19);
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    // Attempt to deploy the second version of the program at block height 20.
+    let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.height(), 20);
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
+
+    Ok(())
 }

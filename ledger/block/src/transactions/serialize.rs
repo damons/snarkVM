@@ -206,14 +206,14 @@ mod tests {
                 crate::transactions::confirmed::test_helpers::sample_accepted_execute(6, false, rng),
                 crate::transactions::confirmed::test_helpers::sample_rejected_deploy(
                     Uniform::rand(rng),
-                    7,
+                    1,
                     Uniform::rand(rng),
                     false,
                     rng,
                 ),
                 crate::transactions::confirmed::test_helpers::sample_rejected_deploy(
                     Uniform::rand(rng),
-                    7,
+                    2,
                     Uniform::rand(rng),
                     false,
                     rng,

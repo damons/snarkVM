@@ -868,7 +868,7 @@ function compute:
         // Construct the new block header.
         let time_since_last_block = MainnetV0::BLOCK_TIME as i64;
         let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm.speculate(
-            sample_finalize_state(1),
+            sample_finalize_state(vm.block_store().current_block_height() + 1),
             time_since_last_block,
             None,
             vec![],
