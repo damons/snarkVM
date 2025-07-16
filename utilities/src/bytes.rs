@@ -496,7 +496,7 @@ impl<W: Write> LimitedWriter<W> {
 impl<W: Write> Write for LimitedWriter<W> {
     fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
         if self.remaining == 0 && !buf.is_empty() {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("Byte limit exceeded: {}", self.limit)));
+            return Err(std::io::Error::other(format!("Byte limit exceeded: {}", self.limit)));
         }
 
         let max_write = std::cmp::min(buf.len(), self.remaining);
@@ -572,7 +572,7 @@ mod test {
         let mut rng = TestRng::default();
 
         for _ in 0..ITERATIONS {
-            let given_bytes: [u8; 32] = rng.gen();
+            let given_bytes: [u8; 32] = rng.r#gen();
 
             let bits = bits_from_bytes_le(&given_bytes).collect::<Vec<_>>();
             let recovered_bytes = bytes_from_bits_le(&bits);
@@ -584,11 +584,20 @@ mod test {
     #[test]
     fn test_socketaddr_bytes() {
         fn random_ipv4_address(rng: &mut TestRng) -> Ipv4Addr {
-            Ipv4Addr::new(rng.gen(), rng.gen(), rng.gen(), rng.gen())
+            Ipv4Addr::new(rng.r#gen(), rng.r#gen(), rng.r#gen(), rng.r#gen())
         }
 
         fn random_ipv6_address(rng: &mut TestRng) -> Ipv6Addr {
-            Ipv6Addr::new(rng.gen(), rng.gen(), rng.gen(), rng.gen(), rng.gen(), rng.gen(), rng.gen(), rng.gen())
+            Ipv6Addr::new(
+                rng.r#gen(),
+                rng.r#gen(),
+                rng.r#gen(),
+                rng.r#gen(),
+                rng.r#gen(),
+                rng.r#gen(),
+                rng.r#gen(),
+                rng.r#gen(),
+            )
         }
 
         fn random_port(rng: &mut TestRng) -> u16 {

@@ -126,7 +126,7 @@ fn bench_stack_get_number_of_calls(c: &mut Criterion) {
         }
 
         // Get the `Stack` for the current test program.
-        let stack = process.get_stack(ProgramID::from_str(&format!("test_{}.aleo", i)).unwrap()).unwrap();
+        let stack = process.get_stack(ProgramID::from_str(&format!("test_{i}.aleo")).unwrap()).unwrap();
 
         // Benchmark the `get_number_of_calls` method.
         c.bench_function(&format!("Depth {i} | Stack::get_number_of_calls"), |b| {
