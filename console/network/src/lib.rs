@@ -90,6 +90,15 @@ pub enum ConsensusVersion {
     V8 = 8,
 }
 
+/// The depth of the Merkle tree for transactions in a block.
+/// Note: The technical limit is 2^20 - 1 transactions, to allow compatibility with the
+/// finalize operations tree, which requires 1 leaf for the ratified finalize ID.
+pub const TRANSACTIONS_DEPTH: u8 = 20;
+/// The depth of the Merkle tree for the transaction.
+pub const TRANSACTION_DEPTH: u8 = 5;
+/// The depth of the Merkle tree for the transition.
+pub const TRANSITION_DEPTH: u8 = 5;
+
 pub trait Network:
     'static
     + Environment
@@ -211,6 +220,9 @@ pub trait Network:
     /// The maximum number of bytes in a transaction.
     // Note: This value must **not** be decreased as it would invalidate existing transactions.
     const MAX_TRANSACTION_SIZE: usize = 128_000; // 128 kB
+
+    /// The maximum number of transitions allowed in a transaction.
+    const MAX_TRANSITIONS: usize = usize::pow(2, TRANSACTION_DEPTH as u32);
 
     /// The state root type.
     type StateRoot: Bech32ID<Field<Self>>;
