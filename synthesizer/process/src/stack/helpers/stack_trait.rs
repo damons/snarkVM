@@ -275,10 +275,14 @@ impl<N: Network> StackTrait<N> for Stack<N> {
                         // Add the function to the queue.
                         match call.operator() {
                             CallOperator::Locator(locator) => {
-                                queue.push((
-                                    StackRef::External(stack_ref.get_external_stack(locator.program_id())?),
-                                    *locator.resource(),
-                                ));
+                                // If the locator matches the program ID of the provided stack, use it directly.
+                                // Otherwise, retrieve the external stack.
+                                let stack = if locator.program_id() == self.program().id() {
+                                    StackRef::Internal(self)
+                                } else {
+                                    StackRef::External(stack_ref.get_external_stack(locator.program_id())?)
+                                };
+                                queue.push((stack, *locator.resource()));
                             }
                             CallOperator::Resource(resource) => {
                                 queue.push((stack_ref.clone(), *resource));

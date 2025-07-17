@@ -162,7 +162,12 @@ function dummy2:
     vm.add_next_block(&block)?;
 
     // Attempt to redeploy the program again after `ConsensusVersion::V8`.
-    assert!(vm.deploy(&caller_private_key, &program, None, 0, None, rng).is_err());
+    let transaction = vm.deploy(&caller_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block)?;
 
     // Drop the VM.
     drop(vm);
@@ -172,7 +177,7 @@ function dummy2:
 
     // Check that the latest block.
     let latest_block = vm.store.block_store().current_block_height();
-    assert_eq!(latest_block, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? + 3);
+    assert_eq!(latest_block, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? + 4);
 
     // Check that the program can still be executed.
     let execute = vm.execute(
@@ -337,7 +342,7 @@ finalize run:
 // This test verifies that:
 //   - a program cannot be redeployed in the same block as its deployment
 //   - an edition 0 program cannot be executed if it is deployed after `ConsensusVersion::V8`
-//   - a program can be redeployed using the exact same deployment, different fee, and in a different block, after `ConsensusVersion::V8`
+//   - a program can be redeployed using the exact same deployment, different fee, and in a different block, after `ConsensusVersion::V8` (even after `ConsensusVersion::V9`)
 #[test]
 fn test_deploy_and_redeploy() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -350,7 +355,7 @@ fn test_deploy_and_redeploy() -> Result<()> {
     let address = Address::try_from(&other_private_key)?;
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)?, rng);
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 1, rng);
 
     // Send some credits to the second caller.
     let transfer = vm.execute(
@@ -430,12 +435,14 @@ function dummy:
         1,
         program.clone(),
         deployment_0.verifying_keys().clone(),
-        deployment_0.program_checksum().cloned(),
-        deployment_0.program_owner().cloned(),
+        Some(deployment_0.program().to_checksum()),
+        Some(address),
     )?;
+    // Note: This needs to be recalculated since the new deployment contains a checksum and owner.
+    let (base_fee_amount, _) = deployment_cost(&vm.process.read(), &deployment)?;
     let fee_authorization = vm.authorize_fee_public(
         &other_private_key,
-        *transaction_0.base_fee_amount()?,
+        base_fee_amount,
         *transaction_0.priority_fee_amount()?,
         deployment.to_deployment_id()?,
         rng,
@@ -466,7 +473,11 @@ function dummy:
     vm.add_next_block(&block)?;
 
     // Verify that the program cannot be redeployed further.
-    assert!(vm.deploy(&other_private_key, &program, None, 0, None, rng).is_err());
+    let transaction = vm.deploy(&other_private_key, &program, None, 0, None, rng)?;
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
 
     Ok(())
 }

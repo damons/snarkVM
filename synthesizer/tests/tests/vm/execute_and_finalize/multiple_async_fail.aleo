@@ -19,6 +19,9 @@ finalize foo:
     add r1 1field into r2;
     set r2 into count[r0];
 
+constructor:
+    assert.eq edition 0u16;
+
 /////////////////////////////////////////////////
 
 import child.aleo;
@@ -35,7 +38,7 @@ function foo:
 finalize foo:
     input r0 as child.aleo/foo.future;
     await r0;
-    
+
 constructor:
     assert.eq edition 0u16;
 
