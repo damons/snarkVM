@@ -90,3 +90,6 @@ finalize rand_chacha_with_literals:
     rand.chacha r4 r5 into r29 as u32;
     rand.chacha r5 r6 into r30 as i64;
     rand.chacha r6 r7 into r31 as u128;
+    
+constructor:
+    assert.eq edition 0u16;

@@ -265,11 +265,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         ensure!(!is_program_in_storage, "Program ID '{}' is already deployed", deployment.program_id());
                         // Ensure the program does not already exist in the process.
                         ensure!(!is_program_in_process, "Program ID '{}' already exists", deployment.program_id());
-                        // Ensure that the program contains a constructor.
-                        ensure!(
-                            deployment.program().contains_constructor(),
-                            "Invalid deployment transaction '{id}' - a new program after `ConsensusVersion::V9` must contain a constructor"
-                        );
+                        // Ensure that the program contains a constructor if the program is deployed after `ConsensusVersion::V9`.
+                        if consensus_version >= ConsensusVersion::V9 {
+                            // Check that the program contains a constructor.
+                            ensure!(
+                                deployment.program().contains_constructor(),
+                                "Invalid deployment transaction '{id}' - a new program after `ConsensusVersion::V9` must contain a constructor"
+                            );
+                        }
                     }
                     new_edition => {
                         // Check that the program exists.

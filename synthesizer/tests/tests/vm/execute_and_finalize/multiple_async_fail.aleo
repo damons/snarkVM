@@ -35,4 +35,7 @@ function foo:
 finalize foo:
     input r0 as child.aleo/foo.future;
     await r0;
+    
+constructor:
+    assert.eq edition 0u16;
 
