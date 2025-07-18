@@ -31,8 +31,12 @@ impl<N: Network> FromBytes for Execution<N> {
             return Err(error("Execution (from 'read_le') has no transitions"));
         }
         // Ensure the number of transitions is within bounds.
-        if num_transitions as usize > N::MAX_TRANSITIONS {
-            return Err(error(format!("Execution (from 'read_le') has too many transitions ({} > {})", num_transitions, N::MAX_TRANSITIONS)));
+        if num_transitions as usize > Transaction::<N>::MAX_TRANSITIONS {
+            return Err(error(format!(
+                "Execution (from 'read_le') has too many transitions ({} > {})",
+                num_transitions,
+                Transaction::<N>::MAX_TRANSITIONS
+            )));
         }
         // Read the transitions.
         let transitions =

@@ -17,7 +17,7 @@ use super::*;
 
 impl<N: Network> Transaction<N> {
     /// The maximum number of transitions allowed in a transaction.
-    pub const MAX_TRANSITIONS: usize = N::MAX_TRANSITIONS;
+    pub const MAX_TRANSITIONS: usize = usize::pow(2, TRANSACTION_DEPTH as u32);
 
     /// Returns the transaction root, by computing the root for a Merkle tree of the transition IDs.
     pub fn to_root(&self) -> Result<Field<N>> {

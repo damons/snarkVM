@@ -31,14 +31,13 @@ impl<N: Network> FromBytes for Authorization<N> {
         if num_requests == 0 {
             return Err(error("Authorization (from 'read_le') has no requests"));
         }
-        // TODO (ant) reintroduce
-        // if num_requests > N::MAX_REQUESTS {
-        //     return Err(error(format!(
-        //         "Authorization (from 'read_le') has too many requests ({} > {})",
-        //         num_requests,
-        //         N::MAX_REQUESTS
-        //     )));
-        // }
+        if num_requests as usize > Transaction::<N>::MAX_TRANSITIONS {
+            return Err(error(format!(
+                "Authorization (from 'read_le') has too many requests ({} > {})",
+                num_requests,
+                Transaction::<N>::MAX_TRANSITIONS
+            )));
+        }
         // Read the requests.
         let requests = (0..num_requests).map(|_| Request::read_le(&mut reader)).collect::<IoResult<Vec<_>>>()?;
 
@@ -48,11 +47,11 @@ impl<N: Network> FromBytes for Authorization<N> {
         if num_transitions == 0 {
             return Err(error("Authorization (from 'read_le') has no transitions"));
         }
-        if num_transitions as usize > N::MAX_TRANSITIONS {
+        if num_transitions as usize > Transaction::<N>::MAX_TRANSITIONS {
             return Err(error(format!(
                 "Authorization (from 'read_le') has too many transitions ({} > {})",
                 num_transitions,
-                N::MAX_TRANSITIONS
+                Transaction::<N>::MAX_TRANSITIONS
             )));
         }
         // Read the transitions.
