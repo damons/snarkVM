@@ -272,6 +272,7 @@ optional = true
 workspace = true
 features = ["json"]
 optional = true
+default-features = true
 
 # Some cli helper functions are used in the tests.
 [dev-dependencies.snarkvm]
