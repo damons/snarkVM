@@ -318,3 +318,4 @@ debug-assertions = true
 
 [workspace.dependencies.ureq]
 version = "3"
+default-features = false

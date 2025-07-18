@@ -65,7 +65,6 @@ optional = true
 workspace = true
 features = [ "json" ]
 optional = true
-default-features = true
 
 [dependencies.http]
 version = "1"
