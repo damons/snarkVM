@@ -103,7 +103,6 @@ pub enum ConsensusVersion {
     /// V8: Update to inclusion version, record commitment version, and introduces sender ciphertexts.
     V8 = 8,
     /// V9: Support for program upgradability.
-    // TODO (@d0cd): Update uses of V9 once consensus version is decided
     V9 = 9,
 }
 

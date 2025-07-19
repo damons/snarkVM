@@ -20,8 +20,10 @@ use crate::vm::test_helpers::*;
 use console::{account::ViewKey, program::Value};
 use snarkvm_synthesizer_program::{Program, StackTrait};
 
-use crate::vm::test_helpers::sample_vm_at_height;
+use crate::vm::test_helpers::{advance_vm_to_height, sample_vm_at_height};
+use aleo_std::StorageMode;
 use console::network::ConsensusVersion;
+use snarkvm_ledger_store::ConsensusStore;
 use snarkvm_utilities::TestRng;
 use std::panic::AssertUnwindSafe;
 
@@ -124,6 +126,7 @@ function dummy:
 //  - the logic of a simple transition without records can be upgraded.
 //  - once a program is upgraded, the old executions are no longer valid.
 //  - a constructor with an "allow any" policy can be upgraded by anyone.
+//  - a program can be upgraded to a new edition with the exact same logic.
 #[test]
 fn test_simple_upgrade() -> Result<()> {
     let rng = &mut TestRng::default();
@@ -234,6 +237,15 @@ constructor:
 
     // Check that the old execution is no longer valid.
     assert!(vm.check_transaction(&original_execution, None, rng).is_err());
+
+    // Upgrade the program with the same locig.
+    let transaction = vm.deploy(&user_private_key, &upgraded_program, None, 0, None, rng)?;
+    assert_eq!(transaction.deployment().unwrap().edition(), 2);
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
 
     // Execute the upgraded program.
     let new_execution = vm.execute(
@@ -2174,17 +2186,31 @@ fn test_credits_executions() {
 }
 
 // This tests verifies that:
-//   - A set of programs with cyclic imports can be deployed and executed.
-//   - A set of programs with cyclic calls cannot be deployed.
+//  - a set of programs with cyclic imports can be deployed and executed.
+//  - a set of programs with cyclic calls cannot be deployed.
+//  - the VM can be loaded from a store at the very end.
 #[test]
 fn test_cyclic_imports_and_call_graphs() {
     let rng = &mut TestRng::default();
 
-    // Initialize a new caller.
-    let caller_private_key = sample_genesis_private_key(rng);
+    // Initialize the storage.
+    let store = ConsensusStore::<CurrentNetwork, LedgerType>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the VM.
-    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
+    let mut vm = VM::<CurrentNetwork, LedgerType>::from(store.clone()).unwrap();
+    let genesis = sample_genesis_block(rng);
+    vm.add_next_block(&genesis).unwrap();
+
+    // Get the genesis private key.
+    let caller_private_key = sample_genesis_private_key(rng);
+
+    // Advance the VM to `ConsensusVersion::V9`.
+    advance_vm_to_height(
+        &mut vm,
+        caller_private_key,
+        CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(),
+        rng,
+    );
 
     // Define the programs with cyclic imports.
     let program_a_v0 = Program::from_str(
@@ -2330,6 +2356,16 @@ constructor:
     // Attempt to upgrade program A to version 2.
     let result = vm.deploy(&caller_private_key, &program_a_v2, None, 0, None, rng);
     assert!(result.is_err());
+
+    // Drop the VM.
+    drop(vm);
+
+    // Load the VM from the store.
+    let vm = VM::<CurrentNetwork, LedgerType>::from(store).unwrap();
+
+    // Check that the latest block.
+    let latest_block = vm.store.block_store().current_block_height();
+    assert_eq!(latest_block, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() + 5);
 }
 
 // This test checks that a program can only be upgraded after a certain block height.

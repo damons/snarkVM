@@ -33,13 +33,20 @@ use anyhow::Result;
 use core::marker::PhantomData;
 use std::borrow::Cow;
 
-// TODO (@d0cd) Document DB invariants
-
 /// A trait for deployment storage.
+/// The deployment storage contains the `Deployment`s for all programs deployed on the network.
+/// The storage has been migrated a few to times to support new features.
+/// Here we describe the changes made to the storage and the invariants that must hold.
+///   - **ConsensusVersion::V1..V7**: The deployment edition is always zero. The `IDEditionMap` and `ChecksumMap` did not exist.
+///   - **ConsensusVersion::V8**: The deployment edition is either zero or one. The `IDEditionMap` is introduced and the `EditionMap`
+///       is interpreted as the latest edition for the program ID. The `ChecksumMap` did not exist.
+///   - **ConsensusVersion::V9**: The deployment edition can be any value from zero to `u16::MAX`. The `ChecksumMap` is introduced and
+///       stores the program checksum, required in each deployment after `ConsensusVersion::V9`.
 pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// The mapping of `transaction ID` to `program ID`.
     type IDMap: for<'a> Map<'a, N::TransactionID, ProgramID<N>>;
     /// The mapping of `transaction ID` to `edition`.
+    /// This was introduced in `ConsensusVersion::V8`.
     type IDEditionMap: for<'a> Map<'a, N::TransactionID, u16>;
     /// The mapping of `program ID` to the **latest** `edition`.
     type EditionMap: for<'a> Map<'a, ProgramID<N>, u16>;
@@ -50,6 +57,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
     /// The mapping of `(program ID, edition)` to `program`.
     type ProgramMap: for<'a> Map<'a, (ProgramID<N>, u16), Program<N>>;
     /// The mapping of `(program ID, edition)` to `checksum`.
+    /// This was introduced in `ConsensusVersion::V9`.
     type ChecksumMap: for<'a> Map<'a, (ProgramID<N>, u16), [U8<N>; 32]>;
     /// The mapping of `(program ID, function name, edition)` to `verifying key`.
     type VerifyingKeyMap: for<'a> Map<'a, (ProgramID<N>, Identifier<N>, u16), VerifyingKey<N>>;
@@ -1043,10 +1051,11 @@ mod tests {
         // Sample the transactions.
         // TODO (@d0cd) Better testing.
         let transaction_0 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng);
-        let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 0, false, rng);
+        let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 1, false, rng);
         let transaction_2 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng);
         let transaction_3 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng);
-        let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3];
+        let transaction_4 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 2, true, rng);
+        let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3, transaction_4];
 
         for transaction in transactions {
             let transaction_id = transaction.id();
@@ -1061,6 +1070,7 @@ mod tests {
 
             // If the edition is zero, then check that a transaction is not found.
             // Otherwise, check that the transaction is found.
+            println!("program_id: {:?}, edition: {:?}", program_id, edition);
             if edition == 0 {
                 let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
                 assert_eq!(None, candidate);

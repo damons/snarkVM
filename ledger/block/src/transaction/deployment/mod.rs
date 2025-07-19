@@ -274,7 +274,7 @@ pub mod test_helpers {
 
     pub(crate) fn sample_deployment_v1(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceLock<Deployment<CurrentNetwork>> = OnceLock::new();
-        INSTANCE
+        let deployment = INSTANCE
             .get_or_init(|| {
                 // Initialize a new program.
                 let (string, program) = Program::<CurrentNetwork>::parse(
@@ -292,7 +292,6 @@ function compute:
                 )
                 .unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-
                 // Construct the process.
                 let process = Process::load().unwrap();
                 // Compute the deployment.
@@ -301,26 +300,26 @@ function compute:
                 deployment.set_program_checksum_raw(None);
                 // Unset the owner.
                 deployment.set_program_owner_raw(None);
-                // Create a new deployment with the desired edition.
-                // NOte the only valid editions for V1 deployments are 0 and 1.
-                let deployment = Deployment::<CurrentNetwork>::new(
-                    edition % 2,
-                    deployment.program().clone(),
-                    deployment.verifying_keys().clone(),
-                    deployment.program_checksum().cloned(),
-                    deployment.program_owner().cloned(),
-                )
-                .unwrap();
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()
             })
-            .clone()
+            .clone();
+        // Create a new deployment with the desired edition.
+        // Note the only valid editions for V1 deployments are 0 and 1.
+        Deployment::<CurrentNetwork>::new(
+            edition % 2,
+            deployment.program().clone(),
+            deployment.verifying_keys().clone(),
+            deployment.program_checksum().cloned(),
+            deployment.program_owner().cloned(),
+        )
+        .unwrap()
     }
 
     pub(crate) fn sample_deployment_v2(edition: u16, rng: &mut TestRng) -> Deployment<CurrentNetwork> {
         static INSTANCE: OnceLock<Deployment<CurrentNetwork>> = OnceLock::new();
-        INSTANCE
+        let deployment = INSTANCE
             .get_or_init(|| {
                 // Initialize a new program.
                 let (string, program) = Program::<CurrentNetwork>::parse(
@@ -338,7 +337,6 @@ function compute:
                 )
                 .unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-
                 // Construct the process.
                 let process = Process::load().unwrap();
                 // Compute the deployment.
@@ -347,19 +345,19 @@ function compute:
                 assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
                 // Assert that the deployment has an owner.
                 assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
-                // Create a new deployment with the desired edition.
-                let deployment = Deployment::<CurrentNetwork>::new(
-                    edition,
-                    deployment.program().clone(),
-                    deployment.verifying_keys().clone(),
-                    deployment.program_checksum().cloned(),
-                    deployment.program_owner().cloned(),
-                )
-                .unwrap();
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()
             })
-            .clone()
+            .clone();
+        // Create a new deployment with the desired edition.
+        Deployment::<CurrentNetwork>::new(
+            edition,
+            deployment.program().clone(),
+            deployment.verifying_keys().clone(),
+            deployment.program_checksum().cloned(),
+            deployment.program_owner().cloned(),
+        )
+        .unwrap()
     }
 }

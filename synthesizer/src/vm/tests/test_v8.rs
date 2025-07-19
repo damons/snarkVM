@@ -21,7 +21,7 @@ use console::{account::ViewKey, network::ConsensusVersion};
 use snarkvm_ledger_store::ConsensusStore;
 use snarkvm_synthesizer_program::{Program, StackTrait as _};
 
-use crate::vm::test_helpers::sample_vm_at_height;
+use crate::vm::test_helpers::{advance_vm_to_height, sample_vm_at_height};
 use aleo_std::StorageMode;
 use console::program::ProgramOwner;
 use snarkvm_ledger_block::{Deployment, Transaction};
@@ -29,9 +29,9 @@ use snarkvm_ledger_block::{Deployment, Transaction};
 // This test checks that:
 //  - an existing program cannot be redeployed before `ConsensusVersion::V8`
 //  - an existing program cannot be redeployed with different code after `ConsensusVersion::V8`
-//  - an existing program can be redeployed with the same code after `ConsensusVersion::V8`
-//  - an existing program can only be redeployed once after `ConsensusVersion::V8`
-//  - a program with a mapping can be redeployed after `ConsensusVersion::V8`
+//  - an existing program can be redeployed with the same code after `ConsensusVersion::V8` (even after `V9`)
+//  - an existing program can only be redeployed once after `ConsensusVersion::V8` (even after `V9`)
+//  - a program with a mapping can be redeployed after `ConsensusVersion::V8` (even after `V9`)
 //  - after `ConsensusVersion::V8`, existing programs cannot be executed until they are redeployed.
 //  - the VM can be loaded from a store at the very end.
 #[test]
@@ -45,7 +45,7 @@ fn test_redeployment() -> Result<()> {
     let store = ConsensusStore::<CurrentNetwork, LedgerType>::open(StorageMode::new_test(None)).unwrap();
 
     // Initialize the VM.
-    let vm = VM::<CurrentNetwork, LedgerType>::from(store.clone())?;
+    let mut vm = VM::<CurrentNetwork, LedgerType>::from(store.clone())?;
     let genesis = sample_genesis_block(rng);
     vm.add_next_block(&genesis)?;
 
@@ -53,11 +53,12 @@ fn test_redeployment() -> Result<()> {
     let genesis_private_key = sample_genesis_private_key(rng);
 
     // Advance the VM to 3 blocks before `ConsensusVersion::V8`.
-    let desired_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 3;
-    for _ in 0..desired_height {
-        let block = sample_next_block(&vm, &genesis_private_key, &[], rng).unwrap();
-        vm.add_next_block(&block).unwrap();
-    }
+    advance_vm_to_height(
+        &mut vm,
+        genesis_private_key,
+        CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V8)? - 3,
+        rng,
+    );
 
     // Initialize the programs
     let program = Program::from_str(

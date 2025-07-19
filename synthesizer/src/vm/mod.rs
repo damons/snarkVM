@@ -563,16 +563,27 @@ pub(crate) mod test_helpers {
     #[cfg(feature = "test")]
     pub(crate) fn sample_vm_at_height(height: u32, rng: &mut TestRng) -> VM<CurrentNetwork, LedgerType> {
         // Initialize the VM with a genesis block.
-        let vm = sample_vm_with_genesis_block(rng);
+        let mut vm = sample_vm_with_genesis_block(rng);
         // Get the genesis private key.
         let genesis_private_key = sample_genesis_private_key(rng);
         // Advance the VM to the given height.
-        for _ in 0..height {
-            let block = sample_next_block(&vm, &genesis_private_key, &[], rng).unwrap();
-            vm.add_next_block(&block).unwrap();
-        }
+        advance_vm_to_height(&mut vm, genesis_private_key, height, rng);
         // Return the VM.
         vm
+    }
+
+    #[cfg(feature = "test")]
+    pub(crate) fn advance_vm_to_height(
+        vm: &mut VM<CurrentNetwork, LedgerType>,
+        genesis_private_key: PrivateKey<CurrentNetwork>,
+        height: u32,
+        rng: &mut TestRng,
+    ) {
+        // Advance the VM to the given height.
+        for _ in vm.block_store().current_block_height()..height {
+            let block = sample_next_block(vm, &genesis_private_key, &[], rng).unwrap();
+            vm.add_next_block(&block).unwrap();
+        }
     }
 
     pub(crate) fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwork> {

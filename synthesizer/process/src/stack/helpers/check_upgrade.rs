@@ -41,8 +41,6 @@ impl<N: Network> Stack<N> {
         ensure!(program_id != &ProgramID::from_str("credits.aleo")?, "Cannot upgrade 'credits.aleo'");
         // Ensure the program ID matches.
         ensure!(old_program.id() == new_program.id(), "Cannot upgrade '{program_id}' with different program ID");
-        // Ensure that the old program is not the same as the new program.
-        ensure!(old_program != new_program, "Cannot upgrade '{program_id}' with the same program");
         // Ensure that all of the imports in the old program exist in the new program.
         for old_import in old_program.imports().keys() {
             if !new_program.contains_import(old_import) {

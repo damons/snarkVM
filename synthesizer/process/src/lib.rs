@@ -119,7 +119,7 @@ impl<N: Network> Process<N> {
     }
 
     /// Adds a new program to the process.
-    /// If the program exists, then the existing program is replaced and the original stack is returned..
+    /// If the program exists, then the existing program is replaced and the original stack is returned.
     /// If you intend to `execute` the program, use `deploy` and `finalize_deployment` instead.
     #[inline]
     pub fn add_program(&mut self, program: &Program<N>) -> Result<Option<Arc<Stack<N>>>> {
