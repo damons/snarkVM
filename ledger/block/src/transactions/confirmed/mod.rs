@@ -398,7 +398,7 @@ pub mod test_helpers {
         rng: &mut TestRng,
     ) -> ConfirmedTransaction<CurrentNetwork> {
         // Sample an execute transaction.
-        let tx = crate::transaction::test_helpers::sample_execution_transaction_with_fee(is_fee_private, rng);
+        let tx = crate::transaction::test_helpers::sample_execution_transaction_with_fee(is_fee_private, rng, 0);
         // Return the confirmed transaction.
         ConfirmedTransaction::accepted_execute(index, tx, vec![]).unwrap()
     }
@@ -488,7 +488,7 @@ mod test {
         let rng = &mut TestRng::default();
 
         let index = Uniform::rand(rng);
-        let tx = crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng);
+        let tx = crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng, 0);
 
         // Create an `AcceptedExecution` with valid `FinalizeOperation`s.
         let finalize_operations = vec![
@@ -683,7 +683,8 @@ mod test {
         assert_eq!(rejected_deploy.to_unconfirmed_transaction().unwrap(), deployment_transaction);
 
         // Ensure that the unconfirmed transaction of a rejected execute is not equivalent to its confirmed transaction.
-        let execution_transaction = crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng);
+        let execution_transaction =
+            crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng, 0);
         let rejected = Rejected::new_execution(execution_transaction.execution().unwrap().clone());
         let fee = Transaction::from_fee(execution_transaction.fee_transition().unwrap()).unwrap();
         let rejected_execute =
@@ -691,7 +692,8 @@ mod test {
         assert_eq!(rejected_execute.to_unconfirmed_transaction_id().unwrap(), execution_transaction.id());
         assert_eq!(rejected_execute.to_unconfirmed_transaction().unwrap(), execution_transaction);
 
-        let execution_transaction = crate::transaction::test_helpers::sample_execution_transaction_with_fee(false, rng);
+        let execution_transaction =
+            crate::transaction::test_helpers::sample_execution_transaction_with_fee(false, rng, 0);
         let rejected = Rejected::new_execution(execution_transaction.execution().unwrap().clone());
         let fee = Transaction::from_fee(execution_transaction.fee_transition().unwrap()).unwrap();
         let rejected_execute =

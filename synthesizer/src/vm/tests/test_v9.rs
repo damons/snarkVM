@@ -1619,7 +1619,7 @@ constructor:
 }
 
 #[test]
-fn test_upgrade_without_changing_contents_fails() -> Result<()> {
+fn test_upgrade_without_changing_contents_passes() -> Result<()> {
     let rng = &mut TestRng::default();
 
     // Initialize a new caller.
@@ -1659,14 +1659,20 @@ function dummy:",
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Attempt to deploy the program again without changing its contents.
-    let result = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng);
-    assert!(result.is_err());
+    // Deploy the program again without changing its contents.
+    let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
+    let deployment = transaction.deployment().unwrap();
+    assert_eq!(deployment.edition(), 1);
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block)?;
 
     // Deploy the program with an extra mapping as an upgrade.
     let transaction_third = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let deployment_third = transaction_third.deployment().unwrap();
-    assert_eq!(deployment_third.edition(), 1);
+    assert_eq!(deployment_third.edition(), 2);
     let block = sample_next_block(&vm, &caller_private_key, &[transaction_third], rng)?;
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);

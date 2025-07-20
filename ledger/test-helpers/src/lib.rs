@@ -53,7 +53,7 @@ type CurrentAleo = circuit::network::AleoV0;
 
 /// Samples a random transition.
 pub fn sample_transition(rng: &mut TestRng) -> Transition<CurrentNetwork> {
-    crate::sample_execution(rng).into_transitions().next().unwrap()
+    crate::sample_execution(rng, 0).into_transitions().next().unwrap()
 }
 
 /// Sample the transition inputs.
@@ -61,7 +61,7 @@ pub fn sample_inputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Input<
     let rng = &mut TestRng::default();
 
     // Sample a transition.
-    let transaction = crate::sample_execution_transaction_with_fee(true, rng);
+    let transaction = crate::sample_execution_transaction_with_fee(true, rng, 0);
     let transition = transaction.transitions().next().unwrap();
 
     // Retrieve the transition ID and input.
@@ -94,7 +94,7 @@ pub fn sample_outputs() -> Vec<(<CurrentNetwork as Network>::TransitionID, Outpu
     let rng = &mut TestRng::default();
 
     // Sample a transition.
-    let transaction = crate::sample_execution_transaction_with_fee(true, rng);
+    let transaction = crate::sample_execution_transaction_with_fee(true, rng, 0);
     let transition = transaction.transitions().next().unwrap();
 
     // Retrieve the transition ID and input.
@@ -254,19 +254,23 @@ pub fn sample_rejected_deployment(
 /******************************************* Execution ********************************************/
 
 /// Samples a random execution.
-pub fn sample_execution(rng: &mut TestRng) -> Execution<CurrentNetwork> {
+pub fn sample_execution(rng: &mut TestRng, index: usize) -> Execution<CurrentNetwork> {
     // Sample the genesis block.
     let block = crate::sample_genesis_block(rng);
     // Retrieve a transaction.
-    let transaction = block.transactions().iter().next().unwrap().deref().clone();
+    let transaction = block.transactions().iter().nth(index).unwrap().deref().clone();
     // Retrieve the execution.
-    if let Transaction::Execute(_, _, execution, _) = transaction { *execution } else { unreachable!() }
+    if let Transaction::Execute(_, _, execution, _) = transaction {
+        *execution
+    } else {
+        panic!("Index {index} exceeded the number of executions in the genesis block")
+    }
 }
 
 /// Samples a rejected execution.
 pub fn sample_rejected_execution(is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
     // Sample an execute transaction.
-    let execution = match crate::sample_execution_transaction_with_fee(is_fee_private, rng) {
+    let execution = match crate::sample_execution_transaction_with_fee(is_fee_private, rng, 0) {
         Transaction::Execute(_, _, execution, _) => execution,
         _ => unreachable!(),
     };
@@ -293,9 +297,9 @@ pub fn sample_fee_private_hardcoded(rng: &mut TestRng) -> Fee<CurrentNetwork> {
 /// Samples a random private fee.
 pub fn sample_fee_private(deployment_or_execution_id: Field<CurrentNetwork>, rng: &mut TestRng) -> Fee<CurrentNetwork> {
     // Sample the genesis block, transaction, and private key.
-    let (block, transaction, private_key) = crate::sample_genesis_block_and_components(rng);
+    let (block, transactions, private_key) = crate::sample_genesis_block_and_components(rng);
     // Retrieve a credits record.
-    let credits = transaction.records().next().unwrap().1.clone();
+    let credits = transactions.iter().next().unwrap().records().next().unwrap().1.clone();
     // Decrypt the record.
     let credits = credits.decrypt(&private_key.try_into().unwrap()).unwrap();
     // Sample a base fee in microcredits.
@@ -462,9 +466,13 @@ pub fn sample_deployment_transaction(
 }
 
 /// Samples a random execution transaction with a private or public fee.
-pub fn sample_execution_transaction_with_fee(is_fee_private: bool, rng: &mut TestRng) -> Transaction<CurrentNetwork> {
+pub fn sample_execution_transaction_with_fee(
+    is_fee_private: bool,
+    rng: &mut TestRng,
+    index: usize,
+) -> Transaction<CurrentNetwork> {
     // Sample an execution.
-    let execution = crate::sample_execution(rng);
+    let execution = crate::sample_execution(rng, index);
     // Compute the execution ID.
     let execution_id = execution.to_execution_id().unwrap();
 
@@ -568,19 +576,21 @@ pub fn sample_genesis_block(rng: &mut TestRng) -> Block<CurrentNetwork> {
     block
 }
 
-/// Samples a random genesis block and the transaction from the genesis block.
-pub fn sample_genesis_block_and_transaction(rng: &mut TestRng) -> (Block<CurrentNetwork>, Transaction<CurrentNetwork>) {
+/// Samples a random genesis block and the transactions from the genesis block.
+pub fn sample_genesis_block_and_transactions(
+    rng: &mut TestRng,
+) -> (Block<CurrentNetwork>, Transactions<CurrentNetwork>) {
     // Sample the genesis block and components.
-    let (block, transaction, _) = crate::sample_genesis_block_and_components(rng);
-    // Return the block and transaction.
-    (block, transaction)
+    let (block, transactions, _) = crate::sample_genesis_block_and_components(rng);
+    // Return the block and transactions.
+    (block, transactions)
 }
 
-/// Samples a random genesis block, the transaction from the genesis block, and the genesis private key.
+/// Samples a random genesis block, the transactions from the genesis block, and the genesis private key.
 pub fn sample_genesis_block_and_components(
     rng: &mut TestRng,
-) -> (Block<CurrentNetwork>, Transaction<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
-    static INSTANCE: OnceLock<(Block<CurrentNetwork>, Transaction<CurrentNetwork>, PrivateKey<CurrentNetwork>)> =
+) -> (Block<CurrentNetwork>, Transactions<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
+    static INSTANCE: OnceLock<(Block<CurrentNetwork>, Transactions<CurrentNetwork>, PrivateKey<CurrentNetwork>)> =
         OnceLock::new();
     INSTANCE.get_or_init(|| crate::sample_genesis_block_and_components_raw(rng)).clone()
 }
@@ -593,10 +603,10 @@ pub fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwor
     })
 }
 
-/// Samples a random genesis block, the transaction from the genesis block, and the genesis private key.
+/// Samples a random genesis block, the transactions from the genesis block, and the genesis private key.
 fn sample_genesis_block_and_components_raw(
     rng: &mut TestRng,
-) -> (Block<CurrentNetwork>, Transaction<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
+) -> (Block<CurrentNetwork>, Transactions<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
     // Sample the genesis private key.
     let private_key = sample_genesis_private_key(rng);
     let address = Address::<CurrentNetwork>::try_from(private_key).unwrap();
@@ -610,29 +620,32 @@ fn sample_genesis_block_and_components_raw(
 
     // Initialize the process.
     let process = Process::load().unwrap();
-    // Authorize the function.
-    let authorization =
-        process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), rng).unwrap();
-    // Execute the function.
-    let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
+    // Create the transactions.
+    let transactions = {
+        Transactions::from_iter((0..2).map(|_| {
+            // Authorize the function.
+            let authorization =
+                process.authorize::<CurrentAleo, _>(&private_key, locator.0, locator.1, inputs.iter(), rng).unwrap();
+            // Execute the function.
+            let (_, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
 
-    // Initialize a new block store.
-    let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
+            // Initialize a new block store.
+            let block_store = BlockStore::<CurrentNetwork, BlockMemory<_>>::open(StorageMode::new_test(None)).unwrap();
 
-    // Prepare the assignments.
-    trace.prepare(&Query::from(block_store)).unwrap();
-    // Compute the proof and construct the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>(locator.0, VarunaVersion::V1, rng).unwrap();
-    // Convert the execution.
-    // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
-    let execution = Execution::from_str(&execution.to_string()).unwrap();
+            // Prepare the assignments.
+            trace.prepare(&Query::from(block_store)).unwrap();
+            // Compute the proof and construct the execution.
+            let execution = trace.prove_execution::<CurrentAleo, _>(locator.0, VarunaVersion::V1, rng).unwrap();
+            // Convert the execution.
+            // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
+            let execution = Execution::from_str(&execution.to_string()).unwrap();
 
-    // Construct the transaction.
-    let transaction = Transaction::from_execution(execution, None).unwrap();
-    // Prepare the confirmed transaction.
-    let confirmed = ConfirmedTransaction::accepted_execute(0, transaction.clone(), vec![]).unwrap();
-    // Prepare the transactions.
-    let transactions = Transactions::from_iter([confirmed]);
+            // Construct the transaction.
+            let transaction = Transaction::from_execution(execution, None).unwrap();
+            // Prepare the confirmed transaction.
+            ConfirmedTransaction::accepted_execute(0, transaction.clone(), vec![]).unwrap()
+        }))
+    };
 
     // Construct the ratifications.
     let ratifications = Ratifications::try_from(vec![]).unwrap();
@@ -650,12 +663,12 @@ fn sample_genesis_block_and_components_raw(
         ratifications,
         None.into(),
         vec![],
-        transactions,
+        transactions.clone(),
         vec![],
         rng,
     )
     .unwrap();
     assert!(block.header().is_genesis(), "Failed to initialize a genesis block");
     // Return the block, transaction, and private key.
-    (block, transaction, private_key)
+    (block, transactions, private_key)
 }

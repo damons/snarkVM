@@ -545,6 +545,11 @@ mod tests {
     fn test_insert_get_remove() {
         let rng = &mut TestRng::default();
 
+        // Initialize a new transition store.
+        let transition_store = TransitionStore::<_, TransitionMemory<_>>::open(StorageMode::new_test(None)).unwrap();
+        // Initialize a new transaction store.
+        let transaction_store = TransactionStore::<_, TransactionMemory<_>>::open(transition_store).unwrap();
+
         // Sample the transactions.
         for transaction in [
             snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng),
@@ -552,18 +557,12 @@ mod tests {
             snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng),
             snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng),
             snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 2, true, rng),
-            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
-            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng, 0),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng, 0),
             snarkvm_ledger_test_helpers::sample_fee_private_transaction(rng),
             snarkvm_ledger_test_helpers::sample_fee_public_transaction(rng),
         ] {
             let transaction_id = transaction.id();
-
-            // Initialize a new transition store.
-            let transition_store =
-                TransitionStore::<_, TransitionMemory<_>>::open(StorageMode::new_test(None)).unwrap();
-            // Initialize a new transaction store.
-            let transaction_store = TransactionStore::<_, TransactionMemory<_>>::open(transition_store).unwrap();
 
             // Ensure the transaction does not exist.
             let candidate = transaction_store.get_transaction(&transaction_id).unwrap();
@@ -574,7 +573,7 @@ mod tests {
 
             // Retrieve the transaction.
             let candidate = transaction_store.get_transaction(&transaction_id).unwrap();
-            assert_eq!(Some(transaction), candidate);
+            assert_eq!(Some(transaction.clone()), candidate);
 
             // Remove the transaction.
             transaction_store.remove(&transaction_id).unwrap();
@@ -582,12 +581,20 @@ mod tests {
             // Ensure the transaction does not exist.
             let candidate = transaction_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(None, candidate);
+
+            // Insert the transaction again.
+            transaction_store.insert(&transaction).unwrap();
         }
     }
 
     #[test]
     fn test_find_transaction_id() {
         let rng = &mut TestRng::default();
+
+        // Initialize a new transition store.
+        let transition_store = TransitionStore::<_, TransitionMemory<_>>::open(StorageMode::new_test(None)).unwrap();
+        // Initialize a new transaction store.
+        let transaction_store = TransactionStore::<_, TransactionMemory<_>>::open(transition_store).unwrap();
 
         // Sample the transactions.
         for transaction in [
@@ -596,26 +603,28 @@ mod tests {
             snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng),
             snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng),
             snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 2, true, rng),
-            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
-            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
-            snarkvm_ledger_test_helpers::sample_fee_private_transaction(rng),
-            snarkvm_ledger_test_helpers::sample_fee_public_transaction(rng),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng, 0),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng, 1),
+            Transaction::from_fee(snarkvm_ledger_test_helpers::sample_fee_private(
+                snarkvm_console::types::Field::rand(rng),
+                rng,
+            ))
+            .unwrap(),
+            Transaction::from_fee(snarkvm_ledger_test_helpers::sample_fee_public(
+                snarkvm_console::types::Field::rand(rng),
+                rng,
+            ))
+            .unwrap(),
         ] {
             let transaction_id = transaction.id();
             let transition_ids = transaction.transition_ids();
-
-            // Initialize a new transition store.
-            let transition_store =
-                TransitionStore::<_, TransitionMemory<_>>::open(StorageMode::new_test(None)).unwrap();
-            // Initialize a new transaction store.
-            let transaction_store = TransactionStore::<_, TransactionMemory<_>>::open(transition_store).unwrap();
 
             // Ensure the execution transaction does not exist.
             let candidate = transaction_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(None, candidate);
 
             for transition_id in transition_ids {
-                // Ensure the transaction ID is not found.
+                // Ensure the transition ID is not found.
                 let candidate = transaction_store.find_transaction_id_from_transition_id(transition_id).unwrap();
                 assert_eq!(None, candidate);
 
@@ -632,6 +641,24 @@ mod tests {
                 // Ensure the transaction ID is not found.
                 let candidate = transaction_store.find_transaction_id_from_transition_id(transition_id).unwrap();
                 assert_eq!(None, candidate);
+            }
+
+            // Insert the transaction.
+            transaction_store.insert(&transaction).unwrap();
+
+            // If the transaction was a deployment, find it through the other getters.
+            if let Some(deployment) = transaction.deployment() {
+                // Get the program ID.
+                let program_id = deployment.program().id();
+                // Get the edition.
+                let edition = deployment.edition();
+                // Get and check the latest transaction ID for the program ID.
+                let candidate = transaction_store.find_latest_transaction_id_from_program_id(program_id).unwrap();
+                assert_eq!(Some(transaction_id), candidate);
+                // Get the check the transaction ID for the program ID and edition.
+                let candidate =
+                    transaction_store.find_transaction_id_from_program_id_and_edition(program_id, edition).unwrap();
+                assert_eq!(Some(transaction_id), candidate);
             }
         }
     }

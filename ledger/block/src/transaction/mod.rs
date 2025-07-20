@@ -494,9 +494,10 @@ pub mod test_helpers {
     pub fn sample_execution_transaction_with_fee(
         is_fee_private: bool,
         rng: &mut TestRng,
+        index: usize,
     ) -> Transaction<CurrentNetwork> {
         // Sample an execution.
-        let execution = crate::transaction::execution::test_helpers::sample_execution(rng);
+        let execution = crate::transaction::execution::test_helpers::sample_execution(rng, index);
         // Compute the execution ID.
         let execution_id = execution.to_execution_id().unwrap();
 
@@ -545,8 +546,8 @@ mod tests {
             crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), true, rng),
             crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
             crate::transaction::test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
-            crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng),
-            crate::transaction::test_helpers::sample_execution_transaction_with_fee(false, rng),
+            crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng, 0),
+            crate::transaction::test_helpers::sample_execution_transaction_with_fee(false, rng, 0),
         ]
         .into_iter()
         {

@@ -133,7 +133,7 @@ pub mod test_helpers {
     pub(crate) fn sample_rejected_execution(is_fee_private: bool, rng: &mut TestRng) -> Rejected<CurrentNetwork> {
         // Sample an execute transaction.
         let execution =
-            match crate::transaction::test_helpers::sample_execution_transaction_with_fee(is_fee_private, rng) {
+            match crate::transaction::test_helpers::sample_execution_transaction_with_fee(is_fee_private, rng, 0) {
                 Transaction::Execute(_, _, execution, _) => execution,
                 _ => unreachable!(),
             };

@@ -957,10 +957,12 @@ mod tests {
         let deployment_store = DeploymentMemory::open(fee_store).unwrap();
 
         // Sample the transactions.
-        // TODO (@d0cd) Better testing.
-        let transaction_0 = snarkvm_ledger_test_helpers::sample_deployment_transaction(0, 0, true, rng);
-        let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 0, false, rng);
-        let transactions = vec![transaction_0, transaction_1];
+        let transaction_0 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng);
+        let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 1, false, rng);
+        let transaction_2 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng);
+        let transaction_3 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 1, false, rng);
+        let transaction_4 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 2, true, rng);
+        let transactions = vec![transaction_0, transaction_1, transaction_2, transaction_3, transaction_4];
 
         for transaction in transactions {
             let transaction_id = transaction.id();
@@ -1003,9 +1005,9 @@ mod tests {
             let actual = deployment_store.get_latest_edition_for_program(&program_id).unwrap();
             assert_eq!(Some(edition), actual);
 
-            // Retrieve the latest edition and verify that it is zero.
-            let latest_edition = deployment_store.get_edition_for_transaction(&transaction_id).unwrap();
-            assert_eq!(Some(0), latest_edition);
+            // Retrieve the latest edition for the transaction ID and verify that it matches.
+            let actual = deployment_store.get_edition_for_transaction(&transaction_id).unwrap();
+            assert_eq!(Some(edition), actual);
 
             // Remove the deployment.
             deployment_store.remove(&transaction_id).unwrap();
@@ -1023,10 +1025,6 @@ mod tests {
                 let candidate = deployment_store.edition_map().get_confirmed(&program_id).unwrap();
                 assert_eq!(Some(edition.saturating_sub(1)), candidate.as_deref().copied());
             }
-
-            // Ensure the checksum is not found.
-            let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, 0)).unwrap();
-            assert_eq!(None, candidate);
 
             // Ensure the edition is not found in the `IDEditionMap`.
             let candidate = deployment_store.id_edition_map().get_confirmed(&transaction_id).unwrap();
