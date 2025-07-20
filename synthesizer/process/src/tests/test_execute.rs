@@ -2610,7 +2610,7 @@ fn test_long_import_chain_with_calls() {
 
     // Check that the number of calls, up to `Transaction::MAX_TRANSITIONS - 1`, is correct.
     for i in 1..(Transaction::<CurrentNetwork>::MAX_TRANSITIONS - 1) {
-        println!("Adding program {}", i);
+        println!("Adding program {i}");
         // Initialize a new program.
         let program = Program::from_str(&format!(
             "
@@ -2663,7 +2663,7 @@ fn test_max_imports() {
 
     // Add a program importing all `MAX_IMPORTS` programs, which should pass.
     let import_string =
-        (0..CurrentNetwork::MAX_IMPORTS).map(|i| format!("import test{}.aleo;", i)).collect::<Vec<_>>().join(" ");
+        (0..CurrentNetwork::MAX_IMPORTS).map(|i| format!("import test{i}.aleo;")).collect::<Vec<_>>().join(" ");
     let program =
         Program::from_str(&format!("{import_string}program test{}.aleo; function c:", CurrentNetwork::MAX_IMPORTS))
             .unwrap();
@@ -2671,7 +2671,7 @@ fn test_max_imports() {
 
     // Attempt to construct a program importing `MAX_IMPORTS + 1` programs, which should fail.
     let import_string =
-        (0..CurrentNetwork::MAX_IMPORTS + 1).map(|i| format!("import test{}.aleo;", i)).collect::<Vec<_>>().join(" ");
+        (0..CurrentNetwork::MAX_IMPORTS + 1).map(|i| format!("import test{i}.aleo;")).collect::<Vec<_>>().join(" ");
     let result = Program::<CurrentNetwork>::from_str(&format!(
         "{import_string}program test{}.aleo; function c:",
         CurrentNetwork::MAX_IMPORTS + 1

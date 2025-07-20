@@ -37,7 +37,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V5, 7_060_000),
     (ConsensusVersion::V6, 7_560_000),
     (ConsensusVersion::V7, 7_570_000),
-    (ConsensusVersion::V8, 9_417_000),
+    (ConsensusVersion::V8, 9_425_000),
     (ConsensusVersion::V9, 999_999_999),
 ];
 
@@ -50,7 +50,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V5, 6_765_000),
     (ConsensusVersion::V6, 7_600_000),
     (ConsensusVersion::V7, 8_365_000),
-    (ConsensusVersion::V8, 9_155_000),
+    (ConsensusVersion::V8, 9_173_000),
     (ConsensusVersion::V9, 999_999_999),
 ];
 

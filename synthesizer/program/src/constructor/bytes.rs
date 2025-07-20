@@ -84,7 +84,7 @@ constructor:
 
         let expected = Constructor::<CurrentNetwork>::from_str(constructor_string)?;
         let expected_bytes = expected.to_bytes_le()?;
-        println!("String size: {:?}, Bytecode size: {:?}", constructor_string.as_bytes().len(), expected_bytes.len());
+        println!("String size: {:?}, Bytecode size: {:?}", constructor_string.len(), expected_bytes.len());
 
         let candidate = Constructor::<CurrentNetwork>::from_bytes_le(&expected_bytes)?;
         assert_eq!(expected.to_string(), candidate.to_string());

@@ -1136,7 +1136,7 @@ finalize check:
         assert_eq!(program, deserialized);
 
         // Check that the display works.
-        let display = format!("{}", program);
+        let display = format!("{program}");
         assert_eq!(display, program_string);
 
         // Ensure the program contains a constructor.
@@ -1147,7 +1147,7 @@ finalize check:
     #[test]
     fn test_program_equality_and_checksum() {
         fn run_test(program1: &str, program2: &str, expected_equal: bool) {
-            println!("Comparing programs:\n{}\n{}", program1, program2);
+            println!("Comparing programs:\n{program1}\n{program2}");
             let program1 = Program::<CurrentNetwork>::from_str(program1).unwrap();
             let program2 = Program::<CurrentNetwork>::from_str(program2).unwrap();
             assert_eq!(program1 == program2, expected_equal);

@@ -15,15 +15,16 @@
 
 use super::*;
 
-impl LiteralType {
-    /// Returns the number of bytes of this literal.
-    ///
-    /// For string literals, this method returns the maximum number of bytes that can be stored in the string.
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn size_in_bytes<N: Network>(&self) -> u16 {
-        // Note: This upcast to u32 and downcast to u16 is safe because the size of a literal is
-        // always less than or equal to u16::MAX bits, and we are dividing by 8, so the result will
-        // always fit in a u16.
-        (self.size_in_bits::<N>() as u32).div_ceil(8) as u16
+impl<N: Network, A: circuit::Aleo<Network = N>> RegistersCall<N> for Registers<N, A> {
+    /// Returns the current call stack.
+    #[inline]
+    fn call_stack(&self) -> CallStack<N> {
+        self.call_stack.clone()
+    }
+
+    /// Returns a reference to the current call stack.
+    #[inline]
+    fn call_stack_ref(&self) -> &CallStack<N> {
+        &self.call_stack
     }
 }

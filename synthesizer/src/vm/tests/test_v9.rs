@@ -1160,7 +1160,7 @@ fn test_anyone_can_upgrade() -> Result<()> {
     let transfer_1 = vm.execute(
         &caller_private_key,
         ("credits.aleo", "transfer_public"),
-        vec![Value::from_str(&format!("{}", unrelated_caller_address_0))?, Value::from_str("1_000_000_000_000u64")?]
+        vec![Value::from_str(&format!("{unrelated_caller_address_0}"))?, Value::from_str("1_000_000_000_000u64")?]
             .into_iter(),
         None,
         0,
@@ -1170,7 +1170,7 @@ fn test_anyone_can_upgrade() -> Result<()> {
     let transfer_2 = vm.execute(
         &caller_private_key,
         ("credits.aleo", "transfer_public"),
-        vec![Value::from_str(&format!("{}", unrelated_caller_address_1))?, Value::from_str("1_000_000_000_000u64")?]
+        vec![Value::from_str(&format!("{unrelated_caller_address_1}"))?, Value::from_str("1_000_000_000_000u64")?]
             .into_iter(),
         None,
         0,
@@ -1825,7 +1825,7 @@ fn test_simple_admin_upgrade() {
             &caller_private_key,
             ("credits.aleo", "transfer_public"),
             vec![
-                Value::from_str(&format!("{}", separate_caller_address)).unwrap(),
+                Value::from_str(&format!("{separate_caller_address}")).unwrap(),
                 Value::from_str("10_000_000_000_000u64").unwrap(),
             ]
             .into_iter(),

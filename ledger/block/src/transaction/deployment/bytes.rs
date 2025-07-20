@@ -22,7 +22,7 @@ impl<N: Network> FromBytes for Deployment<N> {
         let version = match u8::read_le(&mut reader)? {
             1 => DeploymentVersion::V1,
             2 => DeploymentVersion::V2,
-            version => return Err(error(format!("Invalid deployment version: {}", version))),
+            version => return Err(error(format!("Invalid deployment version: {version}"))),
         };
 
         // Read the edition.

@@ -1051,9 +1051,9 @@ fn test_aborted_solution_ids() {
     let minimum_proof_target = ledger.latest_proof_target();
 
     // Create a solution that is less than the minimum proof target.
-    let mut invalid_solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+    let mut invalid_solution = puzzle.prove(latest_epoch_hash, address, rng.r#gen(), None).unwrap();
     while puzzle.get_proof_target(&invalid_solution).unwrap() >= minimum_proof_target {
-        invalid_solution = puzzle.prove(latest_epoch_hash, address, rng.gen(), None).unwrap();
+        invalid_solution = puzzle.prove(latest_epoch_hash, address, rng.r#gen(), None).unwrap();
     }
 
     // Create a valid transaction for the block.
@@ -2872,14 +2872,14 @@ mod valid_solutions {
         let minimum_proof_target = ledger.latest_proof_target();
 
         // Create a solution that is greater than the minimum proof target.
-        let mut valid_solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+        let mut valid_solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
         while puzzle.get_proof_target(&valid_solution).unwrap() < minimum_proof_target {
             println!(
                 "Solution is invalid: {} < {}",
                 puzzle.get_proof_target(&valid_solution).unwrap(),
                 minimum_proof_target
             );
-            valid_solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            valid_solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
         }
 
         // Create a valid transaction for the block.
@@ -2967,7 +2967,7 @@ mod valid_solutions {
             // Loop through proofs until two that meet the threshold are found.
             loop {
                 if let Ok(solution) =
-                    puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), Some(latest_proof_target))
+                    puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), Some(latest_proof_target))
                 {
                     // Get the proof target.
                     let proof_target = puzzle.get_proof_target(&solution).unwrap();
@@ -3048,7 +3048,7 @@ mod valid_solutions {
         // Initialize the store.
         let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
         // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
-        let seed: u64 = rng.gen();
+        let seed: u64 = rng.r#gen();
         let genesis_rng = &mut TestRng::from_seed(seed);
         let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
 
@@ -3079,7 +3079,7 @@ mod valid_solutions {
         let mut valid_solutions = Vec::with_capacity(2);
         // Create solutions that are greater than the minimum proof target.
         while valid_solutions.len() < 2 {
-            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
                 valid_solutions.push(solution);
             }
@@ -3228,7 +3228,7 @@ mod valid_solutions {
 
         // Create solutions that are greater than the minimum proof target.
         while valid_solutions.len() < NUM_VALID_SOLUTIONS {
-            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() < minimum_proof_target {
                 if invalid_solutions.len() < NUM_INVALID_SOLUTIONS {
                     invalid_solutions.push(solution);
@@ -3239,7 +3239,7 @@ mod valid_solutions {
         }
         // Create the remaining solutions that are less than the minimum proof target.
         while invalid_solutions.len() < NUM_INVALID_SOLUTIONS {
-            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() < minimum_proof_target {
                 invalid_solutions.push(solution);
             }
@@ -3318,7 +3318,7 @@ mod valid_solutions {
 
         // Create solutions that are greater than the minimum proof target.
         while valid_solutions.len() < NUM_VALID_SOLUTIONS {
-            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
                 valid_solutions.push(solution);
             }
@@ -3391,7 +3391,7 @@ mod valid_solutions {
         // Initialize a valid solution object.
         let mut valid_solution = None;
         while valid_solution.is_none() {
-            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
                 valid_solution = Some(solution);
             }
@@ -3479,7 +3479,7 @@ mod valid_solutions {
         // Initialize a valid solution object.
         let mut invalid_solution = None;
         while invalid_solution.is_none() {
-            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.gen(), None).unwrap();
+            let solution = puzzle.prove(latest_epoch_hash, prover_address, rng.r#gen(), None).unwrap();
             if puzzle.get_proof_target(&solution).unwrap() < minimum_proof_target {
                 invalid_solution = Some(solution);
             }
@@ -3532,7 +3532,7 @@ fn test_forged_block_subdags() {
     // Initialize the store.
     let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
-    let seed: u64 = rng.gen();
+    let seed: u64 = rng.r#gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
 
@@ -3666,7 +3666,7 @@ fn test_subdag_with_long_branch() {
     // Initialize the store.
     let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
-    let seed: u64 = rng.gen();
+    let seed: u64 = rng.r#gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
 
@@ -3712,7 +3712,7 @@ fn test_subdag_with_gc_length() {
     // Initialize the store.
     let store = ConsensusStore::<_, LedgerType>::open(StorageMode::new_test(None)).unwrap();
     // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
-    let seed: u64 = rng.gen();
+    let seed: u64 = rng.r#gen();
     let genesis_rng = &mut TestRng::from_seed(seed);
     let genesis = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
 

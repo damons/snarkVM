@@ -81,7 +81,7 @@ impl<N: Network> ToBytes for Operand<N> {
                 // Write the program ID.
                 match program_id {
                     None => 0u8.write_le(&mut writer),
-                    Some(ref program_id) => {
+                    Some(program_id) => {
                         1u8.write_le(&mut writer)?;
                         program_id.write_le(&mut writer)
                     }
@@ -92,7 +92,7 @@ impl<N: Network> ToBytes for Operand<N> {
                 // Write the program ID.
                 match program_id {
                     None => 0u8.write_le(&mut writer),
-                    Some(ref program_id) => {
+                    Some(program_id) => {
                         1u8.write_le(&mut writer)?;
                         program_id.write_le(&mut writer)
                     }
@@ -103,7 +103,7 @@ impl<N: Network> ToBytes for Operand<N> {
                 // Write the program ID.
                 match program_id {
                     None => 0u8.write_le(&mut writer),
-                    Some(ref program_id) => {
+                    Some(program_id) => {
                         1u8.write_le(&mut writer)?;
                         program_id.write_le(&mut writer)
                     }

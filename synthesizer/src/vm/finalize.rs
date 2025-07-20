@@ -813,7 +813,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// - The transaction is another deployment in the block from the same public fee payer.
     ///
     /// - Note: If a transaction is a deployment for a program following its deployment or redeployment in this block,
-    ///     it is not aborted. Instead, it will be rejected and its fee will be consumed.
+    ///   it is not aborted. Instead, it will be rejected and its fee will be consumed.
     #[allow(clippy::too_many_arguments)]
     fn should_abort_transaction(
         &self,
@@ -951,7 +951,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
         // Verify the transactions in batches and separate the valid and invalid transactions.
         for transactions in deployments_for_verification.chain(executions_for_verification) {
-            let rngs = (0..transactions.len()).map(|_| StdRng::from_seed(rng.gen())).collect::<Vec<_>>();
+            let rngs = (0..transactions.len()).map(|_| StdRng::from_seed(rng.r#gen())).collect::<Vec<_>>();
             // Verify the transactions and collect the error message if there is one.
             let (valid, invalid): (Vec<_>, Vec<_>) =
                 cfg_into_iter!(transactions).zip(rngs).partition_map(|(transaction, mut rng)| {

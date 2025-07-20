@@ -74,7 +74,7 @@ fn bhp1024_large(c: &mut Criterion) {
     // Benchmark the BHP1024 hash function for different input sizes.
     for size in SIZE_IN_BYTES.iter() {
         let input = (0..size * 8).map(|_| bool::rand(rng)).collect::<Vec<_>>();
-        c.bench_function(&format!("BHP1024 Hash - input size {} bytes", size), |b| {
+        c.bench_function(&format!("BHP1024 Hash - input size {size} bytes"), |b| {
             b.iter(|| BHP1024::<Console>::setup("BHP1024").unwrap().hash(&input))
         });
     }

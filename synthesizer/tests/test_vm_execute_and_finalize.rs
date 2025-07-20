@@ -438,7 +438,7 @@ fn construct_fee_records<C: ConsensusStorage<CurrentNetwork>, R: Rng + CryptoRng
         }
     };
 
-    println!("Splitting the initial fee record into {} fee records.", num_fee_records);
+    println!("Splitting the initial fee record into {num_fee_records} fee records.");
 
     // Construct fee records for the tests.
     let mut fee_records = records

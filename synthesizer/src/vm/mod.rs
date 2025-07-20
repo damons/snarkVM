@@ -1416,8 +1416,8 @@ function call_fee_private:
 
         // Ensure that the transaction that calls `fee_public` internally cannot be generated.
         let inputs = [
-            Value::<MainnetV0>::from_str(&format!("{}u64", internal_base_fee_amount)).unwrap(),
-            Value::<MainnetV0>::from_str(&format!("{}u64", internal_priority_fee_amount)).unwrap(),
+            Value::<MainnetV0>::from_str(&format!("{internal_base_fee_amount}u64")).unwrap(),
+            Value::<MainnetV0>::from_str(&format!("{internal_priority_fee_amount}u64")).unwrap(),
             Value::<MainnetV0>::from_str("1field").unwrap(),
         ];
         assert!(
@@ -1428,8 +1428,8 @@ function call_fee_private:
         // Ensure that the transaction that calls `fee_private` internally cannot be generated.
         let inputs = [
             Value::<MainnetV0>::Record(record_0),
-            Value::<MainnetV0>::from_str(&format!("{}u64", internal_base_fee_amount)).unwrap(),
-            Value::<MainnetV0>::from_str(&format!("{}u64", internal_priority_fee_amount)).unwrap(),
+            Value::<MainnetV0>::from_str(&format!("{internal_base_fee_amount}u64")).unwrap(),
+            Value::<MainnetV0>::from_str(&format!("{internal_priority_fee_amount}u64")).unwrap(),
             Value::<MainnetV0>::from_str("1field").unwrap(),
         ];
         assert!(
@@ -1801,7 +1801,7 @@ finalize do:
             let mut program_string = String::new();
             // Add the import statements.
             for j in 0..i {
-                program_string.push_str(&format!("import program_layer_{}.aleo;\n", j));
+                program_string.push_str(&format!("import program_layer_{j}.aleo;\n"));
             }
             // Add the program body.
             program_string.push_str(&format!(
@@ -3038,7 +3038,7 @@ function add_thrice:
         let vm = sample_vm();
 
         // Ensure this call succeeds.
-        vm.puzzle.prove(rng.gen(), rng.gen(), rng.gen(), None).unwrap();
+        vm.puzzle.prove(rng.r#gen(), rng.r#gen(), rng.r#gen(), None).unwrap();
     }
 
     #[test]
@@ -3726,8 +3726,8 @@ function fly:
         // Deploy a test program for each of the invalid program bodies.
         // They should all be accepted by the VM, because the restriction is not yet in place.
         for (i, body) in invalid_program_bodies.iter().enumerate() {
-            println!("Deploying 'valid' test program {}: {}", i, body);
-            let program = Program::from_str(&format!("program test_valid_{}.aleo;\n{}", i, body)).unwrap();
+            println!("Deploying 'valid' test program {i}: {body}");
+            let program = Program::from_str(&format!("program test_valid_{i}.aleo;\n{body}")).unwrap();
             let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
             let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
             assert_eq!(block.transactions().num_accepted(), 1);
@@ -3741,11 +3741,11 @@ function fly:
         // Deploy a test program for each of the invalid program bodies.
         // Verify that `check_transaction` fails for each of them.
         for (i, body) in invalid_program_bodies.iter().enumerate() {
-            println!("Deploying 'invalid' test program {}: {}", i, body);
-            let program = Program::from_str(&format!("program test_invalid_{}.aleo;\n{}", i, body)).unwrap();
+            println!("Deploying 'invalid' test program {i}: {body}");
+            let program = Program::from_str(&format!("program test_invalid_{i}.aleo;\n{body}")).unwrap();
             let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
             if let Err(e) = vm.check_transaction(&deployment, None, rng) {
-                println!("Error: {}", e);
+                println!("Error: {e}");
             } else {
                 panic!("Expected an error, but the deployment was accepted.")
             }
@@ -3756,7 +3756,7 @@ function fly:
         let program = Program::from_str(r"program constructor.aleo; function dummy:").unwrap();
         let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
         if let Err(e) = vm.check_transaction(&deployment, None, rng) {
-            println!("Error: {}", e);
+            println!("Error: {e}");
         } else {
             panic!("Expected an error, but the deployment was accepted.")
         }
