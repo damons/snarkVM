@@ -413,7 +413,7 @@ pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<
             let base_cost = constructor
                 .commands()
                 .iter()
-                .map(|command| cost_per_command(stack, constructor_types, command, ConsensusFeeVersion::V2))
+                .map(|command| cost_per_command(stack, &constructor_types, command, ConsensusFeeVersion::V2))
                 .try_fold(0u64, |acc, res| {
                     res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Constructor cost overflowed")))
                 })?;
@@ -479,7 +479,7 @@ fn cost_in_microcredits<N: Network>(
             for command in finalize.commands() {
                 // Sum the cost of all commands in the current future into the total running cost.
                 finalize_cost = finalize_cost
-                    .checked_add(cost_per_command(&stack_ref, finalize_types, command, consensus_fee_version)?)
+                    .checked_add(cost_per_command(&stack_ref, &finalize_types, command, consensus_fee_version)?)
                     .ok_or(anyhow!("Finalize cost overflowed"))?;
             }
         }

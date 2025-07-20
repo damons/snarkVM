@@ -959,7 +959,7 @@ finalize test:
                     finalize_logic
                         .commands()
                         .iter()
-                        .map(|command| cost_per_command(&stack, finalize_types, command, ConsensusFeeVersion::V2))
+                        .map(|command| cost_per_command(&stack, &finalize_types, command, ConsensusFeeVersion::V2))
                         .try_fold(0u64, |acc, res| {
                             res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Finalize cost overflowed")))
                         })
@@ -1097,7 +1097,7 @@ finalize test:
                     finalize_logic
                         .commands()
                         .iter()
-                        .map(|command| cost_per_command(&stack, finalize_types, command, ConsensusFeeVersion::V2))
+                        .map(|command| cost_per_command(&stack, &finalize_types, command, ConsensusFeeVersion::V2))
                         .try_fold(0u64, |acc, res| {
                             res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Finalize cost overflowed")))
                         })

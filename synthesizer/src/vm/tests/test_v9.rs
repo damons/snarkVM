@@ -2195,6 +2195,7 @@ fn test_credits_executions() {
 //  - a set of programs with cyclic imports can be deployed and executed.
 //  - a set of programs with cyclic calls cannot be deployed.
 //  - the VM can be loaded from a store at the very end.
+//  - the VM can be loaded directly from the latest programs.
 #[test]
 fn test_cyclic_imports_and_call_graphs() {
     let rng = &mut TestRng::default();
@@ -2372,6 +2373,72 @@ constructor:
     // Check that the latest block.
     let latest_block = vm.store.block_store().current_block_height();
     assert_eq!(latest_block, CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() + 5);
+
+    // Check that the programs can be executed.
+    let execution_foo = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_a.aleo", "foo"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let execution_bar = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_b.aleo", "bar"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[execution_foo, execution_bar], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Drop the VM.
+    drop(vm);
+
+    // Initialize a new VM.
+    let vm = sample_vm_at_height(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(), rng);
+    // Add the programs to the VM.
+    vm.process().write().add_programs_with_editions(&[(program_a_v1, 1), (program_b_v0, 0)]).unwrap();
+
+    // Check that the programs can be executed.
+    let execution_foo = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_a.aleo", "foo"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let execution_bar = vm
+        .execute(
+            &caller_private_key,
+            ("cyclic_import_b.aleo", "bar"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[execution_foo, execution_bar], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
 }
 
 // This test checks that a program can only be upgraded after a certain block height.
