@@ -703,14 +703,13 @@ jobs:
           workspace_member: snarkvm-synthesizer-snark
 
   synthesizer-upgrade:
-    docker:
-      - image: cimg/rust:1.83.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+    executor: rust-docker
     resource_class: << pipeline.parameters.xlarge >>
     steps:
       - run_test:
+          workspace_member: snarkvm-synthesizer
           flags: test_vm_upgrade --features=test
-          workspace_member: synthesizer
-          cache_key: v1.3.0-rust-1.83.0-snarkvm-synthesizer-upgrade-cache
+          cache_key_suffix: -upgrade
 
   utilities:
     executor: rust-docker
