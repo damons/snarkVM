@@ -11,6 +11,7 @@ edition = "2021"
 [features]
 default = [ ]
 test = [ ]
+dev-print = [ "snarkvm-utilities/dev-print" ]
 
 [dependencies.snarkvm-console-account]
 path = "../account"
@@ -56,9 +57,6 @@ version = "0.2"
 
 [dependencies.once_cell]
 version = "1.18.0"
-
-[dependencies.paste]
-version = "1.0"
 
 [dependencies.serde_json]
 version = "1.0"

@@ -47,3 +47,6 @@ version = "1.0"
 [dependencies.zeroize]
 version = "1"
 features = [ "derive" ]
+
+[features]
+dev-print = [ "snarkvm-utilities/dev-print" ]

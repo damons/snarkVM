@@ -51,7 +51,7 @@ serial = [
   "synthesizer-snark/serial"
 ]
 setup = [ ]
-test = [ "console/test" ]
+test = [ "console/test", "synthesizer-process/test" ]
 timer = [ "aleo-std/timer" ]
 wasm = [
   "process",
@@ -67,6 +67,7 @@ wasm = [
   "synthesizer-program/wasm",
   "synthesizer-snark/wasm"
 ]
+dev-print = [ "utilities/dev-print" ]
 
 [[bench]]
 name = "kary_merkle_tree"
@@ -210,6 +211,11 @@ features = [ "test-helpers" ]
 package = "snarkvm-ledger-narwhal-batch-header"
 path = "../ledger/narwhal/batch-header"
 features = [ "test-helpers" ]
+
+[dev-dependencies.synthesizer-process]
+package = "snarkvm-synthesizer-process"
+path = "./process"
+features = [ "test" ]
 
 [dev-dependencies.ledger-test-helpers]
 package = "snarkvm-ledger-test-helpers"

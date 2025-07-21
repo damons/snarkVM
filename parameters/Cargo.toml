@@ -31,6 +31,7 @@ no_std_out = [ ]
 remote = [ "curl" ]
 rocks = [ "snarkvm-ledger-store/rocks" ]
 wasm = [ "encoding", "js-sys", "web-sys" ]
+dev-print = [ "snarkvm-utilities/dev-print" ]
 
 [dependencies.snarkvm-curves]
 path = "../curves"
@@ -49,9 +50,6 @@ features = [ "storage" ]
 [dependencies.anyhow]
 version = "1"
 
-[dependencies.bincode]
-version = "1"
-
 [dependencies.cfg-if]
 version = "1.0"
 
@@ -65,12 +63,6 @@ optional = true
 
 [dependencies.hex]
 version = "0.4.3"
-
-[dependencies.indexmap]
-version = "2.0"
-
-[dependencies.itertools]
-version = "0.11.0"
 
 [dependencies.js-sys]
 version = "0.3.64"
@@ -140,3 +132,8 @@ version = "0.4.3"
 
 [dev-dependencies.rand]
 version = "0.8"
+
+[package.metadata.cargo-machete]
+ignored = [
+  "js-sys", # needed for wasm feature
+]
