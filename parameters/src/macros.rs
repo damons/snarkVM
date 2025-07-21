@@ -376,8 +376,7 @@ macro_rules! impl_remote {
             #[cfg(feature = "wasm")]
             /// Verify external bytes.
             pub fn verify_bytes(buffer: &[u8]) -> Result<(), $crate::errors::ParameterError> {
-                let metadata: serde_json::Value =
-                    serde_json::from_str(Self::METADATA).expect("Metadata was not well-formatted");
+                let metadata: serde_json::Value = serde_json::from_str(Self::METADATA).expect("Metadata was not well-formatted");
                 let expected_checksum: String =
                     metadata[concat!($ftype, "_checksum")].as_str().expect("Failed to parse checksum").to_string();
                 let expected_size: usize =
