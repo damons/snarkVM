@@ -157,7 +157,7 @@ impl<N: Network> Package<N> {
         let mut process = Process::load()?;
         // Get the imported programs.
         let imports_directory = self.imports_directory();
-        let programs = self
+        let mut programs = self
             .program()
             .imports()
             .keys()
@@ -172,6 +172,8 @@ impl<N: Network> Package<N> {
                 Ok(import_program_file.program().clone())
             })
             .collect::<Result<Vec<_>>>()?;
+        // Add the main program.
+        programs.push(self.program().clone());
 
         // Get the editions for the programs, if specified in the manifest.
         let programs_and_editions = programs

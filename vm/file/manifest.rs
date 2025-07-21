@@ -54,7 +54,7 @@ impl<N: Network> Manifest<N> {
     "version": "0.0.0",
     "description": "",
     "license": "MIT",
-    "editions": "{{}}",
+    "editions": "{{}}"
 }}
 "#
         );
