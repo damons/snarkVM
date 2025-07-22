@@ -286,17 +286,17 @@ mod tests {
         program::{Ciphertext, Value},
         types::Field,
     };
-    use ledger_block::Transition;
-    use synthesizer_process::{ConsensusFeeVersion, cost_per_command, execution_cost_v2};
-    use synthesizer_program::StackProgram;
+    use snarkvm_ledger_block::Transition;
+    use snarkvm_synthesizer_process::{ConsensusFeeVersion, cost_per_command, execution_cost_v2};
+    use snarkvm_synthesizer_program::StackTrait;
 
     use indexmap::IndexMap;
 
     type CurrentNetwork = MainnetV0;
     #[cfg(not(feature = "rocks"))]
-    type LedgerType = ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
+    type LedgerType = snarkvm_ledger_store::helpers::memory::ConsensusMemory<CurrentNetwork>;
     #[cfg(feature = "rocks")]
-    type LedgerType = ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
+    type LedgerType = snarkvm_ledger_store::helpers::rocksdb::ConsensusDB<CurrentNetwork>;
 
     fn prepare_vm(
         rng: &mut TestRng,
@@ -563,7 +563,7 @@ finalize test:
         let query = Query::VM(vm.block_store().clone());
         let (execution, _) = vm.execute_authorization_raw(authorization, &query, rng).unwrap();
         let (cost, _) = execution_cost_v1(&vm.process().read(), &execution).unwrap();
-        println!("Cost: {}", cost);
+        println!("Cost: {cost}");
     }
 
     #[test]
@@ -789,7 +789,7 @@ finalize test:
         let rng = &mut TestRng::default();
 
         // Retrieve a fee transaction.
-        let transaction = ledger_test_helpers::sample_fee_private_transaction(rng);
+        let transaction = snarkvm_ledger_test_helpers::sample_fee_private_transaction(rng);
         // Retrieve the fee.
         let fee = match transaction {
             Transaction::Fee(_, fee) => fee,
@@ -809,7 +809,7 @@ finalize test:
         let rng = &mut TestRng::default();
 
         // Retrieve a fee transaction.
-        let transaction = ledger_test_helpers::sample_fee_public_transaction(rng);
+        let transaction = snarkvm_ledger_test_helpers::sample_fee_public_transaction(rng);
         // Retrieve the fee.
         let fee = match transaction {
             Transaction::Fee(_, fee) => fee,

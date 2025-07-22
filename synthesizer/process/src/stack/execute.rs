@@ -15,13 +15,12 @@
 
 use super::*;
 
-impl<N: Network> StackExecute<N> for Stack<N> {
+impl<N: Network> Stack<N> {
     /// Executes a program closure on the given inputs.
     ///
     /// # Errors
     /// This method will halt if the given inputs are not the same length as the input statements.
-    #[inline]
-    fn execute_closure<A: circuit::Aleo<Network = N>>(
+    pub fn execute_closure<A: circuit::Aleo<Network = N>>(
         &self,
         closure: &Closure<N>,
         inputs: &[circuit::Value<A>],
@@ -135,8 +134,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
     ///
     /// # Errors
     /// This method will halt if the given inputs are not the same length as the input statements.
-    #[inline]
-    fn execute_function<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
+    pub fn execute_function<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         mut call_stack: CallStack<N>,
         console_caller: Option<ProgramID<N>>,
@@ -444,7 +442,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             lap!(timer, "Save the transition");
         }
         // If the circuit is in `CheckDeployment` mode, then save the assignment.
-        else if let CallStack::CheckDeployment(_, _, ref assignments, _, _) = registers.call_stack_ref() {
+        else if let CallStack::CheckDeployment(_, _, assignments, _, _) = registers.call_stack_ref() {
             // Construct the call metrics.
             let metrics = CallMetrics {
                 program_id: *self.program_id(),
@@ -459,7 +457,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             lap!(timer, "Save the circuit assignment");
         }
         // If the circuit is in `Execute` mode, then execute the circuit into a transition.
-        else if let CallStack::Execute(_, ref trace) = registers.call_stack_ref() {
+        else if let CallStack::Execute(_, trace) = registers.call_stack_ref() {
             registers.ensure_console_and_circuit_registers_match()?;
 
             // Construct the transition.
@@ -486,7 +484,7 @@ impl<N: Network> StackExecute<N> for Stack<N> {
             )?;
         }
         // If the circuit is in `PackageRun` mode, then save the assignment.
-        else if let CallStack::PackageRun(_, _, ref assignments) = registers.call_stack_ref() {
+        else if let CallStack::PackageRun(_, _, assignments) = registers.call_stack_ref() {
             // Construct the call metrics.
             let metrics = CallMetrics {
                 program_id: *self.program_id(),
@@ -514,7 +512,7 @@ impl<N: Network> Stack<N> {
     pub(crate) fn log_circuit<A: circuit::Aleo<Network = N>>(scope: impl std::fmt::Display) {
         #[cfg(debug_assertions)]
         {
-            use utilities::dev_println;
+            use snarkvm_utilities::dev_println;
 
             use colored::Colorize as _;
 

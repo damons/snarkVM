@@ -6,36 +6,30 @@ description = "Console environment for a decentralized virtual machine"
 homepage = "https://aleo.org"
 repository = "https://github.com/ProvableHQ/snarkVM"
 license = "Apache-2.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies.snarkvm-console-account]
-path = "./account"
-version = "=4.0.0"
+workspace = true
 optional = true
 
 [dependencies.snarkvm-console-algorithms]
-path = "./algorithms"
-version = "=4.0.0"
+workspace = true
 optional = true
 
 [dependencies.snarkvm-console-collections]
-path = "./collections"
-version = "=4.0.0"
+workspace = true
 optional = true
 
 [dependencies.snarkvm-console-network]
-path = "./network"
-version = "=4.0.0"
+workspace = true
 optional = true
 
 [dependencies.snarkvm-console-program]
-path = "./program"
-version = "=4.0.0"
+workspace = true
 optional = true
 
 [dependencies.snarkvm-console-types]
-path = "./types"
-version = "=4.0.0"
+workspace = true
 optional = true
 
 [features]

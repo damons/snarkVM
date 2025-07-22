@@ -17,10 +17,13 @@
 #![allow(clippy::too_many_arguments)]
 #![warn(clippy::cast_possible_truncation)]
 
-pub type Program<N> = crate::ProgramCore<N, Instruction<N>, Command<N>>;
-pub type Function<N> = crate::FunctionCore<N, Instruction<N>, Command<N>>;
-pub type Finalize<N> = crate::FinalizeCore<N, Command<N>>;
-pub type Closure<N> = crate::ClosureCore<N, Instruction<N>>;
+extern crate snarkvm_circuit as circuit;
+extern crate snarkvm_console as console;
+
+pub type Program<N> = crate::ProgramCore<N>;
+pub type Function<N> = crate::FunctionCore<N>;
+pub type Finalize<N> = crate::FinalizeCore<N>;
+pub type Closure<N> = crate::ClosureCore<N>;
 
 mod closure;
 pub use closure::*;
@@ -40,7 +43,7 @@ pub use logic::*;
 mod mapping;
 pub use mapping::*;
 
-pub mod traits;
+mod traits;
 pub use traits::*;
 
 mod bytes;
@@ -116,7 +119,7 @@ enum ProgramDefinition {
 }
 
 #[derive(Clone)]
-pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
+pub struct ProgramCore<N: Network> {
     /// The ID of the program.
     id: ProgramID<N>,
     /// A map of the declared imports for the program.
@@ -130,14 +133,12 @@ pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: Co
     /// A map of the declared record types for the program.
     records: IndexMap<Identifier<N>, RecordType<N>>,
     /// A map of the declared closures for the program.
-    closures: IndexMap<Identifier<N>, ClosureCore<N, Instruction>>,
+    closures: IndexMap<Identifier<N>, ClosureCore<N>>,
     /// A map of the declared functions for the program.
-    functions: IndexMap<Identifier<N>, FunctionCore<N, Instruction, Command>>,
+    functions: IndexMap<Identifier<N>, FunctionCore<N>>,
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> PartialEq
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> PartialEq for ProgramCore<N> {
     /// Compares two programs for equality, verifying that the components are in the same order.
     /// The order of the components must match to ensure that deployment tree is well-formed.
     fn eq(&self, other: &Self) -> bool {
@@ -162,12 +163,96 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Par
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Eq
-    for ProgramCore<N, Instruction, Command>
-{
-}
+impl<N: Network> Eq for ProgramCore<N> {}
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
+impl<N: Network> ProgramCore<N> {
+    /// A list of reserved keywords for Aleo programs, enforced at the parser level.
+    // New keywords should be enforced through `RESTRICTED_KEYWORDS` instead, if possible.
+    // Adding keywords to this list will require a backwards-compatible versioning for programs.
+    #[rustfmt::skip]
+    pub const KEYWORDS: &'static [&'static str] = &[
+        // Mode
+        "const",
+        "constant",
+        "public",
+        "private",
+        // Literals
+        "address",
+        "boolean",
+        "field",
+        "group",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "i128",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "u128",
+        "scalar",
+        "signature",
+        "string",
+        // Boolean
+        "true",
+        "false",
+        // Statements
+        "input",
+        "output",
+        "as",
+        "into",
+        // Record
+        "record",
+        "owner",
+        // Program
+        "transition",
+        "import",
+        "function",
+        "struct",
+        "closure",
+        "program",
+        "aleo",
+        "self",
+        "storage",
+        "mapping",
+        "key",
+        "value",
+        "async",
+        "finalize",
+        // Reserved (catch all)
+        "global",
+        "block",
+        "return",
+        "break",
+        "assert",
+        "continue",
+        "let",
+        "if",
+        "else",
+        "while",
+        "for",
+        "switch",
+        "case",
+        "default",
+        "match",
+        "enum",
+        "struct",
+        "union",
+        "trait",
+        "impl",
+        "type",
+        "future",
+    ];
+    /// A list of restricted keywords for Aleo programs, enforced at the VM-level for program hygiene.
+    /// Each entry is a tuple of the consensus version and a list of keywords.
+    /// If the current consensus version is greater than or equal to the specified version,
+    /// the keywords in the list should be restricted.
+    #[rustfmt::skip]
+    pub const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
+        (ConsensusVersion::V6, &["constructor"])
+    ];
+
     /// Initializes an empty program.
     #[inline]
     pub fn new(id: ProgramID<N>) -> Result<Self> {
@@ -218,12 +303,12 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     }
 
     /// Returns the closures in the program.
-    pub const fn closures(&self) -> &IndexMap<Identifier<N>, ClosureCore<N, Instruction>> {
+    pub const fn closures(&self) -> &IndexMap<Identifier<N>, ClosureCore<N>> {
         &self.closures
     }
 
     /// Returns the functions in the program.
-    pub const fn functions(&self) -> &IndexMap<Identifier<N>, FunctionCore<N, Instruction, Command>> {
+    pub const fn functions(&self) -> &IndexMap<Identifier<N>, FunctionCore<N>> {
         &self.functions
     }
 
@@ -290,7 +375,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     }
 
     /// Returns the closure with the given name.
-    pub fn get_closure(&self, name: &Identifier<N>) -> Result<ClosureCore<N, Instruction>> {
+    pub fn get_closure(&self, name: &Identifier<N>) -> Result<ClosureCore<N>> {
         // Attempt to retrieve the closure.
         let closure = self.closures.get(name).cloned().ok_or_else(|| anyhow!("Closure '{name}' is not defined."))?;
         // Ensure the closure name matches.
@@ -308,12 +393,12 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     }
 
     /// Returns the function with the given name.
-    pub fn get_function(&self, name: &Identifier<N>) -> Result<FunctionCore<N, Instruction, Command>> {
+    pub fn get_function(&self, name: &Identifier<N>) -> Result<FunctionCore<N>> {
         self.get_function_ref(name).cloned()
     }
 
     /// Returns a reference to the function with the given name.
-    pub fn get_function_ref(&self, name: &Identifier<N>) -> Result<&FunctionCore<N, Instruction, Command>> {
+    pub fn get_function_ref(&self, name: &Identifier<N>) -> Result<&FunctionCore<N>> {
         // Attempt to retrieve the function.
         let function = self.functions.get(name).ok_or(anyhow!("Function '{}/{name}' is not defined.", self.id))?;
         // Ensure the function name matches.
@@ -327,9 +412,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         // Return the function.
         Ok(function)
     }
-}
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
     /// Adds a new import statement to the program.
     ///
     /// # Errors
@@ -526,7 +609,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// This method will halt if an output register does not already exist.
     /// This method will halt if an output type references a non-existent definition.
     #[inline]
-    fn add_closure(&mut self, closure: ClosureCore<N, Instruction>) -> Result<()> {
+    fn add_closure(&mut self, closure: ClosureCore<N>) -> Result<()> {
         // Retrieve the closure name.
         let closure_name = *closure.name();
 
@@ -574,7 +657,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     /// This method will halt if an output register does not already exist.
     /// This method will halt if an output type references a non-existent definition.
     #[inline]
-    fn add_function(&mut self, function: FunctionCore<N, Instruction, Command>) -> Result<()> {
+    fn add_function(&mut self, function: FunctionCore<N>) -> Result<()> {
         // Retrieve the function name.
         let function_name = *function.name();
 
@@ -605,95 +688,6 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         }
         Ok(())
     }
-}
-
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
-    /// A list of reserved keywords for Aleo programs, enforced at the parser level.
-    // New keywords should be enforced through `RESTRICTED_KEYWORDS` instead, if possible.
-    // Adding keywords to this list will require a backwards-compatible versioning for programs.
-    #[rustfmt::skip]
-    pub const KEYWORDS: &'static [&'static str] = &[
-        // Mode
-        "const",
-        "constant",
-        "public",
-        "private",
-        // Literals
-        "address",
-        "boolean",
-        "field",
-        "group",
-        "i8",
-        "i16",
-        "i32",
-        "i64",
-        "i128",
-        "u8",
-        "u16",
-        "u32",
-        "u64",
-        "u128",
-        "scalar",
-        "signature",
-        "string",
-        // Boolean
-        "true",
-        "false",
-        // Statements
-        "input",
-        "output",
-        "as",
-        "into",
-        // Record
-        "record",
-        "owner",
-        // Program
-        "transition",
-        "import",
-        "function",
-        "struct",
-        "closure",
-        "program",
-        "aleo",
-        "self",
-        "storage",
-        "mapping",
-        "key",
-        "value",
-        "async",
-        "finalize",
-        // Reserved (catch all)
-        "global",
-        "block",
-        "return",
-        "break",
-        "assert",
-        "continue",
-        "let",
-        "if",
-        "else",
-        "while",
-        "for",
-        "switch",
-        "case",
-        "default",
-        "match",
-        "enum",
-        "struct",
-        "union",
-        "trait",
-        "impl",
-        "type",
-        "future",
-    ];
-    /// A list of restricted keywords for Aleo programs, enforced at the VM-level for program hygiene.
-    /// Each entry is a tuple of the consensus version and a list of keywords.
-    /// If the current consensus version is greater than or equal to the specified version,
-    /// the keywords in the list should be restricted.
-    #[rustfmt::skip]
-    pub const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
-        (ConsensusVersion::V6, &["constructor"])
-    ];
 
     /// Returns `true` if the given name does not already exist in the program.
     fn is_unique_name(&self, name: &Identifier<N>) -> bool {
@@ -702,7 +696,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
 
     /// Returns `true` if the given name is a reserved opcode.
     pub fn is_reserved_opcode(name: &str) -> bool {
-        Instruction::is_reserved_opcode(name)
+        Instruction::<N>::is_reserved_opcode(name)
     }
 
     /// Returns `true` if the given name uses a reserved keyword.
@@ -774,9 +768,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         }
         Ok(())
     }
-}
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> ProgramCore<N, Instruction, Command> {
     /// Checks that the program structure is well-formed under the following rules:
     ///  1. The program ID must not contain the keyword "aleo" in the program name.
     ///  2. The record name must not contain the keyword "aleo".
@@ -837,9 +829,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
     }
 }
 
-impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> TypeName
-    for ProgramCore<N, Instruction, Command>
-{
+impl<N: Network> TypeName for ProgramCore<N> {
     /// Returns the type name as a string.
     #[inline]
     fn type_name() -> &'static str {
