@@ -302,7 +302,7 @@ impl<N: Network> Process<N> {
         // If the program is not 'credits.aleo', compute the program stack, and add it to the process.
         if program.id() != &credits_program_id {
             let stack = Stack::new_raw(self, program, edition)?;
-            stack.check_and_initialize(self)?;
+            stack.initialize_and_check(self)?;
             self.add_stack(stack);
         }
         Ok(())
@@ -330,8 +330,8 @@ impl<N: Network> Process<N> {
         for (program, _) in programs {
             // Retrieve the stack.
             let stack = self.get_stack(program.id())?;
-            // Check and initialize the stack.
-            stack.check_and_initialize(self)?;
+            // Initialize and check the stack for well-formedness.
+            stack.initialize_and_check(self)?;
         }
         // Commit the staged stacks.
         self.commit_stacks();

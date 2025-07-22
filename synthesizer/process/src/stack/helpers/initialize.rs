@@ -37,7 +37,7 @@ impl<N: Network> Stack<N> {
         // Construct a new stack.
         let stack = Self::create_raw(process, program, edition)?;
         // Initialize and check the stack's validity.
-        stack.check_and_initialize(process)?;
+        stack.initialize_and_check(process)?;
         // Return the stack.
         Ok(stack)
     }

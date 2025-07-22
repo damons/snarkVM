@@ -270,8 +270,8 @@ impl<N: Network> Stack<N> {
         Stack::create_raw(process, program, edition)
     }
 
-    /// Checks and initializes the register state of the stack, even if it has already been initialized.
-    pub fn check_and_initialize(&self, process: &Process<N>) -> Result<()> {
+    /// Initializes and checks the register state and well-formedness of the stack, even if it has already been initialized.
+    pub fn initialize_and_check(&self, process: &Process<N>) -> Result<()> {
         // Acquire the locks for the constructor, register, and finalize types.
         let mut constructor_types = self.constructor_types.write();
         let mut register_types = self.register_types.write();
@@ -294,8 +294,6 @@ impl<N: Network> Stack<N> {
 
         // Add the constructor to the stack if it exists.
         if let Some(constructor) = self.program.constructor() {
-            // Ensure that the constructor is not already added.
-            ensure!(constructor_types.is_none(), "Constructor already exists");
             // Compute the constructor types.
             let types = FinalizeTypes::from_constructor(self, constructor)?;
             // Add the constructor types to the stack.
@@ -342,6 +340,15 @@ impl<N: Network> Stack<N> {
                 // Add the finalize name and finalize types to the stack.
                 finalize_types.insert(*name, types);
             }
+        }
+
+        // Drop the locks since the types have been initialized.
+        drop(constructor_types);
+        drop(register_types);
+        drop(finalize_types);
+
+        // Check that the functions are valid.
+        for function in self.program.functions().values() {
             // Determine the number of calls for the function.
             // This includes a safety check for the maximum number of calls.
             self.get_number_of_calls(function.name())?;
@@ -356,6 +363,7 @@ impl<N: Network> Stack<N> {
                 N::TRANSACTION_SPEND_LIMIT
             );
         }
+
         Ok(())
     }
 
