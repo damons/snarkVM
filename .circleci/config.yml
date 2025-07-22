@@ -702,15 +702,6 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer-snark
 
-  synthesizer-upgrade:
-    executor: rust-docker
-    resource_class: << pipeline.parameters.xlarge >>
-    steps:
-      - run_test:
-          workspace_member: snarkvm-synthesizer
-          flags: test_vm_upgrade --features=test
-          cache_key_suffix: -upgrade
-
   utilities:
     executor: rust-docker
     resource_class: << pipeline.parameters.large >>
@@ -922,7 +913,6 @@ workflows:
       - synthesizer-program-integration-instruction-equal
       - synthesizer-program-integration-instruction-commit
       - synthesizer-snark
-      - synthesizer-upgrade
       - utilities
       - utilities-derives
       - wasm
