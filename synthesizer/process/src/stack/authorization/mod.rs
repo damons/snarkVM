@@ -19,6 +19,7 @@ mod string;
 
 use console::{network::prelude::*, program::Request, types::Field};
 use snarkvm_ledger_block::{Transaction, Transition};
+use snarkvm_synthesizer_program::StackTrait;
 
 use indexmap::IndexMap;
 #[cfg(feature = "locktick")]
