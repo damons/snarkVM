@@ -68,7 +68,7 @@ fn bhp1024(c: &mut Criterion) {
 
 fn bhp1024_large(c: &mut Criterion) {
     const SIZE_IN_BYTES: [usize; 4] =
-        [1_000 /* 1 kB */, 10_000 /* 10 KB */, 100_000 /* 100 KB */, 1_000_000 /* 1 MiB */];
+        [1_000 /* 1 kB */, 10_000 /* 10 kB */, 100_000 /* 100 kB */, 1_000_000 /* 1 MB */];
     let rng = &mut TestRng::default();
 
     // Benchmark the BHP1024 hash function for different input sizes.

@@ -179,8 +179,8 @@ function compute:
         edition % 2,
         deployment.program().clone(),
         deployment.verifying_keys().clone(),
-        deployment.program_checksum().cloned(),
-        deployment.program_owner().cloned(),
+        deployment.program_checksum(),
+        deployment.program_owner(),
     )
     .unwrap()
 }
@@ -223,8 +223,8 @@ function compute:
         edition,
         deployment.program().clone(),
         deployment.verifying_keys().clone(),
-        deployment.program_checksum().cloned(),
-        deployment.program_owner().cloned(),
+        deployment.program_checksum(),
+        deployment.program_owner(),
     )
     .unwrap()
 }

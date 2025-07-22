@@ -21,7 +21,7 @@ use console::{
 
 /// A get command, e.g. `get accounts[r0] into r1;`.
 /// Gets the value stored at `operand` in `mapping` and stores the result in `destination`.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Get<N: Network> {
     /// The mapping.
     mapping: CallOperator<N>,
@@ -29,26 +29,6 @@ pub struct Get<N: Network> {
     operands: [Operand<N>; 1],
     /// The destination register.
     destination: Register<N>,
-}
-
-impl<N: Network> PartialEq for Get<N> {
-    /// Returns true if the two objects are equal.
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.mapping == other.mapping && self.key() == other.key() && self.destination == other.destination
-    }
-}
-
-impl<N: Network> Eq for Get<N> {}
-
-impl<N: Network> std::hash::Hash for Get<N> {
-    /// Returns the hash of the object.
-    #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.mapping.hash(state);
-        self.key().hash(state);
-        self.destination.hash(state);
-    }
 }
 
 impl<N: Network> Get<N> {

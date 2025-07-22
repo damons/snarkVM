@@ -23,7 +23,7 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V4, 5_730_000),
     (ConsensusVersion::V5, 5_780_000),
     (ConsensusVersion::V6, 6_240_000),
-    (ConsensusVersion::V7, 6_895_000),
+    (ConsensusVersion::V7, 6_880_000),
     (ConsensusVersion::V8, 7_565_000),
     (ConsensusVersion::V9, 999_999_999),
 ];

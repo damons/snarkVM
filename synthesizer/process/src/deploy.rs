@@ -51,7 +51,7 @@ impl<N: Network> Process<N> {
         // Set the program owner.
         // Note: The program owner is only enforced to be `Some` after `ConsensusVersion::V9`
         // and is `None` for all programs deployed before the `V9` migration.
-        stack.set_program_owner(deployment.program_owner().copied());
+        stack.set_program_owner(deployment.program_owner());
 
         // Insert the verifying keys.
         for (function_name, (verifying_key, _)) in deployment.verifying_keys() {

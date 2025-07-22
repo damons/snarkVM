@@ -56,6 +56,8 @@ impl<N: Network> Stack<N> {
             self.program.clone(),
             verifying_keys,
             Some(self.program_checksum),
+            // Note. The program owner address is intentionally set to the zero address. It is updated at a later stage.
+            //  A `None` cannot be used, since if a deployment is created with a checksum, then it must also have a program owner.
             Some(Address::zero()),
         )
     }
@@ -79,7 +81,7 @@ impl<N: Network> Stack<N> {
         // If the deployment contains a checksum, ensure it matches the one computed by the stack.
         if let Some(program_checksum) = deployment.program_checksum() {
             ensure!(
-                *program_checksum == self.program_checksum,
+                program_checksum == self.program_checksum,
                 "The deployment checksum does not match the stack checksum"
             );
         }

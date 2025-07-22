@@ -391,8 +391,8 @@ function dummy:
         deployment_0.edition() + 1,
         deployment_0.program().clone(),
         deployment_0.verifying_keys().clone(),
-        deployment_0.program_checksum().cloned(),
-        deployment_0.program_owner().cloned(),
+        deployment_0.program_checksum(),
+        deployment_0.program_owner(),
     )?;
     let fee_authorization = vm.authorize_fee_public(
         &other_private_key,

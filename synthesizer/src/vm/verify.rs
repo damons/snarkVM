@@ -237,7 +237,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if let Some(given_owner) = deployment.program_owner() {
                     // Ensure the program owner matches the owner in the transaction.
                     ensure!(
-                        given_owner == &owner.address(),
+                        given_owner == owner.address(),
                         "The program owner in the deployment did not match the owner in the transaction\n('[{}]' != '[{}]')",
                         given_owner,
                         owner.address()

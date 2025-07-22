@@ -272,10 +272,15 @@ impl<N: Network> Stack<N> {
 
     /// Checks and initializes the register state of the stack, even if it has already been initialized.
     pub fn check_and_initialize(&self, process: &Process<N>) -> Result<()> {
+        // Acquire the locks for the constructor, register, and finalize types.
+        let mut constructor_types = self.constructor_types.write();
+        let mut register_types = self.register_types.write();
+        let mut finalize_types = self.finalize_types.write();
+
         // Clear the existing constructor, closure, and function types.
-        self.constructor_types.write().take();
-        self.register_types.write().clear();
-        self.finalize_types.write().clear();
+        constructor_types.take();
+        register_types.clear();
+        finalize_types.clear();
 
         // Add all the imports into the stack.
         for import in self.program.imports().keys() {
@@ -290,11 +295,11 @@ impl<N: Network> Stack<N> {
         // Add the constructor to the stack if it exists.
         if let Some(constructor) = self.program.constructor() {
             // Ensure that the constructor is not already added.
-            ensure!(self.constructor_types.read().is_none(), "Constructor already exists");
+            ensure!(constructor_types.is_none(), "Constructor already exists");
             // Compute the constructor types.
-            let constructor_types = FinalizeTypes::from_constructor(self, constructor)?;
+            let types = FinalizeTypes::from_constructor(self, constructor)?;
             // Add the constructor types to the stack.
-            self.constructor_types.write().replace(constructor_types);
+            constructor_types.replace(types);
             // Get the constructor cost.
             let constructor_cost = constructor_cost_in_microcredits(self)?;
             // Check that the constructor cost does not exceed the maximum.
@@ -310,12 +315,12 @@ impl<N: Network> Stack<N> {
             // Retrieve the closure name.
             let name = closure.name();
             // Ensure the closure name is not already added.
-            ensure!(!self.register_types.read().contains_key(name), "Closure '{name}' already exists");
+            ensure!(!register_types.contains_key(name), "Closure '{name}' already exists");
 
             // Compute the register types.
-            let register_types = RegisterTypes::from_closure(self, closure)?;
+            let types = RegisterTypes::from_closure(self, closure)?;
             // Add the closure name and register types to the stack.
-            self.register_types.write().insert(*name, register_types);
+            register_types.insert(*name, types);
         }
 
         // Add the program functions to the stack.
@@ -323,19 +328,19 @@ impl<N: Network> Stack<N> {
             // Retrieve the function name.
             let name = function.name();
             // Ensure the function name is not already added.
-            ensure!(!self.register_types.read().contains_key(name), "Function '{name}' already exists");
+            ensure!(!register_types.contains_key(name), "Function '{name}' already exists");
 
             // Compute the register types.
-            let register_types = RegisterTypes::from_function(self, function)?;
+            let types = RegisterTypes::from_function(self, function)?;
             // Add the function name and register types to the stack.
-            self.register_types.write().insert(*name, register_types);
+            register_types.insert(*name, types);
 
             // If the function contains a finalize, insert it.
             if let Some(finalize) = function.finalize_logic() {
                 // Compute the finalize types.
-                let finalize_types = FinalizeTypes::from_finalize(self, finalize)?;
+                let types = FinalizeTypes::from_finalize(self, finalize)?;
                 // Add the finalize name and finalize types to the stack.
-                self.finalize_types.write().insert(*name, finalize_types);
+                finalize_types.insert(*name, types);
             }
             // Determine the number of calls for the function.
             // This includes a safety check for the maximum number of calls.

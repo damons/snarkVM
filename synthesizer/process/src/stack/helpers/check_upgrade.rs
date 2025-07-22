@@ -20,6 +20,8 @@ impl<N: Network> Stack<N> {
     /// At a high-level, an upgrade must preserve the existing interfaces of the original program.
     /// An upgrade may add new components, except for constructors, and modify logic **only** in functions and finalize scopes.
     ///
+    /// The order of the components in the new program may be modified, as long as the interfaces remain the same.
+    ///
     /// An detailed overview of what an upgrade can and cannot do is given below:
     ///  | Program Component | Delete |    Modify    |  Add  |
     ///  |-------------------|--------|--------------|-------|

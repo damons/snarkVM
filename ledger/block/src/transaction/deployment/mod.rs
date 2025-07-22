@@ -93,7 +93,7 @@ impl<N: Network> Deployment<N> {
             // It must be the case that this program was deployed before upgradability was introduced.
             None => {
                 ensure!(
-                    self.edition == 0 || self.edition == 1,
+                    self.edition <= 1,
                     "If the program checksum is absent, then the edition must be 0 or 1, but found {}",
                     self.edition
                 );
@@ -163,13 +163,13 @@ impl<N: Network> Deployment<N> {
     }
 
     /// Returns the program checksum, if it was stored.
-    pub const fn program_checksum(&self) -> Option<&[U8<N>; 32]> {
-        self.program_checksum.as_ref()
+    pub const fn program_checksum(&self) -> Option<[U8<N>; 32]> {
+        self.program_checksum
     }
 
     /// Returns the program owner, if it was stored.
-    pub const fn program_owner(&self) -> Option<&Address<N>> {
-        self.program_owner.as_ref()
+    pub const fn program_owner(&self) -> Option<Address<N>> {
+        self.program_owner
     }
 
     /// Returns the program.
@@ -311,8 +311,8 @@ function compute:
             edition % 2,
             deployment.program().clone(),
             deployment.verifying_keys().clone(),
-            deployment.program_checksum().cloned(),
-            deployment.program_owner().cloned(),
+            deployment.program_checksum(),
+            deployment.program_owner(),
         )
         .unwrap()
     }
@@ -355,8 +355,8 @@ function compute:
             edition,
             deployment.program().clone(),
             deployment.verifying_keys().clone(),
-            deployment.program_checksum().cloned(),
-            deployment.program_owner().cloned(),
+            deployment.program_checksum(),
+            deployment.program_owner(),
         )
         .unwrap()
     }

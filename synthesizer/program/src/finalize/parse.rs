@@ -41,14 +41,8 @@ impl<N: Network> Parser for FinalizeCore<N> {
         map_res(take(0usize), move |_| {
             // Initialize a new finalize.
             let mut finalize = Self::new(name);
-            if let Err(error) = inputs.iter().cloned().try_for_each(|input| finalize.add_input(input)) {
-                eprintln!("{error}");
-                return Err(error);
-            }
-            if let Err(error) = commands.iter().cloned().try_for_each(|command| finalize.add_command(command)) {
-                eprintln!("{error}");
-                return Err(error);
-            }
+            inputs.iter().cloned().try_for_each(|input| finalize.add_input(input))?;
+            commands.iter().cloned().try_for_each(|command| finalize.add_command(command))?;
             Ok::<_, Error>(finalize)
         })(string)
     }

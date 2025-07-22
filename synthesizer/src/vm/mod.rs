@@ -1576,8 +1576,8 @@ function do:
             deployment.edition(),
             deployment.program().clone(),
             vks_with_overreport,
-            deployment.program_checksum().cloned(),
-            deployment.program_owner().copied(),
+            deployment.program_checksum(),
+            deployment.program_owner(),
         )
         .unwrap();
         let adjusted_transaction = Transaction::from_deployment(program_owner, adjusted_deployment, fee).unwrap();
@@ -1637,8 +1637,8 @@ function do:
             deployment.edition(),
             deployment.program().clone(),
             vks_with_underreport,
-            deployment.program_checksum().cloned(),
-            deployment.program_owner().copied(),
+            deployment.program_checksum(),
+            deployment.program_owner(),
         )
         .unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();
@@ -1718,8 +1718,8 @@ function do:
             deployment.edition(),
             deployment.program().clone(),
             vks_with_underreport,
-            deployment.program_checksum().cloned(),
-            deployment.program_owner().copied(),
+            deployment.program_checksum(),
+            deployment.program_owner(),
         )
         .unwrap();
         let deployment_id = adjusted_deployment.to_deployment_id().unwrap();

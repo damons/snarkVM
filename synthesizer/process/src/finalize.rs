@@ -41,7 +41,7 @@ impl<N: Network> Process<N> {
         // Set the program owner.
         // Note: The program owner is only enforced to be `Some` after `ConsensusVersion::V9`
         // and is `None` for all programs deployed before the `V9` migration.
-        stack.set_program_owner(deployment.program_owner().copied());
+        stack.set_program_owner(deployment.program_owner());
 
         // Insert the verifying keys.
         for (function_name, (verifying_key, _)) in deployment.verifying_keys() {
@@ -292,12 +292,10 @@ fn finalize_constructor<N: Network, P: FinalizeStorage<N>>(
                     Ok(Ok(None)) => {}
                     // If the evaluation fails, bail and return the error.
                     Ok(Err(error)) => {
-                        println!("'constructor' failed to evaluate command ({command}): {error}");
                         bail!("'constructor' failed to evaluate command ({command}): {error}")
                     }
                     // If the evaluation fails, bail and return the error.
                     Err(_) => {
-                        println!("'constructor' failed to evaluate command ({command})");
                         bail!("'constructor' failed to evaluate command ({command})")
                     }
                 }

@@ -251,7 +251,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             // This migration enables program upgrades.
             if let Some(checksum) = checksum {
                 self.id_edition_map().insert(*transaction_id, edition)?;
-                self.checksum_map().insert((program_id, edition), *checksum)?;
+                self.checksum_map().insert((program_id, edition), checksum)?;
             }
 
             // Store the verifying keys and certificates.
@@ -981,7 +981,7 @@ mod tests {
             match checksum {
                 Some(checksum) => {
                     let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, edition)).unwrap();
-                    assert_eq!(Some(checksum), candidate.as_deref());
+                    assert_eq!(Some(checksum), candidate.map(|c| c.into_owned()));
                 }
                 None => {
                     let candidate = deployment_store.checksum_map().get_confirmed(&(program_id, edition)).unwrap();

@@ -198,7 +198,7 @@ impl<N: Network> Transaction<N> {
             verifying_keys.len()
         );
         // Ensure there are functions.
-        ensure!(num_functions > 0, "Deployment must contain at least one function");
+        ensure!(num_functions != 0, "Deployment must contain at least one function");
         // Ensure the number of functions is within the allowed range.
         ensure!(
             num_functions <= N::MAX_FUNCTIONS,
