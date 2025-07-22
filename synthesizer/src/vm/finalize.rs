@@ -548,9 +548,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 return Err("Failed to construct the ratifications after speculation".to_string());
             };
 
-            // Revert the changes to the stacks in the process, as this is a dry-run.
-            process.revert_stacks();
-
             finish!(timer);
 
             // On return, 'atomic_finalize!' will abort the batch, and return the ratifications,
@@ -929,7 +926,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // Add the transition public keys to the set of produced transition public keys.
                     tpks.extend(transaction.transition_public_keys());
                     // Add any public deployment payer to the set of deployment payers.
-                    // Add the program ID to the list of deployed programs.
                     if let Transaction::Deploy(_, _, _, _, fee) = transaction {
                         fee.payer().map(|payer| deployment_payers.insert(payer));
                     }

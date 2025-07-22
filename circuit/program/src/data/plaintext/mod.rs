@@ -99,8 +99,7 @@ impl<A: Aleo> From<&Literal<A>> for Plaintext<A> {
     }
 }
 
-// A macro that derives the `From` implementation for an array of literals.
-// The array element type should be generic and so should the size.
+// A macro that derives the `From` implementation for an arrays of a given literal and sizes.
 macro_rules! impl_plaintext_from_array {
     ($element:ident, $($size:literal),+) => {
         $(

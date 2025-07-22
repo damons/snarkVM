@@ -89,7 +89,7 @@ impl<N: Network> Deployment<N> {
                     "The program checksum in the deployment does not match the computed checksum for '{program_id}'"
                 );
             }
-            // If the program checksum is absent, then verify that the edition is zero.
+            // If the program checksum is absent, then verify that the edition is zero or one.
             // It must be the case that this program was deployed before upgradability was introduced.
             None => {
                 ensure!(

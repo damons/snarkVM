@@ -74,7 +74,7 @@ impl<N: Network> Transaction<N> {
         if let Some(program_owner) = deployment.program_owner() {
             ensure!(
                 owner.address() == *program_owner,
-                "Attempted to create a deployment transaction with an provided owner '{}' and deployment owner '{}'",
+                "Attempted to create a deployment transaction with a provided owner '{}' and deployment owner '{}' that do not match",
                 owner.address(),
                 program_owner
             )

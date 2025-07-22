@@ -41,4 +41,3 @@ finalize foo:
 
 constructor:
     assert.eq edition 0u16;
-

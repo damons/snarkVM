@@ -17,7 +17,7 @@ mapping data:
 constructor:
     assert.eq edition 0u16;
     assert.eq credits.aleo/edition 0u16;
-    cast 225u8 167u8 254u8 122u8 87u8 199u8 147u8 168u8 125u8 197u8 178u8 254u8 68u8 130u8 140u8 31u8 208u8 229u8 200u8 142u8 181u8 33u8 217u8 47u8 8u8 12u8 40u8 190u8 52u8 133u8 68u8 224u8 into r0 as [u8; 32u32];
+    cast 66u8 96u8 158u8 151u8 29u8 229u8 98u8 162u8 249u8 193u8 81u8 68u8 81u8 245u8 4u8 25u8 30u8 238u8 240u8 107u8 121u8 228u8 148u8 181u8 130u8 212u8 178u8 214u8 26u8 4u8 155u8 54u8 into r0 as [u8; 32u32];
     assert.eq credits.aleo/checksum r0;
     assert.neq checksum r0;
     contains data[0u8] into r1; // Check `contains` without value

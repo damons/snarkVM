@@ -54,7 +54,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V9, 999_999_999),
 ];
 
-/// The consensus version heights for `TestConsensusV0`.
+/// The consensus version heights when the `test_consensus_heights` feature is enabled.
 pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V1, 0),
     (ConsensusVersion::V2, 10),

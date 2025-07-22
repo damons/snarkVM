@@ -279,7 +279,7 @@ impl<N: Network> Process<N> {
     }
 
     /// Adds a new program to the process, verifying that it is a valid addition.
-    /// If the program exists, then the existing program is replaced.
+    /// If the program exists, then the existing stack is replaced and discarded.
     /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` instead.
     #[inline]
     pub fn add_program(&mut self, program: &Program<N>) -> Result<()> {
@@ -293,7 +293,7 @@ impl<N: Network> Process<N> {
     }
 
     /// Adds a new program with the given edition to the process, verifying that it is a valid addition.
-    /// If the program exists, then the existing program is replaced and the original stack is returned.
+    /// If the program exists, then the existing stack is replaced and discarded.
     /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` instead.
     #[inline]
     pub fn add_program_with_edition(&mut self, program: &Program<N>, edition: u16) -> Result<()> {
@@ -309,7 +309,7 @@ impl<N: Network> Process<N> {
     }
 
     /// Adds a set of programs and editions, in topological order, to the process, deferring validation of the programs until all programs are added.
-    /// If any program exists, then the existing program is replaced.
+    /// If a program exists, then the existing stack is replaced and discarded.
     /// Either all programs are added or none are.
     /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` instead.
     #[inline]
