@@ -246,11 +246,8 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
             //  `ConsensusVersion::V9` introduces upgradability which allows editions to be incremented up to `u16::MAX`
             self.id_edition_map().insert(*transaction_id, edition)?;
 
-            // If the checksum exists, then store it and also store the edition into the `ChecksumMap`.
-            // This is done because the existence of the checksum implies a migration at the V9 consensus height.
-            // This migration enables program upgrades.
+            // If the checksum exists, then store it into the `ChecksumMap`.
             if let Some(checksum) = checksum {
-                self.id_edition_map().insert(*transaction_id, edition)?;
                 self.checksum_map().insert((program_id, edition), checksum)?;
             }
 
@@ -411,14 +408,13 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
         match self.id_edition_map().get_confirmed(transaction_id)? {
             Some(edition) => Ok(Some(*edition)),
             None => {
-                // TODO (@d0cd) Can this be simplified further?
                 // Check if the program exists in the store.
-                if self.get_program_id(transaction_id)?.is_none() {
-                    return Ok(None);
-                };
-                // Prior to `ConsensusVersion::V8`, if a program is not in the `IDEditionMap` but exists,
-                // then it must have been deployed when editions were exclusively zero.
-                Ok(Some(0))
+                match self.get_program_id(transaction_id)?.is_none() {
+                    true => Ok(None),
+                    // If a program is not in the `IDEditionMap` but exists in the store,
+                    // then it must have been deployed prior to `ConsensusVersion::V8` when editions were exclusively zero.
+                    false => Ok(Some(0)),
+                }
             }
         }
     }
@@ -1047,7 +1043,6 @@ mod tests {
         let deployment_store = DeploymentMemory::open(fee_store).unwrap();
 
         // Sample the transactions.
-        // TODO (@d0cd) Better testing.
         let transaction_0 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 0, true, rng);
         let transaction_1 = snarkvm_ledger_test_helpers::sample_deployment_transaction(1, 1, false, rng);
         let transaction_2 = snarkvm_ledger_test_helpers::sample_deployment_transaction(2, 0, true, rng);
@@ -1061,28 +1056,46 @@ mod tests {
                 Transaction::Deploy(_, _, _, ref deployment, _) => (*deployment.program_id(), deployment.edition()),
                 _ => panic!("Incorrect transaction type"),
             };
+            let fee_id = *transaction.fee_transition().unwrap().id();
 
             // Ensure the deployment transaction does not exist.
             let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
             assert_eq!(None, candidate);
 
+            // A helper to test the `find_*` methods.
+            let test_find_methods = |program_exists: bool, transaction_exists: bool| {
+                // Find the latest transaction ID from the program ID.
+                let candidate_0 = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
+                // Find the transaction ID from the program ID and edition.
+                let candidate_1 =
+                    deployment_store.find_transaction_id_from_program_id_and_edition(&program_id, edition).unwrap();
+                // Find the transaction ID from the transition ID.
+                let candidate_2 = deployment_store.find_transaction_id_from_transition_id(&fee_id).unwrap();
+
+                // If the program exists, then the latest transaction ID should be found.
+                assert_eq!(program_exists, candidate_0.is_some());
+                // If the transaction exists, then the transaction ID should be found.
+                assert_eq!(transaction_exists, candidate_1.is_some());
+                assert_eq!(candidate_1, candidate_2);
+            };
+
             // If the edition is zero, then check that a transaction is not found.
             // Otherwise, check that the transaction is found.
-            println!("program_id: {program_id:?}, edition: {edition:?}");
             if edition == 0 {
-                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-                assert_eq!(None, candidate);
+                test_find_methods(false, false);
             } else {
-                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-                assert!(candidate.is_some());
+                test_find_methods(true, false);
             }
 
             // Insert the deployment.
             deployment_store.insert(&transaction).unwrap();
 
+            // Get the transaction again.
+            let candidate = deployment_store.get_transaction(&transaction_id).unwrap();
+            assert_eq!(Some(transaction.clone()), candidate);
+
             // Find the transaction ID.
-            let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-            assert_eq!(Some(transaction_id), candidate);
+            test_find_methods(true, true);
 
             // Remove the deployment.
             deployment_store.remove(&transaction_id).unwrap();
@@ -1090,11 +1103,9 @@ mod tests {
             // If the edition is zero, then check that a transaction is not found.
             // Otherwise, check that the transaction is found.
             if edition == 0 {
-                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-                assert_eq!(None, candidate);
+                test_find_methods(false, false);
             } else {
-                let candidate = deployment_store.find_latest_transaction_id_from_program_id(&program_id).unwrap();
-                assert!(candidate.is_some());
+                test_find_methods(true, false);
             }
 
             // Insert the deployment again.

@@ -298,14 +298,6 @@ impl<N: Network> Stack<N> {
             let types = FinalizeTypes::from_constructor(self, constructor)?;
             // Add the constructor types to the stack.
             constructor_types.replace(types);
-            // Get the constructor cost.
-            let constructor_cost = constructor_cost_in_microcredits(self)?;
-            // Check that the constructor cost does not exceed the maximum.
-            ensure!(
-                constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
-                "Constructor has a cost '{constructor_cost}' which exceeds the transaction spend limit '{}'",
-                N::TRANSACTION_SPEND_LIMIT
-            );
         }
 
         // Add the program closures to the stack.
@@ -314,7 +306,6 @@ impl<N: Network> Stack<N> {
             let name = closure.name();
             // Ensure the closure name is not already added.
             ensure!(!register_types.contains_key(name), "Closure '{name}' already exists");
-
             // Compute the register types.
             let types = RegisterTypes::from_closure(self, closure)?;
             // Add the closure name and register types to the stack.
@@ -327,7 +318,6 @@ impl<N: Network> Stack<N> {
             let name = function.name();
             // Ensure the function name is not already added.
             ensure!(!register_types.contains_key(name), "Function '{name}' already exists");
-
             // Compute the register types.
             let types = RegisterTypes::from_function(self, function)?;
             // Add the function name and register types to the stack.
@@ -347,6 +337,15 @@ impl<N: Network> Stack<N> {
         drop(register_types);
         drop(finalize_types);
 
+        // Get the constructor cost.
+        let constructor_cost = constructor_cost_in_microcredits(self)?;
+        // Check that the constructor cost does not exceed the maximum.
+        ensure!(
+            constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
+            "Constructor has a cost '{constructor_cost}' which exceeds the transaction spend limit '{}'",
+            N::TRANSACTION_SPEND_LIMIT
+        );
+
         // Check that the functions are valid.
         for function in self.program.functions().values() {
             // Determine the number of calls for the function.
@@ -363,7 +362,6 @@ impl<N: Network> Stack<N> {
                 N::TRANSACTION_SPEND_LIMIT
             );
         }
-
         Ok(())
     }
 
