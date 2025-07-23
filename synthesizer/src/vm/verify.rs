@@ -257,7 +257,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //  - Otherwise, if the new program contains a constructor.
                 //      - the existing program has a constructor.
                 //        Note. Constructor validity is checked at a later point.
-                // TODO (@d0cd) Check that allowing the migration after V9 (whose deployments will have checksums and owners is valid)
                 let is_program_in_storage = self.transaction_store().contains_program_id(deployment.program_id())?;
                 let is_program_in_process = self.contains_program(deployment.program_id());
                 match deployment.edition() {

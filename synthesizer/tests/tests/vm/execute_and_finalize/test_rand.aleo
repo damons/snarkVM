@@ -9,7 +9,7 @@ cases:
     inputs: ["{ first: 0field, second: 0field, third: 0field, fourth: 0field, fifth: 0field }"]
   - program: test_rand.aleo
     function: rand_chacha_check
-    inputs: [0field, false]
+    inputs: [1field, false]
   - program: test_rand.aleo
     function: rand_chacha_check
     inputs: [2field, true]

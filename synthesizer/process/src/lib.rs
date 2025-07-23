@@ -62,6 +62,7 @@ use snarkvm_synthesizer_program::{
     StackTrait,
 };
 use snarkvm_synthesizer_snark::{ProvingKey, UniversalSRS, VerifyingKey};
+use snarkvm_utilities::defer;
 
 use aleo_std::prelude::{finish, lap, timer};
 use indexmap::IndexMap;
@@ -73,7 +74,6 @@ use std::{collections::HashMap, sync::Arc};
 
 #[cfg(feature = "aleo-cli")]
 use colored::Colorize;
-use snarkvm_utilities::defer;
 
 #[derive(Clone)]
 pub struct Process<N: Network> {
@@ -280,7 +280,7 @@ impl<N: Network> Process<N> {
 
     /// Adds a new program to the process, verifying that it is a valid addition.
     /// If the program exists, then the existing stack is replaced and discarded.
-    /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` instead.
+    /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` or `load_deployment` instead instead.
     #[inline]
     pub fn add_program(&mut self, program: &Program<N>) -> Result<()> {
         // Initialize the 'credits.aleo' program ID.
@@ -294,7 +294,7 @@ impl<N: Network> Process<N> {
 
     /// Adds a new program with the given edition to the process, verifying that it is a valid addition.
     /// If the program exists, then the existing stack is replaced and discarded.
-    /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` instead.
+    /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` or `load_deployment` instead instead.
     #[inline]
     pub fn add_program_with_edition(&mut self, program: &Program<N>, edition: u16) -> Result<()> {
         // Initialize the 'credits.aleo' program ID.
@@ -311,7 +311,7 @@ impl<N: Network> Process<N> {
     /// Adds a set of programs and editions, in topological order, to the process, deferring validation of the programs until all programs are added.
     /// If a program exists, then the existing stack is replaced and discarded.
     /// Either all programs are added or none are.
-    /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` instead.
+    /// Note. This method should **NOT** be used by the on-chain VM to add new program, use `finalize_deployment` or `load_deployment` instead instead.
     #[inline]
     pub fn add_programs_with_editions(&mut self, programs: &[(Program<N>, u16)]) -> Result<()> {
         // Initialize the 'credits.aleo' program ID.

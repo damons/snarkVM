@@ -254,53 +254,18 @@ fn finalize_constructor<N: Network, P: FinalizeStorage<N>>(
         let command = &constructor.commands()[counter];
         // Finalize the command.
         match &command {
-            Command::BranchEq(branch_eq) => {
-                let result =
-                    try_vm_runtime!(|| branch_to(counter, branch_eq, constructor.positions(), stack, &registers));
-                match result {
-                    Ok(Ok(new_counter)) => {
-                        counter = new_counter;
-                    }
-                    // If the evaluation fails, bail and return the error.
-                    Ok(Err(error)) => bail!("'constructor' failed to evaluate command ({command}): {error}"),
-                    // If the evaluation fails, bail and return the error.
-                    Err(_) => bail!("'constructor' failed to evaluate command ({command})"),
-                }
-            }
-            Command::BranchNeq(branch_neq) => {
-                let result =
-                    try_vm_runtime!(|| branch_to(counter, branch_neq, constructor.positions(), stack, &registers));
-                match result {
-                    Ok(Ok(new_counter)) => {
-                        counter = new_counter;
-                    }
-                    // If the evaluation fails, bail and return the error.
-                    Ok(Err(error)) => bail!("'constructor' failed to evaluate command ({command}): {error}"),
-                    // If the evaluation fails, bail and return the error.
-                    Err(_) => bail!("'constructor' failed to evaluate command ({command})"),
-                }
-            }
             Command::Await(_) => {
                 bail!("Cannot `await` a Future in a constructor")
             }
-            _ => {
-                let result = try_vm_runtime!(|| command.finalize(stack, store, &mut registers));
-                match result {
-                    // If the evaluation succeeds with an operation, add it to the list.
-                    Ok(Ok(Some(finalize_operation))) => finalize_operations.push(finalize_operation),
-                    // If the evaluation succeeds with no operation, continue.
-                    Ok(Ok(None)) => {}
-                    // If the evaluation fails, bail and return the error.
-                    Ok(Err(error)) => {
-                        bail!("'constructor' failed to evaluate command ({command}): {error}")
-                    }
-                    // If the evaluation fails, bail and return the error.
-                    Err(_) => {
-                        bail!("'constructor' failed to evaluate command ({command})")
-                    }
-                }
-                counter += 1;
-            }
+            _ => finalize_command_except_await(
+                store,
+                stack,
+                &mut registers,
+                constructor.positions(),
+                command,
+                &mut counter,
+                &mut finalize_operations,
+            )?,
         };
     }
 
@@ -368,32 +333,6 @@ fn finalize_transition<N: Network, P: FinalizeStorage<N>>(
             let command = &finalize.commands()[counter];
             // Finalize the command.
             match &command {
-                Command::BranchEq(branch_eq) => {
-                    let result =
-                        try_vm_runtime!(|| branch_to(counter, branch_eq, finalize.positions(), &stack, &registers));
-                    match result {
-                        Ok(Ok(new_counter)) => {
-                            counter = new_counter;
-                        }
-                        // If the evaluation fails, bail and return the error.
-                        Ok(Err(error)) => bail!("'finalize' failed to evaluate command ({command}): {error}"),
-                        // If the evaluation fails, bail and return the error.
-                        Err(_) => bail!("'finalize' failed to evaluate command ({command})"),
-                    }
-                }
-                Command::BranchNeq(branch_neq) => {
-                    let result =
-                        try_vm_runtime!(|| branch_to(counter, branch_neq, finalize.positions(), &stack, &registers));
-                    match result {
-                        Ok(Ok(new_counter)) => {
-                            counter = new_counter;
-                        }
-                        // If the evaluation fails, bail and return the error.
-                        Ok(Err(error)) => bail!("'finalize' failed to evaluate command ({command}): {error}"),
-                        // If the evaluation fails, bail and return the error.
-                        Err(_) => bail!("'finalize' failed to evaluate command ({command})"),
-                    }
-                }
                 Command::Await(await_) => {
                     // Check that the `await` register's is a locator.
                     if let Register::Access(_, _) = await_.register() {
@@ -461,20 +400,15 @@ fn finalize_transition<N: Network, P: FinalizeStorage<N>>(
 
                     continue 'outer;
                 }
-                _ => {
-                    let result = try_vm_runtime!(|| command.finalize(stack.deref(), store, &mut registers));
-                    match result {
-                        // If the evaluation succeeds with an operation, add it to the list.
-                        Ok(Ok(Some(finalize_operation))) => finalize_operations.push(finalize_operation),
-                        // If the evaluation succeeds with no operation, continue.
-                        Ok(Ok(None)) => {}
-                        // If the evaluation fails, bail and return the error.
-                        Ok(Err(error)) => bail!("'finalize' failed to evaluate command ({command}): {error}"),
-                        // If the evaluation fails, bail and return the error.
-                        Err(_) => bail!("'finalize' failed to evaluate command ({command})"),
-                    }
-                    counter += 1;
-                }
+                _ => finalize_command_except_await(
+                    store,
+                    stack.deref(),
+                    &mut registers,
+                    finalize.positions(),
+                    command,
+                    &mut counter,
+                    &mut finalize_operations,
+                )?,
             };
         }
         // Check that all future registers have been awaited.
@@ -550,6 +484,64 @@ fn initialize_finalize_state<N: Network>(
     Ok(FinalizeState { counter: 0, registers, stack, call_counter: 0, awaited: Default::default() })
 }
 
+// A helper function to finalize all commands except `await`, updating the finalize operations and the counter.
+#[inline]
+fn finalize_command_except_await<N: Network>(
+    store: &FinalizeStore<N, impl FinalizeStorage<N>>,
+    stack: &impl StackTrait<N>,
+    registers: &mut FinalizeRegisters<N>,
+    positions: &HashMap<Identifier<N>, usize>,
+    command: &Command<N>,
+    counter: &mut usize,
+    finalize_operations: &mut Vec<FinalizeOperation<N>>,
+) -> Result<()> {
+    // Finalize the command.
+    match &command {
+        Command::BranchEq(branch_eq) => {
+            let result = try_vm_runtime!(|| branch_to(*counter, branch_eq, positions, stack, registers));
+            match result {
+                Ok(Ok(new_counter)) => {
+                    *counter = new_counter;
+                }
+                // If the evaluation fails, bail and return the error.
+                Ok(Err(error)) => bail!("'constructor' failed to evaluate command ({command}): {error}"),
+                // If the evaluation fails, bail and return the error.
+                Err(_) => bail!("'constructor' failed to evaluate command ({command})"),
+            }
+        }
+        Command::BranchNeq(branch_neq) => {
+            let result = try_vm_runtime!(|| branch_to(*counter, branch_neq, positions, stack, registers));
+            match result {
+                Ok(Ok(new_counter)) => {
+                    *counter = new_counter;
+                }
+                // If the evaluation fails, bail and return the error.
+                Ok(Err(error)) => bail!("'constructor' failed to evaluate command ({command}): {error}"),
+                // If the evaluation fails, bail and return the error.
+                Err(_) => bail!("'constructor' failed to evaluate command ({command})"),
+            }
+        }
+        Command::Await(_) => {
+            bail!("Cannot use `finalize_command_except_await` with an 'await' command")
+        }
+        _ => {
+            let result = try_vm_runtime!(|| command.finalize(stack, store, registers));
+            match result {
+                // If the evaluation succeeds with an operation, add it to the list.
+                Ok(Ok(Some(finalize_operation))) => finalize_operations.push(finalize_operation),
+                // If the evaluation succeeds with no operation, continue.
+                Ok(Ok(None)) => {}
+                // If the evaluation fails, bail and return the error.
+                Ok(Err(error)) => bail!("'constructor' failed to evaluate command ({command}): {error}"),
+                // If the evaluation fails, bail and return the error.
+                Err(_) => bail!("'constructor' failed to evaluate command ({command})"),
+            }
+            *counter += 1;
+        }
+    };
+    Ok(())
+}
+
 // A helper function that sets up the await operation.
 #[inline]
 fn setup_await<N: Network>(
@@ -574,7 +566,7 @@ fn branch_to<N: Network, const VARIANT: u8>(
     counter: usize,
     branch: &Branch<N, VARIANT>,
     positions: &HashMap<Identifier<N>, usize>,
-    stack: &Stack<N>,
+    stack: &impl StackTrait<N>,
     registers: &impl RegistersTrait<N>,
 ) -> Result<usize> {
     // Retrieve the inputs.

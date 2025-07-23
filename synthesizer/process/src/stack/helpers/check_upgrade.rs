@@ -19,6 +19,7 @@ impl<N: Network> Stack<N> {
     /// Checks that the new program is a valid upgrade.
     /// At a high-level, an upgrade must preserve the existing interfaces of the original program.
     /// An upgrade may add new components, except for constructors, and modify logic **only** in functions and finalize scopes.
+    /// An upgrade may also be exactly the same as the original program.
     ///
     /// The order of the components in the new program may be modified, as long as the interfaces remain the same.
     ///

@@ -22,7 +22,7 @@ use console::{
 /// A get command that uses the provided default in case of failure, e.g. `get.or_use accounts[r0] r1 into r2;`.
 /// Gets the value stored at `operand` in `mapping` and stores the result in `destination`.
 /// If the key is not present, `default` is stored in `destination`.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GetOrUse<N: Network> {
     /// The mapping.
     mapping: CallOperator<N>,
@@ -30,28 +30,6 @@ pub struct GetOrUse<N: Network> {
     operands: [Operand<N>; 2],
     /// The destination register.
     destination: Register<N>,
-}
-
-impl<N: Network> PartialEq for GetOrUse<N> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.mapping == other.mapping
-            && self.key() == other.key()
-            && self.default() == other.default()
-            && self.destination == other.destination
-    }
-}
-
-impl<N: Network> Eq for GetOrUse<N> {}
-
-impl<N: Network> std::hash::Hash for GetOrUse<N> {
-    #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.mapping.hash(state);
-        self.key().hash(state);
-        self.default().hash(state);
-        self.destination.hash(state);
-    }
 }
 
 impl<N: Network> GetOrUse<N> {
