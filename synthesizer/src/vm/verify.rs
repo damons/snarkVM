@@ -328,13 +328,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if let Some(fee) = fee {
                     // If the fee is required, then check that the base fee amount is satisfied.
                     if is_fee_required {
-                        // Compute the execution cost based on the block height
-                        let block_height = self.block_store().current_block_height();
-                        let consensus_version = N::CONSENSUS_VERSION(block_height)?;
-                        let (cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
-                            true => execution_cost_v1(&self.process().read(), execution)?,
-                            false => execution_cost_v2(&self.process().read(), execution)?,
-                        };
+                        // We are using execution_cost_v2 to compute the execution cost.
+                        // Technically, execution_cost_v2 only became active from ConsensusVersion::V2 onwards.
+                        // However, due to a bug in the transaction validation logic, some transactions may still have used execution_cost_v1.
+                        // execution_cost_v2 is less strict than execution_cost_v1, so we can safely use it here.
+                        let (cost, (_, _)) = execution_cost_v2(&self.process().read(), execution)?;
                         // Ensure the cost does not exceed the transaction spend limit.
                         ensure!(
                             cost <= N::TRANSACTION_SPEND_LIMIT,
