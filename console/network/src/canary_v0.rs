@@ -146,14 +146,6 @@ impl Network for CanaryV0 {
     /// The transmission checksum type.
     type TransmissionChecksum = u128;
 
-    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(not(any(test, feature = "test", feature = "test_consensus_heights")))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = CANARY_V0_CONSENSUS_VERSION_HEIGHTS;
-    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
-    /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
-    #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
-    const CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = TEST_CONSENSUS_VERSION_HEIGHTS;
     /// The genesis block coinbase target.
     #[cfg(not(feature = "test_targets"))]
     const GENESIS_COINBASE_TARGET: u64 = (1u64 << 29).saturating_sub(1);
@@ -188,6 +180,11 @@ impl Network for CanaryV0 {
     ];
     /// The network name.
     const NAME: &'static str = "Aleo Canary (v0)";
+    /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
+    /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
+    /// Do not read this directly outside of tests, use `N::CONSENSUS_VERSION_HEIGHTS()` instead.
+    const _CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] =
+        CANARY_V0_CONSENSUS_VERSION_HEIGHTS;
 
     /// Returns the block height where the the inclusion proof will be updated.
     #[allow(non_snake_case)]
