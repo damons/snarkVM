@@ -329,10 +329,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // If the fee is required, then check that the base fee amount is satisfied.
                     if is_fee_required {
                         // Compute the execution cost based on the block height
-                        let block_height = self
-                            .block_store()
-                            .find_block_height_from_state_root(execution.global_state_root())?
-                            .unwrap_or_default();
+                        let block_height = self.block_store().current_block_height();
                         let consensus_version = N::CONSENSUS_VERSION(block_height)?;
                         let (cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
                             true => execution_cost_v1(&self.process().read(), execution)?,
