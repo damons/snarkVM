@@ -66,3 +66,48 @@ pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 9] = [
     (ConsensusVersion::V8, 16),
     (ConsensusVersion::V9, 17),
 ];
+
+#[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
+pub(crate) fn load_test_consensus_heights<N: crate::Network>()
+-> [(ConsensusVersion, u32); crate::NUM_CONSENSUS_VERSIONS] {
+    // Define a closure to verify the consensus heights.
+    let verify_consensus_heights = |heights: &[(ConsensusVersion, u32); crate::NUM_CONSENSUS_VERSIONS]| {
+        // Assert that the genesis height is 0.
+        assert_eq!(heights[0].1, 0, "Genesis height must be 0.");
+        // Assert that the consensus heights are strictly increasing.
+        for window in heights.windows(2) {
+            if window[0] >= window[1] {
+                panic!("Heights must be strictly increasing, but found: {window:?}");
+            }
+        }
+    };
+
+    // Define consensus version heights container used for testing.
+    let mut test_consensus_heights = N::TEST_CONSENSUS_VERSION_HEIGHTS;
+
+    // Check if we can read the heights from an environment variable.
+    match std::env::var("CONSENSUS_VERSION_HEIGHTS") {
+        Ok(height_string) => {
+            // Parse the heights from the environment variable.
+            let parsed_test_consensus_heights: [u32; crate::NUM_CONSENSUS_VERSIONS] = height_string
+                .replace(" ", "")
+                .split(",")
+                .map(|height| height.parse::<u32>().unwrap())
+                .collect::<Vec<u32>>()
+                .try_into()
+                .unwrap();
+            // Set the parsed heights in the test consensus heights.
+            for (i, height) in parsed_test_consensus_heights.into_iter().enumerate() {
+                test_consensus_heights[i] = (N::TEST_CONSENSUS_VERSION_HEIGHTS[i].0, height);
+            }
+            // Verify and return the parsed test consensus heights.
+            verify_consensus_heights(&test_consensus_heights);
+            test_consensus_heights
+        }
+        Err(_) => {
+            // Verify and return the default test consensus heights.
+            verify_consensus_heights(&test_consensus_heights);
+            test_consensus_heights
+        }
+    }
+}
