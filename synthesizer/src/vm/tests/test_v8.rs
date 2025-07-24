@@ -344,6 +344,7 @@ finalize run:
 //   - a program cannot be redeployed in the same block as its deployment
 //   - an edition 0 program cannot be executed if it is deployed after `ConsensusVersion::V8`
 //   - a program can be redeployed using the exact same deployment, different fee, and in a different block, after `ConsensusVersion::V8` (even after `ConsensusVersion::V9`)
+// Note: It is important that this invariant holds, otherwise block rollbacks in the DB can be inconsistent.
 #[test]
 fn test_deploy_and_redeploy() -> Result<()> {
     let rng = &mut TestRng::default();
