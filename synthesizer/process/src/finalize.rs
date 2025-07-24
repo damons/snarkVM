@@ -15,8 +15,8 @@
 
 use super::*;
 use console::program::{FinalizeType, Future, Register};
-use synthesizer_program::{Await, FinalizeRegistersState, Operand};
-use utilities::try_vm_runtime;
+use snarkvm_synthesizer_program::{Await, FinalizeRegistersState, Operand, RegistersTrait};
+use snarkvm_utilities::try_vm_runtime;
 
 use std::collections::HashSet;
 
@@ -464,13 +464,12 @@ fn setup_await<N: Network>(
 }
 
 // A helper function that returns the index to branch to.
-#[inline]
 fn branch_to<N: Network, const VARIANT: u8>(
     counter: usize,
     branch: &Branch<N, VARIANT>,
     positions: &HashMap<Identifier<N>, usize>,
     stack: &Stack<N>,
-    registers: &impl RegistersLoad<N>,
+    registers: &impl RegistersTrait<N>,
 ) -> Result<usize> {
     // Retrieve the inputs.
     let first = registers.load(stack, branch.first())?;
@@ -500,7 +499,7 @@ mod tests {
     use super::*;
     use crate::tests::test_execute::{sample_fee, sample_finalize_state};
     use console::prelude::TestRng;
-    use ledger_store::{
+    use snarkvm_ledger_store::{
         BlockStore,
         helpers::memory::{BlockMemory, FinalizeMemory},
     };

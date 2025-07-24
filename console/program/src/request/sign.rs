@@ -174,7 +174,6 @@ impl<N: Network> Request<N> {
                     };
                     // Ensure the record belongs to the signer.
                     ensure!(**record.owner() == signer, "Input record for '{program_id}' must belong to the signer");
-
                     // Compute the record view key.
                     let record_view_key = (*record.nonce() * *view_key).to_x_coordinate();
                     // Compute the record commitment.

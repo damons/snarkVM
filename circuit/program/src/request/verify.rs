@@ -308,7 +308,7 @@ impl<A: Aleo> Request<A> {
     }
 }
 
-#[cfg(all(test, feature = "console"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::Circuit;
@@ -337,8 +337,9 @@ mod tests {
             let function_name = console::Identifier::from_str("transfer")?;
 
             // Prepare a record belonging to the address.
-            let record_string =
-                format!("{{ owner: {address}.private, token_amount: 100u64.private, _nonce: 0group.public }}");
+            let record_string = format!(
+                "{{ owner: {address}.private, token_amount: 100u64.private, _nonce: 0group.public, _version: 1u8.public }}"
+            );
 
             // Construct the inputs.
             let input_constant =

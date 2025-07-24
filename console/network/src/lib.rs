@@ -52,8 +52,7 @@ use snarkvm_console_types::{Field, Group, Scalar};
 use snarkvm_curves::PairingEngine;
 
 use indexmap::IndexMap;
-use once_cell::sync::OnceCell;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// A helper type for the BHP Merkle tree.
 pub type BHPMerkleTree<N, const DEPTH: u8> = MerkleTree<N, BHP1024<N>, BHP512<N>, DEPTH>;
@@ -94,7 +93,7 @@ pub enum ConsensusVersion {
 /// The number of consensus versions.
 const NUM_CONSENSUS_VERSIONS: usize = 8;
 /// A list of consensus versions and their corresponding block heights.
-static CONSENSUS_VERSION_HEIGHTS: OnceCell<[(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS]> = OnceCell::new();
+static CONSENSUS_VERSION_HEIGHTS: OnceLock<[(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS]> = OnceLock::new();
 
 pub trait Network:
     'static
@@ -143,9 +142,9 @@ pub trait Network:
     /// The cost in microcredits per constraint for the deployment transaction.
     const SYNTHESIS_FEE_MULTIPLIER: u64 = 25; // 25 microcredits per constraint
     /// The maximum number of variables in a deployment.
-    const MAX_DEPLOYMENT_VARIABLES: u64 = (1 << 20) + (1 << 19); // 1,572,864 variables
+    const MAX_DEPLOYMENT_VARIABLES: u64 = 1 << 21; // 2,097,152 variables
     /// The maximum number of constraints in a deployment.
-    const MAX_DEPLOYMENT_CONSTRAINTS: u64 = (1 << 20) + (1 << 19); // 1,572,864 constraints
+    const MAX_DEPLOYMENT_CONSTRAINTS: u64 = 1 << 21; // 2,097,152 constraints
     /// The maximum number of microcredits that can be spent as a fee.
     const MAX_FEE: u64 = 1_000_000_000_000_000;
     /// The maximum number of microcredits that can be spent on a transaction's finalize scope.
@@ -263,7 +262,7 @@ pub trait Network:
                 // Assert that the consensus heights are strictly increasing.
                 for window in heights.windows(2) {
                     if window[0] >= window[1] {
-                        panic!("Heights must be strictly increasing, but found: {:?}", window);
+                        panic!("Heights must be strictly increasing, but found: {window:?}");
                     }
                 }
             };

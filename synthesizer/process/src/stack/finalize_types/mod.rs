@@ -16,7 +16,7 @@
 mod initialize;
 mod matches;
 
-use crate::RegisterTypes;
+use crate::{RegisterTypes, Stack};
 
 use console::{
     network::prelude::*,
@@ -32,7 +32,7 @@ use console::{
         StructType,
     },
 };
-use synthesizer_program::{
+use snarkvm_synthesizer_program::{
     Await,
     Branch,
     CallOperator,
@@ -43,7 +43,6 @@ use synthesizer_program::{
     Get,
     GetOrUse,
     Instruction,
-    InstructionTrait,
     MAX_ADDITIONAL_SEEDS,
     Opcode,
     Operand,
@@ -51,8 +50,7 @@ use synthesizer_program::{
     RandChaCha,
     Remove,
     Set,
-    StackMatches,
-    StackProgram,
+    StackTrait,
 };
 
 use indexmap::IndexMap;
@@ -72,7 +70,7 @@ impl<N: Network> FinalizeTypes<N> {
     /// Initializes a new instance of `FinalizeTypes` for the given finalize.
     /// Checks that the given finalize is well-formed for the given stack.
     #[inline]
-    pub fn from_finalize(stack: &(impl StackMatches<N> + StackProgram<N>), finalize: &Finalize<N>) -> Result<Self> {
+    pub fn from_finalize(stack: &Stack<N>, finalize: &Finalize<N>) -> Result<Self> {
         Self::initialize_finalize_types(stack, finalize)
     }
 
@@ -91,11 +89,7 @@ impl<N: Network> FinalizeTypes<N> {
     }
 
     /// Returns the type of the given operand.
-    pub fn get_type_from_operand(
-        &self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        operand: &Operand<N>,
-    ) -> Result<FinalizeType<N>> {
+    pub fn get_type_from_operand(&self, stack: &Stack<N>, operand: &Operand<N>) -> Result<FinalizeType<N>> {
         Ok(match operand {
             Operand::Literal(literal) => FinalizeType::Plaintext(PlaintextType::from(literal.to_type())),
             Operand::Register(register) => self.get_type(stack, register)?,
@@ -108,11 +102,7 @@ impl<N: Network> FinalizeTypes<N> {
     }
 
     /// Returns the type of the given register.
-    pub fn get_type(
-        &self,
-        stack: &(impl StackMatches<N> + StackProgram<N>),
-        register: &Register<N>,
-    ) -> Result<FinalizeType<N>> {
+    pub fn get_type(&self, stack: &impl StackTrait<N>, register: &Register<N>) -> Result<FinalizeType<N>> {
         // Initialize a tracker for the type of the register.
         let finalize_type = if self.is_input(register) {
             // Retrieve the input value type as a register type.
