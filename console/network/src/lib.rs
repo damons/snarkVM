@@ -254,50 +254,60 @@ pub trait Network:
     #[allow(non_snake_case)]
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
     fn CONSENSUS_VERSION_HEIGHTS() -> &'static [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
-        // NOTE: this closure may panic, as it is only called during startup.
+        // NOTE: this function may panic, as it is only called during startup.
         CONSENSUS_VERSION_HEIGHTS.get_or_init(|| {
-            // Define consensus version heights used for testing.
-            let mut test_consensus_heights = Self::_CONSENSUS_VERSION_HEIGHTS;
-            // Assert that the genesis height is 0.
-            assert_eq!(test_consensus_heights[0].1, 0, "Genesis height must be 0.");
-            // Set the first height after genesis to 10.
-            test_consensus_heights[1].1 = 10;
-            // Set each consecutive height to be 1 greater than the previous one.
-            for i in 2..test_consensus_heights.len() {
-                test_consensus_heights[i].1 = test_consensus_heights[i - 1].1 + 1;
-            }
-            // Read the heights from the environment variable if it exists.
-            let Ok(height_string) = std::env::var("CONSENSUS_VERSION_HEIGHTS") else {
-                // Otherwise, return the default test consensus heights.
-                return test_consensus_heights;
+            // Define a closure to verify the consensus heights.
+            let verify_consensus_heights = |heights: &[(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS]| {
+                // Assert that the genesis height is 0.
+                assert_eq!(heights[0].1, 0, "Genesis height must be 0.");
+                // Assert that the consensus heights are strictly increasing.
+                for window in heights.windows(2) {
+                    if window[0] >= window[1] {
+                        panic!("Heights must be strictly increasing, but found: {:?}", window);
+                    }
+                }
             };
-            // Parse the heights from the environment variable.
-            let parsed_test_consensus_heights = height_string
-                .replace(" ", "")
-                .split(",")
-                .map(|height| height.parse::<u32>().unwrap())
-                .collect::<Vec<_>>();
-            // Set the parsed heights in the test consensus heights.
-            for (i, height) in parsed_test_consensus_heights.into_iter().enumerate() {
-                test_consensus_heights[i] = (Self::TEST_CONSENSUS_VERSION_HEIGHTS[i].0, height);
-            }
-            // Ensure the consensus heights are of the expected length.
-            if test_consensus_heights.len() != NUM_CONSENSUS_VERSIONS {
-                panic!("Expected {} heights, but got {}", NUM_CONSENSUS_VERSIONS, test_consensus_heights.len());
-            }
-            // Ensure the consensus heights are strictly increasing.
-            for window in test_consensus_heights.windows(2) {
-                if window[0] >= window[1] {
-                    panic!("Heights must be strictly increasing, but found: {:?}", window);
+
+            // Define consensus version heights container used for testing.
+            let mut test_consensus_heights = Self::_CONSENSUS_VERSION_HEIGHTS;
+
+            // Check if we can read the heights from an environment variable.
+            match std::env::var("CONSENSUS_VERSION_HEIGHTS") {
+                Ok(height_string) => {
+                    // Parse the heights from the environment variable.
+                    let parsed_test_consensus_heights: [u32; NUM_CONSENSUS_VERSIONS] = height_string
+                        .replace(" ", "")
+                        .split(",")
+                        .map(|height| height.parse::<u32>().unwrap())
+                        .collect::<Vec<u32>>()
+                        .try_into()
+                        .unwrap();
+                    // Set the parsed heights in the test consensus heights.
+                    for (i, height) in parsed_test_consensus_heights.into_iter().enumerate() {
+                        test_consensus_heights[i] = (Self::TEST_CONSENSUS_VERSION_HEIGHTS[i].0, height);
+                    }
+                    // Verify and return the test consensus heights.
+                    verify_consensus_heights(&test_consensus_heights);
+                    test_consensus_heights
+                }
+                Err(_) => {
+                    // Set the first height after genesis to 10.
+                    test_consensus_heights[1].1 = 10;
+                    // Set each consecutive height to be 1 greater than the previous one.
+                    for i in 2..test_consensus_heights.len() {
+                        test_consensus_heights[i].1 = test_consensus_heights[i - 1].1 + 1;
+                    }
+                    // Verify and return the test consensus heights.
+                    verify_consensus_heights(&test_consensus_heights);
+                    test_consensus_heights
                 }
             }
-            test_consensus_heights
         })
     }
     /// A set of incrementing consensus version heights used for tests.
     #[allow(non_snake_case)]
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
-    const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); 8] = [
+    const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
         (ConsensusVersion::V1, 0),
         (ConsensusVersion::V2, 10),
         (ConsensusVersion::V3, 11),
