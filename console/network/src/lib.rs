@@ -269,7 +269,7 @@ pub trait Network:
             };
 
             // Define consensus version heights container used for testing.
-            let mut test_consensus_heights = Self::_CONSENSUS_VERSION_HEIGHTS;
+            let mut test_consensus_heights = Self::TEST_CONSENSUS_VERSION_HEIGHTS;
 
             // Check if we can read the heights from an environment variable.
             match std::env::var("CONSENSUS_VERSION_HEIGHTS") {
@@ -286,18 +286,12 @@ pub trait Network:
                     for (i, height) in parsed_test_consensus_heights.into_iter().enumerate() {
                         test_consensus_heights[i] = (Self::TEST_CONSENSUS_VERSION_HEIGHTS[i].0, height);
                     }
-                    // Verify and return the test consensus heights.
+                    // Verify and return the parsed test consensus heights.
                     verify_consensus_heights(&test_consensus_heights);
                     test_consensus_heights
                 }
                 Err(_) => {
-                    // Set the first height after genesis to 10.
-                    test_consensus_heights[1].1 = 10;
-                    // Set each consecutive height to be 1 greater than the previous one.
-                    for i in 2..test_consensus_heights.len() {
-                        test_consensus_heights[i].1 = test_consensus_heights[i - 1].1 + 1;
-                    }
-                    // Verify and return the test consensus heights.
+                    // Verify and return the default test consensus heights.
                     verify_consensus_heights(&test_consensus_heights);
                     test_consensus_heights
                 }
