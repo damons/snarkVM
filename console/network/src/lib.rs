@@ -257,7 +257,7 @@ pub trait Network:
     //  Decreasing this value will break backwards compatibility of serialization without explicit
     //  declaration of migration based on round number rather than block height.
     //  Increasing this value will require a migration to prevent forking during network upgrades.
-    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 4];
+    const MAX_CERTIFICATES: [(ConsensusVersion, u16); 5];
 
     /// Returns the consensus version which is active at the given height.
     #[allow(non_snake_case)]
