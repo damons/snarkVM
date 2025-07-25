@@ -3159,6 +3159,7 @@ name = "snarkvm-console-network"
 version = "4.0.0"
 dependencies = [
  "anyhow",
+ "enum-iterator",
  "indexmap 2.10.0",
  "lazy_static",
  "paste",
@@ -3745,6 +3746,7 @@ dependencies = [
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-snark",
  "snarkvm-utilities",
+ "tiny-keccak",
 ]
 
 [[package]]

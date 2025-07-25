@@ -146,8 +146,6 @@ impl Network for CanaryV0 {
     /// The transmission checksum type.
     type TransmissionChecksum = u128;
 
-    /// The network edition.
-    const EDITION: u16 = 0;
     /// The genesis block coinbase target.
     #[cfg(not(feature = "test_targets"))]
     const GENESIS_COINBASE_TARGET: u64 = (1u64 << 29).saturating_sub(1);
@@ -185,16 +183,8 @@ impl Network for CanaryV0 {
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     /// Do not read this directly outside of tests, use `N::CONSENSUS_VERSION_HEIGHTS()` instead.
-    const _CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
-        (ConsensusVersion::V1, 0),
-        (ConsensusVersion::V2, 2_900_000),
-        (ConsensusVersion::V3, 4_560_000),
-        (ConsensusVersion::V4, 5_730_000),
-        (ConsensusVersion::V5, 5_780_000),
-        (ConsensusVersion::V6, 6_240_000),
-        (ConsensusVersion::V7, 6_880_000),
-        (ConsensusVersion::V8, 7_565_000),
-    ];
+    const _CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] =
+        CANARY_V0_CONSENSUS_VERSION_HEIGHTS;
 
     /// Returns the block height where the the inclusion proof will be updated.
     #[allow(non_snake_case)]

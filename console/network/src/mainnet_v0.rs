@@ -147,8 +147,6 @@ impl Network for MainnetV0 {
     /// The transmission checksum type.
     type TransmissionChecksum = u128;
 
-    /// The network edition.
-    const EDITION: u16 = 0;
     /// The genesis block coinbase target.
     #[cfg(not(feature = "test"))]
     const GENESIS_COINBASE_TARGET: u64 = (1u64 << 29).saturating_sub(1);
@@ -190,16 +188,8 @@ impl Network for MainnetV0 {
     /// A list of (consensus_version, block_height) pairs indicating when each consensus version takes effect.
     /// Documentation for what is changed at each version can be found in `ConsensusVersion`.
     /// Do not read this directly outside of tests, use `N::CONSENSUS_VERSION_HEIGHTS()` instead.
-    const _CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
-        (ConsensusVersion::V1, 0),
-        (ConsensusVersion::V2, 2_800_000),
-        (ConsensusVersion::V3, 4_900_000),
-        (ConsensusVersion::V4, 6_135_000),
-        (ConsensusVersion::V5, 7_060_000),
-        (ConsensusVersion::V6, 7_560_000),
-        (ConsensusVersion::V7, 7_570_000),
-        (ConsensusVersion::V8, 9_430_000),
-    ];
+    const _CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] =
+        MAINNET_V0_CONSENSUS_VERSION_HEIGHTS;
 
     /// Returns the block height where the the inclusion proof will be updated.
     #[allow(non_snake_case)]
