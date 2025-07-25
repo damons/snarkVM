@@ -493,7 +493,10 @@ mod tests {
     use crate::test_helpers::get_execution;
     use circuit::{Aleo, AleoCanaryV0, AleoTestnetV0, AleoV0};
 
-    use console::network::{CanaryV0, MainnetV0, TestnetV0};
+    use console::{
+        network::{CanaryV0, MainnetV0, TestnetV0},
+        types::Address,
+    };
     use snarkvm_synthesizer_program::Program;
 
     // Test program with two functions just below and above the size threshold.
@@ -645,16 +648,24 @@ function dummy:",
             .unwrap();
 
             // Verify the deployment costs.
-            let deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
+            let mut deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
+            deployment_0.set_program_checksum_raw(Some(deployment_0.program().to_checksum()));
+            deployment_0.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(deployment_cost(&process, &deployment_0).unwrap(), (2532500, (879000, 603500, 50000, 1000000)));
 
-            let deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
+            let mut deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
+            deployment_1.set_program_checksum_raw(Some(deployment_1.program().to_checksum()));
+            deployment_1.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(deployment_cost(&process, &deployment_1).unwrap(), (2531500, (878000, 603500, 50000, 1000000)));
 
-            let deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
+            let mut deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
+            deployment_2.set_program_checksum_raw(Some(deployment_2.program().to_checksum()));
+            deployment_2.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(deployment_cost(&process, &deployment_2).unwrap(), (2696500, (911000, 603500, 182000, 1000000)));
 
-            let deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
+            let mut deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
+            deployment_3.set_program_checksum_raw(Some(deployment_3.program().to_checksum()));
+            deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(
                 deployment_cost(&process, &deployment_3).unwrap(),
                 (4186500, (943000, 603500, 1640000, 1000000))
