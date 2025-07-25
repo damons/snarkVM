@@ -467,6 +467,8 @@ pub mod test_helpers {
             1 => crate::transaction::deployment::test_helpers::sample_deployment_v1(edition, rng),
             2 => {
                 let mut deployment = crate::transaction::deployment::test_helpers::sample_deployment_v2(edition, rng);
+                // Set the program checksum.
+                deployment.set_program_checksum_raw(Some(deployment.program().to_checksum()));
                 // Set the program owner to the address of the private key.
                 deployment.set_program_owner_raw(Some(Address::try_from(&private_key).unwrap()));
                 // Return the deployment.

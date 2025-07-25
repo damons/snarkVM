@@ -47,6 +47,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             deployment.set_program_checksum_raw(None);
             deployment.set_program_owner_raw(None)
         } else {
+            deployment.set_program_checksum_raw(Some(deployment.program().to_checksum()));
             deployment.set_program_owner_raw(Some(Address::try_from(private_key)?));
         }
         // Compute the deployment ID.

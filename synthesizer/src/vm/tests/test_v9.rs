@@ -2843,10 +2843,12 @@ function baz:
     let mut process = Process::load().unwrap();
     process.add_program(&program_v0).unwrap();
     let mut deployment_v1 = process.deploy::<CurrentAleo, _>(&program_v1, rng).unwrap();
+    deployment_v1.set_program_checksum_raw(Some(deployment_v1.program().to_checksum()));
     deployment_v1.set_program_owner_raw(Some(Address::try_from(&private_key_1).unwrap()));
     assert_eq!(deployment_v1.edition(), 1);
     process.add_program(&program_v1).unwrap();
     let mut deployment_v2 = process.deploy::<CurrentAleo, _>(&program_v2, rng).unwrap();
+    deployment_v2.set_program_checksum_raw(Some(deployment_v2.program().to_checksum()));
     deployment_v2.set_program_owner_raw(Some(Address::try_from(&private_key_2).unwrap()));
     assert_eq!(deployment_v2.edition(), 2);
 
@@ -2923,9 +2925,11 @@ function fly:
 
     // Generate the deployments.
     let mut deployment_v3 = process.deploy::<CurrentAleo, _>(&program_v3, rng).unwrap();
+    deployment_v3.set_program_checksum_raw(Some(deployment_v3.program().to_checksum()));
     deployment_v3.set_program_owner_raw(Some(Address::try_from(&private_key_1).unwrap()));
     assert_eq!(deployment_v3.edition(), 2);
     let mut deployment_v4 = process.deploy::<CurrentAleo, _>(&program_v4, rng).unwrap();
+    deployment_v4.set_program_checksum_raw(Some(deployment_v4.program().to_checksum()));
     deployment_v4.set_program_owner_raw(Some(Address::try_from(&private_key_2).unwrap()));
     assert_eq!(deployment_v4.edition(), 2);
 
@@ -2970,4 +2974,126 @@ function fly:
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 1);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
+}
+
+// This test checks that:
+//  - an upgradable program can depend on a program deployed before `V9`.
+//  - if the program deployed before `V9` has not done the one-time upgrade, then the upgradable program cannot be executed.
+//  - once the program deployed before `V9` has done the one-time upgrade, the upgradable program can be executed.
+#[test]
+fn test_upgradable_program_with_pre_v9_dependency() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    // Initialize the VM one block before the V9 height.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() - 1;
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
+
+    // Define the pre-V9 program.
+    let pre_v9_program = Program::from_str(
+        r"
+program pre_v9_program.aleo;
+
+function foo:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    // Define the upgradable program that depends on the pre-V9 program.
+    let upgradable_program = Program::from_str(
+        r"
+import pre_v9_program.aleo;
+program upgradable_program.aleo;
+
+function bar:
+    call pre_v9_program.aleo/foo;
+
+function baz:
+    assert.eq true true;
+
+constructor:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    // Deploy the pre-V9 program.
+    let deployment = vm.deploy(&caller_private_key, &pre_v9_program, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the upgradable program.
+    let deployment = vm.deploy(&caller_private_key, &upgradable_program, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Attempt to execute the upgradable program.
+    let transaction = vm
+        .execute(
+            &caller_private_key,
+            ("upgradable_program.aleo", "bar"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block).unwrap();
+
+    let execution = vm
+        .execute(
+            &caller_private_key,
+            ("upgradable_program.aleo", "baz"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Upgrade the pre-V9 program.
+    let deployment = vm.deploy(&caller_private_key, &pre_v9_program, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Now execute the upgradable program.
+    let execution = vm
+        .execute(
+            &caller_private_key,
+            ("upgradable_program.aleo", "bar"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
 }

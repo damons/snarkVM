@@ -81,23 +81,11 @@ impl<N: Network> Deployment<N> {
         // The call to `Deployment::version` implicitly performs this check.
         self.version()?;
         // Validate the deployment based on the program checksum.
-        match self.program_checksum {
-            // If the program checksum is present, then ensure that it matches that of the program.
-            Some(program_checksum) => {
-                ensure!(
-                    program_checksum == self.program.to_checksum(),
-                    "The program checksum in the deployment does not match the computed checksum for '{program_id}'"
-                );
-            }
-            // If the program checksum is absent, then verify that the edition is zero or one.
-            // It must be the case that this program was deployed before upgradability was introduced.
-            None => {
-                ensure!(
-                    self.edition <= 1,
-                    "If the program checksum is absent, then the edition must be 0 or 1, but found {}",
-                    self.edition
-                );
-            }
+        if let Some(program_checksum) = self.program_checksum {
+            ensure!(
+                program_checksum == self.program.to_checksum(),
+                "The program checksum in the deployment does not match the computed checksum for '{program_id}'"
+            );
         }
         // Ensure the program contains functions.
         ensure!(
@@ -340,11 +328,11 @@ function compute:
                 // Construct the process.
                 let process = Process::load().unwrap();
                 // Compute the deployment.
-                let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
-                // Assert that the deployment has a checksum.
-                assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
-                // Assert that the deployment has an owner.
-                assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
+                let mut deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+                // Set the program checksum.
+                deployment.set_program_checksum_raw(Some(deployment.program().to_checksum()));
+                // Set the program owner.
+                deployment.set_program_owner_raw(Some(Address::rand(rng)));
                 // Return the deployment.
                 // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
                 Deployment::from_str(&deployment.to_string()).unwrap()

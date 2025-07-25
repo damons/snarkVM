@@ -51,15 +51,7 @@ impl<N: Network> Stack<N> {
         finish!(timer);
 
         // Return the deployment.
-        Deployment::new(
-            *self.program_edition,
-            self.program.clone(),
-            verifying_keys,
-            Some(self.program_checksum),
-            // Note. The program owner address is intentionally set to the zero address. It is updated at a later stage.
-            //  A `None` cannot be used, since if a deployment is created with a checksum, then it must also have a program owner.
-            Some(Address::zero()),
-        )
+        Deployment::new(*self.program_edition, self.program.clone(), verifying_keys, None, None)
     }
 
     /// Checks each function in the program on the given verifying key and certificate.

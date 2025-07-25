@@ -208,11 +208,11 @@ function compute:
             // Construct the process.
             let process = Process::load().unwrap();
             // Compute the deployment.
-            let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
-            // Verify that the checksum is set.
-            assert!(deployment.program_checksum().is_some(), "Deployment does not have a checksum");
-            // Verify that the owner is set.
-            assert!(deployment.program_owner().is_some(), "Deployment does not have an owner");
+            let mut deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+            // Set the program checksum.
+            deployment.set_program_checksum_raw(Some(deployment.program().to_checksum()));
+            // Set the program owner.
+            deployment.set_program_owner_raw(Some(Address::rand(rng)));
             // Return the deployment.
             // Note: This is a testing-only hack to adhere to Rust's dependency cycle rules.
             Deployment::from_str(&deployment.to_string()).unwrap()
@@ -442,6 +442,8 @@ pub fn sample_deployment_transaction(
         1 => sample_deployment_v1(edition, rng),
         2 => {
             let mut deployment = sample_deployment_v2(edition, rng);
+            // Set the program checksum.
+            deployment.set_program_checksum_raw(Some(deployment.program().to_checksum()));
             // Set the program owner to the address of the private key.
             deployment.set_program_owner_raw(Some(Address::try_from(&private_key).unwrap()));
             // Return the deployment.
