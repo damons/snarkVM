@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,6 +81,11 @@ impl<A: Aleo> StatePath<A> {
     pub const fn transition_leaf(&self) -> &TransitionLeaf<A> {
         &self.transition_leaf
     }
+
+    /// Returns the block path.
+    pub const fn block_path(&self) -> &BlockPath<A> {
+        &self.block_path
+    }
 }
 
 impl<A: Aleo> Inject for StatePath<A> {
@@ -153,7 +158,7 @@ impl<A: Aleo> Eject for StatePath<A> {
     }
 }
 
-#[cfg(all(test, feature = "console"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::Circuit;

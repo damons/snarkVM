@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -190,7 +190,7 @@ pub(crate) mod test_helpers {
         let rng = &mut TestRng::default();
 
         // Sample a transition.
-        let transaction = crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng);
+        let transaction = crate::transaction::test_helpers::sample_execution_transaction_with_fee(true, rng, 0);
         let transition = transaction.transitions().next().unwrap();
 
         // Retrieve the transition ID and input.

@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,7 @@ impl<const VARIANT: usize> Distribution<BooleanHash<VARIANT>> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> BooleanHash<VARIANT> {
         let mut array = [false; VARIANT];
         for entry in array.iter_mut() {
-            *entry = rng.gen();
+            *entry = rng.r#gen();
         }
         BooleanHash(array)
     }

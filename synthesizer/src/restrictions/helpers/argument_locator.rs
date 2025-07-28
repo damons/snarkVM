@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -134,7 +134,7 @@ mod tests {
     const ITERATIONS: usize = 1000;
 
     pub(crate) fn sample_argument_locator<R: Rng + CryptoRng>(rng: &mut R) -> ArgumentLocator {
-        ArgumentLocator::new(rng.gen(), rng.gen_range(0..16))
+        ArgumentLocator::new(rng.r#gen(), rng.gen_range(0..16))
     }
 
     fn check_serde_json<

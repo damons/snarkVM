@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +17,8 @@
 #![allow(clippy::type_complexity)]
 
 use super::*;
-use ledger_puzzle::Puzzle;
-use synthesizer_program::FinalizeOperation;
+use snarkvm_ledger_puzzle::Puzzle;
+use snarkvm_synthesizer_program::FinalizeOperation;
 
 use std::collections::HashSet;
 

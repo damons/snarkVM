@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,9 @@
 // limitations under the License.
 
 #![forbid(unsafe_code)]
+
+#[cfg(test)]
+extern crate snarkvm_console as console;
 
 pub use modules::*;
 

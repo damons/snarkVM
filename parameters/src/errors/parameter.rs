@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,6 +57,6 @@ impl From<std::path::StripPrefixError> for ParameterError {
 
 impl From<ParameterError> for std::io::Error {
     fn from(error: ParameterError) -> Self {
-        std::io::Error::new(std::io::ErrorKind::Other, format!("{error:?}"))
+        std::io::Error::other(format!("{error:?}"))
     }
 }

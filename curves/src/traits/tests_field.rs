@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::Cursor;
+
 use snarkvm_fields::{
     FftField,
     Field,
@@ -22,7 +24,6 @@ use snarkvm_fields::{
     traits::{FftParameters, FieldParameters},
 };
 use snarkvm_utilities::{
-    io::Cursor,
     rand::TestRng,
     serialize::{CanonicalDeserialize, Flags, SWFlags},
 };
@@ -103,7 +104,7 @@ fn random_inversion_tests<F: Field, R: Rng>(rng: &mut R) {
 
     for _ in 0..ITERATIONS {
         let mut a = F::rand(rng);
-        let b = a.inverse().unwrap(); // probablistically nonzero
+        let b = a.inverse().unwrap(); // probabilistically nonzero
         a *= &b;
 
         assert_eq!(a, F::one());
@@ -198,7 +199,7 @@ fn random_string_tests<F: PrimeField>(rng: &mut TestRng) {
     assert!(F::from_str("00000000000").is_err());
 
     for _ in 0..ITERATIONS {
-        let n: u64 = rng.gen();
+        let n: u64 = rng.r#gen();
 
         let a = F::from_str(&format!("{n}")).map_err(|_| ()).unwrap();
         let b = F::from_bigint(n.into()).unwrap();

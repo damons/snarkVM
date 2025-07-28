@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -352,7 +352,7 @@ pub(crate) mod tests {
 
         for _ in 0..ITERATIONS {
             // Sample the epoch hash.
-            let epoch_hash = rng.gen();
+            let epoch_hash = rng.r#gen();
 
             // Initialize the register table.
             let mut register_table = RegisterTable::new();
@@ -379,7 +379,7 @@ pub(crate) mod tests {
 
         for _ in 0..ITERATIONS {
             // Sample the epoch hash.
-            let epoch_hash = rng.gen();
+            let epoch_hash = rng.r#gen();
 
             // Initialize the register table.
             let mut register_table = RegisterTable::new();
@@ -424,7 +424,7 @@ pub(crate) mod tests {
             let mut rng = TestRng::fixed(seed);
 
             // Sample the epoch hash.
-            let epoch_hash = rng.gen();
+            let epoch_hash = rng.r#gen();
 
             // Initialize the register table.
             let mut register_table = RegisterTable::new();

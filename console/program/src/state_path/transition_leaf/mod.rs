@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,6 +78,6 @@ mod test_helpers {
 
     pub(super) fn sample_leaf(rng: &mut TestRng) -> TransitionLeaf<CurrentNetwork> {
         // Construct a new leaf.
-        TransitionLeaf::new_with_version(rng.gen(), rng.gen(), Uniform::rand(rng))
+        TransitionLeaf::new_with_version(rng.r#gen(), rng.r#gen(), Uniform::rand(rng))
     }
 }

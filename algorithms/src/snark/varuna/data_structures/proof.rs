@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,13 +22,8 @@ use crate::{
 use ahp::prover::{FourthMessage, ThirdMessage};
 use snarkvm_curves::PairingEngine;
 use snarkvm_fields::PrimeField;
-use snarkvm_utilities::{
-    FromBytes,
-    ToBytes,
-    error,
-    io::{self, Read, Write},
-    serialize::*,
-};
+use snarkvm_utilities::{FromBytes, ToBytes, error, serialize::*};
+use std::io::{self, Read, Write};
 
 use std::collections::BTreeMap;
 

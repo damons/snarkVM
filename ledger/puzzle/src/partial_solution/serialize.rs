@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -74,7 +74,7 @@ mod tests {
         let address = Address::try_from(private_key)?;
 
         // Sample a new partial solution.
-        let expected = PartialSolution::new(rng.gen(), address, u64::rand(&mut rng)).unwrap();
+        let expected = PartialSolution::new(rng.r#gen(), address, u64::rand(&mut rng)).unwrap();
 
         // Serialize
         let expected_string = &expected.to_string();
@@ -95,7 +95,7 @@ mod tests {
         let address = Address::try_from(private_key)?;
 
         // Sample a new partial solution.
-        let expected = PartialSolution::new(rng.gen(), address, u64::rand(&mut rng)).unwrap();
+        let expected = PartialSolution::new(rng.r#gen(), address, u64::rand(&mut rng)).unwrap();
 
         // Serialize
         let expected_bytes = expected.to_bytes_le()?;

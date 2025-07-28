@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +47,7 @@ pub const fn number_of_bits_and_bytes(num_bits: usize) -> (usize, usize) {
 /// Return the number of bytes required to represent the given number of bits.
 #[inline]
 pub const fn number_of_bits_to_number_of_bytes(num_bits: usize) -> usize {
-    (num_bits + 7) / 8
+    num_bits.div_ceil(8)
 }
 
 #[test]

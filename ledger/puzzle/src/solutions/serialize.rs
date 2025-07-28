@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,7 +57,7 @@ pub(super) mod tests {
             let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
             let address = Address::try_from(private_key).unwrap();
 
-            let partial_solution = PartialSolution::new(rng.gen(), address, u64::rand(rng)).unwrap();
+            let partial_solution = PartialSolution::new(rng.r#gen(), address, u64::rand(rng)).unwrap();
             let solution = Solution::new(partial_solution, u64::rand(rng));
             solutions.push(solution);
         }

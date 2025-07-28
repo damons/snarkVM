@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ fn vanishing_polynomial_evaluation() {
         let domain = EvaluationDomain::<Fr>::new(coeffs).unwrap();
         let z = domain.vanishing_polynomial();
         for _ in 0..100 {
-            let point: Fr = rng.gen();
+            let point: Fr = rng.r#gen();
             assert_eq!(z.evaluate(point), domain.evaluate_vanishing_polynomial(point))
         }
     }

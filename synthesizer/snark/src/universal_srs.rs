@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,13 +18,13 @@ use super::*;
 #[derive(Clone)]
 pub struct UniversalSRS<N: Network> {
     /// The universal SRS parameter.
-    srs: Arc<OnceCell<varuna::UniversalSRS<N::PairingCurve>>>,
+    srs: Arc<OnceLock<varuna::UniversalSRS<N::PairingCurve>>>,
 }
 
 impl<N: Network> UniversalSRS<N> {
     /// Initializes the universal SRS.
     pub fn load() -> Result<Self> {
-        Ok(Self { srs: Arc::new(OnceCell::new()) })
+        Ok(Self { srs: Arc::new(OnceLock::new()) })
     }
 
     /// Returns the circuit proving and verifying key.
@@ -51,7 +51,9 @@ impl<N: Network> UniversalSRS<N> {
 impl<N: Network> FromBytes for UniversalSRS<N> {
     /// Reads the universal SRS from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
-        Ok(Self { srs: Arc::new(OnceCell::with_value(FromBytes::read_le(&mut reader)?)) })
+        let lock = OnceLock::new();
+        lock.set(FromBytes::read_le(&mut reader)?).unwrap();
+        Ok(Self { srs: Arc::new(lock) })
     }
 }
 

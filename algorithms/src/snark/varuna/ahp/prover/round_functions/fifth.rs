@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@ use snarkvm_fields::PrimeField;
 use snarkvm_utilities::{cfg_par_bridge, cfg_reduce};
 
 use itertools::Itertools;
-use rand_core::RngCore;
+use rand::RngCore;
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;

@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -82,7 +82,7 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Construct a new execution.
-        let expected = crate::transaction::execution::test_helpers::sample_execution(rng);
+        let expected = crate::transaction::execution::test_helpers::sample_execution(rng, 0);
 
         // Check the byte representation.
         let expected_bytes = expected.to_bytes_le()?;

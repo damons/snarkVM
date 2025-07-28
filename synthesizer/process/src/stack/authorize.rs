@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,14 +36,28 @@ impl<N: Network> Stack<N> {
         lap!(timer, "Retrieve the input types");
         // Set is_root to true.
         let is_root = true;
+        // Retrieve the program checksum, if the program has a constructor.
+        let program_checksum = match self.program().contains_constructor() {
+            true => Some(self.program_checksum_as_field()?),
+            false => None,
+        };
 
         // This is the root request and does not have a caller.
         let caller = None;
         // This is the root request and we do not have a root_tvk to pass on.
         let root_tvk = None;
         // Compute the request.
-        let request =
-            Request::sign(private_key, program_id, function_name, inputs, &input_types, root_tvk, is_root, rng)?;
+        let request = Request::sign(
+            private_key,
+            program_id,
+            function_name,
+            inputs,
+            &input_types,
+            root_tvk,
+            is_root,
+            program_checksum,
+            rng,
+        )?;
         lap!(timer, "Compute the request");
         // Initialize the authorization.
         let authorization = Authorization::new(request.clone());
@@ -51,6 +65,62 @@ impl<N: Network> Stack<N> {
         let call_stack = CallStack::Authorize(vec![request], *private_key, authorization.clone());
         // Construct the authorization from the function.
         let _response = self.execute_function::<A, R>(call_stack, caller, root_tvk, rng)?;
+        finish!(timer, "Construct the authorization from the function");
+
+        // Return the authorization.
+        Ok(authorization)
+    }
+
+    /// Authorizes a call to the program function for the given inputs.
+    /// Compared to `authorize`, this method does not check for circuit satisfiability of the request.
+    #[inline]
+    pub fn authorize_unchecked<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
+        &self,
+        private_key: &PrivateKey<N>,
+        function_name: impl TryInto<Identifier<N>>,
+        inputs: impl ExactSizeIterator<Item = impl TryInto<Value<N>>>,
+        rng: &mut R,
+    ) -> Result<Authorization<N>> {
+        let timer = timer!("Stack::authorize_unchecked");
+
+        // Get the program ID.
+        let program_id = *self.program.id();
+        // Prepare the function name.
+        let function_name = function_name.try_into().map_err(|_| anyhow!("Invalid function name"))?;
+        // Retrieve the input types.
+        let input_types = self.get_function(&function_name)?.input_types();
+        lap!(timer, "Retrieve the input types");
+        // Set is_root to true.
+        let is_root = true;
+
+        // This is the root request and does not have a caller.
+        let caller = None;
+        // This is the root request and we do not have a root_tvk to pass on.
+        let root_tvk = None;
+        // Retrieve the program checksum, if the program has a constructor.
+        let program_checksum = match self.program().contains_constructor() {
+            true => Some(self.program_checksum_as_field()?),
+            false => None,
+        };
+        // Compute the request.
+        let request = Request::sign(
+            private_key,
+            program_id,
+            function_name,
+            inputs,
+            &input_types,
+            root_tvk,
+            is_root,
+            program_checksum,
+            rng,
+        )?;
+        lap!(timer, "Compute the request");
+        // Initialize the authorization.
+        let authorization = Authorization::new(request.clone());
+        // Construct the call stack.
+        let call_stack = CallStack::Authorize(vec![request], *private_key, authorization.clone());
+        // Construct the authorization from the function.
+        let _response = self.evaluate_function::<A, R>(call_stack, caller, root_tvk, rng)?;
         finish!(timer, "Construct the authorization from the function");
 
         // Return the authorization.

@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,6 @@ use rand::{CryptoRng, Rng};
 use std::{borrow::Borrow, collections::BTreeMap, ops::Deref, sync::Arc};
 
 use crate::srs::UniversalProver;
-use snarkvm_utilities::println;
 
 /// The Varuna proof system.
 #[derive(Clone, Debug)]
@@ -304,6 +303,11 @@ where
             bail!(SNARKError::CircuitNotFound);
         }
 
+        // Make sure certificate is not hiding
+        if certificate.pc_proof.is_hiding() {
+            bail!("Certificate should not be hiding");
+        }
+
         // Initialize sponge.
         let mut sponge = Self::init_sponge_for_certificate(fs_parameters, verifying_key)?;
 
@@ -339,7 +343,6 @@ where
             &certificate.pc_proof,
             &mut sponge,
         )
-        .map_err(Into::into)
     }
 
     /// This is the main entrypoint for creating proofs.
@@ -800,7 +803,7 @@ where
             return Ok(false);
         }
 
-        let verifier_time = start_timer!(|| format!("Varuna::Verify with batch sizes: {:?}", batch_sizes));
+        let verifier_time = start_timer!(|| format!("Varuna::Verify with batch sizes: {batch_sizes:?}"));
 
         let first_round_info = AHPForR1CS::<E::Fr, SM>::first_round_polynomial_info(batch_sizes.iter());
 

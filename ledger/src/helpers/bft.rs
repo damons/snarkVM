@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,9 +16,9 @@
 #![allow(clippy::type_complexity)]
 
 use console::network::Network;
-use ledger_block::{Ratify, Transaction};
-use ledger_narwhal::{Transmission, TransmissionID};
-use ledger_puzzle::Solution;
+use snarkvm_ledger_block::{Ratify, Transaction};
+use snarkvm_ledger_narwhal::{Transmission, TransmissionID};
+use snarkvm_ledger_puzzle::Solution;
 
 use anyhow::{Result, bail, ensure};
 use std::collections::HashSet;

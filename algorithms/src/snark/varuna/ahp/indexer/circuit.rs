@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,7 +42,7 @@ pub struct CircuitId(pub [u8; 32]);
 impl std::fmt::Display for CircuitId {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for byte in self.0 {
-            write!(f, "{:02x}", byte)?;
+            write!(f, "{byte:02x}")?;
         }
         Ok(())
     }

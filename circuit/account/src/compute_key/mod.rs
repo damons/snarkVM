@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,6 @@ pub struct ComputeKey<A: Aleo> {
     sk_prf: Scalar<A>,
 }
 
-#[cfg(feature = "console")]
 impl<A: Aleo> Inject for ComputeKey<A> {
     type Primitive = console::ComputeKey<A::Network>;
 
@@ -69,7 +68,6 @@ impl<A: Aleo> ComputeKey<A> {
     }
 }
 
-#[cfg(feature = "console")]
 impl<A: Aleo> Eject for ComputeKey<A> {
     type Primitive = console::ComputeKey<A::Network>;
 
@@ -87,7 +85,7 @@ impl<A: Aleo> Eject for ComputeKey<A> {
     }
 }
 
-#[cfg(all(test, feature = "console"))]
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::{Circuit, helpers::generate_account};

@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +52,9 @@ impl<E: Environment> FromBits for Scalar<E> {
             }
 
             // Construct the scalar.
-            let scalar = Scalar { field: accumulator, bits_le: OnceCell::with_value(bits_le.to_vec()) };
+            let cell = OnceCell::new();
+            cell.set(bits_le.to_vec()).unwrap();
+            let scalar = Scalar { field: accumulator, bits_le: cell };
 
             // Retrieve the modulus & subtract by 1 as we'll check `bits_le` is less than or *equal* to this value.
             // (For advanced users) ScalarField::MODULUS - 1 is equivalent to -1 in the field.
@@ -77,7 +79,9 @@ impl<E: Environment> FromBits for Scalar<E> {
             }
 
             // Return the scalar.
-            Scalar { field: accumulator, bits_le: OnceCell::with_value(bits_le) }
+            let cell = OnceCell::new();
+            cell.set(bits_le.to_vec()).unwrap();
+            Scalar { field: accumulator, bits_le: cell }
         }
     }
 

@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ use snarkvm_utilities::{BitIteratorBE, cfg_iter, cfg_iter_mut, rand::Uniform};
 use anyhow::{Result, anyhow, ensure};
 use core::{marker::PhantomData, ops::Mul};
 use itertools::Itertools;
-use rand_core::RngCore;
+use rand::RngCore;
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;

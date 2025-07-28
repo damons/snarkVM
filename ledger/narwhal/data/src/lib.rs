@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+extern crate snarkvm_console as console;
 
 use console::prelude::*;
 
@@ -243,7 +245,7 @@ impl<'de, T: FromBytes + ToBytes + DeserializeOwned + Send + 'static> Deserializ
 mod tests {
     use super::*;
     use console::network::MainnetV0;
-    use ledger_block::Transaction;
+    use snarkvm_ledger_block::Transaction;
 
     #[test]
     fn test_to_checksum() {
@@ -251,12 +253,14 @@ mod tests {
 
         // Sample transactions
         let transactions = [
-            ledger_test_helpers::sample_deployment_transaction(true, rng),
-            ledger_test_helpers::sample_deployment_transaction(false, rng),
-            ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
-            ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
-            ledger_test_helpers::sample_fee_private_transaction(rng),
-            ledger_test_helpers::sample_fee_public_transaction(rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), true, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), false, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), true, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng, 0),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng, 0),
+            snarkvm_ledger_test_helpers::sample_fee_private_transaction(rng),
+            snarkvm_ledger_test_helpers::sample_fee_public_transaction(rng),
         ];
 
         for transaction in transactions.into_iter() {

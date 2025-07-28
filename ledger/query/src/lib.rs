@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,8 @@
 
 #![forbid(unsafe_code)]
 #![warn(clippy::cast_possible_truncation)]
+
+extern crate snarkvm_console as console;
 
 #[cfg_attr(feature = "async", macro_use)]
 extern crate async_trait;

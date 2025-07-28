@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ use console::{
     program::{HEADER_DEPTH, HeaderLeaf, HeaderPath, HeaderTree},
     types::Field,
 };
-use synthesizer_program::FinalizeOperation;
+use snarkvm_synthesizer_program::FinalizeOperation;
 
 /// The header for the block contains metadata that uniquely identifies the block.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

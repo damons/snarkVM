@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,8 @@
 #![warn(clippy::cast_possible_truncation)]
 #![allow(clippy::too_many_arguments)]
 
+extern crate snarkvm_console as console;
+
 mod bytes;
 mod serialize;
 mod string;
@@ -27,7 +29,7 @@ use console::{
     prelude::*,
     types::Field,
 };
-use narwhal_transmission_id::TransmissionID;
+use snarkvm_ledger_narwhal_transmission_id::TransmissionID;
 
 use indexmap::IndexSet;
 
@@ -257,7 +259,7 @@ pub mod test_helpers {
 
     /// Returns a sample batch header, sampled at random.
     pub fn sample_batch_header(rng: &mut TestRng) -> BatchHeader<CurrentNetwork> {
-        sample_batch_header_for_round(rng.gen(), rng)
+        sample_batch_header_for_round(rng.r#gen(), rng)
     }
 
     /// Returns a sample batch header with a given round; the rest is sampled at random.
@@ -295,8 +297,9 @@ pub mod test_helpers {
         // Sample the committee ID.
         let committee_id = Field::<CurrentNetwork>::rand(rng);
         // Sample transmission IDs.
-        let transmission_ids =
-            narwhal_transmission_id::test_helpers::sample_transmission_ids(rng).into_iter().collect::<IndexSet<_>>();
+        let transmission_ids = snarkvm_ledger_narwhal_transmission_id::test_helpers::sample_transmission_ids(rng)
+            .into_iter()
+            .collect::<IndexSet<_>>();
         // Checkpoint the timestamp for the batch.
         let timestamp = OffsetDateTime::now_utc().unix_timestamp();
         // Return the batch header.

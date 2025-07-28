@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,8 +29,10 @@ impl<N: Network> Process<N> {
 
         // Retrieve the stack.
         let stack = self.get_stack(request.program_id())?;
+        // Initialize an RNG.
+        let rng = &mut rand::thread_rng();
         // Evaluate the function.
-        let response = stack.evaluate_function::<A>(CallStack::evaluate(authorization)?, None);
+        let response = stack.evaluate_function::<A, _>(CallStack::evaluate(authorization)?, None, None, rng);
         lap!(timer, "Evaluate the function");
 
         finish!(timer);

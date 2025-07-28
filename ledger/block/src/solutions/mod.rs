@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,9 +19,9 @@ mod serialize;
 mod string;
 
 use console::{network::prelude::*, types::Field};
-use ledger_committee::Committee;
-use ledger_narwhal_batch_header::BatchHeader;
-use ledger_puzzle::{PuzzleSolutions, SolutionID};
+use snarkvm_ledger_committee::Committee;
+use snarkvm_ledger_narwhal_batch_header::BatchHeader;
+use snarkvm_ledger_puzzle::{PuzzleSolutions, SolutionID};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Solutions<N: Network> {

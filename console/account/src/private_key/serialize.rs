@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ impl<'de, N: Network> Deserialize<'de> for PrivateKey<N> {
             false => FromBytesDeserializer::<Self>::deserialize(
                 deserializer,
                 "private key",
-                (N::Scalar::size_in_bits() + 7) / 8,
+                N::Scalar::size_in_bits().div_ceil(8),
             ),
         }
     }

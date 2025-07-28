@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,7 +56,7 @@ impl<E: Environment, const DEPTH: u8> MerklePath<E, DEPTH> {
     }
 }
 
-#[cfg(all(test, feature = "console"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use snarkvm_circuit_algorithms::{BHP512, BHP1024, Poseidon2, Poseidon4};

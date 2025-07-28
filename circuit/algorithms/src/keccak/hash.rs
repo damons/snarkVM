@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -94,7 +94,7 @@ impl<E: Environment, const TYPE: u8, const VARIANT: usize> Keccak<E, TYPE, VARIA
 
         // Resize the input to a multiple of 8.
         let mut padded_input = input.to_vec();
-        padded_input.resize((input.len() + 7) / 8 * 8, Boolean::constant(false));
+        padded_input.resize(input.len().div_ceil(8) * 8, Boolean::constant(false));
 
         // Step 1: Append the bit "1" to the message.
         padded_input.push(Boolean::constant(true));
@@ -124,7 +124,7 @@ impl<E: Environment, const TYPE: u8, const VARIANT: usize> Keccak<E, TYPE, VARIA
 
         // Resize the input to a multiple of 8.
         let mut padded_input = input.to_vec();
-        padded_input.resize((input.len() + 7) / 8 * 8, Boolean::constant(false));
+        padded_input.resize(input.len().div_ceil(8) * 8, Boolean::constant(false));
 
         // Step 1: Append the "0x06" byte to the message.
         padded_input.push(Boolean::constant(false));
@@ -282,7 +282,7 @@ impl<E: Environment, const TYPE: u8, const VARIANT: usize> Keccak<E, TYPE, VARIA
     }
 }
 
-#[cfg(all(test, feature = "console"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use console::Rng;

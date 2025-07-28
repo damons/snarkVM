@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,15 +21,16 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Checks the given block is valid next block.
     pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
         let height = block.height();
+        let latest_block = self.latest_block();
+
+        // Check that this is actually the next block.
+        if height != latest_block.height() + 1 {
+            bail!("Block height is {height}, but expected {}", latest_block.height() + 1);
+        }
 
         // Ensure the block hash does not already exist.
         if self.contains_block_hash(&block.hash())? {
             bail!("Block hash '{}' already exists in the ledger", block.hash())
-        }
-
-        // Ensure the block height does not already exist.
-        if self.contains_block_height(block.height())? {
-            bail!("Block height '{height}' already exists in the ledger")
         }
 
         // Ensure the solutions do not already exist.
@@ -98,7 +99,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
         // Ensure the block is correct.
         let (expected_existing_solution_ids, expected_existing_transaction_ids) = block.verify(
-            &self.latest_block(),
+            &latest_block,
             self.latest_state_root(),
             &previous_committee_lookback,
             &committee_lookback,
@@ -107,6 +108,21 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             OffsetDateTime::now_utc().unix_timestamp(),
             ratified_finalize_operations,
         )?;
+
+        // Ensure that the provers are within their stake bounds.
+        if let Some(solutions) = block.solutions().deref() {
+            let mut accepted_solutions: IndexMap<Address<N>, u64> = IndexMap::new();
+            for solution in solutions.values() {
+                let prover_address = solution.address();
+                let num_accepted_solutions = *accepted_solutions.get(&prover_address).unwrap_or(&0);
+                // Check if the prover has reached their solution limit.
+                if self.is_solution_limit_reached(&prover_address, num_accepted_solutions) {
+                    bail!("Prover '{prover_address}' has reached their solution limit for the current epoch");
+                }
+                // Track the already accepted solutions.
+                *accepted_solutions.entry(prover_address).or_insert(0) += 1;
+            }
+        }
 
         // Ensure the certificates in the block subdag have met quorum requirements.
         self.check_block_subdag_quorum(block)?;
@@ -137,7 +153,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Check that leaves in the subdag point to batches in other blocks that are valid.
     ///
     /// This does not verify that the batches are signed correctly or that the edges are valid
-    /// (only point to the previous round), as those checks already happend when the node received the batch.
+    /// (only point to the previous round), as those checks already happened when the node received the batch.
     fn check_block_subdag_leaves(&self, block: &Block<N>) -> Result<()> {
         // Check if the block has a subdag.
         let Authority::Quorum(subdag) = block.authority() else {
@@ -166,7 +182,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             }
 
             // Ensure that the certificate is associated with a previous block.
-            if self.vm.block_store().get_block_for_certificate(prev_id)?.is_none() {
+            if !self.vm.block_store().contains_block_for_certificate(prev_id)? {
                 bail!(
                     "Batch(es) in the block point(s) to a certificate {prev_id} in round {prev_round} that is not associated with a previous block"
                 )

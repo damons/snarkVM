@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -73,8 +73,11 @@ impl<N: Network> Stack<N> {
             })
             .collect::<Result<IndexMap<_, _>>>()?;
 
+        // Set the record version.
+        let version = U8::<N>::rand(rng);
+
         // Return the record.
-        Record::<N, Plaintext<N>>::from_plaintext(owner, data, nonce)
+        Record::<N, Plaintext<N>>::from_plaintext(owner, data, nonce, version)
     }
 
     /// Samples an entry according to the given entry type.

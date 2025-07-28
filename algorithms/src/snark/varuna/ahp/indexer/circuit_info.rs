@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@ use crate::snark::varuna::{SNARKMode, ahp::AHPForR1CS};
 use anyhow::Result;
 use snarkvm_fields::PrimeField;
 use snarkvm_utilities::{ToBytes, serialize::*};
+use std::io;
 
 /// Information about the circuit, including the field of definition, the number
 /// of variables, the number of constraints, and the maximum number of non-zero

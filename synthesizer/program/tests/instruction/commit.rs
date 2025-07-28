@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,7 @@ use console::{
     prelude::*,
     program::{Identifier, Literal, LiteralType, Plaintext, Register, Value},
 };
+use snarkvm_synthesizer_process::{Process, Stack};
 use snarkvm_synthesizer_program::{
     CommitBHP256,
     CommitBHP512,
@@ -34,10 +35,9 @@ use snarkvm_synthesizer_program::{
     Opcode,
     Operand,
     Program,
-    RegistersLoad,
-    RegistersLoadCircuit,
+    RegistersCircuit as _,
+    RegistersTrait as _,
 };
-use synthesizer_process::{Process, Stack};
 
 type CurrentNetwork = MainnetV0;
 type CurrentAleo = AleoV0;

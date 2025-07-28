@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +16,8 @@
 #[macro_use]
 extern crate criterion;
 
-use console::{network::MainnetV0, prelude::*};
-use ledger_block::Block;
+use snarkvm_console::{network::MainnetV0, prelude::*};
+use snarkvm_ledger_block::Block;
 
 use criterion::Criterion;
 

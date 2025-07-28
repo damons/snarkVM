@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ use crate::{
     },
 };
 use anyhow::Result;
-use rand_core::RngCore;
+use rand::RngCore;
 use snarkvm_fields::PrimeField;
 use snarkvm_utilities::{ExecutionPool, cfg_into_iter, cfg_iter_mut, cfg_reduce};
 

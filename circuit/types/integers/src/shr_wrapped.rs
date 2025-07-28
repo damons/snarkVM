@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,9 +47,9 @@ impl<E: Environment, I: IntegerType, M: Magnitude> ShrWrapped<Integer<E, M>> for
 
                 match I::is_signed() {
                     // Sign-extend `self` by `shift_amount`.
-                    true => bits_le.extend(core::iter::repeat(self.msb().clone()).take(shift_amount)),
+                    true => bits_le.extend(core::iter::repeat_n(self.msb().clone(), shift_amount)),
                     // Zero-extend `self` by `shift_amount`.
-                    false => bits_le.extend(core::iter::repeat(Boolean::constant(false)).take(shift_amount)),
+                    false => bits_le.extend(core::iter::repeat_n(Boolean::constant(false), shift_amount)),
                 };
 
                 bits_le.reverse();

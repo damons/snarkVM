@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,17 +23,22 @@ use snarkvm_parameters::mainnet::PowersOfG;
 use snarkvm_utilities::{
     FromBytes,
     ToBytes,
-    borrow::Cow,
     error,
-    io::{Read, Write},
     serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate},
 };
 
 use crate::srs::{UniversalProver, UniversalVerifier};
 use anyhow::Result;
 use core::ops::{Add, AddAssign};
-use rand_core::RngCore;
-use std::{collections::BTreeMap, io, ops::Range, sync::Arc};
+use rand::RngCore;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    io,
+    io::{Read, Write},
+    ops::Range,
+    sync::Arc,
+};
 
 /// `UniversalParams` are the universal parameters for the KZG10 scheme.
 #[derive(Clone, Debug)]

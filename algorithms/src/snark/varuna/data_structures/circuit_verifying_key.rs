@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +15,9 @@
 
 use crate::{polycommit::sonic_pc, snark::varuna::ahp::indexer::*};
 use snarkvm_curves::PairingEngine;
-use snarkvm_utilities::{
-    FromBytes,
-    FromBytesDeserializer,
-    ToBytes,
-    ToBytesSerializer,
-    error,
+use snarkvm_utilities::{FromBytes, FromBytesDeserializer, ToBytes, ToBytesSerializer, error, serialize::*};
+use std::{
     io::{self, Read, Write},
-    serialize::*,
     string::String,
 };
 

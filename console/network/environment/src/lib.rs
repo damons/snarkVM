@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -89,8 +89,9 @@ pub mod prelude {
         cfg_zip_fold,
         error,
         has_duplicates,
-        io::{Read, Result as IoResult, Write},
     };
+
+    pub use std::io::{Read, Result as IoResult, Write};
 
     pub use core::{
         cmp::Ordering,

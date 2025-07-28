@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,7 @@ use console::{
     prelude::*,
     program::{Identifier, Plaintext, ProgramID, Value},
 };
-use ledger_committee::Committee;
+use snarkvm_ledger_committee::Committee;
 
 use aleo_std_storage::StorageMode;
 use indexmap::IndexSet;

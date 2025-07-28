@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,19 +19,14 @@ use crate::{
     traits::{AffineCurve, ProjectiveCurve, TwistedEdwardsParameters as Parameters},
 };
 use snarkvm_fields::{Field, One, PrimeField, SquareRootField, Zero};
-use snarkvm_utilities::{
-    FromBytes,
-    ToBytes,
-    bititerator::BitIteratorBE,
-    io::{Read, Result as IoResult, Write},
-    rand::Uniform,
-    serialize::*,
-};
+use snarkvm_utilities::{FromBytes, ToBytes, bititerator::BitIteratorBE, rand::Uniform, serialize::*};
 
-use core::{
+use std::{
     fmt::{Display, Formatter, Result as FmtResult},
+    io::{Read, Result as IoResult, Write},
     ops::{Mul, Neg},
 };
+
 use rand::{
     Rng,
     distributions::{Distribution, Standard},
@@ -305,7 +300,7 @@ impl<P: Parameters> Distribution<Affine<P>> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Affine<P> {
         loop {
             let x = P::BaseField::rand(rng);
-            let greatest = rng.gen();
+            let greatest = rng.r#gen();
 
             if let Some(p) = Affine::from_x_coordinate(x, greatest) {
                 return p.mul_by_cofactor();

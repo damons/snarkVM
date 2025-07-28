@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Aleo Network Foundation
+// Copyright (c) 2019-2025 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,8 +45,13 @@ impl<N: Network> Process<N> {
         let timer = timer!("Process::load_deployment");
 
         // Compute the program stack.
-        let stack = Stack::new(self, deployment.program())?;
+        let mut stack = Stack::new(self, deployment.program())?;
         lap!(timer, "Compute the stack");
+
+        // Set the program owner.
+        // Note: The program owner is only enforced to be `Some` after `ConsensusVersion::V9`
+        // and is `None` for all programs deployed before the `V9` migration.
+        stack.set_program_owner(deployment.program_owner());
 
         // Insert the verifying keys.
         for (function_name, (verifying_key, _)) in deployment.verifying_keys() {
