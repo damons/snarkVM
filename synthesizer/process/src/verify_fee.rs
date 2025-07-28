@@ -133,7 +133,10 @@ impl<N: Network> Process<N> {
                     #[cfg(not(any(test, feature = "test")))]
                     ensure!(record.version().is_zero(), "Output record must be Version 0 before Consensus V8");
                     #[cfg(any(test, feature = "test"))]
-                    ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
+                    ensure!(
+                        record.version().is_one(),
+                        "Output record must be Version 1 before Consensus V8  in tests."
+                    );
                 } else {
                     ensure!(record.version().is_one(), "Output record must be Version 1 on or after Consensus V8");
                 }
@@ -268,10 +271,12 @@ mod tests {
 
         // Fetch transactions.
         let transactions = [
-            snarkvm_ledger_test_helpers::sample_deployment_transaction(0, true, rng),
-            snarkvm_ledger_test_helpers::sample_deployment_transaction(0, false, rng),
-            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
-            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), true, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), false, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), true, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng, 0),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng, 0),
             snarkvm_ledger_test_helpers::sample_fee_private_transaction(rng),
             snarkvm_ledger_test_helpers::sample_fee_public_transaction(rng),
         ];
