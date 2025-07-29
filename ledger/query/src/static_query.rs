@@ -39,10 +39,10 @@ struct StaticQueryInput {
     height: u32,
 }
 
-impl<N: Network> TryFrom<&String> for StaticQuery<N> {
-    type Error = anyhow::Error;
+impl<N: Network> FromStr for StaticQuery<N> {
+    type Err = anyhow::Error;
 
-    fn try_from(s: &String) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self> {
         if !s.trim().starts_with('{') {
             return Err(anyhow!("Not a static query"));
         }
@@ -65,7 +65,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     /// Returns the current state root.
     #[cfg(feature = "async")]
     async fn current_state_root_async(&self) -> Result<N::StateRoot> {
-        unimplemented!();
+        unimplemented!("Async calls are not supported by StaticQuery");
     }
 
     /// Returns a state path for the given `commitment`.
@@ -79,7 +79,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     /// Returns a state path for the given `commitment`.
     #[cfg(feature = "async")]
     async fn get_state_path_for_commitment_async(&self, _commitment: &Field<N>) -> Result<StatePath<N>> {
-        unimplemented!();
+        unimplemented!("Async calls are not supported by StaticQuery");
     }
 
     /// Returns the current block height
@@ -90,7 +90,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     /// Returns the current block height
     #[cfg(feature = "async")]
     async fn current_block_height_async(&self) -> Result<u32> {
-        unimplemented!();
+        unimplemented!("Async calls are not supported by StaticQuery");
     }
 }
 
@@ -103,7 +103,7 @@ mod tests {
     fn test_static_query_parse() {
         let json = r#"{"state_root": "sr1dz06ur5spdgzkguh4pr42mvft6u3nwsg5drh9rdja9v8jpcz3czsls9geg", "height": 14}"#
             .to_string();
-        let res = StaticQuery::<TestnetV0>::try_from(&json);
-        assert!(res.is_ok());
+        let query: Result<StaticQuery<TestnetV0>> = json.parse();
+        assert!(query.is_ok());
     }
 }
