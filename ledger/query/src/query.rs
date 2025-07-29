@@ -114,7 +114,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
                 }
                 _ => bail!("Unsupported network ID in inclusion query"),
             },
-            Self::STATIC(_query) => unimplemented!("Async calls are not supported by StaticQuery"),
+            Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
     }
 
@@ -155,7 +155,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
                 }
                 _ => bail!("Unsupported network ID in inclusion query"),
             },
-            Self::STATIC(_query) => unimplemented!("Async calls are not supported by StaticQuery"),
+            Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
     }
 
@@ -196,7 +196,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
                 }
                 _ => bail!("Unsupported network ID in inclusion query"),
             },
-            Self::STATIC(_query) => unimplemented!("Async calls are not supported by StaticQuery"),
+            Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
     }
 }
