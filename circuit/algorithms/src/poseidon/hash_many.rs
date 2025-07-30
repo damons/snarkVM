@@ -165,6 +165,7 @@ impl<E: Environment, const RATE: usize> Poseidon<E, RATE> {
     /// Apply the Maximally Distance Separating (MDS) matrix in-place.
     #[inline]
     fn apply_mds(&self, state: &mut [Field<E>], new_state: &mut Vec<Field<E>>) {
+        new_state.clear();
         for i in 0..state.len() {
             let mut accumulator = Field::zero();
             for (j, element) in state.iter().enumerate() {
@@ -189,7 +190,6 @@ impl<E: Environment, const RATE: usize> Poseidon<E, RATE> {
             self.apply_ark(state, i);
             self.apply_s_box(state, is_full_round);
             self.apply_mds(state, &mut new_state);
-            new_state.clear();
         }
     }
 }
