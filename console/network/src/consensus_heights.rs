@@ -43,7 +43,7 @@ pub enum ConsensusVersion {
 
 impl ConsensusVersion {
     pub fn latest() -> Self {
-        last::<ConsensusVersion>().unwrap()
+        last::<ConsensusVersion>().expect("At least one ConsensusVersion should be defined.")
     }
 }
 
@@ -126,14 +126,15 @@ pub(crate) fn load_test_consensus_heights<N: crate::Network>() -> [(ConsensusVer
     // Check if we can read the heights from an environment variable.
     match std::env::var("CONSENSUS_VERSION_HEIGHTS") {
         Ok(height_string) => {
+            let parsing_error = format!("Expected exactly {NUM_CONSENSUS_VERSIONS} ConsensusVersion heights.");
             // Parse the heights from the environment variable.
             let parsed_test_consensus_heights: [u32; NUM_CONSENSUS_VERSIONS] = height_string
                 .replace(" ", "")
                 .split(",")
-                .map(|height| height.parse::<u32>().unwrap())
+                .map(|height| height.parse::<u32>().expect("Heights should be valid u32 values."))
                 .collect::<Vec<u32>>()
                 .try_into()
-                .unwrap();
+                .expect(&parsing_error);
             // Set the parsed heights in the test consensus heights.
             for (i, height) in parsed_test_consensus_heights.into_iter().enumerate() {
                 test_consensus_heights[i] = (N::TEST_CONSENSUS_VERSION_HEIGHTS[i].0, height);
