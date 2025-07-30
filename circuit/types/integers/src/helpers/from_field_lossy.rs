@@ -18,7 +18,7 @@ use super::*;
 impl<E: Environment, I: IntegerType> Integer<E, I> {
     /// Casts an integer from a base field, with lossy truncation.
     ///
-    /// This method is commonly-used by hash-to-integer algorithms,
+    /// This method is commonly used by hash-to-integer algorithms,
     /// where the hash output does not need to preserve the full base field.
     pub fn from_field_lossy(field: &Field<E>) -> Self {
         debug_assert!(I::BITS < E::BaseField::size_in_bits() as u64);

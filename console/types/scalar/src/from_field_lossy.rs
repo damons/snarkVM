@@ -18,7 +18,7 @@ use super::*;
 impl<E: Environment> Scalar<E> {
     /// Casts a scalar from a base field, with lossy truncation.
     ///
-    /// This method is commonly-used by hash-to-scalar algorithms,
+    /// This method is commonly used by hash-to-scalar algorithms,
     /// where the hash output does not need to preserve the full base field.
     pub fn from_field_lossy(field: &Field<E>) -> Self {
         debug_assert!(Scalar::<E>::size_in_bits() < Field::<E>::size_in_bits());
