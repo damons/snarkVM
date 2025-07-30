@@ -15,13 +15,13 @@
 
 mod utilities;
 
-use console::{
+use snarkvm_console::{
     account::PrivateKey,
     network::prelude::*,
     program::{Identifier, Literal, ProgramID, Value},
     types::Boolean,
 };
-use synthesizer_process::Process;
+use snarkvm_synthesizer_process::Process;
 use utilities::*;
 
 use rayon::prelude::*;
@@ -39,10 +39,12 @@ fn test_process_execute() {
         // Run the test.
         let output = run_test(process.clone(), test);
         // Check against the expected output.
-        if let Err(err) = test.check(&output) {
-            println!("Error running test: {}", err);
+        let res = test.check(&output);
+        if let Err(err) = &res {
+            println!("Error running test {:?}: {}", test.path(), err);
         }
-        // Save the output.
+        res.unwrap();
+        // Save the output when valid.
         test.save(&output).unwrap();
     });
 }
@@ -128,7 +130,7 @@ fn run_test(process: Process<CurrentNetwork>, test: &ProgramTest) -> serde_yaml:
 
                     let mut run_test = || -> serde_yaml::Value {
                         // Authorize the execution.
-                        let authorization = match process.authorize_checked::<CurrentAleo, _>(
+                        let authorization = match process.authorize::<CurrentAleo, _>(
                             &private_key,
                             program_id,
                             function_name,

@@ -13,58 +13,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, Registers, RegistersCall, StackEvaluate, StackExecute, stack::Address};
+use crate::{CallStack, Registers, Stack, stack::Address};
 use aleo_std::prelude::{finish, lap, timer};
 use console::{
     account::Field,
     network::prelude::*,
     program::{Register, Request, Value, ValueType},
 };
-use synthesizer_program::{
+use snarkvm_synthesizer_program::{
     Call,
     CallOperator,
     Operand,
-    RegistersLoad,
-    RegistersLoadCircuit,
-    RegistersSigner,
-    RegistersSignerCircuit,
-    RegistersStore,
-    RegistersStoreCircuit,
-    StackKeys,
-    StackMatches,
-    StackProgram,
+    RegistersCircuit as _,
+    RegistersSigner as _,
+    RegistersTrait as _,
+    StackTrait,
 };
 
-pub trait CallTrait<N: Network, R: CryptoRng + Rng> {
+pub trait CallTrait<N: Network> {
     /// Evaluates the instruction.
-    fn evaluate<A: circuit::Aleo<Network = N>>(
+    fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()>;
 
     /// Executes the instruction.
-    fn execute<A: circuit::Aleo<Network = N>>(
+    fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
-        registers: &mut (
-                 impl RegistersCall<N>
-                 + RegistersSigner<N>
-                 + RegistersSignerCircuit<N, A>
-                 + RegistersLoadCircuit<N, A>
-                 + RegistersStoreCircuit<N, A>
-             ),
+        stack: &Stack<N>,
+        registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()>;
 }
 
-impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
+impl<N: Network> CallTrait<N> for Call<N> {
     /// Evaluates the instruction.
     #[inline]
-    fn evaluate<A: circuit::Aleo<Network = N>>(
+    fn evaluate<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackMatches<N> + StackProgram<N>),
+        stack: &Stack<N>,
         registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()> {
@@ -126,12 +115,17 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
             let mut call_stack = registers.call_stack();
 
             // In Authorize mode, we need to compute the new request and push it onto the call stack.
-            if let CallStack::Authorize(ref mut requests, private_key, authorization) = &mut call_stack {
+            if let CallStack::Authorize(requests, private_key, authorization) = &mut call_stack {
                 // Set 'is_root'.
                 let is_root = false;
                 // Ensure that we have a private key to sign the new request.
                 let Some(private_key) = private_key else {
                     bail!("Cannot authorize a new function call without a private key.")
+                };
+                // Retrieve the program checksum, if the program has a constructor.
+                let program_checksum = match substack.program().contains_constructor() {
+                    true => Some(substack.program_checksum_as_field()?),
+                    false => None,
                 };
                 // Compute the request.
                 let request = Request::sign(
@@ -142,6 +136,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                     &function.input_types(),
                     root_tvk,
                     is_root,
+                    program_checksum,
                     rng,
                 )?;
                 // Add the request to the requests.
@@ -175,16 +170,10 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
 
     /// Executes the instruction.
     #[inline]
-    fn execute<A: circuit::Aleo<Network = N>>(
+    fn execute<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
-        stack: &(impl StackEvaluate<N> + StackExecute<N> + StackMatches<N> + StackKeys<N> + StackProgram<N>),
-        registers: &mut (
-                 impl RegistersCall<N>
-                 + RegistersSigner<N>
-                 + RegistersSignerCircuit<N, A>
-                 + RegistersLoadCircuit<N, A>
-                 + RegistersStoreCircuit<N, A>
-             ),
+        stack: &Stack<N>,
+        registers: &mut Registers<N, A>,
         rng: &mut R,
     ) -> Result<()> {
         let timer = timer!("Call::execute");
@@ -229,6 +218,12 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
 
         // If we are not handling the root request, retrieve the root request's tvk
         let root_tvk = registers.root_tvk().ok();
+
+        // Retrieve the program checksum, if the program has a constructor.
+        let program_checksum = match substack.program().contains_constructor() {
+            true => Some(substack.program_checksum_as_field()?),
+            false => None,
+        };
 
         // If the operator is a closure, retrieve the closure and compute the output.
         let outputs = if let Ok(closure) = substack.program().get_closure(resource) {
@@ -287,6 +282,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                             &function.input_types(),
                             root_tvk,
                             is_root,
+                            program_checksum,
                             rng,
                         )?;
 
@@ -315,6 +311,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                             &function.input_types(),
                             root_tvk,
                             is_root,
+                            program_checksum,
                             rng,
                         )?;
 
@@ -331,7 +328,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                         (request, response)
                     }
                     // In Synthesize mode (with an existing proving key) or CheckDeployment mode, we generate dummy outputs to avoid building a full sub-circuit.
-                    CallStack::Synthesize(_, private_key, _) | CallStack::CheckDeployment(_, private_key, ..) => {
+                    CallStack::Synthesize(_, private_key, ..) | CallStack::CheckDeployment(_, private_key, ..) => {
                         // Compute the request.
                         let request = Request::sign(
                             private_key,
@@ -341,6 +338,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                             &function.input_types(),
                             root_tvk,
                             is_root,
+                            program_checksum,
                             rng,
                         )?;
 
@@ -383,6 +381,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
 
                         // Execute the request.
                         let response = crate::Response::new(
+                            request.signer(),
                             request.network_id(),
                             substack.program().id(),
                             function.name(),
@@ -408,6 +407,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                             &function.input_types(),
                             root_tvk,
                             is_root,
+                            program_checksum,
                             rng,
                         )?;
 
@@ -510,6 +510,16 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
             A::assert(check_input_ids);
             lap!(timer, "Checked the input ids");
 
+            // Retrieve the output registers.
+            let output_registers = function
+                .outputs()
+                .iter()
+                .map(|output| match output.operand() {
+                    Operand::Register(register) => Some(register.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
             // Inject the outputs as `Mode::Private` (with the 'tcm' and output IDs as `Mode::Public`).
             let outputs = circuit::Response::process_outputs_from_callback(
                 &network_id,
@@ -520,6 +530,7 @@ impl<N: Network, R: CryptoRng + Rng> CallTrait<N, R> for Call<N> {
                 &tcm,
                 response.outputs().to_vec(),
                 &function.output_types(),
+                &output_registers,
             );
             lap!(timer, "Checked the outputs");
             // Return the circuit outputs.
