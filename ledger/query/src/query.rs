@@ -115,7 +115,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
         match self {
             Self::VM(block_store) => Ok(block_store.current_state_root()),
             Self::REST(url) => {
-                Ok(Self::get_request(&format!("{url}/{}/stateRoot/latest", N::SHORT_NAME))?.body_mut().read_json()?)
+                Ok(Self::get_request(&format!("{url}{}/stateRoot/latest", N::SHORT_NAME))?.body_mut().read_json()?)
             }
             Self::STATIC(query) => query.current_state_root(),
         }
@@ -127,7 +127,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
         match self {
             Self::VM(block_store) => Ok(block_store.current_state_root()),
             Self::REST(url) => {
-                Ok(Self::get_request_async(&format!("{url}/{}/stateRoot/latest", N::SHORT_NAME)).await?.json().await?)
+                Ok(Self::get_request_async(&format!("{url}{}/stateRoot/latest", N::SHORT_NAME)).await?.json().await?)
             }
             Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
@@ -137,7 +137,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     fn get_state_path_for_commitment(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         match self {
             Self::VM(block_store) => block_store.get_state_path_for_commitment(commitment),
-            Self::REST(url) => Ok(Self::get_request(&format!("{url}/{}/statePath/{commitment}", N::SHORT_NAME))?
+            Self::REST(url) => Ok(Self::get_request(&format!("{url}{}/statePath/{commitment}", N::SHORT_NAME))?
                 .body_mut()
                 .read_json()?),
             Self::STATIC(query) => query.get_state_path_for_commitment(commitment),
@@ -149,7 +149,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     async fn get_state_path_for_commitment_async(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         match self {
             Self::VM(block_store) => block_store.get_state_path_for_commitment(commitment),
-            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}/{}/statePath/{commitment}", N::SHORT_NAME))
+            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}{}/statePath/{commitment}", N::SHORT_NAME))
                 .await?
                 .json()
                 .await?),
@@ -161,9 +161,9 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     fn current_block_height(&self) -> Result<u32> {
         match self {
             Self::VM(block_store) => Ok(block_store.max_height().unwrap_or_default()),
-            Self::REST(url) => Ok(Self::get_request(&format!("{url}/{}/block/height/latest", N::SHORT_NAME))?
-                .body_mut()
-                .read_json()?),
+            Self::REST(url) => {
+                Ok(Self::get_request(&format!("{url}{}/block/height/latest", N::SHORT_NAME))?.body_mut().read_json()?)
+            }
             Self::STATIC(query) => query.current_block_height(),
         }
     }
@@ -173,7 +173,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     async fn current_block_height_async(&self) -> Result<u32> {
         match self {
             Self::VM(block_store) => Ok(block_store.max_height().unwrap_or_default()),
-            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}/{}/block/height/latest", N::SHORT_NAME))
+            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}{}/block/height/latest", N::SHORT_NAME))
                 .await?
                 .json()
                 .await?),
@@ -189,7 +189,7 @@ impl<N: Network, B: BlockStorage<N>> Query<N, B> {
             Self::VM(block_store) => block_store
                 .get_latest_program(program_id)?
                 .ok_or_else(|| anyhow!("Program {program_id} not found in storage")),
-            Self::REST(url) => Ok(Self::get_request(&format!("{url}/{}/program/{program_id}", N::SHORT_NAME))?
+            Self::REST(url) => Ok(Self::get_request(&format!("{url}{}/program/{program_id}", N::SHORT_NAME))?
                 .body_mut()
                 .read_json()?),
             Self::STATIC(_query) => unimplemented!("get_program is not supported by StaticQuery"),
@@ -203,7 +203,7 @@ impl<N: Network, B: BlockStorage<N>> Query<N, B> {
             Self::VM(block_store) => block_store
                 .get_latest_program(program_id)?
                 .ok_or_else(|| anyhow!("Program {program_id} not found in storage")),
-            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}/{}/program/{program_id}", N::SHORT_NAME))
+            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}{}/program/{program_id}", N::SHORT_NAME))
                 .await?
                 .json()
                 .await?),
