@@ -99,6 +99,10 @@ impl<N: Network, B: BlockStorage<N>> FromStr for Query<N, B> {
                 bail!("Invalid URL. No hostname given.");
             }
 
+            if uri.query().is_some() {
+                bail!("Query URL cannot contain a query");
+            }
+
             Ok(Self::REST(uri))
         }
     }
