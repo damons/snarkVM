@@ -54,10 +54,10 @@ workspace = true
 version = "0.1"
 
 [dependencies.serde]
-version = "1"
+workspace = true
 
 [dependencies.serde_json]
-version = "1"
+workspace = true
 features = [ "preserve_order" ]
 
 [dependencies.reqwest]

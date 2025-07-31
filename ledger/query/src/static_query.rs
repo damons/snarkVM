@@ -106,4 +106,12 @@ mod tests {
         let query: Result<StaticQuery<TestnetV0>> = json.parse();
         assert!(query.is_ok());
     }
+
+    #[test]
+    fn test_static_query_parse_invalid() {
+        let json = r#"{"invalid_key": "sr1dz06ur5spdgzkguh4pr42mvft6u3nwsg5drh9rdja9v8jpcz3czsls9geg", "height": 14}"#
+            .to_string();
+        let query: Result<StaticQuery<TestnetV0>> = json.parse();
+        assert!(query.is_err());
+    }
 }

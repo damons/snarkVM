@@ -22,15 +22,17 @@ use console::{
 use snarkvm_ledger_store::{BlockStorage, BlockStore};
 use snarkvm_synthesizer_program::Program;
 
+use anyhow::{Context, Result};
 // ureq re-exports the `http` crate.
-use ureq::http;
+use ureq::http::{self, uri};
 
 #[derive(Clone)]
 pub enum Query<N: Network, B: BlockStorage<N>> {
     /// The block store from the VM.
     VM(BlockStore<N, B>),
     /// The base URL of the node.
-    REST(String),
+    REST(http::Uri),
+    /// The local state to query.
     STATIC(StaticQuery<N>),
 }
 
@@ -46,31 +48,58 @@ impl<N: Network, B: BlockStorage<N>> From<&BlockStore<N, B>> for Query<N, B> {
     }
 }
 
-impl<N: Network, B: BlockStorage<N>> From<String> for Query<N, B> {
-    fn from(string_representation: String) -> Self {
-        match string_representation.parse::<StaticQuery<N>>() {
-            Ok(query) => Self::STATIC(query),
-            Err(_) => Self::REST(string_representation),
-        }
+impl<N: Network, B: BlockStorage<N>> TryFrom<String> for Query<N, B> {
+    type Error = anyhow::Error;
+
+    fn try_from(string_representation: String) -> Result<Self> {
+        Self::try_from(string_representation.as_str())
     }
 }
 
-impl<N: Network, B: BlockStorage<N>> From<&String> for Query<N, B> {
-    fn from(string_representation_ref: &String) -> Self {
-        let string_representation = string_representation_ref.to_string();
-        match string_representation.parse::<StaticQuery<N>>() {
-            Ok(query) => Self::STATIC(query),
-            Err(_) => Self::REST(string_representation),
-        }
+impl<N: Network, B: BlockStorage<N>> TryFrom<&String> for Query<N, B> {
+    type Error = anyhow::Error;
+
+    fn try_from(string_representation: &String) -> Result<Self> {
+        Self::try_from(string_representation.as_str())
     }
 }
 
-impl<N: Network, B: BlockStorage<N>> From<&str> for Query<N, B> {
-    fn from(str_representation_ref: &str) -> Self {
-        let string_representation = str_representation_ref.to_string();
-        match string_representation.parse::<StaticQuery<N>>() {
-            Ok(query) => Self::STATIC(query),
-            Err(_) => Self::REST(string_representation),
+impl<N: Network, B: BlockStorage<N>> TryFrom<&str> for Query<N, B> {
+    type Error = anyhow::Error;
+
+    fn try_from(str_representation: &str) -> Result<Self> {
+        str_representation.parse::<Self>()
+    }
+}
+
+impl<N: Network, B: BlockStorage<N>> FromStr for Query<N, B> {
+    type Err = anyhow::Error;
+
+    fn from_str(str_representation: &str) -> Result<Self> {
+        // A static query is represented as JSON and a valid URI does not start with `}`.
+        if str_representation.trim().starts_with('{') {
+            let static_query =
+                str_representation.parse::<StaticQuery<N>>().with_context(|| "Failed to parse static query")?;
+            Ok(Self::STATIC(static_query))
+        } else {
+            let uri = str_representation.parse::<http::Uri>().with_context(|| "Failed to parse URL")?;
+
+            if let Some(scheme) = uri.scheme()
+                && *scheme != uri::Scheme::HTTP
+                && *scheme != uri::Scheme::HTTPS
+            {
+                bail!("Invalid scheme in URL: {scheme}");
+            }
+
+            if let Some(s) = uri.host()
+                && s.is_empty()
+            {
+                bail!("Invalid URL. Empty hostname given.");
+            } else if uri.host().is_none() {
+                bail!("Invalid URL. No hostname given.");
+            }
+
+            Ok(Self::REST(uri))
         }
     }
 }
@@ -258,5 +287,58 @@ impl<N: Network, B: BlockStorage<N>> Query<N, B> {
     async fn get_request_async(url: &str) -> Result<reqwest::Response> {
         let response = reqwest::get(url).await?;
         if response.status() == http::StatusCode::OK { Ok(response) } else { bail!("Failed to fetch from {url}") }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use console::network::TestnetV0;
+
+    use snarkvm_ledger_store::helpers::memory::BlockMemory;
+
+    type CurrentNetwork = TestnetV0;
+    type CurrentQuery = Query<CurrentNetwork, BlockMemory<CurrentNetwork>>;
+
+    #[test]
+    fn test_static_query_parse() {
+        let json = r#"{"state_root": "sr1dz06ur5spdgzkguh4pr42mvft6u3nwsg5drh9rdja9v8jpcz3czsls9geg", "height": 14}"#
+            .to_string();
+        let query = CurrentQuery::try_from(json).unwrap();
+
+        assert!(matches!(query, Query::STATIC(_)));
+    }
+
+    #[test]
+    fn test_static_query_parse_invalid() {
+        let json = r#"{"invalid_key": "sr1dz06ur5spdgzkguh4pr42mvft6u3nwsg5drh9rdja9v8jpcz3czsls9geg", "height": 14}"#
+            .to_string();
+        let result = json.parse::<CurrentQuery>();
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rest_url_parse() {
+        let str = "http://localhost:3030";
+        let query = str.parse::<CurrentQuery>().unwrap();
+
+        assert!(matches!(query, Query::REST(_)));
+    }
+
+    #[test]
+    fn test_rest_url_parse_invalid_scheme() {
+        let str = "ftp://localhost:3030";
+        let result = CurrentQuery::try_from(str);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rest_url_parse_invalid_host() {
+        let str = "http://:3030";
+        let result = CurrentQuery::try_from(str);
+
+        assert!(result.is_err());
     }
 }
