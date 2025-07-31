@@ -48,6 +48,12 @@ impl<N: Network, B: BlockStorage<N>> From<&BlockStore<N, B>> for Query<N, B> {
     }
 }
 
+impl<N: Network, B: BlockStorage<N>> From<http::Uri> for Query<N, B> {
+    fn from(uri: http::Uri) -> Self {
+        Self::REST(uri)
+    }
+}
+
 impl<N: Network, B: BlockStorage<N>> TryFrom<String> for Query<N, B> {
     type Error = anyhow::Error;
 
