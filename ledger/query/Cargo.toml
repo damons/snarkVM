@@ -67,5 +67,5 @@ optional = true
 
 [dependencies.ureq]
 workspace = true
-features = [ "json" ]
+features = [ "json", "gzip", "rustls" ]
 optional = true
