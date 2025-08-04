@@ -300,7 +300,7 @@ where
             bail!("Circuit info mismatch, expected {:?}, got {:?}", verifying_key.circuit_info, state.index_info);
         }
         if state.id != *circuit_id {
-            bail!("Circuit ID mismatch, expected {:?}, got {:?}", circuit_id, state.id);
+            bail!("Circuit ID mismatch, expected {:?}, got {:?}.", circuit_id, state.id);
         }
 
         // Make sure certificate is not hiding
