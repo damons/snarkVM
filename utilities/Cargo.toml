@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-utilities"
-version = "3.8.0"
+version = "4.0.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "Utilities for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -21,7 +21,7 @@ categories = [
 ]
 include = [ "Cargo.toml", "src", "README.md", "LICENSE.md" ]
 license = "Apache-2.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies.snarkvm-utilities-derives]
 workspace = true
@@ -76,5 +76,4 @@ default = [ "derive" ]
 derive = [ "snarkvm-utilities-derives" ]
 dev-print = [ ]
 serial = [ "derive" ]
-std = [ ]
 wasm = [ ]
