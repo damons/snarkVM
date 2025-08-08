@@ -16,7 +16,7 @@
 use crate::QueryTrait;
 use console::{network::prelude::*, program::StatePath, types::Field};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, ensure};
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 
@@ -43,12 +43,9 @@ impl<N: Network> FromStr for StaticQuery<N> {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if !s.trim().starts_with('{') {
-            return Err(anyhow!("Not a static query"));
-        }
+        ensure!(s.trim().starts_with('{'), "Not a static query");
 
-        let input: StaticQueryInput =
-            serde_json::from_str(s).map_err(|e| anyhow!("Invalid JSON format in static query: {e}"))?;
+        let input: StaticQueryInput = serde_json::from_str(s).with_context(|| "Invalid JSON format in static query")?;
         let state_root = N::StateRoot::from_str(&input.state_root).map_err(|_| anyhow!("Invalid state root format"))?;
 
         Ok(Self { state_root, block_height: input.height, state_paths: HashMap::new() })
@@ -65,7 +62,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     /// Returns the current state root.
     #[cfg(feature = "async")]
     async fn current_state_root_async(&self) -> Result<N::StateRoot> {
-        unimplemented!("Async calls are not supported by StaticQuery");
+        self.current_state_root()
     }
 
     /// Returns a state path for the given `commitment`.
@@ -78,8 +75,8 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
 
     /// Returns a state path for the given `commitment`.
     #[cfg(feature = "async")]
-    async fn get_state_path_for_commitment_async(&self, _commitment: &Field<N>) -> Result<StatePath<N>> {
-        unimplemented!("Async calls are not supported by StaticQuery");
+    async fn get_state_path_for_commitment_async(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
+        self.get_state_path_for_commitment(commitment)
     }
 
     /// Returns the current block height
@@ -90,7 +87,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     /// Returns the current block height
     #[cfg(feature = "async")]
     async fn current_block_height_async(&self) -> Result<u32> {
-        unimplemented!("Async calls are not supported by StaticQuery");
+        self.current_block_height()
     }
 }
 
