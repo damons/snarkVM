@@ -16,7 +16,7 @@
 use crate::{QueryTrait, StaticQuery};
 use console::{
     network::prelude::*,
-    program::{ProgramID, StatePath},
+    program::{Address, Identifier, Literal, Plaintext, ProgramID, StatePath, Value},
     types::Field,
 };
 use snarkvm_ledger_block::Transaction;
@@ -185,6 +185,68 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
 }
 
 impl<N: Network, B: BlockStorage<N>> Query<N, B> {
+    /// Gets the public account balance of an Aleo Address (in microcredits).
+    pub fn get_public_balance(&self, address: &Address<N>) -> Result<u64> {
+        // Initialize the program id and account identifier.
+        let account_mapping = Identifier::<N>::from_str("account")?;
+        let credits = ProgramID::<N>::from_str("credits.aleo")?;
+
+        match self {
+            Self::VM(_block_store) => {
+                // TODO Query has only access to the block store, not the finalize store.
+                // this could easily be changed, but might break things downstream
+                todo!();
+            }
+            Self::REST(url) => {
+                // Send a request to the query node.
+                let result: Option<Value<N>> = Self::get_request(&format!(
+                    "{url}{}/program/{credits}/mapping/{account_mapping}/{address}",
+                    N::SHORT_NAME,
+                ))?;
+
+                // Return the balance in microcredits.
+                match result {
+                    Some(Value::Plaintext(Plaintext::Literal(Literal::<N>::U64(amount), _))) => Ok(*amount),
+                    Some(..) => bail!("Failed to deserialize balance for {address}"),
+                    None => Ok(0),
+                }
+            }
+            Self::STATIC(_query) => bail!("get_public_balance is not supported by StaticQuery"),
+        }
+    }
+
+    /// Gets the public account balance of an Aleo Address (in microcredits).
+    #[cfg(feature = "async")]
+    pub async fn get_public_balance_async(&self, address: &Address<N>) -> Result<u64> {
+        // Initialize the program id and account identifier.
+        let account_mapping = Identifier::<N>::from_str("account")?;
+        let credits = ProgramID::<N>::from_str("credits.aleo")?;
+
+        match self {
+            Self::VM(_block_store) => {
+                // TODO Query has only access to the block store, not the finalize store.
+                // this could easily be changed, but might break things downstream
+                todo!();
+            }
+            Self::REST(url) => {
+                // Send a request to the query node.
+                let result: Option<Value<N>> = Self::get_request_async(&format!(
+                    "{url}{}/program/{credits}/mapping/{account_mapping}/{address}",
+                    N::SHORT_NAME,
+                ))
+                .await?;
+
+                // Return the balance in microcredits.
+                match result {
+                    Some(Value::Plaintext(Plaintext::Literal(Literal::<N>::U64(amount), _))) => Ok(*amount),
+                    Some(..) => bail!("Failed to deserialize balance for {address}"),
+                    None => Ok(0),
+                }
+            }
+            Self::STATIC(_query) => bail!("get_public_balance is not supported by StaticQuery"),
+        }
+    }
+
     /// Returns the transaction for the given transaction ID.
     pub fn get_transaction(&self, transaction_id: &N::TransactionID) -> Result<Transaction<N>> {
         match self {
