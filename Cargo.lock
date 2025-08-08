@@ -3579,6 +3579,7 @@ dependencies = [
  "serde",
  "serde_json",
  "snarkvm-console",
+ "snarkvm-ledger-block",
  "snarkvm-ledger-store",
  "snarkvm-synthesizer-program",
  "ureq",

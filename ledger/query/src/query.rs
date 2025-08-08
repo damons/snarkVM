@@ -19,6 +19,7 @@ use console::{
     program::{ProgramID, StatePath},
     types::Field,
 };
+use snarkvm_ledger_block::Transaction;
 use snarkvm_ledger_store::{BlockStorage, BlockStore};
 use snarkvm_synthesizer_program::Program;
 
@@ -26,6 +27,7 @@ use anyhow::{Context, Result};
 // ureq re-exports the `http` crate.
 use ureq::http::{self, uri};
 
+/// Allows inspecting the state of the blockstain using either local state or a remote endpoint.
 #[derive(Clone)]
 pub enum Query<N: Network, B: BlockStorage<N>> {
     /// The block store from the VM.
@@ -36,24 +38,28 @@ pub enum Query<N: Network, B: BlockStorage<N>> {
     STATIC(StaticQuery<N>),
 }
 
+/// Initialize the `Query` object from a local `BlockStore`.
 impl<N: Network, B: BlockStorage<N>> From<BlockStore<N, B>> for Query<N, B> {
     fn from(block_store: BlockStore<N, B>) -> Self {
         Self::VM(block_store)
     }
 }
 
+/// Initialize the `Query` object from a local `BlockStore`.
 impl<N: Network, B: BlockStorage<N>> From<&BlockStore<N, B>> for Query<N, B> {
     fn from(block_store: &BlockStore<N, B>) -> Self {
         Self::VM(block_store.clone())
     }
 }
 
+/// Initialize the `Query` object from an endpoint URL. The URI should point to a snarkOS node's REST API.
 impl<N: Network, B: BlockStorage<N>> From<http::Uri> for Query<N, B> {
     fn from(uri: http::Uri) -> Self {
         Self::REST(uri)
     }
 }
 
+/// Initialize the `Query` object from an endpoint URL (passed as a string). The URI should point to a snarkOS node's REST API.
 impl<N: Network, B: BlockStorage<N>> TryFrom<String> for Query<N, B> {
     type Error = anyhow::Error;
 
@@ -62,6 +68,7 @@ impl<N: Network, B: BlockStorage<N>> TryFrom<String> for Query<N, B> {
     }
 }
 
+/// Initialize the `Query` object from an endpoint URL (passed as a string). The URI should point to a snarkOS node's REST API.
 impl<N: Network, B: BlockStorage<N>> TryFrom<&String> for Query<N, B> {
     type Error = anyhow::Error;
 
@@ -70,6 +77,7 @@ impl<N: Network, B: BlockStorage<N>> TryFrom<&String> for Query<N, B> {
     }
 }
 
+/// Initialize the `Query` object from an endpoint URL (passed as a string). The URI should point to a snarkOS node's REST API.
 impl<N: Network, B: BlockStorage<N>> TryFrom<&str> for Query<N, B> {
     type Error = anyhow::Error;
 
@@ -78,6 +86,7 @@ impl<N: Network, B: BlockStorage<N>> TryFrom<&str> for Query<N, B> {
     }
 }
 
+/// Initialize the `Query` object from an endpoint URL (passed as a string). The URI should point to a snarkOS node's REST API.
 impl<N: Network, B: BlockStorage<N>> FromStr for Query<N, B> {
     type Err = anyhow::Error;
 
@@ -120,9 +129,8 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     fn current_state_root(&self) -> Result<N::StateRoot> {
         match self {
             Self::VM(block_store) => Ok(block_store.current_state_root()),
-            Self::REST(url) => {
-                Ok(Self::get_request(&format!("{url}{}/stateRoot/latest", N::SHORT_NAME))?.body_mut().read_json()?)
-            }
+            Self::REST(url) => Self::get_request(&format!("{url}{}/stateRoot/latest", N::SHORT_NAME)),
+
             Self::STATIC(query) => query.current_state_root(),
         }
     }
@@ -132,9 +140,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     async fn current_state_root_async(&self) -> Result<N::StateRoot> {
         match self {
             Self::VM(block_store) => Ok(block_store.current_state_root()),
-            Self::REST(url) => {
-                Ok(Self::get_request_async(&format!("{url}{}/stateRoot/latest", N::SHORT_NAME)).await?.json().await?)
-            }
+            Self::REST(url) => Self::get_request_async(&format!("{url}{}/stateRoot/latest", N::SHORT_NAME)).await,
             Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
     }
@@ -143,9 +149,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     fn get_state_path_for_commitment(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         match self {
             Self::VM(block_store) => block_store.get_state_path_for_commitment(commitment),
-            Self::REST(url) => Ok(Self::get_request(&format!("{url}{}/statePath/{commitment}", N::SHORT_NAME))?
-                .body_mut()
-                .read_json()?),
+            Self::REST(url) => Self::get_request(&format!("{url}{}/statePath/{commitment}", N::SHORT_NAME)),
             Self::STATIC(query) => query.get_state_path_for_commitment(commitment),
         }
     }
@@ -155,10 +159,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     async fn get_state_path_for_commitment_async(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         match self {
             Self::VM(block_store) => block_store.get_state_path_for_commitment(commitment),
-            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}{}/statePath/{commitment}", N::SHORT_NAME))
-                .await?
-                .json()
-                .await?),
+            Self::REST(url) => Self::get_request_async(&format!("{url}{}/statePath/{commitment}", N::SHORT_NAME)).await,
             Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
     }
@@ -167,9 +168,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     fn current_block_height(&self) -> Result<u32> {
         match self {
             Self::VM(block_store) => Ok(block_store.max_height().unwrap_or_default()),
-            Self::REST(url) => {
-                Ok(Self::get_request(&format!("{url}{}/block/height/latest", N::SHORT_NAME))?.body_mut().read_json()?)
-            }
+            Self::REST(url) => Self::get_request(&format!("{url}{}/block/height/latest", N::SHORT_NAME)),
             Self::STATIC(query) => query.current_block_height(),
         }
     }
@@ -179,26 +178,78 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
     async fn current_block_height_async(&self) -> Result<u32> {
         match self {
             Self::VM(block_store) => Ok(block_store.max_height().unwrap_or_default()),
-            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}{}/block/height/latest", N::SHORT_NAME))
-                .await?
-                .json()
-                .await?),
+            Self::REST(url) => Self::get_request_async(&format!("{url}{}/block/height/latest", N::SHORT_NAME)).await,
             Self::STATIC(_query) => bail!("Async calls are not supported by StaticQuery"),
         }
     }
 }
 
 impl<N: Network, B: BlockStorage<N>> Query<N, B> {
+    /// Returns the transaction for the given transaction ID.
+    pub fn get_transaction(&self, transaction_id: &N::TransactionID) -> Result<Transaction<N>> {
+        match self {
+            Self::VM(block_store) => {
+                let txn = block_store.get_transaction(transaction_id)?;
+                txn.ok_or_else(|| anyhow!("Transaction {transaction_id} not in local storage"))
+            }
+            Self::REST(url) => Self::get_request(&format!("{url}{}/transaction/{transaction_id}", N::SHORT_NAME)),
+            Self::STATIC(_query) => bail!("get_transaction is not supported by StaticQuery"),
+        }
+    }
+
+    /// Returns the transaction for the given transaction ID.
+    #[cfg(feature = "async")]
+    pub async fn get_transaction_async(&self, transaction_id: &N::TransactionID) -> Result<Transaction<N>> {
+        match self {
+            Self::VM(block_store) => {
+                let txn = block_store.get_transaction(transaction_id)?;
+                txn.ok_or_else(|| anyhow!("Transaction {transaction_id} not in local storage"))
+            }
+            Self::REST(url) => {
+                Self::get_request_async(&format!("{url}{}/transaction/{transaction_id}", N::SHORT_NAME)).await
+            }
+            Self::STATIC(_query) => bail!("get_transaction is not supported by StaticQuery"),
+        }
+    }
+
+    /// Returns the unconfirmed transaction for the given transaction ID.
+    pub fn get_unconfirmed_transaction(&self, transaction_id: &N::TransactionID) -> Result<Transaction<N>> {
+        match self {
+            Self::VM(block_store) => {
+                let txn = block_store.get_unconfirmed_transaction(transaction_id)?;
+                txn.ok_or_else(|| anyhow!("Unconfirmed transaction {transaction_id}i not in local storage"))
+            }
+            Self::REST(url) => {
+                Self::get_request(&format!("{url}{}/transaction/unconfirmed/{transaction_id}", N::SHORT_NAME))
+            }
+            Self::STATIC(_query) => bail!("get_unconfirmed_transaction is not supported by StaticQuery"),
+        }
+    }
+
+    /// Returns the transaction for the given transaction ID.
+    #[cfg(feature = "async")]
+    pub async fn get_unconfirmed_transaction_async(&self, transaction_id: &N::TransactionID) -> Result<Transaction<N>> {
+        match self {
+            Self::VM(block_store) => {
+                let txn = block_store.get_unconfirmed_transaction(transaction_id)?;
+                txn.ok_or_else(|| anyhow!("Unconfirmed transaction {transaction_id} not in local storage"))
+            }
+            Self::REST(url) => {
+                Self::get_request_async(&format!("{url}{}/transaction/unconfirmed/{transaction_id}", N::SHORT_NAME))
+                    .await
+            }
+            Self::STATIC(_query) => bail!("get_unconfirmed_transaction_async is not supported by StaticQuery"),
+        }
+    }
+
     /// Returns the program for the given program ID.
     pub fn get_program(&self, program_id: &ProgramID<N>) -> Result<Program<N>> {
         match self {
             Self::VM(block_store) => block_store
                 .get_latest_program(program_id)?
                 .ok_or_else(|| anyhow!("Program {program_id} not found in storage")),
-            Self::REST(url) => Ok(Self::get_request(&format!("{url}{}/program/{program_id}", N::SHORT_NAME))?
-                .body_mut()
-                .read_json()?),
-            Self::STATIC(_query) => unimplemented!("get_program is not supported by StaticQuery"),
+            Self::REST(url) => Self::get_request(&format!("{url}{}/program/{program_id}", N::SHORT_NAME)),
+            Self::STATIC(_query) => bail!("get_program is not supported by StaticQuery"),
         }
     }
 
@@ -208,26 +259,32 @@ impl<N: Network, B: BlockStorage<N>> Query<N, B> {
         match self {
             Self::VM(block_store) => block_store
                 .get_latest_program(program_id)?
-                .ok_or_else(|| anyhow!("Program {program_id} not found in storage")),
-            Self::REST(url) => Ok(Self::get_request_async(&format!("{url}{}/program/{program_id}", N::SHORT_NAME))
-                .await?
-                .json()
-                .await?),
-            Self::STATIC(_query) => unimplemented!("get_program_async is not supported by StaticQuery"),
+                .with_context(|| format!("Program {program_id} not found in storage")),
+            Self::REST(url) => Self::get_request_async(&format!("{url}{}/program/{program_id}", N::SHORT_NAME)).await,
+            Self::STATIC(_query) => bail!("get_program_async is not supported by StaticQuery"),
         }
     }
 
-    /// Performs a GET request to the given URL.
-    fn get_request(url: &str) -> Result<http::Response<ureq::Body>> {
-        let response = ureq::get(url).call()?;
-        if response.status() == http::StatusCode::OK { Ok(response) } else { bail!("Failed to fetch from {url}") }
+    /// Performs a GET request to the given URL and deserializes returned JSON.
+    fn get_request<T: DeserializeOwned>(url: &str) -> Result<T> {
+        let mut response = ureq::get(url).call().with_context(|| format!("Failed to fetch from {url}"))?;
+        if response.status() != http::StatusCode::OK {
+            // NOTE: ureq will return an error in this case, but we are keeping the check just in case.
+            bail!("Failed to fetch from {url}: Server returned status {}", response.status());
+        }
+
+        response.body_mut().read_json().with_context(|| "Failed to parse JSON response")
     }
 
-    /// Performs a GET request to the given URL.
+    /// Performs a GET request to the given URL and deserializes returned JSON (async version).
     #[cfg(feature = "async")]
-    async fn get_request_async(url: &str) -> Result<reqwest::Response> {
-        let response = reqwest::get(url).await?;
-        if response.status() == http::StatusCode::OK { Ok(response) } else { bail!("Failed to fetch from {url}") }
+    async fn get_request_async<T: DeserializeOwned>(url: &str) -> Result<T> {
+        let response = reqwest::get(url).await.with_context(|| format!("Failed to fetch from {url}"))?;
+        if response.status() != http::StatusCode::OK {
+            bail!("Failed to fetch from {url}: Server returned status {}", response.status());
+        }
+
+        response.json().await.with_context(|| "Failed to parse JSON response")
     }
 }
 

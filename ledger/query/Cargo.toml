@@ -30,6 +30,7 @@ wasm = [
   "snarkvm-synthesizer-program/wasm"
 ]
 query = [
+  "dep:snarkvm-ledger-block",
   "dep:snarkvm-ledger-store",
   "dep:snarkvm-synthesizer-program",
   "dep:ureq",
@@ -38,6 +39,10 @@ query = [
 [dependencies.snarkvm-console]
 workspace = true
 features = [ "default" ]
+
+[dependencies.snarkvm-ledger-block]
+workspace = true
+optional = true
 
 [dependencies.snarkvm-ledger-store]
 workspace = true
