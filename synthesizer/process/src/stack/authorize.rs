@@ -127,7 +127,7 @@ impl<N: Network> Stack<N> {
         Ok(authorization)
     }
 
-    /// Authorizes calls to public credits.aleo functions for the given request.
+    /// Authorizes a call to a public functions for the given request.
     /// Compared to `authorize`, no private key is needed, but this only works for single public requests.
     #[inline]
     pub fn authorize_request<A: circuit::Aleo<Network = N>, R: Rng + CryptoRng>(
