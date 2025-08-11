@@ -94,4 +94,4 @@ workspace = true
 workspace = true
 
 [dev-dependencies.snarkvm-ledger-puzzle-epoch]
-workspace = true
+path = "epoch"

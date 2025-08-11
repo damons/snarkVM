@@ -43,7 +43,7 @@ version = "1"
 features = [ "rt" ]
 
 [dev-dependencies.snarkvm-ledger-block]
-workspace = true
+path = "../../../ledger/block"
 
 [dev-dependencies.snarkvm-ledger-test-helpers]
-workspace = true
+path = "../../../ledger/test-helpers"

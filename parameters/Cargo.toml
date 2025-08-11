@@ -97,23 +97,23 @@ optional = true
 version = "0.4.43"
 
 [dev-dependencies.snarkvm-algorithms]
-workspace = true
+path = "../algorithms"
+default-features = false
 
 [dev-dependencies.snarkvm-circuit]
-workspace = true
+path = "../circuit"
 
 [dev-dependencies.snarkvm-console]
-workspace = true
-features = [ "default" ]
+path = "../console"
 
 [dev-dependencies.snarkvm-ledger-block]
-workspace = true
+path = "../ledger/block"
 
 [dev-dependencies.snarkvm-ledger-store]
-workspace = true
+path = "../ledger/store"
 
 [dev-dependencies.snarkvm-synthesizer]
-workspace = true
+path = "../synthesizer"
 
 [dev-dependencies.wasm-bindgen-test]
 version = "0.3.37"

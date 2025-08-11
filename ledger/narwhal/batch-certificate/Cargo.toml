@@ -55,5 +55,5 @@ features = [ "preserve_order" ]
 workspace = true
 
 [dev-dependencies.snarkvm-ledger-narwhal-batch-certificate]
-workspace = true
+path = "."
 features = [ "test-helpers" ]

@@ -79,5 +79,5 @@ features = [ "test", "default" ]
 workspace = true
 
 [dev-dependencies.snarkvm-synthesizer-process]
-workspace = true
+path = "../process"
 features = [ "test" ]

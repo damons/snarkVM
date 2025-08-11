@@ -18,7 +18,7 @@ workspace = true
 workspace = true
 
 [dev-dependencies.snarkvm-circuit-network]
-workspace = true
+path = "../network"
 
 [dev-dependencies.snarkvm-console-algorithms]
 workspace = true

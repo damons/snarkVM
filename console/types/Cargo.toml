@@ -48,7 +48,7 @@ optional = true
 workspace = true
 
 [dev-dependencies.snarkvm-console-network]
-workspace = true
+path = "../network"
 
 [features]
 default = [

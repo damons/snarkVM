@@ -121,7 +121,7 @@ workspace = true
 features = [ "test-helpers" ]
 
 [dev-dependencies.snarkvm-ledger-test-helpers]
-workspace = true
+path = "../../ledger/test-helpers"
 
 [dev-dependencies.tempfile]
 workspace = true
