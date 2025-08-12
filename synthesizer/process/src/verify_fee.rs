@@ -263,7 +263,7 @@ impl<N: Network> Process<N> {
 mod tests {
     use super::*;
     use console::prelude::TestRng;
-    use ledger_block::Transaction;
+    use snarkvm_ledger_block::Transaction;
 
     #[test]
     fn test_verify_fee() {
@@ -271,12 +271,14 @@ mod tests {
 
         // Fetch transactions.
         let transactions = [
-            ledger_test_helpers::sample_deployment_transaction(0, true, rng),
-            ledger_test_helpers::sample_deployment_transaction(0, false, rng),
-            ledger_test_helpers::sample_execution_transaction_with_fee(true, rng),
-            ledger_test_helpers::sample_execution_transaction_with_fee(false, rng),
-            ledger_test_helpers::sample_fee_private_transaction(rng),
-            ledger_test_helpers::sample_fee_public_transaction(rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), true, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(1, Uniform::rand(rng), false, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), true, rng),
+            snarkvm_ledger_test_helpers::sample_deployment_transaction(2, Uniform::rand(rng), false, rng),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(true, rng, 0),
+            snarkvm_ledger_test_helpers::sample_execution_transaction_with_fee(false, rng, 0),
+            snarkvm_ledger_test_helpers::sample_fee_private_transaction(rng),
+            snarkvm_ledger_test_helpers::sample_fee_public_transaction(rng),
         ];
 
         // Construct a new process.

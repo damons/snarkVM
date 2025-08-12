@@ -15,13 +15,12 @@
 
 use super::*;
 
-impl<N: Network> StackEvaluate<N> for Stack<N> {
+impl<N: Network> Stack<N> {
     /// Evaluates a program closure on the given inputs.
     ///
     /// # Errors
     /// This method will halt if the given inputs are not the same length as the input statements.
-    #[inline]
-    fn evaluate_closure<A: circuit::Aleo<Network = N>>(
+    pub fn evaluate_closure<A: circuit::Aleo<Network = N>>(
         &self,
         closure: &Closure<N>,
         inputs: &[Value<N>],
@@ -38,7 +37,8 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         }
 
         // Initialize the registers.
-        let mut registers = Registers::<N, A>::new(call_stack, self.get_register_types(closure.name())?.clone());
+        let mut registers =
+            Registers::<N, A>::new(call_stack.clone(), self.get_register_types(closure.name())?.clone());
         // Set the transition signer.
         registers.set_signer(signer);
         // Set the transition caller.
@@ -85,6 +85,12 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a closure scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a closure scope."),
+                    // If the operand is the program checksum, throw an error.
+                    Operand::Checksum(_) => bail!("Cannot retrieve the program checksum from a closure scope."),
+                    // If the operand is the program edition, throw an error.
+                    Operand::Edition(_) => bail!("Cannot retrieve the edition from a closure scope."),
+                    // If the operand is the program owner, throw an error.
+                    Operand::ProgramOwner(_) => bail!("Cannot retrieve the program owner from a closure scope."),
                 }
             })
             .collect();
@@ -98,8 +104,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
     ///
     /// # Errors
     /// This method will halt if the given inputs are not the same length as the input statements.
-    #[inline]
-    fn evaluate_function<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
+    pub fn evaluate_function<A: circuit::Aleo<Network = N>, R: CryptoRng + Rng>(
         &self,
         mut call_stack: CallStack<N>,
         caller: Option<ProgramID<N>>,
@@ -147,6 +152,11 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
             None => (true, signer),
         };
         let tvk = *request.tvk();
+        // Retrieve the program checksum, if the program has a constructor.
+        let program_checksum = match self.program().contains_constructor() {
+            true => Some(self.program_checksum_as_field()?),
+            false => None,
+        };
 
         // Ensure the number of inputs matches.
         if function.inputs().len() != inputs.len() {
@@ -177,7 +187,7 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
         lap!(timer, "Initialize the registers");
 
         // Ensure the request is well-formed.
-        ensure!(request.verify(&function.input_types(), is_root), "[Evaluate] Request is invalid");
+        ensure!(request.verify(&function.input_types(), is_root, program_checksum), "[Evaluate] Request is invalid");
         lap!(timer, "Verify the request");
 
         // Store the inputs.
@@ -229,6 +239,12 @@ impl<N: Network> StackEvaluate<N> for Stack<N> {
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a function scope."),
                     // If the operand is the network id, throw an error.
                     Operand::NetworkID => bail!("Cannot retrieve the network ID from a function scope."),
+                    // If the operand is the program checksum, throw an error.
+                    Operand::Checksum(_) => bail!("Cannot retrieve the program checksum from a function scope."),
+                    // If the operand is the program edition, throw an error.
+                    Operand::Edition(_) => bail!("Cannot retrieve the edition from a function scope."),
+                    // If the operand is the program owner, throw an error.
+                    Operand::ProgramOwner(_) => bail!("Cannot retrieve the program owner from a function scope."),
                 }
             })
             .collect::<Result<Vec<_>>>()?;
