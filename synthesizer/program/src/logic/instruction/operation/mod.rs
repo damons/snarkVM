@@ -28,6 +28,9 @@ pub use cast::*;
 mod commit;
 pub use commit::*;
 
+mod ecdsa_verify;
+pub use ecdsa_verify::*;
+
 mod hash;
 pub use hash::*;
 

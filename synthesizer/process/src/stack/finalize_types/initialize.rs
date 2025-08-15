@@ -736,6 +736,7 @@ impl<N: Network> FinalizeTypes<N> {
                     "Instruction '{instruction}' has multiple destinations."
                 );
             }
+            Opcode::ECDSA(opcode) => RegisterTypes::check_ecdsa_opcode(opcode, instruction)?,
         }
         Ok(())
     }
