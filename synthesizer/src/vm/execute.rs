@@ -81,8 +81,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Compute the minimum execution cost.
                 let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
                 let (minimum_execution_cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
-                    true => execution_cost_v1(&self.process().read(), &execution)?,
-                    false => execution_cost_v2(&self.process().read(), &execution)?,
+                    ConsensusVersion::V1 => execution_cost_v1(&self.process().read(), &execution)?,
+                    ConsenseusVersion::V2 | ConsensusVersion::V3 | ConsensusVersion::V4 | ConsensusVersion::V5
+                    | ConsensusVersion::V6 | ConsensusVersion::V7 | ConsensusVersion::V8 | ConsensusVersion::V9 => {
+                        execution_cost_v2(&self.process().read(), &execution)?
+                    }
+                    _ => execution_cost_v3(&self.process().read(), &execution)?,
                 };
                 // Compute the execution ID.
                 let execution_id = execution.to_execution_id()?;
@@ -287,7 +291,13 @@ mod tests {
         types::Field,
     };
     use snarkvm_ledger_block::Transition;
-    use snarkvm_synthesizer_process::{ConsensusFeeVersion, cost_per_command, execution_cost_v2};
+    use snarkvm_synthesizer_process::{
+        ConsensusFeeVersion,
+        cost_per_command,
+        execution_cost_v1,
+        execution_cost_v2,
+        execution_cost_v3
+    };
     use snarkvm_synthesizer_program::StackTrait;
 
     use indexmap::IndexMap;
