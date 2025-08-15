@@ -22,8 +22,54 @@ use console::{
 use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
 
+// Cost reduction factor from ARC 0005.
+pub const COST_REDUCTION_FACTOR: u64 = 25;
+
+/// Returns the *minimum* cost in microcredits to publish the given deployment using the reduced synthesis cost (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
+pub fn deployment_cost_v2<N: Network>(
+    process: &Process<N>,
+    deployment: &Deployment<N>,
+) -> Result<(u64, (u64, u64, u64, u64))> {
+    // Determine the number of bytes in the deployment.
+    let size_in_bytes = deployment.size_in_bytes()?;
+    // Retrieve the program ID.
+    let program_id = deployment.program_id();
+    // Determine the number of characters in the program ID.
+    let num_characters = u32::try_from(program_id.name().to_string().len())?;
+    // Compute the number of combined variables in the program.
+    let num_combined_variables = deployment.num_combined_variables()?;
+    // Compute the number of combined constraints in the program.
+    let num_combined_constraints = deployment.num_combined_constraints()?;
+
+    // Compute the storage cost in microcredits.
+    let storage_cost = size_in_bytes
+        .checked_mul(N::DEPLOYMENT_FEE_MULTIPLIER)
+        .ok_or(anyhow!("The storage cost computation overflowed for a deployment"))?;
+
+    // Compute the synthesis cost in microcredits.
+    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER / COST_REDUCTION_FACTOR;
+
+    // Compute the constructor cost in microcredits.
+    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)? / COST_REDUCTION_FACTOR;
+
+    // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
+    let namespace_cost = 10u64
+        .checked_pow(10u32.saturating_sub(num_characters))
+        .ok_or(anyhow!("The namespace cost computation overflowed for a deployment"))?
+        .saturating_mul(1_000_000); // 1 microcredit = 1e-6 credits.
+
+    // Compute the total cost in microcredits.
+    let total_cost = storage_cost
+        .checked_add(synthesis_cost)
+        .and_then(|x| x.checked_add(constructor_cost))
+        .and_then(|x| x.checked_add(namespace_cost))
+        .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
+
+    Ok((total_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
+}
+
 /// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
-pub fn deployment_cost<N: Network>(
+pub fn deployment_cost_v1<N: Network>(
     process: &Process<N>,
     deployment: &Deployment<N>,
 ) -> Result<(u64, (u64, u64, u64, u64))> {
@@ -63,6 +109,26 @@ pub fn deployment_cost<N: Network>(
         .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
 
     Ok((total_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
+}
+
+/// Returns the *minimum* cost in microcredits to publish the given execution using the reduced finalize cost(total cost, (storage cost, finalize cost)).
+pub fn execution_cost_v3<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
+    // Compute the storage cost in microcredits.
+    let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
+
+    // Get the root transition.
+    let transition = execution.peek()?;
+
+    // Get the finalize cost for the root transition.
+    let stack = process.get_stack(transition.program_id())?;
+    let finalize_cost = cost_in_microcredits_v2(&stack, transition.function_name())? / COST_REDUCTION_FACTOR;
+
+    // Compute the total cost in microcredits.
+    let total_cost = storage_cost
+        .checked_add(finalize_cost)
+        .ok_or(anyhow!("The total cost computation overflowed for an execution"))?;
+
+    Ok((total_cost, (storage_cost, finalize_cost)))
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
@@ -565,10 +631,10 @@ function over_five_thousand:
         // Get execution and cost data.
         let execution_under_5000 = get_execution(&mut process, &program, &under_5000, ["2group"].into_iter());
         let execution_size_under_5000 = execution_under_5000.size_in_bytes().unwrap();
-        let (_, (storage_cost_under_5000, _)) = execution_cost_v2(&process, &execution_under_5000).unwrap();
+        let (_, (storage_cost_under_5000, _)) = execution_cost_v3(&process, &execution_under_5000).unwrap();
         let execution_over_5000 = get_execution(&mut process, &program, &over_5000, ["2group"].into_iter());
         let execution_size_over_5000 = execution_over_5000.size_in_bytes().unwrap();
-        let (_, (storage_cost_over_5000, _)) = execution_cost_v2(&process, &execution_over_5000).unwrap();
+        let (_, (storage_cost_over_5000, _)) = execution_cost_v3(&process, &execution_over_5000).unwrap();
 
         // Ensure the sizes are below and above the threshold respectively.
         assert!(execution_size_under_5000 < threshold);
@@ -651,24 +717,66 @@ function dummy:",
             let mut deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
             deployment_0.set_program_checksum_raw(Some(deployment_0.program().to_checksum()));
             deployment_0.set_program_owner_raw(Some(Address::rand(rng)));
-            assert_eq!(deployment_cost(&process, &deployment_0).unwrap(), (2532500, (879000, 603500, 50000, 1000000)));
+            assert_eq!(
+                deployment_cost_v1(&process, &deployment_0).unwrap(),
+                (2532500, (879000, 603500, 50000, 1000000))
+            );
 
             let mut deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
             deployment_1.set_program_checksum_raw(Some(deployment_1.program().to_checksum()));
             deployment_1.set_program_owner_raw(Some(Address::rand(rng)));
-            assert_eq!(deployment_cost(&process, &deployment_1).unwrap(), (2531500, (878000, 603500, 50000, 1000000)));
+            assert_eq!(
+                deployment_cost_v1(&process, &deployment_1).unwrap(),
+                (2531500, (878000, 603500, 50000, 1000000))
+            );
 
             let mut deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
             deployment_2.set_program_checksum_raw(Some(deployment_2.program().to_checksum()));
             deployment_2.set_program_owner_raw(Some(Address::rand(rng)));
-            assert_eq!(deployment_cost(&process, &deployment_2).unwrap(), (2696500, (911000, 603500, 182000, 1000000)));
+            assert_eq!(
+                deployment_cost_v1(&process, &deployment_2).unwrap(),
+                (2696500, (911000, 603500, 182000, 1000000))
+            );
 
             let mut deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
             deployment_3.set_program_checksum_raw(Some(deployment_3.program().to_checksum()));
             deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(
-                deployment_cost(&process, &deployment_3).unwrap(),
+                deployment_cost_v1(&process, &deployment_3).unwrap(),
                 (4186500, (943000, 603500, 1640000, 1000000))
+            );
+
+            // Verify the deployment costs with deployment_cost_v2.
+            let mut deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
+            deployment_0.set_program_checksum_raw(Some(deployment_0.program().to_checksum()));
+            deployment_0.set_program_owner_raw(Some(Address::rand(rng)));
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_0).unwrap(),
+                (1953140, (879000, 24140, 50000, 1000000))
+            );
+
+            let mut deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
+            deployment_1.set_program_checksum_raw(Some(deployment_1.program().to_checksum()));
+            deployment_1.set_program_owner_raw(Some(Address::rand(rng)));
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_1).unwrap(),
+                (1952140, (878000, 24140, 50000, 1000000))
+            );
+
+            let mut deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
+            deployment_2.set_program_checksum_raw(Some(deployment_2.program().to_checksum()));
+            deployment_2.set_program_owner_raw(Some(Address::rand(rng)));
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_2).unwrap(),
+                (2117140, (911000, 24140, 182000, 1000000))
+            );
+
+            let mut deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
+            deployment_3.set_program_checksum_raw(Some(deployment_3.program().to_checksum()));
+            deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_3).unwrap(),
+                (3607140, (943000, 24140, 1640000, 1000000))
             );
         }
 
