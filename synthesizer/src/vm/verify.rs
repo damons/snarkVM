@@ -385,12 +385,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rejected_id: Option<Field<N>>,
         is_partially_verified: bool,
     ) -> Result<()> {
+        let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
         match transaction {
             Transaction::Deploy(id, deployment_id, _, deployment, fee) => {
                 // Ensure the rejected ID is not present.
                 ensure!(rejected_id.is_none(), "Transaction '{id}' should not have a rejected ID (deployment)");
                 // Compute the minimum deployment cost.
-                let (cost, _) = deployment_cost(&self.process().read(), deployment)?;
+                let (cost, _) = match consensus_version < ConsensusVersion::V10 {
+                    true => deployment_cost_v1(&self.process().read(), deployment)?,
+                    false => deployment_cost_v2(&self.process().read(), deployment)?,
+                };
                 // Ensure the fee is sufficient to cover the cost.
                 if *fee.base_amount()? < cost {
                     bail!("Transaction '{id}' has an insufficient base fee (deployment) - requires {cost} microcredits")
@@ -410,7 +414,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     if is_fee_required {
                         // We are using execution_cost_v2 to compute the execution cost.
                         // Using `execution_cost_v2` is fine as a default because it is strictly cheaper than or equivalent to `execution_cost_v1`.
-                        let (cost, (_, _)) = execution_cost_v2(&self.process().read(), execution)?;
+                        let (minimum_execution_cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
+                            ConsensusVersion::V1 => execution_cost_v1(&self.process().read(), &execution)?,
+                            ConsensusVersion::V2 | ConsensusVersion::V3 | ConsensusVersion::V4 | ConsensusVersion::V5
+                            | ConsensusVersion::V6 | ConsensusVersion::V7 | ConsensusVersion::V8 | ConsensusVersion::V9 => {
+                                execution_cost_v2(&self.process().read(), &execution)?
+                            }
+                        };
+                    _ => execution_cost_v3(&self.process().read(), &execution)?,
+                };
                         // Ensure the cost does not exceed the transaction spend limit.
                         ensure!(
                             cost <= N::TRANSACTION_SPEND_LIMIT,
