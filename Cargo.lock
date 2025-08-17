@@ -3773,7 +3773,6 @@ dependencies = [
  "snarkvm-circuit",
  "snarkvm-console",
  "snarkvm-utilities",
- "tracing",
 ]
 
 [[package]]
