@@ -46,7 +46,7 @@ use crate::{
 use rand::RngCore;
 use snarkvm_curves::PairingEngine;
 use snarkvm_fields::{One, PrimeField, ToConstraintField, Zero};
-use snarkvm_utilities::{ToBytes, to_bytes_le};
+use snarkvm_utilities::{ToBytes, dev_eprintln, dev_println, to_bytes_le};
 
 use anyhow::{Result, anyhow, bail, ensure};
 use core::marker::PhantomData;
@@ -766,9 +766,7 @@ where
                         let mut new_input = Vec::with_capacity(input_len);
                         new_input.extend_from_slice(input);
                         new_input.resize(input_len, E::Fr::zero());
-                        if cfg!(debug_assertions) {
-                            println!("Number of padded public variables: {}", new_input.len());
-                        }
+                        dev_println!("Number of padded public variables: {}", new_input.len());
                         let unformatted = prover::ConstraintSystem::unformat_public_input(&new_input);
                         (new_input, unformatted)
                     })
@@ -796,7 +794,7 @@ where
             !proof.pc_proof.is_hiding() & comms.mask_poly.is_none()
         };
         if !proof_has_correct_zk_mode {
-            eprintln!(
+            dev_eprintln!(
                 "Found `mask_poly` in the first round when not expected, or proof has incorrect hiding mode ({})",
                 proof.pc_proof.is_hiding()
             );
@@ -1016,8 +1014,7 @@ where
         end_timer!(pc_time);
 
         if !evaluations_are_correct {
-            #[cfg(debug_assertions)]
-            eprintln!("SonicKZG10::Check failed using final challenge: {:?}", verifier_state.gamma);
+            dev_eprintln!("SonicKZG10::Check failed using final challenge: {:?}", verifier_state.gamma);
         }
 
         end_timer!(verifier_time, || format!(
