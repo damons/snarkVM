@@ -444,8 +444,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 } else {
                     // Ensure the fee can be safely skipped.
                     ensure!(!is_fee_required, "Transaction '{id}' is missing a fee (execution)");
-                }
-            }
+                    }
             // Note: This transaction type does not need to check the fee amount, because:
             //  1. The fee is guaranteed to be non-zero by the constructor of `Transaction::Fee`.
             //  2. The fee may be less that the deployment or execution cost, as this is a valid reason it was rejected.
