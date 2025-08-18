@@ -414,7 +414,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     if is_fee_required {
                         // We are using execution_cost_v2 to compute the execution cost.
                         // Using `execution_cost_v2` is fine as a default because it is strictly cheaper than or equivalent to `execution_cost_v1`.
-                        let (minimum_execution_cost, (_, _)) = match consensus_version {
+                        let (cost, (_, _)) = match consensus_version {
                             ConsensusVersion::V1 => execution_cost_v1(&self.process().read(), &execution)?,
                             ConsensusVersion::V2 | ConsensusVersion::V3 | ConsensusVersion::V4 | ConsensusVersion::V5
                             | ConsensusVersion::V6 | ConsensusVersion::V7 | ConsensusVersion::V8 | ConsensusVersion::V9 => {
@@ -422,7 +422,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             }
                             _ => execution_cost_v3(&self.process().read(), &execution)?,
                         };
-                    };
                         // Ensure the cost does not exceed the transaction spend limit.
                         ensure!(
                             cost <= N::TRANSACTION_SPEND_LIMIT,
@@ -444,7 +443,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 } else {
                     // Ensure the fee can be safely skipped.
                     ensure!(!is_fee_required, "Transaction '{id}' is missing a fee (execution)");
-                    }
+                }
+            }
             // Note: This transaction type does not need to check the fee amount, because:
             //  1. The fee is guaranteed to be non-zero by the constructor of `Transaction::Fee`.
             //  2. The fee may be less that the deployment or execution cost, as this is a valid reason it was rejected.
