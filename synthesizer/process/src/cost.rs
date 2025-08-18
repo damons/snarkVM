@@ -273,6 +273,42 @@ pub fn cost_per_command<N: Network>(
         }
         Command::Instruction(Instruction::DivWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::Double(_)) => Ok(500),
+        Command::Instruction(Instruction::ECDSAVerifyKeccak256(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak256Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak384(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak384Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak512(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak512Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_256(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_256Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_384(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_384Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_512(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_512Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
         Command::Instruction(Instruction::GreaterThan(_)) => Ok(500),
         Command::Instruction(Instruction::GreaterThanOrEqual(_)) => Ok(500),
         Command::Instruction(Instruction::HashBHP256(hash)) => {

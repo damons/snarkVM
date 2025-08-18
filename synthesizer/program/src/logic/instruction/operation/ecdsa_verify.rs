@@ -139,7 +139,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW
         //
         // // Store the output.
         // registers.store_literal(stack, &self.destination, output)
-        // TODO (raychu86): Implement the actual signature verification logic.
+        // TODO (raychu86): ECDSA - Implement the actual signature verification logic.
         unimplemented!()
     }
 
