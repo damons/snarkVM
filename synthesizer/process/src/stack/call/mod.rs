@@ -118,6 +118,10 @@ impl<N: Network> CallTrait<N> for Call<N> {
             if let CallStack::Authorize(requests, private_key, authorization) = &mut call_stack {
                 // Set 'is_root'.
                 let is_root = false;
+                // Ensure that we have a private key to sign the new request.
+                let Some(private_key) = private_key else {
+                    bail!("Cannot authorize a new function call without a private key.")
+                };
                 // Retrieve the program checksum, if the program has a constructor.
                 let program_checksum = match substack.program().contains_constructor() {
                     true => Some(substack.program_checksum_as_field()?),
@@ -265,6 +269,10 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 match registers.call_stack_ref() {
                     // If the circuit is in authorize mode, then add any external calls to the stack.
                     CallStack::Authorize(_, private_key, authorization) => {
+                        // Ensure that we have a private key to sign the new request.
+                        let Some(private_key) = private_key else {
+                            bail!("Cannot authorize a new function call without a private key.")
+                        };
                         // Compute the request.
                         let request = Request::sign(
                             private_key,

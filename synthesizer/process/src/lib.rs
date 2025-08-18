@@ -46,7 +46,18 @@ mod tests;
 use console::{
     account::PrivateKey,
     network::prelude::*,
-    program::{Identifier, Literal, Locator, Plaintext, ProgramID, Record, Response, Value, compute_function_id},
+    program::{
+        Identifier,
+        Literal,
+        Locator,
+        Plaintext,
+        ProgramID,
+        Record,
+        Request,
+        Response,
+        Value,
+        compute_function_id,
+    },
     types::{Field, U16, U64},
 };
 use snarkvm_algorithms::snark::varuna::VarunaVersion;
