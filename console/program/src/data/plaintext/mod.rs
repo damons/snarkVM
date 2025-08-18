@@ -24,6 +24,7 @@ mod parse;
 mod serialize;
 mod size_in_fields;
 mod to_bits;
+mod to_bits_raw;
 mod to_fields;
 
 use crate::{Access, Ciphertext, Identifier, Literal};
@@ -103,6 +104,7 @@ mod tests {
             assert_eq!(value, Plaintext::<CurrentNetwork>::from_str(&value.to_string()).unwrap());
             assert!(*value.is_equal(&value));
             assert!(*!value.is_not_equal(&value));
+            assert_eq!(value.to_bits_le()[2..], value.to_bits_raw_le());
         };
 
         let mut rng = TestRng::default();

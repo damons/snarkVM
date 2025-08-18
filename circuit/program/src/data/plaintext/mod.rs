@@ -26,6 +26,7 @@ mod from_fields;
 mod num_randomizers;
 mod size_in_fields;
 mod to_bits;
+mod to_bits_raw;
 mod to_fields;
 
 use crate::{Access, Ciphertext, Identifier, Literal, Visibility};
@@ -142,6 +143,7 @@ mod tests {
             assert_eq!(value.eject(), Plaintext::<Circuit>::from_fields(&value.to_fields()).eject());
             assert!(value.is_equal(&value).eject_value());
             assert!(!value.is_not_equal(&value).eject_value());
+            assert_eq!(value.to_bits_le().eject().1[2..], value.to_bits_raw_le().eject().1,);
         };
 
         let mut rng = TestRng::default();

@@ -19,6 +19,7 @@ mod find;
 mod parse;
 mod serialize;
 mod to_bits;
+mod to_bits_raw;
 mod to_fields;
 
 use crate::{Access, Argument, Entry, Future, Literal, Plaintext, Record};

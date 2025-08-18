@@ -16,6 +16,7 @@
 mod equal;
 mod find;
 mod to_bits;
+mod to_bits_raw;
 mod to_fields;
 
 use crate::{Access, Entry, Future, Plaintext, Record};

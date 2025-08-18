@@ -791,7 +791,7 @@ impl<N: Network> RegisterTypes<N> {
 
     /// Ensures the opcode is a valid opcode and corresponds to the `ecdsa.verify` instruction.
     #[inline]
-    pub(crate) fn check_ecdsa_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+    pub(crate) fn check_ecdsa_opcode(_opcode: &str, instruction: &Instruction<N>) -> Result<()> {
         // Ensure the instruction has one destination register.
         ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
         // TODO (raychu86): ECDSA - Implement the ecdsa opcode checks

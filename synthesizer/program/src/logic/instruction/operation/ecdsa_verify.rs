@@ -16,8 +16,7 @@
 use crate::{HashVariant, Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
-    program::{Literal, LiteralType, PlaintextType, Register, RegisterType},
-    types::Boolean,
+    program::{LiteralType, PlaintextType, Register, RegisterType},
 };
 
 /// The ECDSA signature verification instruction using Keccak256.
@@ -123,7 +122,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW
 
     /// Finalizes the instruction.
     #[inline]
-    pub fn finalize(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersTrait<N>) -> Result<()> {
+    pub fn finalize(&self, _stack: &impl StackTrait<N>, _registers: &mut impl RegistersTrait<N>) -> Result<()> {
         // // Ensure the number of operands is correct.
         // if self.operands.len() != 3 {
         //     bail!("Instruction '{}' expects 3 operands, found {} operands", Self::opcode(), self.operands.len())

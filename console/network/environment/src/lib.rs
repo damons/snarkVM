@@ -31,6 +31,7 @@ pub mod prelude {
         helpers::*,
         traits::{
             ToBits,
+            ToBitsRaw,
             algorithms::*,
             arithmetic::*,
             bitwise::*,
@@ -68,6 +69,7 @@ pub mod prelude {
         LimitedWriter,
         TestRng,
         ToBits as _,
+        ToBitsRaw as _,
         ToBytes,
         ToBytesSerializer,
         Uniform,
