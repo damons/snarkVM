@@ -29,6 +29,7 @@ use snarkvm_synthesizer_program::{
     RegistersTrait as _,
     StackTrait,
 };
+use snarkvm_utilities::dev_eprintln;
 
 pub trait CallTrait<N: Network> {
     /// Evaluates the instruction.
@@ -448,8 +449,7 @@ impl<N: Network> CallTrait<N> for Call<N> {
                             substack.execute_function::<A, R>(registers.call_stack(), console_caller, root_tvk, rng)?;
                         // Ensure the values are equal.
                         if console_response.outputs() != response.outputs() {
-                            #[cfg(debug_assertions)]
-                            eprintln!("\n{:#?} != {:#?}\n", console_response.outputs(), response.outputs());
+                            dev_eprintln!("\n{:#?} != {:#?}\n", console_response.outputs(), response.outputs());
                             bail!("Function '{}' outputs do not match in a 'call' instruction.", function.name())
                         }
                         // Return the request and response.
