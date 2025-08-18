@@ -148,7 +148,6 @@ dev-print = [
   "snarkvm-fields/dev-print",
   "snarkvm-parameters/dev-print",
   "snarkvm-synthesizer/dev-print",
-  "snarkvm-wasm/dev-print",
 ]
 save_r1cs_hashes = [ "snarkvm-circuit/save_r1cs_hashes" ]
 history = [ "snarkvm-synthesizer/history" ]
