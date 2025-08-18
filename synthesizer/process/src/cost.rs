@@ -47,10 +47,12 @@ pub fn deployment_cost_v2<N: Network>(
         .ok_or(anyhow!("The storage cost computation overflowed for a deployment"))?;
 
     // Compute the synthesis cost in microcredits.
-    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER / COST_REDUCTION_FACTOR;
+    let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER
+        / COST_REDUCTION_FACTOR;
 
     // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)? / COST_REDUCTION_FACTOR;
+    let constructor_cost =
+        constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)? / COST_REDUCTION_FACTOR;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -752,7 +754,7 @@ function dummy:",
             deployment_0.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(
                 deployment_cost_v2(&process, &deployment_0).unwrap(),
-                (1953140, (879000, 24140, 50000, 1000000))
+                (1905140, (879000, 24140, 2000, 1000000))
             );
 
             let mut deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
@@ -760,7 +762,7 @@ function dummy:",
             deployment_1.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(
                 deployment_cost_v2(&process, &deployment_1).unwrap(),
-                (1952140, (878000, 24140, 50000, 1000000))
+                (1904140, (878000, 24140, 2000, 1000000))
             );
 
             let mut deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
@@ -768,7 +770,7 @@ function dummy:",
             deployment_2.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(
                 deployment_cost_v2(&process, &deployment_2).unwrap(),
-                (2117140, (911000, 24140, 182000, 1000000))
+                (1942420, (911000, 24140, 7280, 1000000))
             );
 
             let mut deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
@@ -776,7 +778,7 @@ function dummy:",
             deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
             assert_eq!(
                 deployment_cost_v2(&process, &deployment_3).unwrap(),
-                (3607140, (943000, 24140, 1640000, 1000000))
+                (2032740, (943000, 24140, 65600, 1000000))
             );
         }
 

@@ -415,12 +415,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         // We are using execution_cost_v2 to compute the execution cost.
                         // Using `execution_cost_v2` is fine as a default because it is strictly cheaper than or equivalent to `execution_cost_v1`.
                         let (cost, (_, _)) = match consensus_version {
-                            ConsensusVersion::V1 => execution_cost_v1(&self.process().read(), &execution)?,
-                            ConsensusVersion::V2 | ConsensusVersion::V3 | ConsensusVersion::V4 | ConsensusVersion::V5
-                            | ConsensusVersion::V6 | ConsensusVersion::V7 | ConsensusVersion::V8 | ConsensusVersion::V9 => {
-                                execution_cost_v2(&self.process().read(), &execution)?
-                            }
-                            _ => execution_cost_v3(&self.process().read(), &execution)?,
+                            ConsensusVersion::V1 => execution_cost_v1(&self.process().read(), execution)?,
+                            ConsensusVersion::V2
+                            | ConsensusVersion::V3
+                            | ConsensusVersion::V4
+                            | ConsensusVersion::V5
+                            | ConsensusVersion::V6
+                            | ConsensusVersion::V7
+                            | ConsensusVersion::V8
+                            | ConsensusVersion::V9 => execution_cost_v2(&self.process().read(), execution)?,
+                            _ => execution_cost_v3(&self.process().read(), execution)?,
                         };
                         // Ensure the cost does not exceed the transaction spend limit.
                         ensure!(
