@@ -418,6 +418,21 @@ fn test_state_path() {
 }
 
 #[test]
+fn test_state_paths() {
+    let rng = &mut TestRng::default();
+
+    // Initialize the ledger.
+    let ledger = crate::test_helpers::sample_ledger(PrivateKey::<CurrentNetwork>::new(rng).unwrap(), rng);
+    // Retrieve the genesis block.
+    let block = ledger.get_block(0).unwrap();
+
+    // Construct the state path.
+    let commitments = block.transactions().commitments().copied().collect::<Vec<_>>();
+
+    let _state_paths = ledger.get_state_paths_for_commitments(&commitments).unwrap();
+}
+
+#[test]
 fn test_insufficient_private_fees() {
     let rng = &mut TestRng::default();
 

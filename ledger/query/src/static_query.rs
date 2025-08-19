@@ -72,7 +72,7 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     fn get_state_path_for_commitment(&self, commitment: &Field<N>) -> Result<StatePath<N>> {
         match self.state_paths.get(commitment) {
             Some(state_path) => Ok(state_path.clone()),
-            None => bail!("could not find state path for commitment '{commitment}'"),
+            None => bail!("Could not find state path for commitment '{commitment}'"),
         }
     }
 
@@ -80,6 +80,20 @@ impl<N: Network> QueryTrait<N> for StaticQuery<N> {
     #[cfg(feature = "async")]
     async fn get_state_path_for_commitment_async(&self, _commitment: &Field<N>) -> Result<StatePath<N>> {
         unimplemented!("Async calls are not supported by StaticQuery");
+    }
+
+    /// Returns a list of state paths for the given list of `commitment`s.
+    fn get_state_paths_for_commitments(&self, commitments: &[Field<N>]) -> Result<Vec<StatePath<N>>> {
+        commitments
+            .iter()
+            .map(|commitment| self.get_state_path_for_commitment(commitment))
+            .collect::<Result<Vec<StatePath<N>>>>()
+    }
+
+    /// Returns a list of state paths for the given list of `commitment`s.
+    #[cfg(feature = "async")]
+    async fn get_state_paths_for_commitments_async(&self, commitments: &[Field<N>]) -> Result<Vec<StatePath<N>>> {
+        self.get_state_paths_for_commitments(commitments)
     }
 
     /// Returns the current block height

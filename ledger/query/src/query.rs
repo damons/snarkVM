@@ -159,6 +159,70 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
         }
     }
 
+    /// Returns a list of state paths for the given list of `commitment`s.
+    fn get_state_paths_for_commitments(&self, commitments: &[Field<N>]) -> Result<Vec<StatePath<N>>> {
+        match self {
+            Self::VM(block_store) => block_store.get_state_paths_for_commitments(commitments),
+            Self::REST(url) => {
+                // Construct the comma separated string of commitments.
+                let commitments_string = commitments.iter().map(|cm| cm.to_string()).collect::<Vec<_>>().join(",");
+                match N::ID {
+                    console::network::MainnetV0::ID => {
+                        Ok(Self::get_request(&format!("{url}/mainnet/statePaths?commitments={commitments_string}"))?
+                            .body_mut()
+                            .read_json()?)
+                    }
+                    console::network::TestnetV0::ID => {
+                        Ok(Self::get_request(&format!("{url}/testnet/statePaths?commitments={commitments_string}"))?
+                            .body_mut()
+                            .read_json()?)
+                    }
+                    console::network::CanaryV0::ID => {
+                        Ok(Self::get_request(&format!("{url}/canary/statePaths?commitments={commitments_string}"))?
+                            .body_mut()
+                            .read_json()?)
+                    }
+                    _ => bail!("Unsupported network ID in inclusion query"),
+                }
+            }
+            Self::STATIC(query) => query.get_state_paths_for_commitments(commitments),
+        }
+    }
+
+    /// Returns a list of state paths for the given list of `commitment`s.
+    #[cfg(feature = "async")]
+    async fn get_state_paths_for_commitments_async(&self, commitments: &[Field<N>]) -> Result<Vec<StatePath<N>>> {
+        match self {
+            Self::VM(block_store) => block_store.get_state_paths_for_commitments(commitments),
+            Self::REST(url) => {
+                // Construct the comma separated string of commitments.
+                let commitments_string = commitments.iter().map(|cm| cm.to_string()).collect::<Vec<_>>().join(",");
+                match N::ID {
+                    console::network::MainnetV0::ID => Ok(Self::get_request_async(&format!(
+                        "{url}/mainnet/statePaths?commitments={commitments_string}"
+                    ))
+                    .await?
+                    .json()
+                    .await?),
+                    console::network::TestnetV0::ID => Ok(Self::get_request_async(&format!(
+                        "{url}/testnet/statePaths?commitments={commitments_string}"
+                    ))
+                    .await?
+                    .json()
+                    .await?),
+                    console::network::CanaryV0::ID => Ok(Self::get_request_async(&format!(
+                        "{url}/canary/statePaths?commitments={commitments_string}"
+                    ))
+                    .await?
+                    .json()
+                    .await?),
+                    _ => bail!("Unsupported network ID in inclusion query"),
+                }
+            }
+            Self::STATIC(query) => query.get_state_paths_for_commitments(commitments),
+        }
+    }
+
     /// Returns a state path for the given `commitment`.
     fn current_block_height(&self) -> Result<u32> {
         match self {
