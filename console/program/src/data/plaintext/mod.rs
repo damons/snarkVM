@@ -26,6 +26,7 @@ mod size_in_fields;
 mod to_bits;
 mod to_bits_raw;
 mod to_fields;
+mod to_fields_raw;
 
 use crate::{Access, Ciphertext, Identifier, Literal};
 use snarkvm_console_network::Network;

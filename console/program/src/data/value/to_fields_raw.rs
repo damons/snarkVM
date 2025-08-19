@@ -13,28 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::FieldTrait;
+use super::*;
 
-use anyhow::Result;
-
-/// Unary operator for converting to a base field.
-pub trait ToField {
-    type Field: FieldTrait;
-
-    /// Returns the object as a base field element.
-    fn to_field(&self) -> Result<Self::Field>;
-}
-
-/// Unary operator for converting to a list of base fields.
-pub trait ToFields {
-    type Field: FieldTrait;
-
-    /// Returns the object as a list of base field elements.
-    fn to_fields(&self) -> Result<Vec<Self::Field>>;
-}
-
-/// Unary operator for converting to a list of base fields.
-pub trait ToFieldsRaw: ToFields {
+impl<N: Network> ToFieldsRaw for Value<N> {
     /// Returns the object as a list of base field elements using the raw bits.
-    fn to_fields_raw(&self) -> Result<Vec<Self::Field>>;
+    #[inline]
+    fn to_fields_raw(&self) -> Result<Vec<Self::Field>> {
+        match self {
+            Self::Plaintext(plaintext) => plaintext.to_fields_raw(),
+            // Note: We use the standard `to_fields` for records and futures because they are Aleo-specific types.
+            Self::Record(record) => record.to_fields(),
+            Self::Future(future) => future.to_fields(),
+        }
+    }
 }

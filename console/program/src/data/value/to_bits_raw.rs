@@ -21,7 +21,7 @@ impl<N: Network> ToBitsRaw for Value<N> {
     fn write_bits_raw_le(&self, vec: &mut Vec<bool>) {
         match self {
             Self::Plaintext(plaintext) => plaintext.write_bits_raw_le(vec),
-            // Note: We use `write_bits_le` for records and futures to maintain consistency with the `ToBits` trait.
+            // Note: We use the standard `write_bits_le` for records and futures because they are Aleo-specific types.
             Self::Record(record) => record.write_bits_le(vec),
             Self::Future(future) => future.write_bits_le(vec),
         };
