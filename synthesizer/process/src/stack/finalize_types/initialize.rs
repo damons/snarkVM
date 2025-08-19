@@ -729,7 +729,7 @@ impl<N: Network> FinalizeTypes<N> {
                 ),
                 _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
             },
-            Opcode::Sign => {
+            Opcode::Sign(_) => {
                 // Ensure the instruction has one destination register.
                 ensure!(
                     instruction.destinations().len() == 1,

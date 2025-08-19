@@ -223,6 +223,8 @@ pub enum Instruction<N: Network> {
     HashSha3_384Raw(HashSha3_384Raw<N>),
     /// Performs a SHA-3 hash on the input's raw bits, outputting 512 bits.
     HashSha3_512Raw(HashSha3_512Raw<N>),
+    /// Computes whether `signature` is valid for the given `address` and raw `message`.
+    SignVerifyRaw(SignVerifyRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256.
     ECDSAVerifyKeccak256(ECDSAVerifyKeccak256<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256 and raw inputs.
@@ -360,6 +362,7 @@ macro_rules! instruction {
             HashSha3_256Raw,
             HashSha3_384Raw,
             HashSha3_512Raw,
+            SignVerifyRaw,
             ECDSAVerifyKeccak256,
             ECDSAVerifyKeccak256Raw,
             ECDSAVerifyKeccak384,

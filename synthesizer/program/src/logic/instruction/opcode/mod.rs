@@ -18,7 +18,7 @@ use console::network::prelude::*;
 /// The `Opcode` enum stores the mnemonic for the instruction.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Opcode {
-    /// The opcode is for a assert operation (i.e. `assert`).
+    /// The opcode is for an assert operation (i.e. `assert`).
     Assert(&'static str),
     /// The opcode is for an async call operation (i.e. `async`).
     Async,
@@ -37,7 +37,7 @@ pub enum Opcode {
     /// The opcode is for a literal operation (i.e. `add`).
     Literal(&'static str),
     /// The opcode is for signature verification (i.e. `sign.verify`).
-    Sign,
+    Sign(&'static str),
     /// The opcode is for ECDSA signature verification (i.e. `ecdsa.verify.keccak`).
     ECDSA(&'static str),
 }
@@ -57,7 +57,7 @@ impl Deref for Opcode {
             Opcode::Hash(opcode) => opcode,
             Opcode::Is(opcode) => opcode,
             Opcode::Literal(opcode) => opcode,
-            Opcode::Sign => &"sign.verify",
+            Opcode::Sign(opcode) => opcode,
             Opcode::ECDSA(opcode) => opcode,
         }
     }
@@ -83,7 +83,7 @@ impl Display for Opcode {
             Self::Hash(opcode) => write!(f, "{opcode}"),
             Self::Is(opcode) => write!(f, "{opcode}"),
             Self::Literal(opcode) => write!(f, "{opcode}"),
-            Self::Sign => write!(f, "{}", self.deref()),
+            Self::Sign(opcode) => write!(f, "{opcode}"),
             Self::ECDSA(opcode) => write!(f, "{opcode}"),
         }
     }
