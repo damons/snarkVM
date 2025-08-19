@@ -734,6 +734,9 @@ finalize test:
         let transaction =
             vm.execute(&caller_private_key, ("credits.aleo", "join"), inputs, None, 0, None, rng).unwrap();
 
+        // Verify the transaction.
+        vm.check_transaction(&transaction, None, rng).unwrap();
+
         // Assert the size of the transaction.
         let transaction_size_in_bytes = transaction.to_bytes_le().unwrap().len();
         assert_eq!(3571, transaction_size_in_bytes, "Update me if serialization has changed");
