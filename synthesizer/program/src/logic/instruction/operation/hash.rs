@@ -28,6 +28,15 @@ pub type HashBHP768<N> = HashInstruction<N, { HashVariant::HashBHP768 as u8 }>;
 /// BHP1024 is a collision-resistant hash function that processes inputs in 1024-bit chunks.
 pub type HashBHP1024<N> = HashInstruction<N, { HashVariant::HashBHP1024 as u8 }>;
 
+/// BHP256Raw is a collision-resistant hash function that processes the input's raw bits in 256-bit chunks.
+pub type HashBHP256Raw<N> = HashInstruction<N, { HashVariant::HashBHP256Raw as u8 }>;
+/// BHP512Raw is a collision-resistant hash function that processes the input's raw bits in 512-bit chunks.
+pub type HashBHP512Raw<N> = HashInstruction<N, { HashVariant::HashBHP512Raw as u8 }>;
+/// BHP768Raw is a collision-resistant hash function that processes the input's raw bits in 768-bit chunks.
+pub type HashBHP768Raw<N> = HashInstruction<N, { HashVariant::HashBHP768Raw as u8 }>;
+/// BHP1024Raw is a collision-resistant hash function that processes the input's raw bits in 1024-bit chunks.
+pub type HashBHP1024Raw<N> = HashInstruction<N, { HashVariant::HashBHP1024Raw as u8 }>;
+
 /// Keccak256 is a cryptographic hash function that outputs a 256-bit digest.
 pub type HashKeccak256<N> = HashInstruction<N, { HashVariant::HashKeccak256 as u8 }>;
 /// Keccak384 is a cryptographic hash function that outputs a 384-bit digest.
@@ -35,10 +44,22 @@ pub type HashKeccak384<N> = HashInstruction<N, { HashVariant::HashKeccak384 as u
 /// Keccak512 is a cryptographic hash function that outputs a 512-bit digest.
 pub type HashKeccak512<N> = HashInstruction<N, { HashVariant::HashKeccak512 as u8 }>;
 
+/// Keccak256Raw is a cryptographic hash function that outputs a 256-bit digest using the input's raw bits.
+pub type HashKeccak256Raw<N> = HashInstruction<N, { HashVariant::HashKeccak256Raw as u8 }>;
+/// Keccak384Raw is a cryptographic hash function that outputs a 384-bit digest using the input's raw bits.
+pub type HashKeccak384Raw<N> = HashInstruction<N, { HashVariant::HashKeccak384Raw as u8 }>;
+/// Keccak512Raw is a cryptographic hash function that outputs a 512-bit digest using the input's raw bits.
+pub type HashKeccak512Raw<N> = HashInstruction<N, { HashVariant::HashKeccak512Raw as u8 }>;
+
 /// Pedersen64 is a collision-resistant hash function that processes inputs in 64-bit chunks.
 pub type HashPED64<N> = HashInstruction<N, { HashVariant::HashPED64 as u8 }>;
 /// Pedersen128 is a collision-resistant hash function that processes inputs in 128-bit chunks.
 pub type HashPED128<N> = HashInstruction<N, { HashVariant::HashPED128 as u8 }>;
+
+/// Pedersen64Raw is a collision-resistant hash function that processes the input's raw bits in 64-bit chunks.
+pub type HashPED64Raw<N> = HashInstruction<N, { HashVariant::HashPED64Raw as u8 }>;
+/// Pedersen128Raw is a collision-resistant hash function that processes the input's raw bits in 128-bit chunks.
+pub type HashPED128Raw<N> = HashInstruction<N, { HashVariant::HashPED128Raw as u8 }>;
 
 /// Poseidon2 is a cryptographic hash function that processes inputs in 2-field chunks.
 pub type HashPSD2<N> = HashInstruction<N, { HashVariant::HashPSD2 as u8 }>;
@@ -47,12 +68,26 @@ pub type HashPSD4<N> = HashInstruction<N, { HashVariant::HashPSD4 as u8 }>;
 /// Poseidon8 is a cryptographic hash function that processes inputs in 8-field chunks.
 pub type HashPSD8<N> = HashInstruction<N, { HashVariant::HashPSD8 as u8 }>;
 
+/// Poseidon2Raw is a cryptographic hash function that processes the input's raw fields in 2-field chunks.
+pub type HashPSD2Raw<N> = HashInstruction<N, { HashVariant::HashPSD2Raw as u8 }>;
+/// Poseidon4Raw is a cryptographic hash function that processes the input's raw fields in 4-field chunks.
+pub type HashPSD4Raw<N> = HashInstruction<N, { HashVariant::HashPSD4Raw as u8 }>;
+/// Poseidon8Raw is a cryptographic hash function that processes the input's raw fields in 8-field chunks.
+pub type HashPSD8Raw<N> = HashInstruction<N, { HashVariant::HashPSD8Raw as u8 }>;
+
 /// SHA3-256 is a cryptographic hash function that outputs a 256-bit digest.
 pub type HashSha3_256<N> = HashInstruction<N, { HashVariant::HashSha3_256 as u8 }>;
 /// SHA3-384 is a cryptographic hash function that outputs a 384-bit digest.
 pub type HashSha3_384<N> = HashInstruction<N, { HashVariant::HashSha3_384 as u8 }>;
 /// SHA3-512 is a cryptographic hash function that outputs a 512-bit digest.
 pub type HashSha3_512<N> = HashInstruction<N, { HashVariant::HashSha3_512 as u8 }>;
+
+/// SHA3-256Raw is a cryptographic hash function that outputs a 256-bit digest using the input's raw bits.
+pub type HashSha3_256Raw<N> = HashInstruction<N, { HashVariant::HashSha3_256Raw as u8 }>;
+/// SHA3-384Raw is a cryptographic hash function that outputs a 384-bit digest using the input's raw bits.
+pub type HashSha3_384Raw<N> = HashInstruction<N, { HashVariant::HashSha3_384Raw as u8 }>;
+/// SHA3-512Raw is a cryptographic hash function that outputs a 512-bit digest using the input's raw bits.
+pub type HashSha3_512Raw<N> = HashInstruction<N, { HashVariant::HashSha3_512Raw as u8 }>;
 
 /// Poseidon2 is a cryptographic hash function that processes inputs in 2-field chunks.
 pub type HashManyPSD2<N> = HashInstruction<N, { HashVariant::HashManyPSD2 as u8 }>;
@@ -81,6 +116,22 @@ pub enum HashVariant {
     HashManyPSD2,
     HashManyPSD4,
     HashManyPSD8,
+    // The variants that hash the raw inputs.
+    HashBHP256Raw,
+    HashBHP512Raw,
+    HashBHP768Raw,
+    HashBHP1024Raw,
+    HashKeccak256Raw,
+    HashKeccak384Raw,
+    HashKeccak512Raw,
+    HashPED64Raw,
+    HashPED128Raw,
+    HashPSD2Raw,
+    HashPSD4Raw,
+    HashPSD8Raw,
+    HashSha3_256Raw,
+    HashSha3_384Raw,
+    HashSha3_512Raw,
 }
 
 /// Returns the expected number of operands given the variant.
@@ -161,7 +212,22 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
             15 => Opcode::Hash("hash_many.psd2"),
             16 => Opcode::Hash("hash_many.psd4"),
             17 => Opcode::Hash("hash_many.psd8"),
-            18.. => panic!("Invalid 'hash' instruction opcode"),
+            18 => Opcode::Hash("hash.bhp256.raw"),
+            19 => Opcode::Hash("hash.bhp512.raw"),
+            20 => Opcode::Hash("hash.bhp768.raw"),
+            21 => Opcode::Hash("hash.bhp1024.raw"),
+            22 => Opcode::Hash("hash.keccak256.raw"),
+            23 => Opcode::Hash("hash.keccak384.raw"),
+            24 => Opcode::Hash("hash.keccak512.raw"),
+            25 => Opcode::Hash("hash.ped64.raw"),
+            26 => Opcode::Hash("hash.ped128.raw"),
+            27 => Opcode::Hash("hash.psd2.raw"),
+            28 => Opcode::Hash("hash.psd4.raw"),
+            29 => Opcode::Hash("hash.psd8.raw"),
+            30 => Opcode::Hash("hash.sha3_256.raw"),
+            31 => Opcode::Hash("hash.sha3_384.raw"),
+            32 => Opcode::Hash("hash.sha3_512.raw"),
+            33.. => panic!("Invalid 'hash' instruction opcode"),
         }
     }
 
@@ -198,8 +264,10 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
 macro_rules! do_hash {
     ($N: ident, $variant: expr, $destination_type: expr, $input: expr, $ty: ty, $q: expr) => {{
         let bits = || $input.to_bits_le();
+        let bits_raw = || $input.to_bits_raw_le();
 
         let fields = || $q($input.to_fields());
+        let fields_raw = || $q($input.to_fields_raw());
 
         let literal_type = match $destination_type {
             PlaintextType::Literal(literal_type) => *literal_type,
@@ -229,7 +297,25 @@ macro_rules! do_hash {
             (15, _) => bail!("'hash_many.psd2' is not yet implemented"),
             (16, _) => bail!("'hash_many.psd4' is not yet implemented"),
             (17, _) => bail!("'hash_many.psd8' is not yet implemented"),
-            (18.., _) => bail!("Invalid 'hash' variant: {}", $variant),
+            (18, _) => $q($N::hash_to_group_bhp256(&bits_raw()))?.into(),
+            (19, _) => $q($N::hash_to_group_bhp512(&bits_raw()))?.into(),
+            (20, _) => $q($N::hash_to_group_bhp768(&bits_raw()))?.into(),
+            (21, _) => $q($N::hash_to_group_bhp1024(&bits_raw()))?.into(),
+            (22, _) => $q($N::hash_to_group_bhp256(&$q($N::hash_keccak256(&bits_raw()))?))?.into(),
+            (23, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_keccak384(&bits_raw()))?))?.into(),
+            (24, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_keccak512(&bits_raw()))?))?.into(),
+            (25, _) => $q($N::hash_to_group_ped64(&bits_raw()))?.into(),
+            (26, _) => $q($N::hash_to_group_ped128(&bits_raw()))?.into(),
+            (27, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd2(&fields_raw()?))?.into(),
+            (27, _) => $q($N::hash_psd2(&fields_raw()?))?.into(),
+            (28, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd4(&fields_raw()?))?.into(),
+            (28, _) => $q($N::hash_psd4(&fields_raw()?))?.into(),
+            (29, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd8(&fields_raw()?))?.into(),
+            (29, _) => $q($N::hash_psd8(&fields_raw()?))?.into(),
+            (30, _) => $q($N::hash_to_group_bhp256(&$q($N::hash_sha3_256(&bits_raw()))?))?.into(),
+            (31, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_sha3_384(&bits_raw()))?))?.into(),
+            (32, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_sha3_512(&bits_raw()))?))?.into(),
+            (33.., _) => bail!("Invalid 'hash' variant: {}", $variant),
         };
 
         literal_output.cast_lossy(literal_type)?
@@ -279,7 +365,7 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         stack: &impl StackTrait<N>,
         registers: &mut impl RegistersCircuit<N, A>,
     ) -> Result<()> {
-        use circuit::traits::{ToBits, ToFields};
+        use circuit::traits::{ToBits, ToBitsRaw, ToFields, ToFieldsRaw};
 
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, Self::opcode(), self.operands.len())?;
@@ -321,7 +407,8 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         match VARIANT {
             0..=14 => Ok(vec![RegisterType::Plaintext(self.destination_type.clone())]),
             15..=17 => bail!("'hash_many' is not yet implemented"),
-            18.. => bail!("Invalid 'hash' variant: {VARIANT}"),
+            18..=32 => Ok(vec![RegisterType::Plaintext(self.destination_type.clone())]),
+            33.. => bail!("Invalid 'hash' variant: {VARIANT}"),
         }
     }
 }
@@ -478,6 +565,14 @@ mod tests {
         for destination_type in valid_destination_types() {
             let instruction = format!("hash.bhp512 r0 into r1 as {destination_type}");
             let (string, hash) = HashBHP512::<CurrentNetwork>::parse(&instruction).unwrap();
+            assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+            assert_eq!(hash.operands.len(), 1, "The number of operands is incorrect");
+            assert_eq!(hash.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
+            assert_eq!(hash.destination, Register::Locator(1), "The destination register is incorrect");
+            assert_eq!(&hash.destination_type, destination_type, "The destination type is incorrect");
+
+            let instruction = format!("hash.bhp512.raw r0 into r1 as {destination_type}");
+            let (string, hash) = HashBHP512Raw::<CurrentNetwork>::parse(&instruction).unwrap();
             assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
             assert_eq!(hash.operands.len(), 1, "The number of operands is incorrect");
             assert_eq!(hash.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");

@@ -192,7 +192,37 @@ pub enum Instruction<N: Network> {
     Ternary(Ternary<N>),
     /// Performs a bitwise `xor` on `first` and `second`, storing the outcome in `destination`.
     Xor(Xor<N>),
-    // Note: The ECDSA verification instructions are added to the end of the enum to preserve the existing instruction indexes.
+    // Note: The following instructions are added to the end of the enum to preserve the existing instruction indexes.
+    /// Performs a BHP hash on the input's raw bits in 256-bit chunks.
+    HashBHP256Raw(HashBHP256Raw<N>),
+    /// Performs a BHP hash on the input's raw bits in 512-bit chunks.
+    HashBHP512Raw(HashBHP512Raw<N>),
+    /// Performs a BHP hash on the input's raw bits in 768-bit chunks.
+    HashBHP768Raw(HashBHP768Raw<N>),
+    /// Performs a BHP hash on the input's raw bits in 1024-bit chunks.
+    HashBHP1024Raw(HashBHP1024Raw<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 256 bits.
+    HashKeccak256Raw(HashKeccak256Raw<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 384 bits.
+    HashKeccak384Raw(HashKeccak384Raw<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 512 bits.
+    HashKeccak512Raw(HashKeccak512Raw<N>),
+    /// Performs a Pedersen hash on the input's raw bits up to a 64-bit input.
+    HashPED64Raw(HashPED64Raw<N>),
+    /// Performs a Pedersen hash on the input's raw bits up to a 128-bit input.
+    HashPED128Raw(HashPED128Raw<N>),
+    /// Performs a Poseidon hash on the input's raw fields with an input rate of 2.
+    HashPSD2Raw(HashPSD2Raw<N>),
+    /// Performs a Poseidon hash on the input's raw fields with an input rate of 4.
+    HashPSD4Raw(HashPSD4Raw<N>),
+    /// Performs a Poseidon hash on the input's raw fields with an input rate of 8.
+    HashPSD8Raw(HashPSD8Raw<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 256 bits.
+    HashSha3_256Raw(HashSha3_256Raw<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 384 bits.
+    HashSha3_384Raw(HashSha3_384Raw<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 512 bits.
+    HashSha3_512Raw(HashSha3_512Raw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256.
     ECDSAVerifyKeccak256(ECDSAVerifyKeccak256<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256 and raw inputs.
@@ -315,6 +345,21 @@ macro_rules! instruction {
             SubWrapped,
             Ternary,
             Xor,
+            HashBHP256Raw,
+            HashBHP512Raw,
+            HashBHP768Raw,
+            HashBHP1024Raw,
+            HashKeccak256Raw,
+            HashKeccak384Raw,
+            HashKeccak512Raw,
+            HashPED64Raw,
+            HashPED128Raw,
+            HashPSD2Raw,
+            HashPSD4Raw,
+            HashPSD8Raw,
+            HashSha3_256Raw,
+            HashSha3_384Raw,
+            HashSha3_512Raw,
             ECDSAVerifyKeccak256,
             ECDSAVerifyKeccak256Raw,
             ECDSAVerifyKeccak384,
