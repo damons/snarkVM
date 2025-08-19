@@ -13,49 +13,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{HashVariant, Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
+use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
     program::{LiteralType, PlaintextType, Register, RegisterType},
 };
 
 /// The ECDSA signature verification instruction using Keccak256.
-pub type ECDSAVerifyKeccak256<N> = ECDSAVerify<N, { HashVariant::HashKeccak256 as u8 }, false>;
+pub type ECDSAVerifyKeccak256<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256 as u8 }>;
 /// The ECDSA signature verification instruction using Keccak256 with raw inputs.
-pub type ECDSAVerifyKeccak256Raw<N> = ECDSAVerify<N, { HashVariant::HashKeccak256 as u8 }, true>;
+pub type ECDSAVerifyKeccak256Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256Raw as u8 }>;
 /// The ECDSA signature verification instruction using Keccak384.
-pub type ECDSAVerifyKeccak384<N> = ECDSAVerify<N, { HashVariant::HashKeccak384 as u8 }, false>;
+pub type ECDSAVerifyKeccak384<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak384 as u8 }>;
 /// The ECDSA signature verification instruction using Keccak384 with raw inputs.
-pub type ECDSAVerifyKeccak384Raw<N> = ECDSAVerify<N, { HashVariant::HashKeccak384 as u8 }, true>;
+pub type ECDSAVerifyKeccak384Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak384Raw as u8 }>;
 /// The ECDSA signature verification instruction using Keccak512.
-pub type ECDSAVerifyKeccak512<N> = ECDSAVerify<N, { HashVariant::HashKeccak512 as u8 }, false>;
+pub type ECDSAVerifyKeccak512<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak512 as u8 }>;
 /// The ECDSA signature verification instruction using Keccak512 with raw inputs.
-pub type ECDSAVerifyKeccak512Raw<N> = ECDSAVerify<N, { HashVariant::HashKeccak512 as u8 }, true>;
+pub type ECDSAVerifyKeccak512Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak512Raw as u8 }>;
 
 /// The ECDSA signature verification instruction using SHA3-256.
-pub type ECDSAVerifySha3_256<N> = ECDSAVerify<N, { HashVariant::HashSha3_256 as u8 }, false>;
+pub type ECDSAVerifySha3_256<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_256 as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-256 with raw inputs.
-pub type ECDSAVerifySha3_256Raw<N> = ECDSAVerify<N, { HashVariant::HashSha3_256 as u8 }, true>;
+pub type ECDSAVerifySha3_256Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_256Raw as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-384.
-pub type ECDSAVerifySha3_384<N> = ECDSAVerify<N, { HashVariant::HashSha3_384 as u8 }, false>;
+pub type ECDSAVerifySha3_384<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_384 as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-384 with raw inputs.
-pub type ECDSAVerifySha3_384Raw<N> = ECDSAVerify<N, { HashVariant::HashSha3_384 as u8 }, true>;
+pub type ECDSAVerifySha3_384Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_384Raw as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-512.
-pub type ECDSAVerifySha3_512<N> = ECDSAVerify<N, { HashVariant::HashSha3_512 as u8 }, false>;
+pub type ECDSAVerifySha3_512<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512 as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-512 with raw inputs.
-pub type ECDSAVerifySha3_512Raw<N> = ECDSAVerify<N, { HashVariant::HashSha3_512 as u8 }, true>;
+pub type ECDSAVerifySha3_512Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512Raw as u8 }>;
+
+/// Which hash function to use.
+pub enum ECDSAVerifyVariant {
+    HashKeccak256,
+    HashKeccak256Raw,
+    HashKeccak384,
+    HashKeccak384Raw,
+    HashKeccak512,
+    HashKeccak512Raw,
+    HashSha3_256,
+    HashSha3_256Raw,
+    HashSha3_384,
+    HashSha3_384Raw,
+    HashSha3_512,
+    HashSha3_512Raw,
+}
 
 /// Computes whether `signature` is valid for the given `address` and `message`.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct ECDSAVerify<N: Network, const VARIANT: u8, const RAW: bool> {
+pub struct ECDSAVerify<N: Network, const VARIANT: u8> {
     /// The operands.
     operands: Vec<Operand<N>>,
     /// The destination register.
     destination: Register<N>,
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW> {
-    /// Initializes a new `sign.verify` instruction.
+impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
+    /// Initializes a new `ecdsa.verify` instruction.
     #[inline]
     pub fn new(operands: Vec<Operand<N>>, destination: Register<N>) -> Result<Self> {
         // Sanity check the number of operands.
@@ -67,21 +83,19 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW
     /// Returns the opcode.
     #[inline]
     pub const fn opcode() -> Opcode {
-        // Helper macro to add the raw suffix to the opcode name if needed.
-        macro_rules! op_name {
-            ($base:literal, $raw:expr) => {
-                if $raw { concat!($base, ".raw") } else { $base }
-            };
-        }
-
-        // Determine the opcode name based on the variant and raw flag.
         let name = match VARIANT {
-            4 => op_name!("ecdsa.verify.keccak256", RAW),
-            5 => op_name!("ecdsa.verify.keccak384", RAW),
-            6 => op_name!("ecdsa.verify.keccak512", RAW),
-            12 => op_name!("ecdsa.verify.sha3_256", RAW),
-            13 => op_name!("ecdsa.verify.sha3_384", RAW),
-            14 => op_name!("ecdsa.verify.sha3_512", RAW),
+            0 => "ecdsa.verify.keccak256",
+            1 => "ecdsa.verify.keccak256.raw",
+            2 => "ecdsa.verify.keccak384",
+            3 => "ecdsa.verify.keccak384.raw",
+            4 => "ecdsa.verify.keccak512",
+            5 => "ecdsa.verify.keccak512.raw",
+            6 => "ecdsa.verify.sha3_256",
+            7 => "ecdsa.verify.sha3_256.raw",
+            8 => "ecdsa.verify.sha3_384",
+            9 => "ecdsa.verify.sha3_384.raw",
+            10 => "ecdsa.verify.sha3_512",
+            11 => "ecdsa.verify.sha3_512.raw",
             _ => panic!("Invalid 'ecdsa.verify' instruction opcode"),
         };
         Opcode::ECDSA(name)
@@ -103,7 +117,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     /// Evaluates the instruction.
     #[inline]
     pub fn evaluate(&self, _stack: &impl StackTrait<N>, _registers: &mut impl RegistersTrait<N>) -> Result<()> {
@@ -177,7 +191,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> ECDSAVerify<N, VARIANT, RAW
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> Parser for ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> Parser for ECDSAVerify<N, VARIANT> {
     /// Parses a string into an operation.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
@@ -208,7 +222,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> Parser for ECDSAVerify<N, V
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> FromStr for ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> FromStr for ECDSAVerify<N, VARIANT> {
     type Err = Error;
 
     /// Parses a string into an operation.
@@ -226,14 +240,14 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> FromStr for ECDSAVerify<N, 
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> Debug for ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> Debug for ECDSAVerify<N, VARIANT> {
     /// Prints the operation as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> Display for ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> Display for ECDSAVerify<N, VARIANT> {
     /// Prints the operation to a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Ensure the number of operands is 3.
@@ -247,7 +261,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> Display for ECDSAVerify<N, 
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> FromBytes for ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> FromBytes for ECDSAVerify<N, VARIANT> {
     /// Reads the operation from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Initialize the vector for the operands.
@@ -264,7 +278,7 @@ impl<N: Network, const VARIANT: u8, const RAW: bool> FromBytes for ECDSAVerify<N
     }
 }
 
-impl<N: Network, const VARIANT: u8, const RAW: bool> ToBytes for ECDSAVerify<N, VARIANT, RAW> {
+impl<N: Network, const VARIANT: u8> ToBytes for ECDSAVerify<N, VARIANT> {
     /// Writes the operation to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Ensure the number of operands is 3.
@@ -287,6 +301,15 @@ mod tests {
 
     #[test]
     fn test_parse() {
+        let (string, is) =
+            ECDSAVerifyKeccak256::<CurrentNetwork>::parse("ecdsa.verify.keccak256 r0 r1 r2 into r3").unwrap();
+        assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
+        assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
+        assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
+        assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
+        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
+
         let (string, is) =
             ECDSAVerifyKeccak256Raw::<CurrentNetwork>::parse("ecdsa.verify.keccak256.raw r0 r1 r2 into r3").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
