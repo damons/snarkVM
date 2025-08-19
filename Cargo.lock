@@ -3772,6 +3772,7 @@ dependencies = [
  "snarkvm-algorithms",
  "snarkvm-circuit",
  "snarkvm-console",
+ "snarkvm-utilities",
 ]
 
 [[package]]
