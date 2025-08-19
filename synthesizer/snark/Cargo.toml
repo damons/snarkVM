@@ -47,10 +47,6 @@ workspace = true
 [dependencies.bincode]
 workspace = true
 
-[dependencies.colored]
-workspace = true
-optional = true
-
 [dependencies.serde_json]
 workspace = true
 features = [ "preserve_order" ]
