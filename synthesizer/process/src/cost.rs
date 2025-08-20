@@ -23,7 +23,7 @@ use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
 
 // Cost reduction factor from ARC 0005.
-pub const COST_REDUCTION_FACTOR: u64 = 25;
+pub const ARC_0005_COST_REDUCTION_FACTOR: u64 = 25;
 
 /// Returns the *minimum* cost in microcredits to publish the given deployment using the reduced synthesis cost (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
 pub fn deployment_cost_v2<N: Network>(
@@ -48,11 +48,12 @@ pub fn deployment_cost_v2<N: Network>(
 
     // Compute the synthesis cost in microcredits.
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER
-        / COST_REDUCTION_FACTOR;
+        / ARC_0005_COST_REDUCTION_FACTOR;
 
     // Compute the constructor cost in microcredits.
     let constructor_cost =
-        constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)? / COST_REDUCTION_FACTOR;
+        constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?
+            / ARC_0005_COST_REDUCTION_FACTOR;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -123,7 +124,7 @@ pub fn execution_cost_v3<N: Network>(process: &Process<N>, execution: &Execution
 
     // Get the finalize cost for the root transition.
     let stack = process.get_stack(transition.program_id())?;
-    let finalize_cost = cost_in_microcredits_v2(&stack, transition.function_name())? / COST_REDUCTION_FACTOR;
+    let finalize_cost = cost_in_microcredits_v2(&stack, transition.function_name())? / ARC_0005_COST_REDUCTION_FACTOR;
 
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
