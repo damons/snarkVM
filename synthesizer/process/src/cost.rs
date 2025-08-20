@@ -124,7 +124,7 @@ pub fn execution_cost_v3<N: Network>(process: &Process<N>, execution: &Execution
 
     // Get the finalize cost for the root transition.
     let stack = process.get_stack(transition.program_id())?;
-    let finalize_cost = cost_in_microcredits_v2(&stack, transition.function_name())? / ARC_0005_COST_REDUCTION_FACTOR;
+    let finalize_cost = cost_in_microcredits_v3(&stack, transition.function_name())?;
 
     // Compute the total cost in microcredits.
     let total_cost = storage_cost
@@ -491,6 +491,11 @@ pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<
         }
         None => Ok(0),
     }
+}
+
+/// Returns the minimum number of microcredits required to run the finalize using the ARC-0005 cost reduction factor.
+pub fn cost_in_microcredits_v3<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
+    cost_in_microcredits(stack, function_name, ConsensusFeeVersion::V2) / ARC_0005_COST_REDUCTION_FACTOR
 }
 
 /// Returns the minimum number of microcredits required to run the finalize.
