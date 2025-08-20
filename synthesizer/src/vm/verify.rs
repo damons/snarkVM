@@ -414,7 +414,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     if is_fee_required {
                         // We are using execution_cost_v2 to compute the execution cost.
                         // Using `execution_cost_v2` is fine as a default because it is strictly cheaper than or equivalent to `execution_cost_v1`.
-                        let (minimum_execution_cost, (_, _)) = if consensus_version >= ConsensusVersion::V10 {
+                        let (cost, (_, _)) = if consensus_version >= ConsensusVersion::V10 {
                             execution_cost_v3(&self.process().read(), &execution)?
                         } else if consensus_version >= ConsensusVersion::V2 {
                             execution_cost_v2(&self.process().read(), &execution)?
