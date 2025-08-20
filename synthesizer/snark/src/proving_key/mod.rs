@@ -66,6 +66,38 @@ impl<N: Network> ProvingKey<N> {
     ) -> Result<Proof<N>> {
         let timer = std::time::Instant::now();
 
+        println!("Num Assignments: {:?}", assignments.len());
+
+        println!("Proving assignments in sequence.");
+
+        for (i, (proving_key, assignment)) in assignments.into_iter().enumerate() {
+            println!("Proving assignment: {i}");
+            println!("Num instances: {}", assignment.len());
+            println!("Shape: {:?}", (*proving_key).circuit_verifying_key.circuit_info);
+            let assignments = vec![(proving_key.clone(), assignment.clone())];
+
+            // Prepare the instances.
+            let num_expected_instances = assignments.len();
+            let instances: BTreeMap<_, _> = assignments
+                .iter()
+                .map(|(proving_key, assignments)| (proving_key.deref(), assignments.as_slice()))
+                .collect();
+            ensure!(instances.len() == num_expected_instances, "Incorrect number of proving keys for batch proof");
+
+            // Retrieve the proving parameters.
+            let universal_prover = N::varuna_universal_prover();
+            let fiat_shamir = N::varuna_fs_parameters();
+
+            // Compute the proof.
+            let _ = Proof::<N>::new(Varuna::<N>::prove_batch(
+                universal_prover,
+                fiat_shamir,
+                varuna_version,
+                &instances,
+                rng,
+            )?);
+        }
+
         // Prepare the instances.
         let num_expected_instances = assignments.len();
         let instances: BTreeMap<_, _> = assignments

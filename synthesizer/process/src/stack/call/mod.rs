@@ -179,6 +179,8 @@ impl<N: Network> CallTrait<N> for Call<N> {
     ) -> Result<()> {
         let timer = timer!("Call::execute");
 
+        println!("  [call.rs|0] count: {:?}", A::count());
+
         // Load the operands values.
         let inputs: Vec<_> =
             self.operands().iter().map(|operand| registers.load_circuit(stack, operand)).try_collect()?;
@@ -459,6 +461,9 @@ impl<N: Network> CallTrait<N> for Call<N> {
             };
             lap!(timer, "Computed the request and response");
 
+            println!("  [call.rs|1] count: {:?}", A::count());
+
+
             // Inject the existing circuit.
             A::inject_r1cs(r1cs);
 
@@ -493,6 +498,9 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 .map(|input_id| circuit::InputID::new(circuit::Mode::Public, *input_id))
                 .collect::<Vec<_>>();
 
+            println!("  [call.rs|2] count: {:?}", A::count());
+
+
             // Ensure the candidate input IDs match their computed inputs.
             let (check_input_ids, _) = circuit::Request::check_input_ids::<false>(
                 &network_id,
@@ -520,6 +528,9 @@ impl<N: Network> CallTrait<N> for Call<N> {
                 })
                 .collect::<Vec<_>>();
 
+            println!("  [call.rs|2.5] count: {:?}", A::count());
+
+
             // Inject the outputs as `Mode::Private` (with the 'tcm' and output IDs as `Mode::Public`).
             let outputs = circuit::Response::process_outputs_from_callback(
                 &network_id,
@@ -540,6 +551,9 @@ impl<N: Network> CallTrait<N> for Call<N> {
         else {
             bail!("Call operator '{}' is invalid or unsupported.", self.operator())
         };
+
+        println!("  [call.rs|3] count: {:?}", A::count());
+
 
         // Assign the outputs to the destination registers.
         for (output, register) in outputs.into_iter().zip_eq(&self.destinations()) {

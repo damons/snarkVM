@@ -28,8 +28,13 @@ impl<A: Aleo> Response<A> {
         output_types: &[console::ValueType<A::Network>], // Note: Console type
         output_registers: &[Option<console::Register<A::Network>>], // Note: Console type
     ) -> Vec<Value<A>> {
+        println!("    [process_outputs_from_callback.rs|TOP]");
         // Compute the function ID.
         let function_id = compute_function_id(network_id, program_id, function_name);
+
+        println!("    [process_outputs_from_callback.rs|0] count: {:?}", A::count());
+
+
 
         match outputs
             .iter()
@@ -37,6 +42,7 @@ impl<A: Aleo> Response<A> {
             .zip_eq(output_registers)
             .enumerate()
             .map(|(index, ((output, output_types), output_register))| {
+                println!("    [process_outputs_from_callback.rs|{}] count: {:?}", index + 1, A::count());
                 match output_types {
                     // For a constant output, compute the hash (using `tcm`) of the output.
                     console::ValueType::Constant(..) => {
@@ -111,8 +117,11 @@ impl<A: Aleo> Response<A> {
                     }
                     // For a record output, compute the record commitment.
                     console::ValueType::Record(record_name) => {
+                        println!("      [record output|TOP]");
                         // Inject the output as `Mode::Private`.
                         let output = Value::new(Mode::Private, output.clone());
+
+                        println!("    [record output|0] count: {:?}", A::count());
 
                         // Retrieve the record.
                         let record = match &output {
@@ -122,22 +131,32 @@ impl<A: Aleo> Response<A> {
                             Value::Future(..) => A::halt("Expected a record output, found a future output"),
                         };
 
+                        println!("    [record output|1] count: {:?}", A::count());
+
+
                         // Retrieve the output register.
                         let output_register = match output_register {
                             Some(output_register) => output_register,
                             None => A::halt("Expected a register to be paired with a record output"),
                         };
 
+                        println!("    [record output|2] count: {:?}", A::count());
+
                         // Prepare the index as a constant field element.
                         let output_index = Field::constant(console::Field::from_u64(output_register.locator()));
                         // Compute the encryption randomizer as `HashToScalar(tvk || index)`.
                         let randomizer = A::hash_to_scalar_psd2(&[tvk.clone(), output_index]);
+
+                        println!("    [record output|3] count: {:?}", A::count());
+
 
                         // Compute the record view key.
                         let record_view_key = ((*record.owner()).to_group() * randomizer).to_x_coordinate();
                         // Compute the record commitment.
                         let commitment =
                             record.to_commitment(program_id, &Identifier::constant(*record_name), &record_view_key);
+
+                        println!("    [record output|4] count: {:?}", A::count());
 
                         // Return the output ID.
                         // Note: Because this is a callback, the output ID is an **external record** ID.
