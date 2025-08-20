@@ -202,6 +202,7 @@ const HASH_PSD_PER_BYTE_COST: u64 = 75;
 pub enum ConsensusFeeVersion {
     V1,
     V2,
+    V3,
 }
 
 const MAPPING_BASE_COST_V1: u64 = 10_000;
@@ -277,7 +278,7 @@ pub fn cost_per_command<N: Network>(
 ) -> Result<u64> {
     let mapping_base_cost = match consensus_fee_version {
         ConsensusFeeVersion::V1 => MAPPING_BASE_COST_V1,
-        ConsensusFeeVersion::V2 => MAPPING_BASE_COST_V2,
+        ConsensusFeeVersion::V2 | ConsensusFeeVersion::V3 => MAPPING_BASE_COST_V2,
     };
 
     match command {
@@ -495,7 +496,7 @@ pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<
 
 /// Returns the minimum number of microcredits required to run the finalize using the ARC-0005 cost reduction factor.
 pub fn cost_in_microcredits_v3<N: Network>(stack: &Stack<N>, function_name: &Identifier<N>) -> Result<u64> {
-    cost_in_microcredits(stack, function_name, ConsensusFeeVersion::V2) / ARC_0005_COST_REDUCTION_FACTOR
+    cost_in_microcredits(stack, function_name, ConsensusFeeVersion::V3)
 }
 
 /// Returns the minimum number of microcredits required to run the finalize.
@@ -520,6 +521,11 @@ fn cost_in_microcredits<N: Network>(
     let mut finalizes = vec![(StackRef::Internal(stack), *function_name)];
     // Initialize a counter for the number of finalize blocks seen.
     let mut num_finalizes = 1;
+    // Get the quotient for the cost reduction factor.
+    let quotient = match consensus_fee_version {
+        ConsensusFeeVersion::V1 | ConsensusFeeVersion::V2 => 1,
+        ConsensusFeeVersion::V3 => ARC_0005_COST_REDUCTION_FACTOR,
+    };
     // Iterate over the finalize blocks.
     while let Some((stack_ref, function_name)) = finalizes.pop() {
         // Ensure that the number of finalize blocks does not exceed the maximum.
@@ -558,7 +564,7 @@ fn cost_in_microcredits<N: Network>(
             }
         }
     }
-    Ok(finalize_cost)
+    Ok(finalize_cost / quotient)
 }
 
 #[cfg(test)]
