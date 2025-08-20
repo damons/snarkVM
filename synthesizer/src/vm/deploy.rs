@@ -55,7 +55,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Construct the owner.
         let owner = ProgramOwner::new(private_key, deployment_id, rng)?;
 
-        let (minimum_deployment_cost, _) = if (ConsensusVersion::V1..=ConsensusVersion::V9).contains(&consensus_version) {
+        let (minimum_deployment_cost, _) = if (ConsensusVersion::V1..=ConsensusVersion::V9).contains(&consensus_version)
+        {
             deployment_cost_v1(&self.process().read(), &deployment)?
         } else {
             deployment_cost_v2(&self.process().read(), &deployment)?

@@ -290,13 +290,7 @@ mod tests {
         types::Field,
     };
     use snarkvm_ledger_block::Transition;
-    use snarkvm_synthesizer_process::{
-        ConsensusFeeVersion,
-        cost_per_command,
-        execution_cost_v1,
-        execution_cost_v2,
-        execution_cost_v3,
-    };
+    use snarkvm_synthesizer_process::{ConsensusFeeVersion, cost_per_command, execution_cost_v1, execution_cost_v2};
     use snarkvm_synthesizer_program::StackTrait;
 
     use indexmap::IndexMap;

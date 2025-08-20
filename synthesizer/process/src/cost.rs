@@ -52,8 +52,7 @@ pub fn deployment_cost_v2<N: Network>(
 
     // Compute the constructor cost in microcredits.
     let constructor_cost =
-        constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?
-            / ARC_0005_COST_REDUCTION_FACTOR;
+        constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)? / ARC_0005_COST_REDUCTION_FACTOR;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
