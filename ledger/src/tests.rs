@@ -2795,7 +2795,7 @@ function foo:
 #[cfg(feature = "test")]
 mod valid_solutions {
     use super::*;
-    use crate::is_solution_limit_reached::STAKE_REQUIREMENTS_PER_SOLUTION;
+    use crate::is_solution_limit_reached::stake_requirements_per_solution;
     use rand::prelude::SliceRandom;
     use snarkvm_ledger_puzzle::Solution;
     use std::collections::HashSet;
@@ -3040,6 +3040,7 @@ mod valid_solutions {
     #[test]
     fn test_solution_limits() {
         let rng = &mut TestRng::default();
+        let stake_requirements = stake_requirements_per_solution::<CurrentNetwork>();
 
         // Sample the genesis private key.
         let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
@@ -3115,7 +3116,7 @@ mod valid_solutions {
             transfer_transmission.to_checksum().unwrap().unwrap(),
         );
         // Create a block that advances the ledger past the first solution limit timestamp.
-        let timestamp_1 = STAKE_REQUIREMENTS_PER_SOLUTION[0].0;
+        let timestamp_1 = stake_requirements[0].0;
         let next_block = chain_builder.generate_block_with_partition(
             &Default::default(),
             timestamp_1,
@@ -3150,7 +3151,7 @@ mod valid_solutions {
         let inputs = [
             Value::<CurrentNetwork>::from_str(&validator_address.to_string()).unwrap(),
             Value::<CurrentNetwork>::from_str(&prover_address.to_string()).unwrap(),
-            Value::<CurrentNetwork>::from_str(&format!("{}u64", STAKE_REQUIREMENTS_PER_SOLUTION[0].1)).unwrap(),
+            Value::<CurrentNetwork>::from_str(&format!("{}u64", stake_requirements[0].1)).unwrap(),
         ];
         let bond_transaction = ledger
             .vm
