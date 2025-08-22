@@ -714,6 +714,10 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
         commitments: &[Field<N>],
         block_tree: &BlockTree<N>,
     ) -> Result<Vec<StatePath<N>>> {
+        // Restrict the number of commitments requested to the maximum number of inputs in a transition.
+        if commitments.len() > N::MAX_INPUTS {
+            bail!("Too many commitments provided: expected at most {}, got {}", N::MAX_INPUTS, commitments.len());
+        }
         commitments.iter().map(|commitment| self.get_state_path_for_commitment(commitment, block_tree)).collect()
     }
 
