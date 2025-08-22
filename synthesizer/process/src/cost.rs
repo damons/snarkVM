@@ -113,6 +113,7 @@ pub fn deployment_cost_v1<N: Network>(
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution using the reduced finalize cost(total cost, (storage cost, finalize cost)).
+/// The latest execution cost version is imported into /stack/mod.rs.
 pub fn execution_cost_v3<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
     // Compute the storage cost in microcredits.
     let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
