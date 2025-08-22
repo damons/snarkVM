@@ -37,7 +37,7 @@ mod evaluate;
 mod execute;
 mod helpers;
 
-use crate::{CallMetrics, Process, Trace, constructor_cost_in_microcredits, cost_in_microcredits_v2};
+use crate::{CallMetrics, Process, Trace, constructor_cost_in_microcredits, cost_in_microcredits_v3};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
@@ -353,7 +353,7 @@ impl<N: Network> Stack<N> {
             self.get_number_of_calls(function.name())?;
 
             // Get the finalize cost.
-            let finalize_cost = cost_in_microcredits_v2(self, function.name())?;
+            let finalize_cost = cost_in_microcredits_v3(self, function.name())?;
             // Check that the finalize cost does not exceed the maximum.
             ensure!(
                 finalize_cost <= N::TRANSACTION_SPEND_LIMIT,
