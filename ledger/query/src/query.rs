@@ -176,24 +176,7 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
             Self::REST(url) => {
                 // Construct the comma separated string of commitments.
                 let commitments_string = commitments.iter().map(|cm| cm.to_string()).collect::<Vec<_>>().join(",");
-                match N::ID {
-                    console::network::MainnetV0::ID => {
-                        Ok(Self::get_request(&format!("{url}/mainnet/statePaths?commitments={commitments_string}"))?
-                            .body_mut()
-                            .read_json()?)
-                    }
-                    console::network::TestnetV0::ID => {
-                        Ok(Self::get_request(&format!("{url}/testnet/statePaths?commitments={commitments_string}"))?
-                            .body_mut()
-                            .read_json()?)
-                    }
-                    console::network::CanaryV0::ID => {
-                        Ok(Self::get_request(&format!("{url}/canary/statePaths?commitments={commitments_string}"))?
-                            .body_mut()
-                            .read_json()?)
-                    }
-                    _ => bail!("Unsupported network ID in inclusion query"),
-                }
+                Self::get_request(&format!("{url}{}/statePaths?commitments={commitments_string}", N::SHORT_NAME))
             }
             Self::STATIC(query) => query.get_state_paths_for_commitments(commitments),
         }
@@ -207,27 +190,8 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
             Self::REST(url) => {
                 // Construct the comma separated string of commitments.
                 let commitments_string = commitments.iter().map(|cm| cm.to_string()).collect::<Vec<_>>().join(",");
-                match N::ID {
-                    console::network::MainnetV0::ID => Ok(Self::get_request_async(&format!(
-                        "{url}/mainnet/statePaths?commitments={commitments_string}"
-                    ))
-                    .await?
-                    .json()
-                    .await?),
-                    console::network::TestnetV0::ID => Ok(Self::get_request_async(&format!(
-                        "{url}/testnet/statePaths?commitments={commitments_string}"
-                    ))
-                    .await?
-                    .json()
-                    .await?),
-                    console::network::CanaryV0::ID => Ok(Self::get_request_async(&format!(
-                        "{url}/canary/statePaths?commitments={commitments_string}"
-                    ))
-                    .await?
-                    .json()
-                    .await?),
-                    _ => bail!("Unsupported network ID in inclusion query"),
-                }
+                Self::get_request_async(&format!("{url}{}/statePaths?commitments={commitments_string}", N::SHORT_NAME))
+                    .await
             }
             Self::STATIC(query) => query.get_state_paths_for_commitments(commitments),
         }
