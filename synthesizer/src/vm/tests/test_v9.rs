@@ -3471,7 +3471,7 @@ finalize foo:
 constructor:
     assert.eq true true;
     ",
-        construct_finalize_body(1500, 0)
+        construct_finalize_body(1950, 0)
     ))
     .unwrap();
 
