@@ -51,8 +51,7 @@ pub fn deployment_cost_v2<N: Network>(
         / ARC_0005_COST_REDUCTION_FACTOR;
 
     // Compute the constructor cost in microcredits.
-    let constructor_cost =
-        constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)? / ARC_0005_COST_REDUCTION_FACTOR;
+    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -486,8 +485,11 @@ pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<
                 .try_fold(0u64, |acc, res| {
                     res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Constructor cost overflowed")))
                 })?;
-            // Scale by the multiplier.
-            base_cost.checked_mul(N::CONSTRUCTOR_FEE_MULTIPLIER).ok_or(anyhow!("Constructor cost overflowed"))
+            // Scale by the multiplier and divide by the ARC-0005 cost reduction factor.
+            base_cost
+                .checked_mul(N::CONSTRUCTOR_FEE_MULTIPLIER)
+                .map(|result| result / ARC_0005_COST_REDUCTION_FACTOR)
+                .ok_or(anyhow!("Constructor cost overflowed"))
         }
         None => Ok(0),
     }
