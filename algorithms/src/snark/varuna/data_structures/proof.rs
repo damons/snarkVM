@@ -22,7 +22,7 @@ use crate::{
 use ahp::prover::{FourthMessage, ThirdMessage};
 use snarkvm_curves::PairingEngine;
 use snarkvm_fields::PrimeField;
-use snarkvm_utilities::{FromBytes, ToBytes, error, serialize::*};
+use snarkvm_utilities::{FromBytes, ToBytes, into_io_error, serialize::*};
 
 use std::{
     collections::BTreeMap,
@@ -366,13 +366,15 @@ impl<E: PairingEngine> CanonicalDeserialize for Proof<E> {
 
 impl<E: PairingEngine> ToBytes for Proof<E> {
     fn write_le<W: Write>(&self, mut w: W) -> io::Result<()> {
-        Self::serialize_compressed(self, &mut w).map_err(|_| error("could not serialize Proof"))
+        Self::serialize_compressed(self, &mut w)
+            .map_err(|err| into_io_error(anyhow::Error::from(err).context("could not serialize Proof")))
     }
 }
 
 impl<E: PairingEngine> FromBytes for Proof<E> {
     fn read_le<R: Read>(mut r: R) -> io::Result<Self> {
-        Self::deserialize_compressed(&mut r).map_err(|_| error("could not deserialize Proof"))
+        Self::deserialize_compressed(&mut r)
+            .map_err(|err| into_io_error(anyhow::Error::from(err).context("could not deserialize Proof")))
     }
 }
 
