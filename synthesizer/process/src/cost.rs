@@ -51,7 +51,7 @@ pub fn deployment_cost_v2<N: Network>(
         / ARC_0005_COST_REDUCTION_FACTOR;
 
     // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?;
+    let constructor_cost = constructor_cost_in_microcredits_v2(&Stack::new(process, deployment.program())?)?;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -94,7 +94,7 @@ pub fn deployment_cost_v1<N: Network>(
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
 
     // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits(&Stack::new(process, deployment.program())?)?;
+    let constructor_cost = constructor_cost_in_microcredits_v1(&Stack::new(process, deployment.program())?)?;
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -473,7 +473,7 @@ pub fn cost_per_command<N: Network>(
 
 /// Returns the minimum number of microcredits required to run the constructor in the given stack.
 /// If a constructor does not exist, no cost is incurred.
-pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<u64> {
+pub fn constructor_cost_in_microcredits_v2<N: Network>(stack: &Stack<N>) -> Result<u64> {
     match stack.program().constructor() {
         Some(constructor) => {
             // Get the constructor types.
@@ -491,6 +491,28 @@ pub fn constructor_cost_in_microcredits<N: Network>(stack: &Stack<N>) -> Result<
                 .checked_mul(N::CONSTRUCTOR_FEE_MULTIPLIER)
                 .map(|result| result / ARC_0005_COST_REDUCTION_FACTOR)
                 .ok_or(anyhow!("Constructor cost overflowed"))
+        }
+        None => Ok(0),
+    }
+}
+
+/// Returns the minimum number of microcredits required to run the constructor in the given stack.
+/// If a constructor does not exist, no cost is incurred.
+pub fn constructor_cost_in_microcredits_v1<N: Network>(stack: &Stack<N>) -> Result<u64> {
+    match stack.program().constructor() {
+        Some(constructor) => {
+            // Get the constructor types.
+            let constructor_types = stack.get_constructor_types()?;
+            // Get the base cost of the constructor.
+            let base_cost = constructor
+                .commands()
+                .iter()
+                .map(|command| cost_per_command(stack, &constructor_types, command, ConsensusFeeVersion::V2))
+                .try_fold(0u64, |acc, res| {
+                    res.and_then(|x| acc.checked_add(x).ok_or(anyhow!("Constructor cost overflowed")))
+                })?;
+            // Scale by the multiplier and divide by the ARC-0005 cost reduction factor.
+            base_cost.checked_mul(N::CONSTRUCTOR_FEE_MULTIPLIER).ok_or(anyhow!("Constructor cost overflowed"))
         }
         None => Ok(0),
     }

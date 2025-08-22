@@ -37,7 +37,7 @@ mod evaluate;
 mod execute;
 mod helpers;
 
-use crate::{CallMetrics, Process, Trace, constructor_cost_in_microcredits, cost_in_microcredits_v3};
+use crate::{CallMetrics, Process, Trace, constructor_cost_in_microcredits_v2, cost_in_microcredits_v3};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
@@ -338,7 +338,7 @@ impl<N: Network> Stack<N> {
         drop(finalize_types);
 
         // Get the constructor cost.
-        let constructor_cost = constructor_cost_in_microcredits(self)?;
+        let constructor_cost = constructor_cost_in_microcredits_v2(self)?;
         // Check that the constructor cost does not exceed the maximum.
         ensure!(
             constructor_cost <= N::TRANSACTION_SPEND_LIMIT,
