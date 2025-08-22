@@ -230,7 +230,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Fetch the latest block.
         let block = ledger
             .get_block(latest_height)
-            .map_err(|_| anyhow!("Failed to load block {latest_height} from the ledger"))?;
+            .map_err(|err| err.context("Failed to load block {latest_height} from the ledger"))?;
 
         // Set the current block.
         ledger.current_block = Arc::new(RwLock::new(block));
