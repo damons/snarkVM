@@ -164,6 +164,39 @@ impl<N: Network, B: BlockStorage<N>> QueryTrait<N> for Query<N, B> {
         }
     }
 
+    /// Returns a list of state paths for the given list of `commitment`s.
+    fn get_state_paths_for_commitments(&self, commitments: &[Field<N>]) -> Result<Vec<StatePath<N>>> {
+        // Return an empty vector if there are no commitments.
+        if commitments.is_empty() {
+            return Ok(vec![]);
+        }
+
+        match self {
+            Self::VM(block_store) => block_store.get_state_paths_for_commitments(commitments),
+            Self::REST(url) => {
+                // Construct the comma separated string of commitments.
+                let commitments_string = commitments.iter().map(|cm| cm.to_string()).collect::<Vec<_>>().join(",");
+                Self::get_request(&format!("{url}{}/statePaths?commitments={commitments_string}", N::SHORT_NAME))
+            }
+            Self::STATIC(query) => query.get_state_paths_for_commitments(commitments),
+        }
+    }
+
+    /// Returns a list of state paths for the given list of `commitment`s.
+    #[cfg(feature = "async")]
+    async fn get_state_paths_for_commitments_async(&self, commitments: &[Field<N>]) -> Result<Vec<StatePath<N>>> {
+        match self {
+            Self::VM(block_store) => block_store.get_state_paths_for_commitments(commitments),
+            Self::REST(url) => {
+                // Construct the comma separated string of commitments.
+                let commitments_string = commitments.iter().map(|cm| cm.to_string()).collect::<Vec<_>>().join(",");
+                Self::get_request_async(&format!("{url}{}/statePaths?commitments={commitments_string}", N::SHORT_NAME))
+                    .await
+            }
+            Self::STATIC(query) => query.get_state_paths_for_commitments(commitments),
+        }
+    }
+
     /// Returns a state path for the given `commitment`.
     fn current_block_height(&self) -> Result<u32> {
         match self {
