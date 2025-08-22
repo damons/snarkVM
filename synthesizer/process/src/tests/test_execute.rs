@@ -2687,7 +2687,7 @@ fn test_program_exceeding_transaction_spend_limit() {
     cast  r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 into r1 as [[u8; 16u32]; 16u32];
     cast  r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 into r2 as [[[u8; 16u32]; 16u32]; 16u32];"
         .to_string();
-    (3..500).for_each(|i| {
+    (3..2000).for_each(|i| {
         finalize_body.push_str(&format!("hash.bhp256 r2 into r{i} as field;\n"));
     });
     // Construct the program.
