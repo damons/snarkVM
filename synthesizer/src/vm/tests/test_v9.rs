@@ -3563,7 +3563,7 @@ constructor:
             None,
             rng,
         )
-        .unwrap();
+        .unwrap(); vm.execute(private_key, _, inputs, fee_record, priority_fee_in_microcredits, query, rng)
     let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
     assert_eq!(block.transactions().num_accepted(), 0);
     assert_eq!(block.transactions().num_rejected(), 0);
@@ -3915,3 +3915,5 @@ function cannot_be_called_from_test_one:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block).unwrap();
 }
+
+
