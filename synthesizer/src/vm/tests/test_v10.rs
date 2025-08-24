@@ -25,7 +25,8 @@ use snarkvm_utilities::TestRng;
 
 // This test verifies that:
 //  - a dependency cycle can be created between two programs that use records in their calls.
-//  - a program with a call cycle cannot be deployed
+//  - a program with a call cycle cannot be deployed.
+//  - a program that changes an output record index cannot be deployed.
 //  - a program that returns a local record as an external record cannot be deployed.
 //  - a record cannot be consumed twice in the same program.
 //  - a local record cannot be created and consumed in the same program.
@@ -315,6 +316,42 @@ function fourth:
         }
         Err(e) => println!("The expected execution error is: {e}"),
     }
+
+    // Test an invalid upgrade where the output record index of `second` is changed.
+    let upgraded_program_two = Program::from_str(
+        r"
+import test_one.aleo;
+
+program test_two.aleo;
+
+record Second:
+    owner as address.private;
+    data as field.private;
+
+constructor:
+    assert.eq true true;
+
+function second:
+    input r0 as test_one.aleo/First.record;
+    cast r0.owner r0.data into r1 as Second.record;
+    output r1 as Second.record;
+
+function cannot_be_called_from_test_one:
+    input r0 as test_one.aleo/First.record;
+    call test_one.aleo/first r0 into r1;
+    output r1 as test_one.aleo/First.record;
+    ",
+    )
+    .unwrap();
+
+    // Attempt to deploy the upgraded program.
+    // This should fail because the output record index of `second` has changed.
+    let deployment_upgraded_two = vm.deploy(&caller_private_key, &upgraded_program_two, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment_upgraded_two], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block).unwrap();
 
     // Upgrade `test_two` so that `second` does not call `test_one` anymore.
     let upgraded_program_two = Program::from_str(
