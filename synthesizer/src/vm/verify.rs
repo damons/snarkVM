@@ -256,7 +256,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //      - the edition is exactly one.
                 //  - Otherwise, if the new program contains a constructor.
                 //      - the existing program has a constructor.
-                //        Note. Constructor validity is checked at a later point.
+                //      - if the consensus version is V10 or greater, then check that each function's input and outputs are exactly identical to the existing program.
+                //      - Note. Constructor validity is checked at a later point.
+                //      - Note. The remaining syntactic checks on upgrades are done in `Stack::check_upgrade_is_valid`.
                 let is_program_in_storage = self.transaction_store().contains_program_id(deployment.program_id())?;
                 let is_program_in_process = self.contains_program(deployment.program_id());
                 match deployment.edition() {
@@ -324,6 +326,25 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     existing_program.contains_constructor(),
                                     "Invalid deployment transaction '{id}' - the existing program does not have a constructor, but the deployment program does"
                                 );
+                                // If the consensus version is V10 or greater, then check that each function's inputs and outputs are exactly identical to those of the exsisting program.
+                                if consensus_version >= ConsensusVersion::V10 {
+                                    for (id, function) in existing_program.functions() {
+                                        // Get the corresponding function in the new program.
+                                        let Ok(new_function) = deployment.program().get_function(id) else {
+                                            bail!("Invalid deployment transaction '{id}' - missing function '{id}'")
+                                        };
+                                        // Ensure the inputs match exactly.
+                                        ensure!(
+                                            function.inputs() == new_function.inputs(),
+                                            "Invalid deployment transaction '{id}' - function '{id}' has mistmatched inputs"
+                                        );
+                                        // Ensure the outputs match exactly.
+                                        ensure!(
+                                            function.outputs() == new_function.outputs(),
+                                            "Invalid deployment transaction '{id}' - function '{id}' has mismatched outputs"
+                                        );
+                                    }
+                                }
                             }
                         }
                     }

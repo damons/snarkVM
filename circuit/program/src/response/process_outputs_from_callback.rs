@@ -34,8 +34,6 @@ impl<A: Aleo> Response<A> {
 
         println!("    [process_outputs_from_callback.rs|0] count: {:?}", A::count());
 
-
-
         match outputs
             .iter()
             .zip_eq(output_types)
@@ -133,7 +131,6 @@ impl<A: Aleo> Response<A> {
 
                         println!("    [record output|1] count: {:?}", A::count());
 
-
                         // Retrieve the output register.
                         let output_register = match output_register {
                             Some(output_register) => output_register,
@@ -148,7 +145,6 @@ impl<A: Aleo> Response<A> {
                         let randomizer = A::hash_to_scalar_psd2(&[tvk.clone(), output_index]);
 
                         println!("    [record output|3] count: {:?}", A::count());
-
 
                         // Compute the record view key.
                         let record_view_key = ((*record.owner()).to_group() * randomizer).to_x_coordinate();

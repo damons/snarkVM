@@ -156,7 +156,6 @@ impl<N: Network> Stack<N> {
         // Ensure the circuit environment is clean.
         A::reset();
 
-
         // If in 'CheckDeployment' mode, set the constraint limit and variable limit.
         // We do not have to reset it after function calls because `CheckDeployment` mode does not execute those.
         if let CallStack::CheckDeployment(_, _, _, constraint_limit, variable_limit) = &call_stack {
@@ -216,9 +215,6 @@ impl<N: Network> Stack<N> {
             true => Some(self.program_checksum_as_field()?),
             false => None,
         };
-
-        println!("\nEXECUTING {}/{}", self.program_id(), function.name());
-        println!("[0] counts: {:?}", A::count());
 
         // Ensure the request is well-formed.
         ensure!(
@@ -300,12 +296,8 @@ impl<N: Network> Stack<N> {
         // Initialize a tracker to determine if there are any function calls.
         let mut contains_function_call = false;
 
-        println!("[1] counts: {:?}", A::count());
-
         // Execute the instructions.
-        for (i, instruction) in function.instructions().iter().enumerate() {
-            println!("[1.{i}] counts: {:?}", A::count());
-            println!("Instruction: {instruction}");
+        for instruction in function.instructions().iter() {
             // If the circuit is in execute mode, then evaluate the instructions.
             if let CallStack::Execute(..) = registers.call_stack_ref() {
                 // Evaluate the instruction.
@@ -414,8 +406,6 @@ impl<N: Network> Stack<N> {
             ensure!(A::num_public() == num_public, "Instructions in function injected public variables");
         }
 
-        println!("[2] counts: {:?}", A::count());
-
         // Construct the response.
         let response = circuit::Response::from_outputs(
             request.signer(),
@@ -436,8 +426,6 @@ impl<N: Network> Stack<N> {
         // Retrieve the number of constraints for verifying the response in the circuit.
         let num_response_constraints =
             A::num_constraints().saturating_sub(num_request_constraints).saturating_sub(num_function_constraints);
-
-        println!("[3] count: {:?}", A::count());
 
         Self::log_circuit::<A>("Complete");
 
@@ -539,8 +527,6 @@ impl<N: Network> Stack<N> {
             assignments.write().push((assignment, metrics));
             lap!(timer, "Save the circuit assignment");
         }
-
-        println!("FINISHED EXECUTING\n");
 
         finish!(timer);
 
