@@ -297,7 +297,7 @@ impl<N: Network> Stack<N> {
         let mut contains_function_call = false;
 
         // Execute the instructions.
-        for instruction in function.instructions().iter() {
+        for instruction in function.instructions() {
             // If the circuit is in execute mode, then evaluate the instructions.
             if let CallStack::Execute(..) = registers.call_stack_ref() {
                 // Evaluate the instruction.
