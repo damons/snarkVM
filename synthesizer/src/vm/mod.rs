@@ -29,7 +29,19 @@ use crate::{Restrictions, cast_mut_ref, cast_ref, convert, process};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
-    program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Response, Value},
+    program::{
+        Argument,
+        Identifier,
+        Literal,
+        Locator,
+        Plaintext,
+        ProgramID,
+        ProgramOwner,
+        Record,
+        Response,
+        Value,
+        ValueType,
+    },
     types::{Field, Group, U16, U64},
 };
 use snarkvm_algorithms::snark::varuna::VarunaVersion;
