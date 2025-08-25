@@ -80,13 +80,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             true => {
                 // Compute the minimum execution cost.
                 let consensus_version = N::CONSENSUS_VERSION(query.current_block_height()?)?;
-                let (minimum_execution_cost, (_, _)) = if consensus_version >= ConsensusVersion::V10 {
-                    execution_cost_v3(&self.process().read(), &execution)?
-                } else if consensus_version >= ConsensusVersion::V2 {
-                    execution_cost_v2(&self.process().read(), &execution)?
-                } else {
-                    execution_cost_v1(&self.process().read(), &execution)?
-                };
+                let (minimum_execution_cost, (_, _)) =
+                    execution_cost(&self.process().read(), &execution, consensus_version)?;
                 // Compute the execution ID.
                 let execution_id = execution.to_execution_id()?;
                 // Authorize the fee.

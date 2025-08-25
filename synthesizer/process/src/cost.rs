@@ -22,6 +22,34 @@ use console::{
 use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
 
+/// Returns the deployment cost in microcredits for a given deployment.
+pub fn deployment_cost<N: Network>(
+    process: &Process<N>,
+    deployment: &Deployment<N>,
+    consensus_version: ConsensusVersion,
+) -> Result<(u64, (u64, u64, u64, u64))> {
+    if consensus_version >= ConsensusVersion::V10 {
+        deployment_cost_v2(process, deployment)
+    } else {
+        deployment_cost_v1(process, deployment)
+    }
+}
+
+/// Returns the execution cost in microcredits for a given execution.
+pub fn execution_cost<N: Network>(
+    process: &Process<N>,
+    execution: &Execution<N>,
+    consensus_version: ConsensusVersion,
+) -> Result<(u64, (u64, u64))> {
+    if consensus_version >= ConsensusVersion::V10 {
+        execution_cost_v3(process, execution)
+    } else if consensus_version >= ConsensusVersion::V2 {
+        execution_cost_v2(process, execution)
+    } else {
+        execution_cost_v1(process, execution)
+    }
+}
+
 /// Returns the *minimum* cost in microcredits to publish the given deployment using the reduced synthesis cost (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
 pub fn deployment_cost_v2<N: Network>(
     process: &Process<N>,
