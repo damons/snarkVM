@@ -411,13 +411,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // If the fee is required, then check that the base fee amount is satisfied.
                     if is_fee_required {
                         // Determine the execution cost .
-                        let (cost, (_, _)) = execution_cost(&self.process().read(), execution, consensus_version)?;
+                        let (cost, (_, finalize_cost)) =
+                            execution_cost(&self.process().read(), execution, consensus_version)?;
                         // Get the transaction spend limit.
                         let transaction_spend_limit =
                             consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, current_height).unwrap();
-                        // Ensure the cost does not exceed the transaction spend limit.
+                        // Determine the cost to check.
+                        let cost_to_check =
+                            if consensus_version >= ConsensusVersion::V10 { finalize_cost } else { cost };
+                        // Ensure the finalize cost does not exceed the transaction spend limit.
                         ensure!(
-                            cost <= transaction_spend_limit,
+                            cost_to_check <= transaction_spend_limit,
                             "Transaction '{id}' exceeds the transaction spend limit '{}'",
                             transaction_spend_limit
                         );
