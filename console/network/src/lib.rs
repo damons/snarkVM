@@ -138,7 +138,7 @@ pub trait Network:
     const MAX_DEPLOYMENT_CONSTRAINTS: u64 = 1 << 21; // 2,097,152 constraints
     /// The maximum number of microcredits that can be spent as a fee.
     const MAX_FEE: u64 = 1_000_000_000_000_000;
-    /// A list of consensus versions and their corresponding transaction spend limits.
+    /// A list of consensus versions and their corresponding transaction spend limits in microcredits.
     //  Note: This value must **not** decrease without considering the impact on transaction validity.
     const TRANSACTION_SPEND_LIMIT: [(ConsensusVersion, u64); 2] =
         [(ConsensusVersion::V1, 100_000_000), (ConsensusVersion::V10, 4_000_000)];
