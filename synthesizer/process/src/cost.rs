@@ -22,9 +22,6 @@ use console::{
 use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
 
-// Cost reduction factor from ARC 0005.
-pub const ARC_0005_COST_REDUCTION_FACTOR: u64 = 25;
-
 /// Returns the *minimum* cost in microcredits to publish the given deployment using the reduced synthesis cost (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
 pub fn deployment_cost_v2<N: Network>(
     process: &Process<N>,
@@ -48,7 +45,7 @@ pub fn deployment_cost_v2<N: Network>(
 
     // Compute the synthesis cost in microcredits.
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER
-        / ARC_0005_COST_REDUCTION_FACTOR;
+        / N::ARC_0005_COMPUTE_DISCOUNT;
 
     // Compute the constructor cost in microcredits.
     let constructor_cost = constructor_cost_in_microcredits_v2(&Stack::new(process, deployment.program())?)?;
@@ -489,7 +486,7 @@ pub fn constructor_cost_in_microcredits_v2<N: Network>(stack: &Stack<N>) -> Resu
             // Scale by the multiplier and divide by the ARC-0005 cost reduction factor.
             base_cost
                 .checked_mul(N::CONSTRUCTOR_FEE_MULTIPLIER)
-                .map(|result| result / ARC_0005_COST_REDUCTION_FACTOR)
+                .map(|result| result / N::ARC_0005_COMPUTE_DISCOUNT)
                 .ok_or(anyhow!("Constructor cost overflowed"))
         }
         None => Ok(0),
@@ -548,7 +545,7 @@ fn cost_in_microcredits<N: Network>(
     // Get the quotient for the cost reduction factor.
     let quotient = match consensus_fee_version {
         ConsensusFeeVersion::V1 | ConsensusFeeVersion::V2 => 1,
-        ConsensusFeeVersion::V3 => ARC_0005_COST_REDUCTION_FACTOR,
+        ConsensusFeeVersion::V3 => N::ARC_0005_COMPUTE_DISCOUNT,
     };
     // Iterate over the finalize blocks.
     while let Some((stack_ref, function_name)) = finalizes.pop() {

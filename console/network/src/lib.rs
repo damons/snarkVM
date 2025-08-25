@@ -136,8 +136,14 @@ pub trait Network:
     const MAX_DEPLOYMENT_CONSTRAINTS: u64 = 1 << 21; // 2,097,152 constraints
     /// The maximum number of microcredits that can be spent as a fee.
     const MAX_FEE: u64 = 1_000_000_000_000_000;
-    /// The maximum number of microcredits that can be spent on a constructor or finalize scope.
-    const TRANSACTION_SPEND_LIMIT: u64 = 100_000_000;
+    /// A list of consensus versions and their corresponding transaction spend limits.
+    //  Note: This value must **not** decrease without considering the impact on transaction validity.
+    //  Decreasing this value may break backwards compatibility for existing deployed programs.
+    //  Increasing this value will require a migration to prevent forking during network upgrades.
+    const TRANSACTION_SPEND_LIMIT: [(ConsensusVersion, u64); 2] =
+        [(ConsensusVersion::V1, 100_000_000), (ConsensusVersion::V10, 2_500_000_000)];
+    /// The compute discount approved by ARC 0005.
+    const ARC_0005_COMPUTE_DISCOUNT: u64 = 25;
 
     /// The anchor height, defined as the expected number of blocks to reach the coinbase target.
     const ANCHOR_HEIGHT: u32 = Self::ANCHOR_TIME as u32 / Self::BLOCK_TIME as u32;

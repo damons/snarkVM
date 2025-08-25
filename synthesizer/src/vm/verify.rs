@@ -385,7 +385,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rejected_id: Option<Field<N>>,
         is_partially_verified: bool,
     ) -> Result<()> {
-        let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+        let current_height = self.block_store().current_block_height();
+        let consensus_version = N::CONSENSUS_VERSION(current_height)?;
         match transaction {
             Transaction::Deploy(id, deployment_id, _, deployment, fee) => {
                 // Ensure the rejected ID is not present.
@@ -421,11 +422,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         } else {
                             execution_cost_v1(&self.process().read(), execution)?
                         };
+                        // Get the transaction spend limit.
+                        let transaction_spend_limit =
+                            consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, current_height).unwrap();
                         // Ensure the cost does not exceed the transaction spend limit.
                         ensure!(
-                            cost <= N::TRANSACTION_SPEND_LIMIT,
+                            cost <= transaction_spend_limit,
                             "Transaction '{id}' exceeds the transaction spend limit '{}'",
-                            N::TRANSACTION_SPEND_LIMIT
+                            transaction_spend_limit
                         );
                         // Ensure the fee is sufficient to cover the cost.
                         if *fee.base_amount()? < cost {
