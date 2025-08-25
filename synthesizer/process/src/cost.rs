@@ -780,57 +780,153 @@ function dummy:",
             let mut deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
             deployment_0.set_program_checksum_raw(Some(deployment_0.program().to_checksum()));
             deployment_0.set_program_owner_raw(Some(Address::rand(rng)));
+            let expected_storage_cost = 879000;
+            let expected_synthesis_cost = 603500;
+            let expected_constructor_cost = 50000;
+            let expected_namespace_cost = 1000000;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
             assert_eq!(
                 deployment_cost_v1(&process, &deployment_0).unwrap(),
-                (2532500, (879000, 603500, 50000, 1000000))
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
+            );
+            let expected_synthesis_cost = expected_synthesis_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_constructor_cost = expected_constructor_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_0).unwrap(),
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
             );
 
             let mut deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
             deployment_1.set_program_checksum_raw(Some(deployment_1.program().to_checksum()));
             deployment_1.set_program_owner_raw(Some(Address::rand(rng)));
+            let expected_storage_cost = 878000;
+            let expected_synthesis_cost = 603500;
+            let expected_constructor_cost = 50000;
+            let expected_namespace_cost = 1000000;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
             assert_eq!(
                 deployment_cost_v1(&process, &deployment_1).unwrap(),
-                (2531500, (878000, 603500, 50000, 1000000))
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
+            );
+            let expected_synthesis_cost = expected_synthesis_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_constructor_cost = expected_constructor_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_1).unwrap(),
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
             );
 
             let mut deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
             deployment_2.set_program_checksum_raw(Some(deployment_2.program().to_checksum()));
             deployment_2.set_program_owner_raw(Some(Address::rand(rng)));
+            let expected_storage_cost = 911000;
+            let expected_synthesis_cost = 603500;
+            let expected_constructor_cost = 182000;
+            let expected_namespace_cost = 1000000;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
             assert_eq!(
                 deployment_cost_v1(&process, &deployment_2).unwrap(),
-                (2696500, (911000, 603500, 182000, 1000000))
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
+            );
+            let expected_synthesis_cost = expected_synthesis_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_constructor_cost = expected_constructor_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
+            assert_eq!(
+                deployment_cost_v2(&process, &deployment_2).unwrap(),
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
             );
 
             let mut deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
             deployment_3.set_program_checksum_raw(Some(deployment_3.program().to_checksum()));
             deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
+            let expected_storage_cost = 943000;
+            let expected_synthesis_cost = 603500;
+            let expected_constructor_cost = 65600;
+            let expected_namespace_cost = 1000000;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
             assert_eq!(
                 deployment_cost_v1(&process, &deployment_3).unwrap(),
-                (4186500, (943000, 603500, 1640000, 1000000))
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
             );
-
-            // Verify the deployment costs with deployment_cost_v2.
-            let mut deployment_0 = process.deploy::<A, _>(&program_0, rng).unwrap();
-            deployment_0.set_program_checksum_raw(Some(deployment_0.program().to_checksum()));
-            deployment_0.set_program_owner_raw(Some(Address::rand(rng)));
-            assert_eq!(deployment_cost_v2(&process, &deployment_0).unwrap(), (1905140, (879000, 24140, 2000, 1000000)));
-
-            let mut deployment_1 = process.deploy::<A, _>(&program_1, rng).unwrap();
-            deployment_1.set_program_checksum_raw(Some(deployment_1.program().to_checksum()));
-            deployment_1.set_program_owner_raw(Some(Address::rand(rng)));
-            assert_eq!(deployment_cost_v2(&process, &deployment_1).unwrap(), (1904140, (878000, 24140, 2000, 1000000)));
-
-            let mut deployment_2 = process.deploy::<A, _>(&program_2, rng).unwrap();
-            deployment_2.set_program_checksum_raw(Some(deployment_2.program().to_checksum()));
-            deployment_2.set_program_owner_raw(Some(Address::rand(rng)));
-            assert_eq!(deployment_cost_v2(&process, &deployment_2).unwrap(), (1942420, (911000, 24140, 7280, 1000000)));
-
-            let mut deployment_3 = process.deploy::<A, _>(&program_3, rng).unwrap();
-            deployment_3.set_program_checksum_raw(Some(deployment_3.program().to_checksum()));
-            deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
+            let expected_synthesis_cost = expected_synthesis_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_constructor_cost = expected_constructor_cost / N::ARC_0005_COMPUTE_DISCOUNT;
+            let expected_total_cost =
+                expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;
             assert_eq!(
                 deployment_cost_v2(&process, &deployment_3).unwrap(),
-                (2032740, (943000, 24140, 65600, 1000000))
+                (
+                    expected_total_cost,
+                    (
+                        expected_storage_cost,
+                        expected_synthesis_cost,
+                        expected_constructor_cost,
+                        expected_namespace_cost
+                    )
+                )
             );
         }
 
