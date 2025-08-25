@@ -896,7 +896,7 @@ function dummy:",
             deployment_3.set_program_owner_raw(Some(Address::rand(rng)));
             let expected_storage_cost = 943000;
             let expected_synthesis_cost = 603500;
-            let expected_constructor_cost = 65600;
+            let expected_constructor_cost = 1640000;
             let expected_namespace_cost = 1000000;
             let expected_total_cost =
                 expected_storage_cost + expected_synthesis_cost + expected_constructor_cost + expected_namespace_cost;

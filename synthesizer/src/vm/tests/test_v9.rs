@@ -3353,11 +3353,11 @@ fn test_upgrade_child_program_beyond_transaction_spend_limit() {
     // Get the genesis private key.
     let caller_private_key = sample_genesis_private_key(rng);
 
-    // Advance the VM to `ConsensusVersion::V10`.
+    // Advance the VM to `ConsensusVersion::V9`.
     advance_vm_to_height(
         &mut vm,
         caller_private_key,
-        CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V10).unwrap(),
+        CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap(),
         rng,
     );
 
@@ -3471,7 +3471,7 @@ finalize foo:
 constructor:
     assert.eq true true;
     ",
-        construct_finalize_body(1950, 0)
+        construct_finalize_body(75, 0)
     ))
     .unwrap();
 

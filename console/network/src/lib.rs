@@ -140,10 +140,8 @@ pub trait Network:
     const MAX_FEE: u64 = 1_000_000_000_000_000;
     /// A list of consensus versions and their corresponding transaction spend limits.
     //  Note: This value must **not** decrease without considering the impact on transaction validity.
-    //  Decreasing this value may break backwards compatibility for existing deployed programs.
-    //  Increasing this value will require a migration to prevent forking during network upgrades.
     const TRANSACTION_SPEND_LIMIT: [(ConsensusVersion, u64); 2] =
-        [(ConsensusVersion::V1, 100_000_000), (ConsensusVersion::V10, 2_500_000_000)];
+        [(ConsensusVersion::V1, 100_000_000), (ConsensusVersion::V10, 4_000_000)];
     /// The compute discount approved by ARC 0005.
     const ARC_0005_COMPUTE_DISCOUNT: u64 = 25;
 

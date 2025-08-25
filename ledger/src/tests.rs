@@ -2393,14 +2393,8 @@ fn test_deployment_exceeding_max_transaction_spend() {
 
     for i in 0..<CurrentNetwork as Network>::MAX_COMMANDS.ilog2() {
         // Construct the finalize body.
-        let mut finalize_body = r"
-        cast  0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 0u8 into r0 as [u8; 16u32];
-        cast  r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 into r1 as [[u8; 16u32]; 16u32];
-        cast  r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 into r2 as [[[u8; 16u32]; 16u32]; 16u32];"
-            .to_string();
-        (3..2.pow(i)).for_each(|i| {
-            finalize_body.push_str(&format!("hash.bhp256 r2 into r{i} as field;\n"));
-        });
+        let finalize_body =
+            (0..2.pow(i)).map(|i| format!("hash.bhp256 0field into r{i} as field;")).collect::<Vec<_>>().join("\n");
 
         // Construct the program.
         let program = Program::from_str(&format!(

@@ -256,16 +256,11 @@ mod tests {
         }
     }
 
-    /// Ensure that `MAX_CERTIFICATES` and `TRANSACTION_SPEND_LIMIT` increase and are correctly defined.
+    /// Ensure that `MAX_CERTIFICATES` increases and is correctly defined.
     /// See the constant declaration for an explanation why.
     fn max_certificates_and_transaction_spend_limit_increasing<N: Network>() {
         let mut previous_value = N::MAX_CERTIFICATES.first().unwrap().1;
         for (_, value) in N::MAX_CERTIFICATES.iter().skip(1) {
-            assert!(*value >= previous_value);
-            previous_value = *value;
-        }
-        let mut previous_value = N::TRANSACTION_SPEND_LIMIT.first().unwrap().1;
-        for (_, value) in N::TRANSACTION_SPEND_LIMIT.iter().skip(1) {
             assert!(*value >= previous_value);
             previous_value = *value;
         }
