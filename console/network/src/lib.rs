@@ -101,8 +101,10 @@ pub trait Network:
 {
     /// The network ID.
     const ID: u16;
-    /// The network name.
+    /// The (long) network name.
     const NAME: &'static str;
+    /// The short network name (used, for example, in query URLs).
+    const SHORT_NAME: &'static str;
 
     /// The function name for the inclusion circuit.
     const INCLUSION_FUNCTION_NAME: &'static str;
