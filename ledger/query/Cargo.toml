@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger-query"
-version = "4.0.0"
+version = "4.1.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A query for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -30,6 +30,7 @@ wasm = [
   "snarkvm-synthesizer-program/wasm"
 ]
 query = [
+  "dep:snarkvm-ledger-block",
   "dep:snarkvm-ledger-store",
   "dep:snarkvm-synthesizer-program",
   "dep:ureq",
@@ -39,6 +40,10 @@ query = [
 workspace = true
 features = [ "default" ]
 
+[dependencies.snarkvm-ledger-block]
+workspace = true
+optional = true
+
 [dependencies.snarkvm-ledger-store]
 workspace = true
 optional = true
@@ -47,15 +52,30 @@ optional = true
 workspace = true
 optional = true
 
+[dependencies.anyhow]
+workspace = true
+
 [dependencies.async-trait]
 version = "0.1"
+
+[dependencies.serde]
+workspace = true
+
+[dependencies.serde_json]
+workspace = true
+features = [ "preserve_order" ]
 
 [dependencies.reqwest]
 version = "0.12"
 features = [ "json" ]
 optional = true
 
-[dependencies.ureq]
+[target.'cfg(target_arch="wasm32")'.dependencies.ureq]
 workspace = true
-features = [ "json" ]
+features = [ "json", "gzip" ]
+optional = true
+
+[target.'cfg(not(target_arch="wasm32"))'.dependencies.ureq]
+workspace = true
+features = [ "json", "gzip", "rustls" ]
 optional = true
