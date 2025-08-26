@@ -440,12 +440,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         // Get the transaction spend limit.
                         let transaction_spend_limit =
                             consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, current_height).unwrap();
-                        // Determine the cost to check.
-                        let cost_to_check =
+                        // Determine the transaction spend to prevent DoS attacks. From V10 onwards, we only compare the finalize (compute) cost.
+                        let transaction_spend =
                             if consensus_version >= ConsensusVersion::V10 { finalize_cost } else { cost };
-                        // Ensure the finalize cost does not exceed the transaction spend limit.
+                        // Ensure the transaction spend does not exceed the transaction spend limit.
                         ensure!(
-                            cost_to_check <= transaction_spend_limit,
+                            transaction_spend <= transaction_spend_limit,
                             "Transaction '{id}' exceeds the transaction spend limit '{}'",
                             transaction_spend_limit
                         );
