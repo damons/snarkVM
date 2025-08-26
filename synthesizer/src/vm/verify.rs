@@ -232,6 +232,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - missing program owner"
                     );
                 }
+                if consensus_version <= ConsensusVersion::V10 {
+                    ensure!(
+                        !deployment.program().contains_v11_syntax(),
+                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V11`"
+                    );
+                }
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {

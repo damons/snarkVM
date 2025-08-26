@@ -912,6 +912,35 @@ impl<N: Network> ProgramCore<N> {
         // Return `false` since no V9 syntax was found.
         false
     }
+
+    /// Returns `true` if a program contains any V11 syntax.
+    /// This includes:
+    /// 1. `.raw` hash or signature verification variants
+    /// 2. `ecdsa.verify.*` opcodes
+    /// 3. arrays that exceed the previous maximum length of 32.
+    #[inline]
+    pub fn contains_v11_syntax(&self) -> bool {
+        // Helper to check if any of the opcodes start with `ecdsa.verify` or end with `.raw`.
+        let has_op = |opcode: &str| opcode.starts_with("ecdsa.verify") || opcode.ends_with(".raw");
+
+        // Determine if any function instructions contain the new syntax.
+        let function_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.instructions())
+            .any(|instruction| has_op(*instruction.opcode()));
+
+        // Determine if any finalize commands or constructor commands contain the new syntax.
+        let command_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
+            .flatten()
+            .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
+            .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
+
+        // Determine if any of the array types exceed the previous maximum length of 32.
+        // TODO (raychu86): Implement this check.
+        let array_size_exceeds = false;
+
+        function_contains || command_contains || array_size_exceeds
+    }
 }
 
 impl<N: Network> TypeName for ProgramCore<N> {
