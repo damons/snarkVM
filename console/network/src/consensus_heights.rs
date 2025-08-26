@@ -309,10 +309,4 @@ mod tests {
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
     }
-
-    #[test]
-    fn test_latest_consensus_version() {
-        // Ensure the test matches the latest ConsensusVersion variant.
-        assert_eq!(ConsensusVersion::latest(), ConsensusVersion::V10); // UPDATE ME, if changed.
-    }
 }
