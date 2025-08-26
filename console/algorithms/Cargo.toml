@@ -36,6 +36,14 @@ workspace = true
 [dependencies.blake2s_simd]
 version = "1.0"
 
+[dependencies.hex]
+version = "0.4"
+
+[dependencies.k256]
+version = "0.13"
+features = [ "digest", "ecdsa" ]
+default-features = false
+
 [dependencies.smallvec]
 workspace = true
 features = [ "const_generics", "const_new" ]
@@ -45,6 +53,9 @@ version = "2"
 features = [ "keccak", "sha3" ]
 
 [dev-dependencies.snarkvm-curves]
+workspace = true
+
+[dev-dependencies.bincode]
 workspace = true
 
 [dev-dependencies.criterion]
