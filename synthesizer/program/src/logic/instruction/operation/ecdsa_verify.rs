@@ -15,9 +15,11 @@
 
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
+    algorithms::{ECDSASignature, Keccak256, Keccak384, Keccak512, Sha3_256, Sha3_384, Sha3_512},
     network::prelude::*,
-    program::{LiteralType, PlaintextType, Register, RegisterType},
+    program::{Boolean, Literal, LiteralType, PlaintextType, Register, RegisterType},
 };
+use snarkvm_utilities::bytes_from_bits_le;
 
 /// The ECDSA signature verification instruction using Keccak256.
 pub type ECDSAVerifyKeccak256<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256 as u8 }>;
@@ -117,6 +119,39 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     }
 }
 
+// TODO (raychu86): ECDSA - Add support for generic ECDSA instead of just Ethereum addresses.
+// Perform the ECDSA verification based on the variant.
+macro_rules! do_verification {
+    ($N: ident, $variant: expr, $signature: expr, $pub_key: expr, $message: expr, $q: expr) => {{
+        let bits = || $message.to_bits_le();
+        let bits_raw = || $message.to_bits_raw_le();
+
+        let signature_bytes = bytes_from_bits_le(&$signature.to_bits_raw_le());
+        let ecdsa_signature = ECDSASignature::from_bytes_le(&signature_bytes)?;
+        let ethereum_address_bytes: [u8; 20] = bytes_from_bits_le(&$pub_key.to_bits_raw_le())
+            .try_into()
+            .map_err(|_| anyhow!("Failed to parse Ethereum address"))?;
+
+        let output = match $variant {
+            0 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak256::default(), &bits()),
+            1 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak256::default(), &bits_raw()),
+            2 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak384::default(), &bits()),
+            3 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak384::default(), &bits_raw()),
+            4 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak512::default(), &bits()),
+            5 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak512::default(), &bits_raw()),
+            6 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_256::default(), &bits()),
+            7 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_256::default(), &bits_raw()),
+            8 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_384::default(), &bits()),
+            9 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_384::default(), &bits_raw()),
+            10 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_512::default(), &bits()),
+            11 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_512::default(), &bits_raw()),
+            12.. => bail!("Invalid 'ecdsa.verify' variant: {}", $variant),
+        };
+
+        output.is_ok()
+    }};
+}
+
 impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     /// Evaluates the instruction.
     #[inline]
@@ -136,24 +171,23 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
 
     /// Finalizes the instruction.
     #[inline]
-    pub fn finalize(&self, _stack: &impl StackTrait<N>, _registers: &mut impl RegistersTrait<N>) -> Result<()> {
-        // // Ensure the number of operands is correct.
-        // if self.operands.len() != 3 {
-        //     bail!("Instruction '{}' expects 3 operands, found {} operands", Self::opcode(), self.operands.len())
-        // }
-        //
-        // // Retrieve the inputs.
-        // let signature = registers.load(stack, &self.operands[0])?;
-        // let address = registers.load(stack, &self.operands[1])?;
-        // let message = registers.load(stack, &self.operands[2])?;
-        //
-        // // Verify the signature.
-        // let output = Literal::Boolean(Boolean::new(false));
-        //
-        // // Store the output.
-        // registers.store_literal(stack, &self.destination, output)
-        // TODO (raychu86): ECDSA - Implement the actual signature verification logic.
-        unimplemented!()
+    pub fn finalize(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersTrait<N>) -> Result<()> {
+        // Ensure the number of operands is correct.
+        if self.operands.len() != 3 {
+            bail!("Instruction '{}' expects 3 operands, found {} operands", Self::opcode(), self.operands.len())
+        }
+
+        // Retrieve the inputs.
+        let signature = registers.load(stack, &self.operands[0])?;
+        let ethereum_address = registers.load(stack, &self.operands[1])?;
+        let message = registers.load(stack, &self.operands[2])?;
+
+        // Perform the verification.
+        let output = do_verification!(N, VARIANT, signature, ethereum_address, message, Result::<_>::Ok);
+        let output = Literal::Boolean(Boolean::new(output));
+
+        // Store the output.
+        registers.store_literal(stack, &self.destination, output)
     }
 
     /// Returns the output type from the given program and input types.
@@ -167,25 +201,6 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         if input_types.len() != 3 {
             bail!("Instruction '{}' expects 3 inputs, found {} inputs", Self::opcode(), input_types.len())
         }
-
-        // TODO (raychu86): Determine the proper operand types.
-        // Ensure the first operand is a signature.
-        // if input_types[0] != RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Signature)) {
-        //     bail!(
-        //         "Instruction '{}' expects the first input to be a 'signature'. Found input of type '{}'",
-        //         Self::opcode(),
-        //         input_types[0]
-        //     )
-        // }
-
-        // Ensure the second operand is an address.
-        // if input_types[1] != RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Address)) {
-        //     bail!(
-        //         "Instruction '{}' expects the second input to be an 'address'. Found input of type '{}'",
-        //         Self::opcode(),
-        //         input_types[1]
-        //     )
-        // }
 
         Ok(vec![RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Boolean))])
     }

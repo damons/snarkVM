@@ -936,7 +936,7 @@ impl<N: Network> ProgramCore<N> {
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
         // Determine if any of the array types exceed the previous maximum length of 32.
-        // TODO (raychu86): Implement this check.
+        // TODO (raychu86): ECDSA - Implement this check.
         let array_size_exceeds = false;
 
         function_contains || command_contains || array_size_exceeds
