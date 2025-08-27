@@ -69,7 +69,7 @@ fn test_ecdsa_signature_vector_1() {
 
     // Check that the signature verifies against the recovered public key.
     assert!(signature.verify(&verifying_key, &hasher, &data_bytes.to_bits_le()).is_ok());
-    assert!(signature.verify_ethereum(expected_address_bytes, &hasher, &data_bytes.to_bits_le()).is_ok());
+    assert!(signature.verify_ethereum(&expected_address_bytes, &hasher, &data_bytes.to_bits_le()).is_ok());
 
     // Check that the signature does not verify against modified data.
     let wrong_data = data_bytes[6..].to_vec();

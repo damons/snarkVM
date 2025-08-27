@@ -96,7 +96,7 @@ impl ECDSASignature {
     /// Verify `(r,s)` against `verifying_key` using *your* hasher on `message`.
     pub fn verify_ethereum<H: Hash<Output = Vec<bool>>>(
         &self,
-        ethereum_address: [u8; 20],
+        ethereum_address: &[u8; 20],
         hasher: &H,
         message: &[H::Input],
     ) -> Result<()> {
@@ -106,7 +106,7 @@ impl ECDSASignature {
         // Ensure that the derived Ethereum address matches the provided one.
         let derived_ethereum_address = Self::ethereum_address_from_public_key(&verifying_key)?;
         ensure!(
-            derived_ethereum_address == ethereum_address,
+            &derived_ethereum_address == ethereum_address,
             "Derived Ethereum address does not match the provided address."
         );
 
@@ -131,6 +131,11 @@ impl ECDSASignature {
         ethereum_address.copy_from_slice(&address_bytes[12..32]);
 
         Ok(ethereum_address)
+    }
+
+    /// Parses a verifying key from bytes.
+    pub fn verifying_key_from_bytes(bytes: &[u8]) -> Result<VerifyingKey> {
+        VerifyingKey::from_sec1_bytes(bytes).map_err(|e| anyhow!("Failed to parse verifying key: {e:?}"))
     }
 }
 

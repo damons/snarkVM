@@ -229,26 +229,50 @@ pub enum Instruction<N: Network> {
     ECDSAVerifyKeccak256(ECDSAVerifyKeccak256<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256 and raw inputs.
     ECDSAVerifyKeccak256Raw(ECDSAVerifyKeccak256Raw<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with Keccak256.
+    ECDSAVerifyKeccak256Eth(ECDSAVerifyKeccak256Eth<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with Keccak256 and raw inputs.
+    ECDSAVerifyKeccak256EthRaw(ECDSAVerifyKeccak256EthRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak384.
     ECDSAVerifyKeccak384(ECDSAVerifyKeccak384<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak384 and raw inputs.
     ECDSAVerifyKeccak384Raw(ECDSAVerifyKeccak384Raw<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with Keccak384.
+    ECDSAVerifyKeccak384Eth(ECDSAVerifyKeccak384Eth<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with Keccak384 and raw inputs.
+    ECDSAVerifyKeccak384EthRaw(ECDSAVerifyKeccak384EthRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak512.
     ECDSAVerifyKeccak512(ECDSAVerifyKeccak512<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak512 and raw inputs.
     ECDSAVerifyKeccak512Raw(ECDSAVerifyKeccak512Raw<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with Keccak512.
+    ECDSAVerifyKeccak512Eth(ECDSAVerifyKeccak512Eth<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with Keccak512 and raw inputs.
+    ECDSAVerifyKeccak512EthRaw(ECDSAVerifyKeccak512EthRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with SHA3-256.
     ECDSAVerifySha3_256(ECDSAVerifySha3_256<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with SHA3-256 and raw inputs.
     ECDSAVerifySha3_256Raw(ECDSAVerifySha3_256Raw<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-256.
+    ECDSAVerifySha3_256Eth(ECDSAVerifySha3_256Eth<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-256 and raw inputs.
+    ECDSAVerifySha3_256EthRaw(ECDSAVerifySha3_256EthRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with SHA3-384.
     ECDSAVerifySha3_384(ECDSAVerifySha3_384<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with SHA3-384 and raw inputs.
     ECDSAVerifySha3_384Raw(ECDSAVerifySha3_384Raw<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-384.
+    ECDSAVerifySha3_384Eth(ECDSAVerifySha3_384Eth<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-384 and raw inputs.
+    ECDSAVerifySha3_384EthRaw(ECDSAVerifySha3_384EthRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with SHA3-512.
     ECDSAVerifySha3_512(ECDSAVerifySha3_512<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with SHA3-512 and raw inputs.
     ECDSAVerifySha3_512Raw(ECDSAVerifySha3_512Raw<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-512.
+    ECDSAVerifySha3_512Eth(ECDSAVerifySha3_512Eth<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-512 and raw inputs.
+    ECDSAVerifySha3_512EthRaw(ECDSAVerifySha3_512EthRaw<N>),
 }
 
 /// Creates a match statement that applies the given operation for each instruction.
@@ -365,16 +389,28 @@ macro_rules! instruction {
             SignVerifyRaw,
             ECDSAVerifyKeccak256,
             ECDSAVerifyKeccak256Raw,
+            ECDSAVerifyKeccak256Eth,
+            ECDSAVerifyKeccak256EthRaw,
             ECDSAVerifyKeccak384,
             ECDSAVerifyKeccak384Raw,
+            ECDSAVerifyKeccak384Eth,
+            ECDSAVerifyKeccak384EthRaw,
             ECDSAVerifyKeccak512,
             ECDSAVerifyKeccak512Raw,
+            ECDSAVerifyKeccak512Eth,
+            ECDSAVerifyKeccak512EthRaw,
             ECDSAVerifySha3_256,
             ECDSAVerifySha3_256Raw,
+            ECDSAVerifySha3_256Eth,
+            ECDSAVerifySha3_256EthRaw,
             ECDSAVerifySha3_384,
             ECDSAVerifySha3_384Raw,
+            ECDSAVerifySha3_384Eth,
+            ECDSAVerifySha3_384EthRaw,
             ECDSAVerifySha3_512,
             ECDSAVerifySha3_512Raw,
+            ECDSAVerifySha3_512Eth,
+            ECDSAVerifySha3_512EthRaw,
         }}
     };
     // A variant **without** curly braces:

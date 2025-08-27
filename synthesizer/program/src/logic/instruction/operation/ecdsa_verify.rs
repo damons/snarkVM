@@ -25,42 +25,78 @@ use snarkvm_utilities::bytes_from_bits_le;
 pub type ECDSAVerifyKeccak256<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256 as u8 }>;
 /// The ECDSA signature verification instruction using Keccak256 with raw inputs.
 pub type ECDSAVerifyKeccak256Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256Raw as u8 }>;
+/// The ECDSA signature verification instruction using Keccak256 and an Ethereum address.
+pub type ECDSAVerifyKeccak256Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256Eth as u8 }>;
+/// The ECDSA signature verification instruction using Keccak256 with raw inputs and an Ethereum address.
+pub type ECDSAVerifyKeccak256EthRaw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak256EthRaw as u8 }>;
 /// The ECDSA signature verification instruction using Keccak384.
 pub type ECDSAVerifyKeccak384<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak384 as u8 }>;
 /// The ECDSA signature verification instruction using Keccak384 with raw inputs.
 pub type ECDSAVerifyKeccak384Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak384Raw as u8 }>;
+/// The ECDSA signature verification instruction using Keccak384 and an Ethereum address.
+pub type ECDSAVerifyKeccak384Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak384Eth as u8 }>;
+/// The ECDSA signature verification instruction using Keccak384 with raw inputs and an Ethereum address.
+pub type ECDSAVerifyKeccak384EthRaw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak384EthRaw as u8 }>;
 /// The ECDSA signature verification instruction using Keccak512.
 pub type ECDSAVerifyKeccak512<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak512 as u8 }>;
 /// The ECDSA signature verification instruction using Keccak512 with raw inputs.
 pub type ECDSAVerifyKeccak512Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak512Raw as u8 }>;
+/// The ECDSA signature verification instruction using Keccak512 and an Ethereum address.
+pub type ECDSAVerifyKeccak512Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak512Eth as u8 }>;
+/// The ECDSA signature verification instruction using Keccak512 with raw inputs and an Ethereum address.
+pub type ECDSAVerifyKeccak512EthRaw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashKeccak512EthRaw as u8 }>;
 
 /// The ECDSA signature verification instruction using SHA3-256.
 pub type ECDSAVerifySha3_256<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_256 as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-256 with raw inputs.
 pub type ECDSAVerifySha3_256Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_256Raw as u8 }>;
+/// The ECDSA signature verification instruction using SHA3-256 and an Ethereum address.
+pub type ECDSAVerifySha3_256Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_256Eth as u8 }>;
+/// The ECDSA signature verification instruction using SHA3-256 with raw inputs and an Ethereum address.
+pub type ECDSAVerifySha3_256EthRaw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_256EthRaw as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-384.
 pub type ECDSAVerifySha3_384<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_384 as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-384 with raw inputs.
 pub type ECDSAVerifySha3_384Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_384Raw as u8 }>;
+/// The ECDSA signature verification instruction using SHA3-384 and an Ethereum address.
+pub type ECDSAVerifySha3_384Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_384Eth as u8 }>;
+/// The ECDSA signature verification instruction using SHA3-384 with raw inputs and an Ethereum address.
+pub type ECDSAVerifySha3_384EthRaw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_384EthRaw as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-512.
 pub type ECDSAVerifySha3_512<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512 as u8 }>;
 /// The ECDSA signature verification instruction using SHA3-512 with raw inputs.
 pub type ECDSAVerifySha3_512Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512Raw as u8 }>;
+/// The ECDSA signature verification instruction using SHA3-512 and an Ethereum address.
+pub type ECDSAVerifySha3_512Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512Eth as u8 }>;
+/// The ECDSA signature verification instruction using SHA3-512 with raw inputs and an Ethereum address.
+pub type ECDSAVerifySha3_512EthRaw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512EthRaw as u8 }>;
 
 /// Which hash function to use.
 pub enum ECDSAVerifyVariant {
     HashKeccak256,
     HashKeccak256Raw,
+    HashKeccak256Eth,
+    HashKeccak256EthRaw,
     HashKeccak384,
     HashKeccak384Raw,
+    HashKeccak384Eth,
+    HashKeccak384EthRaw,
     HashKeccak512,
     HashKeccak512Raw,
+    HashKeccak512Eth,
+    HashKeccak512EthRaw,
     HashSha3_256,
     HashSha3_256Raw,
+    HashSha3_256Eth,
+    HashSha3_256EthRaw,
     HashSha3_384,
     HashSha3_384Raw,
+    HashSha3_384Eth,
+    HashSha3_384EthRaw,
     HashSha3_512,
     HashSha3_512Raw,
+    HashSha3_512Eth,
+    HashSha3_512EthRaw,
 }
 
 /// Computes whether `signature` is valid for the given `address` and `message`.
@@ -88,16 +124,28 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         let name = match VARIANT {
             0 => "ecdsa.verify.keccak256",
             1 => "ecdsa.verify.keccak256.raw",
-            2 => "ecdsa.verify.keccak384",
-            3 => "ecdsa.verify.keccak384.raw",
-            4 => "ecdsa.verify.keccak512",
-            5 => "ecdsa.verify.keccak512.raw",
-            6 => "ecdsa.verify.sha3_256",
-            7 => "ecdsa.verify.sha3_256.raw",
-            8 => "ecdsa.verify.sha3_384",
-            9 => "ecdsa.verify.sha3_384.raw",
-            10 => "ecdsa.verify.sha3_512",
-            11 => "ecdsa.verify.sha3_512.raw",
+            2 => "ecdsa.verify.keccak256.eth",
+            3 => "ecdsa.verify.keccak256.eth.raw",
+            4 => "ecdsa.verify.keccak384",
+            5 => "ecdsa.verify.keccak384.raw",
+            6 => "ecdsa.verify.keccak384.eth",
+            7 => "ecdsa.verify.keccak384.eth.raw",
+            8 => "ecdsa.verify.keccak512",
+            9 => "ecdsa.verify.keccak512.raw",
+            10 => "ecdsa.verify.keccak512.eth",
+            11 => "ecdsa.verify.keccak512.eth.raw",
+            12 => "ecdsa.verify.sha3_256",
+            13 => "ecdsa.verify.sha3_256.raw",
+            14 => "ecdsa.verify.sha3_256.eth",
+            15 => "ecdsa.verify.sha3_256.eth.raw",
+            16 => "ecdsa.verify.sha3_384",
+            17 => "ecdsa.verify.sha3_384.raw",
+            18 => "ecdsa.verify.sha3_384.eth",
+            19 => "ecdsa.verify.sha3_384.eth.raw",
+            20 => "ecdsa.verify.sha3_512",
+            21 => "ecdsa.verify.sha3_512.raw",
+            22 => "ecdsa.verify.sha3_512.eth",
+            23 => "ecdsa.verify.sha3_512.eth.raw",
             _ => panic!("Invalid 'ecdsa.verify' instruction opcode"),
         };
         Opcode::ECDSA(name)
@@ -126,26 +174,42 @@ macro_rules! do_verification {
         let bits = || $message.to_bits_le();
         let bits_raw = || $message.to_bits_raw_le();
 
+        let pub_key = || ECDSASignature::verifying_key_from_bytes(&bytes_from_bits_le(&$pub_key.to_bits_raw_le()));
+        let ethereum_address = || {
+            bytes_from_bits_le(&$pub_key.to_bits_raw_le())
+                .try_into()
+                .map_err(|_| anyhow!("Failed to parse Ethereum address"))
+        };
+
         let signature_bytes = bytes_from_bits_le(&$signature.to_bits_raw_le());
         let ecdsa_signature = ECDSASignature::from_bytes_le(&signature_bytes)?;
-        let ethereum_address_bytes: [u8; 20] = bytes_from_bits_le(&$pub_key.to_bits_raw_le())
-            .try_into()
-            .map_err(|_| anyhow!("Failed to parse Ethereum address"))?;
 
         let output = match $variant {
-            0 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak256::default(), &bits()),
-            1 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak256::default(), &bits_raw()),
-            2 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak384::default(), &bits()),
-            3 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak384::default(), &bits_raw()),
-            4 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak512::default(), &bits()),
-            5 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Keccak512::default(), &bits_raw()),
-            6 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_256::default(), &bits()),
-            7 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_256::default(), &bits_raw()),
-            8 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_384::default(), &bits()),
-            9 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_384::default(), &bits_raw()),
-            10 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_512::default(), &bits()),
-            11 => ecdsa_signature.verify_ethereum(ethereum_address_bytes, &Sha3_512::default(), &bits_raw()),
-            12.. => bail!("Invalid 'ecdsa.verify' variant: {}", $variant),
+            0 => ecdsa_signature.verify(&pub_key()?, &Keccak256::default(), &bits()),
+            1 => ecdsa_signature.verify(&pub_key()?, &Keccak256::default(), &bits_raw()),
+            2 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak256::default(), &bits()),
+            3 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak256::default(), &bits_raw()),
+            4 => ecdsa_signature.verify(&pub_key()?, &Keccak384::default(), &bits()),
+            5 => ecdsa_signature.verify(&pub_key()?, &Keccak384::default(), &bits_raw()),
+            6 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak384::default(), &bits()),
+            7 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak384::default(), &bits_raw()),
+            8 => ecdsa_signature.verify(&pub_key()?, &Keccak512::default(), &bits()),
+            9 => ecdsa_signature.verify(&pub_key()?, &Keccak512::default(), &bits_raw()),
+            10 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak512::default(), &bits()),
+            11 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak512::default(), &bits_raw()),
+            12 => ecdsa_signature.verify(&pub_key()?, &Sha3_256::default(), &bits()),
+            13 => ecdsa_signature.verify(&pub_key()?, &Sha3_256::default(), &bits_raw()),
+            14 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_256::default(), &bits()),
+            15 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_256::default(), &bits_raw()),
+            16 => ecdsa_signature.verify(&pub_key()?, &Sha3_384::default(), &bits()),
+            17 => ecdsa_signature.verify(&pub_key()?, &Sha3_384::default(), &bits_raw()),
+            18 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_384::default(), &bits()),
+            19 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_384::default(), &bits_raw()),
+            20 => ecdsa_signature.verify(&pub_key()?, &Sha3_512::default(), &bits()),
+            21 => ecdsa_signature.verify(&pub_key()?, &Sha3_512::default(), &bits_raw()),
+            22 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_512::default(), &bits()),
+            23 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_512::default(), &bits_raw()),
+            24.. => bail!("Invalid 'ecdsa.verify' variant: {}", $variant),
         };
 
         output.is_ok()
@@ -177,6 +241,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
             bail!("Instruction '{}' expects 3 operands, found {} operands", Self::opcode(), self.operands.len())
         }
 
+        // TODO (raychu86): ECDSA - Determine if these are the correct input types.
         // Retrieve the inputs.
         let signature = registers.load(stack, &self.operands[0])?;
         let ethereum_address = registers.load(stack, &self.operands[1])?;
@@ -201,6 +266,8 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         if input_types.len() != 3 {
             bail!("Instruction '{}' expects 3 inputs, found {} inputs", Self::opcode(), input_types.len())
         }
+
+        // TODO (raychu86): ECDSA - Determine the correct input types based on the variant.
 
         Ok(vec![RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Boolean))])
     }
@@ -327,6 +394,25 @@ mod tests {
 
         let (string, is) =
             ECDSAVerifyKeccak256Raw::<CurrentNetwork>::parse("ecdsa.verify.keccak256.raw r0 r1 r2 into r3").unwrap();
+        assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
+        assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
+        assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
+        assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
+        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
+
+        let (string, is) =
+            ECDSAVerifyKeccak256Eth::<CurrentNetwork>::parse("ecdsa.verify.keccak256.eth r0 r1 r2 into r3").unwrap();
+        assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
+        assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
+        assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
+        assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
+        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
+
+        let (string, is) =
+            ECDSAVerifyKeccak256EthRaw::<CurrentNetwork>::parse("ecdsa.verify.keccak256.eth.raw r0 r1 r2 into r3")
+                .unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
         assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
