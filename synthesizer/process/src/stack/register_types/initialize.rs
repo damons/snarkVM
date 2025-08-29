@@ -793,10 +793,110 @@ impl<N: Network> RegisterTypes<N> {
 
     /// Ensures the opcode is a valid opcode and corresponds to the `ecdsa.verify` instruction.
     #[inline]
-    pub(crate) fn check_ecdsa_opcode(_opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+    pub(crate) fn check_ecdsa_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
         // Ensure the instruction has one destination register.
         ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
-        // TODO (raychu86): ECDSA - Implement the ecdsa opcode checks
-        unimplemented!()
+        // Ensure the instruction is the correct one.
+        match opcode {
+            "ecdsa.verify.keccak256" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak256.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak256.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak256.eth.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256EthRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384.eth.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384EthRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512.eth.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512EthRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256.eth.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256EthRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384.eth.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384EthRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512.eth.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512EthRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
+        }
+
+        Ok(())
     }
 }
