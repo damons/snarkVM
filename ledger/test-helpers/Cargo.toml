@@ -21,7 +21,6 @@ workspace = true
 
 [dependencies.snarkvm-console]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-circuit]
 workspace = true

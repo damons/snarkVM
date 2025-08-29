@@ -73,14 +73,12 @@ workspace = true
 
 [dependencies.snarkvm-console]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-ledger-block]
 workspace = true
 
 [dependencies.snarkvm-ledger-committee]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-ledger-narwhal-data]
 workspace = true

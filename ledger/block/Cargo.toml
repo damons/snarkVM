@@ -38,14 +38,12 @@ test = [ "snarkvm-synthesizer-process/test" ]
 
 [dependencies.snarkvm-console]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-ledger-authority]
 workspace = true
 
 [dependencies.snarkvm-ledger-committee]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-ledger-narwhal-batch-header]
 workspace = true

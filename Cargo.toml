@@ -437,6 +437,10 @@ version = "=4.1.0"
 [workspace.dependencies.aleo-std]
 version = "1.0.1"
 
+[workspace.dependencies.aleo-std-storage]
+default-features=false
+version = "1.0.1"
+
 [workspace.dependencies.anyhow]
 version = "1.0.73"
 
@@ -543,7 +547,6 @@ optional = true
 [dependencies.snarkvm-console]
 workspace = true
 optional = true
-features = [ "default" ]
 
 [dependencies.snarkvm-curves]
 workspace = true

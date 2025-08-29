@@ -40,7 +40,6 @@ wasm = [ "snarkvm-console/wasm" ]
 
 [dependencies.snarkvm-console]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-algorithms]
 workspace = true
