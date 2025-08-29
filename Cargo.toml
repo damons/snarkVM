@@ -135,6 +135,7 @@ package = [
   "circuit",
   "file",
   "ledger",
+  "snarkvm-console/filesystem",
   "dep:ureq",
   "dep:dotenvy"
 ]

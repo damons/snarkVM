@@ -33,6 +33,7 @@ test-helpers = [ "prop-tests", "rand_distr" ]
 
 [dependencies.snarkvm-console]
 workspace = true
+features = [ "program" ]
 
 [dependencies.snarkvm-ledger-narwhal-batch-header]
 workspace = true

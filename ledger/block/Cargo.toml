@@ -90,6 +90,10 @@ workspace = true
 [dev-dependencies.snarkvm-circuit]
 workspace = true
 
+[dev-dependencies.snarkvm-console]
+workspace = true
+features = [ "filesystem" ]
+
 [dev-dependencies.snarkvm-ledger-committee]
 workspace = true
 features = [ "test-helpers" ]
