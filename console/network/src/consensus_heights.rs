@@ -258,7 +258,7 @@ mod tests {
 
     /// Ensure that `MAX_CERTIFICATES` increases and is correctly defined.
     /// See the constant declaration for an explanation why.
-    fn max_certificates_and_transaction_spend_limit_increasing<N: Network>() {
+    fn max_certificates_increasing<N: Network>() {
         let mut previous_value = N::MAX_CERTIFICATES.first().unwrap().1;
         for (_, value) in N::MAX_CERTIFICATES.iter().skip(1) {
             assert!(*value >= previous_value);
@@ -297,9 +297,9 @@ mod tests {
         consensus_config_returns_some::<TestnetV0>();
         consensus_config_returns_some::<CanaryV0>();
 
-        max_certificates_and_transaction_spend_limit_increasing::<MainnetV0>();
-        max_certificates_and_transaction_spend_limit_increasing::<TestnetV0>();
-        max_certificates_and_transaction_spend_limit_increasing::<CanaryV0>();
+        max_certificates_increasing::<MainnetV0>();
+        max_certificates_increasing::<TestnetV0>();
+        max_certificates_increasing::<CanaryV0>();
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
     }
