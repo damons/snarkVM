@@ -50,8 +50,8 @@ impl<N: Network> Certificate<N> {
         #[cfg(feature = "dev-print")]
         {
             let _elapsed = timer.elapsed().as_millis();
-            dev_println!(" • Certified '{_function_name}' (in {_elapsed} ms)")
-        };
+            dev_println!(" • Certified '{_function_name}' (in {_elapsed} ms)");
+        }
 
         Ok(Self::new(certificate))
     }
