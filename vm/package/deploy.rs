@@ -156,8 +156,11 @@ mod tests {
         // Samples a new package at a temporary directory.
         let (directory, package) = crate::package::test_helpers::sample_token_package();
 
+        // Generate the process with the appropriate imports.
+        let process = package.get_process().unwrap();
+
         // Deploy the package.
-        let deployment = package.deploy::<CurrentAleo>(None).unwrap();
+        let deployment = package.deploy::<CurrentAleo>(&process, None).unwrap();
 
         // Ensure the deployment edition matches.
         assert_eq!(0, deployment.edition());
@@ -175,8 +178,11 @@ mod tests {
         // Samples a new package at a temporary directory.
         let (directory, package) = crate::package::test_helpers::sample_wallet_package();
 
+        // Generate the process with the appropriate imports.
+        let process = package.get_process().unwrap();
+
         // Deploy the package.
-        let deployment = package.deploy::<CurrentAleo>(None).unwrap();
+        let deployment = package.deploy::<CurrentAleo>(&process, None).unwrap();
 
         // Ensure the deployment edition matches.
         assert_eq!(0, deployment.edition());
