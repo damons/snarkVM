@@ -548,6 +548,7 @@ optional = true
 [dependencies.snarkvm-console]
 workspace = true
 optional = true
+features = [ "default" ]
 
 [dependencies.snarkvm-curves]
 workspace = true
