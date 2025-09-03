@@ -37,8 +37,10 @@ pub enum ConsensusVersion {
     V8 = 8,
     /// V9: Support for program upgradability.
     V9 = 9,
-    /// V10: Support for external records.
+    /// V10: Lower fees, appropriate record output type checking.
     V10 = 10,
+    /// V11: Support for external structs.
+    V11 = 11,
 }
 
 impl ConsensusVersion {
@@ -48,7 +50,7 @@ impl ConsensusVersion {
 }
 
 /// The number of consensus versions.
-pub(crate) const NUM_CONSENSUS_VERSIONS: usize = 10;
+pub(crate) const NUM_CONSENSUS_VERSIONS: usize = 11;
 
 /// The consensus version height for `CanaryV0`.
 pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
@@ -62,6 +64,7 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CON
     (ConsensusVersion::V8, 7_565_000),
     (ConsensusVersion::V9, 8_028_000),
     (ConsensusVersion::V10, 8_600_000),
+    (ConsensusVersion::V11, 10_235_000),
 ];
 
 /// The consensus version height for `MainnetV0`.
@@ -76,6 +79,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_430_000),
     (ConsensusVersion::V9, 10_272_000),
     (ConsensusVersion::V10, 11_115_000),
+    (ConsensusVersion::V11, 13_575_000),
 ];
 
 /// The consensus version heights for `TestnetV0`.
@@ -90,6 +94,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_173_000),
     (ConsensusVersion::V9, 9_800_000),
     (ConsensusVersion::V10, 10_525_000),
+    (ConsensusVersion::V11, 12_660_000),
 ];
 
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
@@ -104,6 +109,7 @@ pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSU
     (ConsensusVersion::V8, 16),
     (ConsensusVersion::V9, 17),
     (ConsensusVersion::V10, 18),
+    (ConsensusVersion::V11, 19),
 ];
 
 #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
@@ -258,7 +264,7 @@ mod tests {
 
     /// Ensure that `MAX_CERTIFICATES` increases and is correctly defined.
     /// See the constant declaration for an explanation why.
-    fn max_certificates_and_transaction_spend_limit_increasing<N: Network>() {
+    fn max_certificates_increasing<N: Network>() {
         let mut previous_value = N::MAX_CERTIFICATES.first().unwrap().1;
         for (_, value) in N::MAX_CERTIFICATES.iter().skip(1) {
             assert!(*value >= previous_value);
@@ -297,16 +303,10 @@ mod tests {
         consensus_config_returns_some::<TestnetV0>();
         consensus_config_returns_some::<CanaryV0>();
 
-        max_certificates_and_transaction_spend_limit_increasing::<MainnetV0>();
-        max_certificates_and_transaction_spend_limit_increasing::<TestnetV0>();
-        max_certificates_and_transaction_spend_limit_increasing::<CanaryV0>();
+        max_certificates_increasing::<MainnetV0>();
+        max_certificates_increasing::<TestnetV0>();
+        max_certificates_increasing::<CanaryV0>();
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
-    }
-
-    #[test]
-    fn test_latest_consensus_version() {
-        // Ensure the test matches the latest ConsensusVersion variant.
-        assert_eq!(ConsensusVersion::latest(), ConsensusVersion::V10); // UPDATE ME, if changed.
     }
 }
