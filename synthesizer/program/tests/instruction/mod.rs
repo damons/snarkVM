@@ -15,5 +15,6 @@
 
 mod assert;
 mod commit;
+mod ecdsa;
 mod hash;
 mod is;

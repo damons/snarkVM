@@ -167,7 +167,6 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     }
 }
 
-// TODO (raychu86): ECDSA - Add support for generic ECDSA instead of just Ethereum addresses.
 // Perform the ECDSA verification based on the variant.
 macro_rules! do_verification {
     ($N: ident, $variant: expr, $signature: expr, $pub_key: expr, $message: expr, $q: expr) => {{
@@ -241,14 +240,15 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
             bail!("Instruction '{}' expects 3 operands, found {} operands", Self::opcode(), self.operands.len())
         }
 
-        // TODO (raychu86): ECDSA - Determine if these are the correct input types.
         // Retrieve the inputs.
+        // Note: There is no need to check the types here, as this is done in `output_types`.
         let signature = registers.load(stack, &self.operands[0])?;
-        let ethereum_address = registers.load(stack, &self.operands[1])?;
+        let public_key = registers.load(stack, &self.operands[1])?;
+
         let message = registers.load(stack, &self.operands[2])?;
 
         // Perform the verification.
-        let output = do_verification!(N, VARIANT, signature, ethereum_address, message, Result::<_>::Ok);
+        let output = do_verification!(N, VARIANT, signature, public_key, message, Result::<_>::Ok);
         let output = Literal::Boolean(Boolean::new(output));
 
         // Store the output.
@@ -267,7 +267,47 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
             bail!("Instruction '{}' expects 3 inputs, found {} inputs", Self::opcode(), input_types.len())
         }
 
-        // TODO (raychu86): ECDSA - Determine the correct input types based on the variant.
+        // Enforce that the signature is an array of 65 bytes.
+        match &input_types[0] {
+            RegisterType::Plaintext(PlaintextType::Array(array_type))
+                if array_type.base_element_type() == &PlaintextType::Literal(LiteralType::U8)
+                    && **array_type.length() as usize == ECDSASignature::SIGNATURE_SIZE_IN_BYTES =>
+            {
+                // valid signature array
+            }
+            _ => bail!(
+                "Instruction '{}' expects the first input to be a {}-byte array. Found input of type '{}'",
+                Self::opcode(),
+                ECDSASignature::SIGNATURE_SIZE_IN_BYTES,
+                input_types[0]
+            ),
+        }
+
+        // Expected byte length for the public key input depending on the variant.
+        let expected_length = if matches!(VARIANT, 2 | 3 | 6 | 7 | 10 | 11 | 14 | 15 | 18 | 19 | 22 | 23)
+            || Self::opcode().ends_with("eth")
+        {
+            // Ethereum address variant expects a 20-byte array.
+            20
+        } else {
+            // Non-Ethereum address variant expects a compressed verifying key.
+            ECDSASignature::VERIFYING_KEY_SIZE_IN_BYTES
+        };
+
+        // Validate if the public key input type is correct.
+        if !matches!(
+            &input_types[1],
+            RegisterType::Plaintext(PlaintextType::Array(array_type))
+                if array_type.base_element_type() == &PlaintextType::Literal(LiteralType::U8)
+                && expected_length == **array_type.length() as usize
+        ) {
+            bail!(
+                "Instruction '{}' expects the second input to be a {}-byte array. Found '{}'",
+                Self::opcode(),
+                expected_length,
+                input_types[1]
+            );
+        }
 
         Ok(vec![RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Boolean))])
     }

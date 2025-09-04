@@ -786,6 +786,66 @@ impl<N: Network> RegisterTypes<N> {
                 matches!(instruction, Instruction::HashManyPSD8(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
+            "hash.bhp256.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp512.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp768.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP768Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp1024.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP1024Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak256.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak384.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak512.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.ped64.raw" => ensure!(
+                matches!(instruction, Instruction::HashPED64Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.ped128.raw" => ensure!(
+                matches!(instruction, Instruction::HashPED128Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.psd2.raw" => ensure!(
+                matches!(instruction, Instruction::HashPSD2Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.psd4.raw" => ensure!(
+                matches!(instruction, Instruction::HashPSD4Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.psd8.raw" => ensure!(
+                matches!(instruction, Instruction::HashPSD8Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_256.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_384.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_512.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
             _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
         }
         Ok(())

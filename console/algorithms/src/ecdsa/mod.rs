@@ -36,11 +36,18 @@ use k256::{
 /// An ECDSA/Secp256k1 signature (r,s) signature.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ECDSASignature {
-    signature: Signature,
-    recovery_id: RecoveryId,
+    pub signature: Signature,
+    pub recovery_id: RecoveryId,
 }
 
 impl ECDSASignature {
+    ///  The base signature size in bytes for secp256k1.
+    pub const BASE_SIGNATURE_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE * 2;
+    /// The ECDSA Signature size in bits for secp256k1 (including the recovery ID).
+    pub const SIGNATURE_SIZE_IN_BYTES: usize = Self::BASE_SIGNATURE_SIZE_IN_BYTES + 1;
+    /// The compressed VerifyingKey size in bytes for secp256k1.
+    pub const VERIFYING_KEY_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE + 1;
+
     /// Returns a signature on a `message` using the given `signing_key` and hash function.
     pub fn sign<H: Hash<Output = Vec<bool>>>(
         signing_key: &SigningKey,
@@ -135,6 +142,15 @@ impl ECDSASignature {
 
     /// Parses a verifying key from bytes.
     pub fn verifying_key_from_bytes(bytes: &[u8]) -> Result<VerifyingKey> {
+        // Ensure the byte length is valid.
+        if bytes.len() != Self::VERIFYING_KEY_SIZE_IN_BYTES {
+            bail!(
+                "Invalid ECDSA verifying key length: expected {} bytes, got {} bytes",
+                Self::VERIFYING_KEY_SIZE_IN_BYTES,
+                bytes.len()
+            );
+        }
+        // Recover the verifying key from the bytes.
         VerifyingKey::from_sec1_bytes(bytes).map_err(|e| anyhow!("Failed to parse verifying key: {e:?}"))
     }
 }
@@ -149,11 +165,8 @@ impl ToBytes for ECDSASignature {
 
 impl FromBytes for ECDSASignature {
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
-        // Declare the signature size in bytes for secp256k1.
-        const SIGNATURE_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE * 2;
-
         // Read the signature bytes.
-        let mut bytes = vec![0u8; SIGNATURE_SIZE_IN_BYTES];
+        let mut bytes = vec![0u8; Self::BASE_SIGNATURE_SIZE_IN_BYTES];
         reader.read_exact(&mut bytes)?;
 
         // Read the recovery ID byte.
