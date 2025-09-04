@@ -146,14 +146,14 @@ macro_rules! to_bits_tuple {
         }
 
         impl<$t0: ToBitsRaw, $($ty: ToBitsRaw),+> ToBitsRaw for ($t0, $($ty),+) {
-            /// A helper method to return a concatenated list of little-endian bits without variant bits from the circuits.
+            /// A helper method to return a concatenated list of little-endian bits without variant or identifier bits from the circuits.
             #[inline]
             fn write_bits_raw_le(&self, vec: &mut Vec<bool>) {
                 // The tuple is order-preserving, meaning the first circuit in is the first circuit bits out.
                 (&self).write_bits_raw_le(vec);
             }
 
-            /// A helper method to return a concatenated list of bits-endian bits without variant bits from the circuits.
+            /// A helper method to return a concatenated list of bits-endian bits without variant or identifier bits from the circuits.
             #[inline]
             fn write_bits_raw_be(&self, vec: &mut Vec<bool>) {
                 // The tuple is order-preserving, meaning the first circuit in is the first circuit bits out.
@@ -162,7 +162,7 @@ macro_rules! to_bits_tuple {
         }
 
         impl<'a, $t0: ToBitsRaw, $($ty: ToBitsRaw),+> ToBitsRaw for &'a ($t0, $($ty),+) {
-            /// A helper method to return a concatenated list of little-endian bits without variant bits from the circuits.
+            /// A helper method to return a concatenated list of little-endian bits without variant or identifier bits from the circuits.
             #[inline]
             fn write_bits_raw_le(&self, vec: &mut Vec<bool>) {
                 // The tuple is order-preserving, meaning the first circuit in is the first circuit bits out.
@@ -170,7 +170,7 @@ macro_rules! to_bits_tuple {
                 $(self.$idx.write_bits_raw_le(vec);)+
             }
 
-            /// A helper method to return a concatenated list of bits-endian bits without variant bits from the circuits.
+            /// A helper method to return a concatenated list of bits-endian bits without variant or identifier bits from the circuits.
             #[inline]
             fn write_bits_raw_be(&self, vec: &mut Vec<bool>) {
                 // The tuple is order-preserving, meaning the first circuit in is the first circuit bits out.

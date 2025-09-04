@@ -16,7 +16,7 @@
 use super::*;
 
 impl<N: Network> ToBitsRaw for Value<N> {
-    /// Returns the stack value as a list of **little-endian** bits (without variant bits for the plaintext type).
+    /// Returns the stack value as a list of **little-endian** bits (without variant or identifier bits for the plaintext type).
     #[inline]
     fn write_bits_raw_le(&self, vec: &mut Vec<bool>) {
         match self {
@@ -27,7 +27,7 @@ impl<N: Network> ToBitsRaw for Value<N> {
         };
     }
 
-    /// Returns the stack value as a list of **big-endian** bits (without variant bits for the plaintext type).
+    /// Returns the stack value as a list of **big-endian** bits (without variant or identifier bits for the plaintext type).
     #[inline]
     fn write_bits_raw_be(&self, vec: &mut Vec<bool>) {
         match self {

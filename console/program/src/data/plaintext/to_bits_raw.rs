@@ -16,27 +16,65 @@
 use super::*;
 
 impl<N: Network> ToBitsRaw for Plaintext<N> {
-    /// Returns this plaintext as a list of **little-endian** bits without variant bits.
+    /// Returns this plaintext as a list of **little-endian** bits without variant or identifier bits.
     fn write_bits_raw_le(&self, vec: &mut Vec<bool>) {
-        // Fetch the standard bit serialization with variant bits.
-        let bits = self.to_bits_le();
-
-        // Truncate the first two bits (variant bits).
-        let bits = &bits[2..];
-
-        // Extend the vector with the bits.
-        vec.extend_from_slice(bits);
+        match self {
+            Self::Literal(literal, _) => {
+                // Extend the vector with the bits.
+                vec.extend_from_slice(&literal.to_bits_le())
+            }
+            Self::Struct(struct_, _) => {
+                // Compute the bits.
+                let mut bits_le = vec![];
+                // Write each value of the struct.
+                for (_, value) in struct_ {
+                    bits_le.extend_from_slice(&value.to_bits_raw_le());
+                }
+                // Extend the vector with the bits.
+                vec.extend_from_slice(&bits_le)
+            }
+            Self::Array(array, _) => {
+                // Compute the bits.
+                let mut bits_le = vec![];
+                // Write each element of the array.
+                for element in array {
+                    // Write the element.
+                    bits_le.extend(element.to_bits_raw_le());
+                }
+                // Extend the vector with the bits.
+                vec.extend_from_slice(&bits_le)
+            }
+        }
     }
 
-    /// Returns this plaintext as a list of **big-endian** bits without variant bits.
+    /// Returns this plaintext as a list of **big-endian** bits without variant or identifier bits.
     fn write_bits_raw_be(&self, vec: &mut Vec<bool>) {
-        // Fetch the standard bit serialization with variant bits.
-        let bits = self.to_bits_be();
-
-        // Truncate the first two bits (variant bits).
-        let bits = &bits[2..];
-
-        // Extend the vector with the bits.
-        vec.extend_from_slice(bits);
+        match self {
+            Self::Literal(literal, _) => {
+                // Extend the vector with the bits.
+                vec.extend_from_slice(&literal.to_bits_be())
+            }
+            Self::Struct(struct_, _) => {
+                // Compute the bits.
+                let mut bits_be = vec![];
+                // Write each value of the struct.
+                for (_, value) in struct_ {
+                    bits_be.extend_from_slice(&value.to_bits_raw_be());
+                }
+                // Extend the vector with the bits.
+                vec.extend_from_slice(&bits_be)
+            }
+            Self::Array(array, _) => {
+                // Compute the bits.
+                let mut bits_be = vec![];
+                // Write each element of the array.
+                for element in array {
+                    // Write the element.
+                    bits_be.extend(element.to_bits_raw_be());
+                }
+                // Extend the vector with the bits.
+                vec.extend_from_slice(&bits_be)
+            }
+        }
     }
 }

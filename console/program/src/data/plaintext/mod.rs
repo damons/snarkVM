@@ -78,11 +78,10 @@ macro_rules! impl_plaintext_from_array {
     };
 }
 
-// Implement for `[U8<N>, SIZE]` for sizes 1 through 32.
-impl_plaintext_from_array!(
-    U8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-    31, 32
-);
+// Implement for `[U8<N>, SIZE]` for sizes 1 through 256.
+seq_macro::seq!(S in 1..=256 {
+    impl_plaintext_from_array!(U8, S);
+});
 
 #[cfg(test)]
 mod tests {
