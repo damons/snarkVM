@@ -40,7 +40,7 @@ impl<N: Network> Metadata<N> {
         .with_context(|| "Failed to create genesis block")
     }
 
-    /// Returns `true` if the metadata is a genesis metadata.i
+    /// Returns `true` if the metadata is a genesis metadata.
     ///
     /// Return an error if the block is at height 0 but not a valid genesis header.
     pub fn is_genesis(&self) -> Result<bool> {
@@ -61,7 +61,7 @@ impl<N: Network> Metadata<N> {
             GENESIS_CUMULATIVE_PROOF_TARGET,
             "Invalid cumulative proof target"
         );
-        ensure_equals!(self.last_coinbase_timestamp, N::GENESIS_TIMESTAMP, "Invalid last coinbase timestamp");
+        ensure_equals!(self.timestamp, N::GENESIS_TIMESTAMP, "Invalid timestamp");
         ensure_equals!(self.last_coinbase_timestamp, N::GENESIS_TIMESTAMP, "Invalid last coinbase timestamp");
         ensure_equals!(
             self.coinbase_target,
