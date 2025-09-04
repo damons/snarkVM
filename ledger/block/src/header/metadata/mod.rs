@@ -89,6 +89,13 @@ impl<N: Network> Metadata<N> {
     }
 
     /// Returns `true` if the block metadata is well-formed.
+    ///
+    /// Consider using [`Self::check_validity`] to get more information on invalid block metadata.
+    pub fn is_valid(&self) -> bool {
+        self.check_validity().is_ok()
+    }
+
+    /// Returns `Ok(())` if the block metadata is well-formed, and error describing (one of) the problem(s) in the block header.
     pub fn check_validity(&self) -> Result<()> {
         if self.height == 0u32 {
             // [`Self::is_genesis`] performs its own validity checks.

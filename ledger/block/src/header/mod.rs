@@ -79,6 +79,13 @@ impl<N: Network> Header<N> {
     }
 
     /// Returns `true` if the block header is well-formed.
+    ///
+    /// Consider using [`Self::check_validity`] to get more information on invalid block headers.
+    pub fn is_valid(&self) -> bool {
+        self.check_validity().is_ok()
+    }
+
+    /// Returns `Ok(())` if the block header is well-formed, and error describing (one of) the problem(s) in the block header.
     pub fn check_validity(&self) -> Result<()> {
         if self.height() == 0u32 {
             if !self.is_genesis()? {
@@ -89,10 +96,10 @@ impl<N: Network> Header<N> {
 
         self.metadata.check_validity().with_context(|| "Invalid metadata")?;
 
-        ensure!(*self.previous_state_root != Field::zero(), "Previous state root is invalid");
-        ensure!(self.transactions_root != Field::zero());
-        ensure!(self.finalize_root != Field::zero());
-        ensure!(self.ratifications_root != Field::zero());
+        ensure!(*self.previous_state_root != Field::zero(), "Previous state root cannot be zero");
+        ensure!(self.transactions_root != Field::zero(), "Transactions root cannot be zero");
+        ensure!(self.finalize_root != Field::zero(), "Finalize root cannot be zero");
+        ensure!(self.ratifications_root != Field::zero(), "Ratifications root cannot be zero");
 
         Ok(())
     }
