@@ -674,7 +674,8 @@ mod tests {
     use crate::vm::test_helpers::{LedgerType, sample_finalize_state};
     use console::{
         account::{Address, ViewKey},
-        types::Field,
+        algorithms::{ECDSASignature, Keccak256},
+        types::{Field, U8},
     };
     use snarkvm_ledger_block::{Block, Header, Metadata, Transaction, Transition};
 
@@ -1154,9 +1155,6 @@ function compute:
         // Update the VM.
         vm.add_next_block(&genesis).unwrap();
 
-        // Track the vm blocks.
-        let mut vm_blocks = vec![genesis.clone()];
-
         // Fetch the private key.
         let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
@@ -1167,7 +1165,6 @@ function compute:
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
-            vm_blocks.push(next_block);
         }
 
         // Create a new program that contains "aleo" in the name.
@@ -1269,7 +1266,6 @@ function compute:
             // Call the function
             let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
             vm.add_next_block(&next_block).unwrap();
-            vm_blocks.push(next_block);
         }
 
         // Ensure that the deployments are no longer valid.
@@ -1296,6 +1292,194 @@ function compute:
             deploy_3_tx_id,
             deploy_4_tx_id
         ]);
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_ecdsa_migration() {
+        let rng = &mut TestRng::default();
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fetch the private key.
+        let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Deploy a test program to the ledger.
+        let program_id = ProgramID::<CurrentNetwork>::from_str("dummy_program.aleo").unwrap();
+        let program = Program::<CurrentNetwork>::from_str(&format!(
+            r"
+    program {program_id};
+    function foo:
+        input r0 as [u8; 65u32].public;
+        input r1 as [u8; 20u32].public;
+        input r2 as [u8; 100u32].public;
+        async foo r0 r1 r2 into r3;
+        output r3 as {program_id}/foo.future;
+    finalize foo:
+        input r0 as [u8; 65u32].public;
+        input r1 as [u8; 20u32].public;
+        input r2 as [u8; 100u32].public;
+        ecdsa.verify.keccak256.eth r0 r1 r2 into r3;
+        assert.eq r3 true;
+
+    constructor:
+        assert.eq edition 0u16;",
+        ))
+        .unwrap();
+
+        // Advance the ledger past ConsensusV4 where the new varuna version and deployment version starts to take place.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap()
+        {
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // Construct the deployment transaction.
+        let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+
+        // Advance the ledger past ConsensusV4 where the new varuna version starts to take place.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V11).unwrap()
+        {
+            // Ensure that the deployment is invalid.
+            assert!(vm.check_transaction(&deployment, None, rng).is_err());
+
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // Ensure that the deployment is valid after ConsensusVersion::V11.
+        assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+
+        // Deploy the program.
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+
+        // Execute the program and ensure that the signature verifies.
+        let ecdsa_signing_key = k256::ecdsa::SigningKey::random(rng);
+        let ecdsa_verifying_key = k256::ecdsa::VerifyingKey::from(&ecdsa_signing_key);
+        let ethereum_address = ECDSASignature::ethereum_address_from_public_key(&ecdsa_verifying_key).unwrap();
+        let message: [u8; 100] = (0..100).map(|_| rng.r#gen::<u8>()).collect::<Vec<u8>>().try_into().unwrap();
+        let hasher = Keccak256::default();
+        let signature = ECDSASignature::sign(&ecdsa_signing_key, &hasher, &message.to_bits_le()).unwrap();
+        let signature_bytes = signature.to_bytes_le().unwrap();
+
+        // Convert the inputs to plaintext Values.
+        let ethereum_address: [U8<CurrentNetwork>; 20] =
+            ethereum_address.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
+        let message: [U8<CurrentNetwork>; 100] =
+            message.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
+        let signature: [U8<CurrentNetwork>; 65] =
+            signature_bytes.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
+
+        // Construct the inputs.
+        let inputs = [
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(signature)),
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(ethereum_address)),
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(message)),
+        ];
+
+        // Create the execution transaction.
+        let execution_transaction =
+            vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
+        let valid_tx_id = execution_transaction.id();
+
+        // Construct an invalid execution transaction by mutating the message.
+        let invalid_message: [u8; 100] = (0..100).map(|_| rng.r#gen::<u8>()).collect::<Vec<u8>>().try_into().unwrap();
+        let invalid_message: [U8<CurrentNetwork>; 100] =
+            invalid_message.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
+
+        // Construct the inputs for the invalid execution.
+        let inputs = [
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(signature)),
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(ethereum_address)),
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(invalid_message)),
+        ];
+
+        // Create the execution transaction.
+        let invalid_execution_transaction =
+            vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
+        let invalid_tx_id = invalid_execution_transaction.id();
+
+        // Construct a block with both transactions.
+        let next_block = crate::vm::test_helpers::sample_next_block(
+            &vm,
+            &private_key,
+            &[execution_transaction, invalid_execution_transaction],
+            rng,
+        )
+        .unwrap();
+        vm.add_next_block(&next_block).unwrap();
+
+        // Ensure that the valid transaction was accepted and the invalid one was rejected.
+        assert_eq!(next_block.transactions().num_accepted(), 1);
+        assert_eq!(next_block.transactions().num_rejected(), 1);
+        assert!(vm.block_store().get_confirmed_transaction(&valid_tx_id).unwrap().unwrap().is_accepted());
+        assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_id).unwrap().unwrap().is_rejected());
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_increased_array_size() {
+        let rng = &mut TestRng::default();
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fetch the private key.
+        let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Deploy a test program to the ledger.
+        let program_id = ProgramID::<CurrentNetwork>::from_str("dummy_program.aleo").unwrap();
+        let program = Program::<CurrentNetwork>::from_str(&format!(
+            r"
+    program {program_id};
+    function foo:
+        input r0 as [u8; 256u32].public;
+
+    constructor:
+        assert.eq edition 0u16;",
+        ))
+        .unwrap();
+
+        // Advance the ledger past ConsensusV4 where the new varuna version and deployment version starts to take place.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap()
+        {
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // Construct the deployment transaction.
+        let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+
+        // Advance the ledger past ConsensusV4 where the new varuna version starts to take place.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V11).unwrap()
+        {
+            // Ensure that the deployment is invalid.
+            assert!(vm.check_transaction(&deployment, None, rng).is_err());
+
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // Ensure that the deployment is valid after ConsensusVersion::V11.
+        assert!(vm.check_transaction(&deployment, None, rng).is_ok());
     }
 }
 
