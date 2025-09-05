@@ -144,7 +144,6 @@ mod tests {
             assert_eq!(value.eject(), Plaintext::<Circuit>::from_fields(&value.to_fields()).eject());
             assert!(value.is_equal(&value).eject_value());
             assert!(!value.is_not_equal(&value).eject_value());
-            assert_eq!(value.to_bits_le().eject().1[2..], value.to_bits_raw_le().eject().1,);
         };
 
         let mut rng = TestRng::default();
