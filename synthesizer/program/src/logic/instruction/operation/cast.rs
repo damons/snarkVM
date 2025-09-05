@@ -48,6 +48,14 @@ pub enum CastType<N: Network> {
     ExternalRecord(Locator<N>),
 }
 
+impl<N: Network> CastType<N> {
+    /// Returns `true` if the cast type is an array and the size exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        matches!(self,
+            Self::Plaintext(plaintext_type) if plaintext_type.exceeds_max_array_size(max_array_size))
+    }
+}
+
 impl<N: Network> Parser for CastType<N> {
     fn parse(string: &str) -> ParserResult<Self> {
         // Parse the cast type from the string.

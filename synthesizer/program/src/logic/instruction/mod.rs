@@ -533,6 +533,15 @@ impl<N: Network> Instruction<N> {
     ) -> Result<Vec<RegisterType<N>>> {
         instruction!(self, |instruction| instruction.output_types(stack, input_types))
     }
+
+    /// Returns `true` if the instruction contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        // Only cast instructions may contain an explicit reference to an array.
+        // Calls may produce them, but they don't explicitly reference the type, and that's
+        // always been allowed.
+        matches!(self,
+            Self::Cast(instruction) if instruction.cast_type().exceeds_max_array_size(max_array_size))
+    }
 }
 
 impl<N: Network> Debug for Instruction<N> {

@@ -79,6 +79,21 @@ impl<N: Network> FinalizeCore<N> {
     pub const fn positions(&self) -> &HashMap<Identifier<N>, usize> {
         &self.positions
     }
+
+    /// Returns `true` if the finalize scope contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.inputs.iter().any(|input| {
+            matches!(
+                input.finalize_type(),
+                FinalizeType::Plaintext(plaintext_type) if plaintext_type.exceeds_max_array_size(max_array_size)
+            )
+        }) || self.commands.iter().any(|command| {
+            matches!(
+                command,
+                Command::Instruction(instruction) if instruction.exceeds_max_array_size(max_array_size)
+            )
+        })
+    }
 }
 
 impl<N: Network> FinalizeCore<N> {

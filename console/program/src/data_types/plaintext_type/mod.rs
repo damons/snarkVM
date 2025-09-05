@@ -54,3 +54,13 @@ impl<N: Network> From<ArrayType<N>> for PlaintextType<N> {
         PlaintextType::Array(array)
     }
 }
+
+impl<N: Network> PlaintextType<N> {
+    /// Returns `true` if the plaintext type is an array and the size exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        match self {
+            Self::Literal(_) | Self::Struct(_) => false,
+            Self::Array(array_type) => **array_type.length() > max_array_size,
+        }
+    }
+}

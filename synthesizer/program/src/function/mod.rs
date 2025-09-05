@@ -95,6 +95,14 @@ impl<N: Network> FunctionCore<N> {
     pub const fn finalize_logic(&self) -> Option<&FinalizeCore<N>> {
         self.finalize_logic.as_ref()
     }
+
+    /// Returns `true` if the function scope contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.inputs.iter().any(|input| input.value_type().exceeds_max_array_size(max_array_size))
+            || self.outputs.iter().any(|output| output.value_type().exceeds_max_array_size(max_array_size))
+            || self.instructions.iter().any(|instruction| instruction.exceeds_max_array_size(max_array_size))
+            || self.finalize_logic.iter().any(|finalize| finalize.exceeds_max_array_size(max_array_size))
+    }
 }
 
 impl<N: Network> FunctionCore<N> {

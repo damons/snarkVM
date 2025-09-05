@@ -54,6 +54,11 @@ impl<N: Network> RecordType<N> {
     pub const fn entries(&self) -> &IndexMap<Identifier<N>, EntryType<N>> {
         &self.entries
     }
+
+    /// Returns `true` if the record contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.entries.values().any(|entry_type| entry_type.plaintext_type().exceeds_max_array_size(max_array_size))
+    }
 }
 
 impl<N: Network> TypeName for RecordType<N> {

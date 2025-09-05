@@ -913,6 +913,16 @@ impl<N: Network> ProgramCore<N> {
         false
     }
 
+    /// Returns `true` if the program contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.mappings.values().any(|mapping| mapping.exceeds_max_array_size(max_array_size))
+            || self.structs.values().any(|struct_type| struct_type.exceeds_max_array_size(max_array_size))
+            || self.records.values().any(|record_type| record_type.exceeds_max_array_size(max_array_size))
+            || self.closures.values().any(|closure| closure.exceeds_max_array_size(max_array_size))
+            || self.functions.values().any(|function| function.exceeds_max_array_size(max_array_size))
+            || self.constructor.iter().any(|constructor| constructor.exceeds_max_array_size(max_array_size))
+    }
+
     /// Returns `true` if a program contains any V11 syntax.
     /// This includes:
     /// 1. `.raw` hash or signature verification variants
@@ -920,6 +930,9 @@ impl<N: Network> ProgramCore<N> {
     /// 3. arrays that exceed the previous maximum length of 32.
     #[inline]
     pub fn contains_v11_syntax(&self) -> bool {
+        // The previous maximum array size before V11.
+        const V10_MAX_ARRAY_SIZE: u32 = 32;
+
         // Helper to check if any of the opcodes start with `ecdsa.verify` or end with `.raw`.
         let has_op = |opcode: &str| opcode.starts_with("ecdsa.verify") || opcode.ends_with(".raw");
 
@@ -936,8 +949,7 @@ impl<N: Network> ProgramCore<N> {
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
         // Determine if any of the array types exceed the previous maximum length of 32.
-        // TODO (raychu86): ECDSA - Implement this check.
-        let array_size_exceeds = false;
+        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_SIZE);
 
         function_contains || command_contains || array_size_exceeds
     }
