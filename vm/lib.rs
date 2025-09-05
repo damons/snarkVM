@@ -53,7 +53,7 @@ pub use snarkvm_wasm as wasm;
 
 pub mod prelude {
     #[cfg(feature = "console")]
-    pub use crate::console::{account::*, network::*, program::*};
+    pub use crate::console::{account::*, network::prelude::*, program::*};
     #[cfg(feature = "ledger")]
     pub use crate::ledger::*;
     #[cfg(feature = "synthesizer")]
