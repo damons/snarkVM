@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger-puzzle-epoch"
-version = "4.1.0"
+version = "4.2.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "Epoch puzzle for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -50,7 +50,6 @@ optional = true
 
 [dependencies.snarkvm-console]
 workspace = true
-features = [ "default" ]
 
 [dependencies.snarkvm-ledger-puzzle]
 workspace = true
@@ -105,4 +104,4 @@ optional = true
 
 [dev-dependencies.snarkvm-console]
 workspace = true
-features = [ "test", "default" ]
+features = [ "test" ]

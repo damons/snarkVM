@@ -418,6 +418,21 @@ fn test_state_path() {
 }
 
 #[test]
+fn test_state_paths() {
+    let rng = &mut TestRng::default();
+
+    // Initialize the ledger.
+    let ledger = crate::test_helpers::sample_ledger(PrivateKey::<CurrentNetwork>::new(rng).unwrap(), rng);
+    // Retrieve the genesis block.
+    let block = ledger.get_block(0).unwrap();
+
+    // Construct the state path.
+    let commitments = block.transactions().commitments().copied().collect::<Vec<_>>();
+
+    let _state_paths = ledger.get_state_paths_for_commitments(&commitments).unwrap();
+}
+
+#[test]
 fn test_insufficient_private_fees() {
     let rng = &mut TestRng::default();
 
@@ -2795,7 +2810,7 @@ function foo:
 #[cfg(feature = "test")]
 mod valid_solutions {
     use super::*;
-    use crate::is_solution_limit_reached::STAKE_REQUIREMENTS_PER_SOLUTION;
+    use crate::is_solution_limit_reached::stake_requirements_per_solution;
     use rand::prelude::SliceRandom;
     use snarkvm_ledger_puzzle::Solution;
     use std::collections::HashSet;
@@ -3040,6 +3055,7 @@ mod valid_solutions {
     #[test]
     fn test_solution_limits() {
         let rng = &mut TestRng::default();
+        let stake_requirements = stake_requirements_per_solution::<CurrentNetwork>();
 
         // Sample the genesis private key.
         let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
@@ -3115,7 +3131,7 @@ mod valid_solutions {
             transfer_transmission.to_checksum().unwrap().unwrap(),
         );
         // Create a block that advances the ledger past the first solution limit timestamp.
-        let timestamp_1 = STAKE_REQUIREMENTS_PER_SOLUTION[0].0;
+        let timestamp_1 = stake_requirements[0].0;
         let next_block = chain_builder.generate_block_with_partition(
             &Default::default(),
             timestamp_1,
@@ -3150,7 +3166,7 @@ mod valid_solutions {
         let inputs = [
             Value::<CurrentNetwork>::from_str(&validator_address.to_string()).unwrap(),
             Value::<CurrentNetwork>::from_str(&prover_address.to_string()).unwrap(),
-            Value::<CurrentNetwork>::from_str(&format!("{}u64", STAKE_REQUIREMENTS_PER_SOLUTION[0].1)).unwrap(),
+            Value::<CurrentNetwork>::from_str(&format!("{}u64", stake_requirements[0].1)).unwrap(),
         ];
         let bond_transaction = ledger
             .vm
@@ -4040,4 +4056,31 @@ function create_and_consume:
     assert_eq!(num_unspent_records, initial_unspent_records + 1);
     assert_eq!(num_slow_unspent_records, initial_slow_unspent_records + 1);
     assert_eq!(num_records, initial_records + 4);
+}
+
+// Ensure that `find_records` only returns records owned by the given view key.
+#[test]
+fn test_find_records_filters_by_ownership() {
+    let rng = &mut TestRng::default();
+
+    // Sample the test environment.
+    let crate::test_helpers::TestEnv { ledger, private_key, view_key, .. } = crate::test_helpers::sample_test_env(rng);
+
+    // Fetch all unspent records for the primary view key.
+    let owned_records =
+        ledger.find_records(&view_key, RecordsFilter::SlowUnspent(private_key)).unwrap().collect::<Vec<_>>();
+
+    // Ensure that we successfully fetched at least one record that is owned by the view key.
+    assert!(!owned_records.is_empty(), "Expected at least one record owned by the view key");
+
+    // Generate a new test environment to simulate an unrelated view key.
+    let other_env = crate::test_helpers::sample_test_env(rng);
+    let unrelated_view_key = other_env.view_key;
+
+    // Attempt to fetch records using the unrelated view key.
+    let unrelated_records = ledger.find_records(&unrelated_view_key, RecordsFilter::All).unwrap().collect::<Vec<_>>();
+
+    // Ensure that no records were returned for the unrelated view key.
+    // This validates that ownership filtering is enforced before decrypting or filtering records.
+    assert!(unrelated_records.is_empty(), "Expected no records for unrelated view key");
 }

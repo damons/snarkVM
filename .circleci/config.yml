@@ -170,7 +170,7 @@ jobs:
       - run_test: # This runs a single test with profiler enabled
           workspace_member: snarkvm-algorithms
           flags: varuna::prove_and_verify_with_square_matrix --features profiler
-          cache_key_suffix: -profiler
+          cache_key_suffix: -profiler-test
   
   circuit:
     executor: rust-docker
@@ -559,7 +559,7 @@ jobs:
 
   parameters-large:
     executor: rust-docker
-    resource_class: << pipeline.parameters.xlarge >>
+    resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
           workspace_member: snarkvm-parameters

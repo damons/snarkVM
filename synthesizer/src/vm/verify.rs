@@ -33,10 +33,10 @@ macro_rules! ensure_is_unique {
 }
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
-    /// The maximum number of deployments to verify in parallel.
-    pub(crate) const MAX_PARALLEL_DEPLOY_VERIFICATIONS: usize = 5;
+    /// The maximum number of deployments that the VM can verify in parallel.
+    pub const MAX_PARALLEL_DEPLOY_VERIFICATIONS: usize = 5;
     /// The maximum number of executions to verify in parallel.
-    pub(crate) const MAX_PARALLEL_EXECUTE_VERIFICATIONS: usize = 1000;
+    pub const MAX_PARALLEL_EXECUTE_VERIFICATIONS: usize = 1000;
 
     /// Verifies the list of transactions in the VM. On failure, returns an error.
     pub fn check_transactions<R: CryptoRng + Rng>(
@@ -256,7 +256,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //      - the edition is exactly one.
                 //  - Otherwise, if the new program contains a constructor.
                 //      - the existing program has a constructor.
-                //        Note. Constructor validity is checked at a later point.
+                //      - if the consensus version is V10 or greater, then check that each function's **record** output registers match the existing program.
+                //      - Note. Constructor validity is checked at a later point.
+                //      - Note. The remaining syntactic checks on upgrades are done in `Stack::check_upgrade_is_valid`.
                 let is_program_in_storage = self.transaction_store().contains_program_id(deployment.program_id())?;
                 let is_program_in_process = self.contains_program(deployment.program_id());
                 match deployment.edition() {
@@ -324,6 +326,28 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     existing_program.contains_constructor(),
                                     "Invalid deployment transaction '{id}' - the existing program does not have a constructor, but the deployment program does"
                                 );
+                                // If the consensus version is V10 or greater, then check that each function's **record** output registers match the existing program.
+                                if consensus_version >= ConsensusVersion::V10 {
+                                    for (id, function) in existing_program.functions() {
+                                        // Get the corresponding function in the new program.
+                                        let Ok(new_function) = deployment.program().get_function(id) else {
+                                            bail!("Invalid deployment transaction '{id}' - missing function '{id}'")
+                                        };
+                                        // Ensure the record output registers match.
+                                        let existing_output_registers = function
+                                            .outputs()
+                                            .iter()
+                                            .filter(|output| matches!(output.value_type(), ValueType::Record(_)));
+                                        let new_output_registers = new_function
+                                            .outputs()
+                                            .iter()
+                                            .filter(|output| matches!(output.value_type(), ValueType::Record(_)));
+                                        ensure!(
+                                            existing_output_registers.eq(new_output_registers),
+                                            "Invalid deployment transaction '{id}' - function '{id}' has mismatched record output registers"
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -385,12 +409,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         rejected_id: Option<Field<N>>,
         is_partially_verified: bool,
     ) -> Result<()> {
+        let current_height = self.block_store().current_block_height();
+        let consensus_version = N::CONSENSUS_VERSION(current_height)?;
         match transaction {
             Transaction::Deploy(id, deployment_id, _, deployment, fee) => {
                 // Ensure the rejected ID is not present.
                 ensure!(rejected_id.is_none(), "Transaction '{id}' should not have a rejected ID (deployment)");
                 // Compute the minimum deployment cost.
-                let (cost, _) = deployment_cost(&self.process().read(), deployment)?;
+                let (cost, _) = deployment_cost(&self.process().read(), deployment, consensus_version)?;
                 // Ensure the fee is sufficient to cover the cost.
                 if *fee.base_amount()? < cost {
                     bail!("Transaction '{id}' has an insufficient base fee (deployment) - requires {cost} microcredits")
@@ -408,21 +434,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if let Some(fee) = fee {
                     // If the fee is required, then check that the base fee amount is satisfied.
                     if is_fee_required {
-                        // Compute the execution cost based on the block height
-                        let block_height = self
-                            .block_store()
-                            .find_block_height_from_state_root(execution.global_state_root())?
-                            .unwrap_or_default();
-                        let consensus_version = N::CONSENSUS_VERSION(block_height)?;
-                        let (cost, (_, _)) = match consensus_version == ConsensusVersion::V1 {
-                            true => execution_cost_v1(&self.process().read(), execution)?,
-                            false => execution_cost_v2(&self.process().read(), execution)?,
-                        };
-                        // Ensure the cost does not exceed the transaction spend limit.
+                        // Determine the execution cost .
+                        let (cost, (_, finalize_cost)) =
+                            execution_cost(&self.process().read(), execution, consensus_version)?;
+                        // Get the transaction spend limit.
+                        let transaction_spend_limit =
+                            consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, current_height).unwrap();
+                        // Determine the transaction spend to prevent DoS attacks. From V10 onwards, we only compare the finalize (compute) cost.
+                        let transaction_spend =
+                            if consensus_version >= ConsensusVersion::V10 { finalize_cost } else { cost };
+                        // Ensure the transaction spend does not exceed the transaction spend limit.
                         ensure!(
-                            cost <= N::TRANSACTION_SPEND_LIMIT,
+                            transaction_spend <= transaction_spend_limit,
                             "Transaction '{id}' exceeds the transaction spend limit '{}'",
-                            N::TRANSACTION_SPEND_LIMIT
+                            transaction_spend_limit
                         );
                         // Ensure the fee is sufficient to cover the cost.
                         if *fee.base_amount()? < cost {
@@ -1045,104 +1070,6 @@ function compute:
         assert!(vm.check_transaction(&mutated_transaction, None, rng).is_err());
         // Ensure the partially_verified_transactions cache is not updated.
         assert!(vm.partially_verified_transactions.read().peek(&cache_key).is_none());
-    }
-
-    #[cfg(feature = "test")]
-    #[test]
-    fn test_fee_migration() {
-        let minimum_credits_transfer_public_fee = 34_060;
-        let old_minimum_credits_transfer_public_fee = 51_060;
-
-        let rng = &mut TestRng::default();
-
-        // Initialize the VM.
-        let vm = crate::vm::test_helpers::sample_vm();
-        // Initialize the genesis block.
-        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
-        // Update the VM.
-        vm.add_next_block(&genesis).unwrap();
-
-        // Create the base transaction
-        let transaction = crate::vm::test_helpers::sample_execution_transaction_with_public_fee(rng);
-        let cache_key = create_cache_key(&vm, &transaction);
-
-        // Try to submit a tx with the new fee before the migration block height
-        let fee_too_low_transaction = crate::vm::test_helpers::create_new_transaction_with_different_fee(
-            rng,
-            transaction.clone(),
-            minimum_credits_transfer_public_fee,
-        );
-        assert!(vm.check_transaction(&fee_too_low_transaction, None, rng).is_err());
-        // Ensure the partially_verified_transactions cache is not updated.
-        assert!(vm.partially_verified_transactions.read().peek(&cache_key).is_none());
-
-        // Try to submit a tx with the old fee before the migration block height
-        let old_valid_transaction = crate::vm::test_helpers::create_new_transaction_with_different_fee(
-            rng,
-            transaction.clone(),
-            old_minimum_credits_transfer_public_fee,
-        );
-        let cache_key = create_cache_key(&vm, &old_valid_transaction);
-        assert!(vm.check_transaction(&old_valid_transaction, None, rng).is_ok());
-        // Ensure the partially_verified_transactions cache is updated.
-        assert!(vm.partially_verified_transactions.read().peek(&cache_key).is_some());
-
-        // Update the VM to the migration block height
-        let private_key = test_helpers::sample_genesis_private_key(rng);
-        let transactions: [Transaction<CurrentNetwork>; 0] = [];
-        for _ in 0..CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap() {
-            // Call the function
-            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-            vm.add_next_block(&next_block).unwrap();
-        }
-
-        // Create a new transaction with the new stateroot post migration block height
-        let transaction = {
-            let address = Address::try_from(&private_key).unwrap();
-            let inputs = [
-                Value::<CurrentNetwork>::from_str(&address.to_string()).unwrap(),
-                Value::<CurrentNetwork>::from_str("1u64").unwrap(),
-            ]
-            .into_iter();
-
-            // Execute.
-            let transaction_without_fee =
-                vm.execute(&private_key, ("credits.aleo", "transfer_public"), inputs, None, 0, None, rng).unwrap();
-            let execution = transaction_without_fee.execution().unwrap().clone();
-
-            // Authorize the fee.
-            let authorization = vm
-                .authorize_fee_public(&private_key, 10_000_000, 100, execution.to_execution_id().unwrap(), rng)
-                .unwrap();
-            // Compute the fee.
-            let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
-
-            // Construct the transaction.
-            Transaction::from_execution(execution, Some(fee)).unwrap()
-        };
-
-        // Try to submit a tx with the old fee after the migration block height
-        // Should work as now the fee is just too high
-        let fee_too_high_transaction = crate::vm::test_helpers::create_new_transaction_with_different_fee(
-            rng,
-            transaction.clone(),
-            old_minimum_credits_transfer_public_fee,
-        );
-        let cache_key = create_cache_key(&vm, &fee_too_high_transaction);
-        assert!(vm.check_transaction(&fee_too_high_transaction, None, rng).is_ok());
-        // Ensure the partially_verified_transactions cache is updated.
-        assert!(vm.partially_verified_transactions.read().peek(&cache_key).is_some());
-
-        // Try to submit a tx with the new fee after the migration block height
-        let valid_transaction = crate::vm::test_helpers::create_new_transaction_with_different_fee(
-            rng,
-            transaction.clone(),
-            minimum_credits_transfer_public_fee,
-        );
-        let cache_key = create_cache_key(&vm, &valid_transaction);
-        assert!(vm.check_transaction(&valid_transaction, None, rng).is_ok());
-        // Ensure the partially_verified_transactions cache is updated.
-        assert!(vm.partially_verified_transactions.read().peek(&cache_key).is_some());
     }
 
     #[cfg(feature = "test")]

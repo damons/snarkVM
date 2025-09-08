@@ -29,7 +29,19 @@ use crate::{Restrictions, cast_mut_ref, cast_ref, convert, process};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
-    program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Response, Value},
+    program::{
+        Argument,
+        Identifier,
+        Literal,
+        Locator,
+        Plaintext,
+        ProgramID,
+        ProgramOwner,
+        Record,
+        Response,
+        Value,
+        ValueType,
+    },
     types::{Field, Group, U16, U64},
 };
 use snarkvm_algorithms::snark::varuna::VarunaVersion;
@@ -62,15 +74,7 @@ use snarkvm_ledger_store::{
     TransitionStore,
     atomic_finalize,
 };
-use snarkvm_synthesizer_process::{
-    Authorization,
-    InclusionVersion,
-    Process,
-    Trace,
-    deployment_cost,
-    execution_cost_v1,
-    execution_cost_v2,
-};
+use snarkvm_synthesizer_process::{Authorization, InclusionVersion, Process, Trace, deployment_cost, execution_cost};
 use snarkvm_synthesizer_program::{
     FinalizeGlobalState,
     FinalizeOperation,
@@ -456,9 +460,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 #[cfg(feature = "rocks")]
                 self.block_store().unpause_atomic_writes::<false>()?;
                 // If the block advances to a new consensus version, clear the partial verification cache.
-                // TODO: This may have performance implications if the version
-                // list grows large as it is in the hot path.
-                if N::CONSENSUS_VERSION_HEIGHTS().iter().any(|(_, height)| height == &block.height()) {
+                if N::CONSENSUS_VERSION_HEIGHTS().iter().rev().any(|(_, height)| {
+                    if block.height() < *height {
+                        // If the block height is less than the consensus version height, break early.
+                        return false;
+                    }
+                    height == &block.height()
+                }) {
                     self.partially_verified_transactions().write().clear();
                 }
                 Ok(())
@@ -834,36 +842,6 @@ function compute:
                 transaction
             })
             .clone()
-    }
-
-    #[cfg(feature = "test")]
-    pub(crate) fn create_new_transaction_with_different_fee(
-        rng: &mut TestRng,
-        transaction: Transaction<CurrentNetwork>,
-        fee: u64,
-    ) -> Transaction<CurrentNetwork> {
-        // Initialize a new caller.
-        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
-
-        // Initialize the genesis block.
-        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
-
-        // Initialize the VM.
-        let vm = sample_vm();
-        // Update the VM.
-        vm.add_next_block(&genesis).unwrap();
-
-        // Get Execution
-        let execution = transaction.execution().unwrap().clone();
-
-        // Authorize the fee.
-        let authorization =
-            vm.authorize_fee_public(&caller_private_key, fee, 100, execution.to_execution_id().unwrap(), rng).unwrap();
-        // Compute the fee.
-        let fee = vm.execute_fee_authorization(authorization, None, rng).unwrap();
-
-        // Construct the transaction.
-        Transaction::from_execution(execution, Some(fee)).unwrap()
     }
 
     pub fn sample_next_block<R: Rng + CryptoRng>(
