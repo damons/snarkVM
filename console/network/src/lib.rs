@@ -48,6 +48,7 @@ pub mod prelude {
         TEST_CONSENSUS_VERSION_HEIGHTS,
         TESTNET_V0_CONSENSUS_VERSION_HEIGHTS,
         consensus_config_value,
+        consensus_config_value_by_version,
         environment::prelude::*,
     };
 }

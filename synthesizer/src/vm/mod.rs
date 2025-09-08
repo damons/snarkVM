@@ -74,7 +74,16 @@ use snarkvm_ledger_store::{
     TransitionStore,
     atomic_finalize,
 };
-use snarkvm_synthesizer_process::{Authorization, InclusionVersion, Process, Trace, deployment_cost, execution_cost};
+use snarkvm_synthesizer_process::{
+    Authorization,
+    InclusionVersion,
+    Process,
+    Trace,
+    deploy_compute_cost_in_microcredits,
+    deployment_cost,
+    execute_compute_cost_in_microcredits,
+    execution_cost,
+};
 use snarkvm_synthesizer_program::{
     FinalizeGlobalState,
     FinalizeOperation,
