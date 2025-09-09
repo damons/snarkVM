@@ -53,11 +53,11 @@ We recommend installing Rust using [rustup](https://www.rustup.rs/). You can ins
 
 ### 2.2 Using snarkVM as a Library
 
-snarkVM is primarily designed to be used as a library in Rust projects. Add it to your `Cargo.toml`:
+snarkVM is primarily designed to be used as a library in Rust projects. Add it to your `Cargo.toml` with your favourite published version:
 
 ```toml
 [dependencies]
-snarkvm = "4.1.0"
+snarkvm = "<major>.<minor>.<patch>"
 ```
 
 ### 2.3 Build from Source Code
