@@ -44,7 +44,7 @@ pub enum Query<N: Network, B: BlockStorage<N>> {
     VM(BlockStore<N, B>),
     /// Query state using a node's REST API.
     REST(RestQuery<N>),
-    /// Query state using a state root.
+    // Return static state for testing and performance.
     STATIC(StaticQuery<N>),
 }
 
