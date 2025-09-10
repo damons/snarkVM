@@ -17,7 +17,7 @@ use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     algorithms::{ECDSASignature, Keccak256, Keccak384, Keccak512, Sha3_256, Sha3_384, Sha3_512},
     network::prelude::*,
-    program::{Boolean, Literal, LiteralType, PlaintextType, Register, RegisterType},
+    program::{Boolean, Literal, LiteralType, PlaintextType, Register, RegisterType, Value},
 };
 use snarkvm_utilities::bytes_from_bits_le;
 
@@ -145,7 +145,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
 }
 
 // Perform the ECDSA verification based on the variant.
-macro_rules! do_verification {
+macro_rules! do_ecdsa_verification {
     ($N: ident, $variant: expr, $signature: expr, $pub_key: expr, $message: expr, $q: expr) => {{
         let bits = || $message.to_bits_le();
         let bits_raw = || $message.to_bits_raw_le();
@@ -186,6 +186,28 @@ macro_rules! do_verification {
     }};
 }
 
+/// Evaluate an ECDSA verification operation.
+///
+/// This allows running the verification without the machinery of stacks and registers.
+/// This is necessary for the Leo interpreter.
+pub fn evaluate_ecdsa_verification<N: Network>(
+    variant: ECDSAVerifyVariant,
+    signature: &Value<N>,
+    public_key: &Value<N>,
+    message: &Value<N>,
+) -> Result<bool> {
+    evaluate_ecdsa_verification_internal(variant as u8, signature, public_key, message)
+}
+
+fn evaluate_ecdsa_verification_internal<N: Network>(
+    variant: u8,
+    signature: &Value<N>,
+    public_key: &Value<N>,
+    message: &Value<N>,
+) -> Result<bool> {
+    Ok(do_ecdsa_verification!(N, variant, signature, public_key, message, Result::<_>::Ok))
+}
+
 impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     /// Evaluates the instruction.
     #[inline]
@@ -219,7 +241,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         let message = registers.load(stack, &self.operands[2])?;
 
         // Perform the verification.
-        let output = do_verification!(N, VARIANT, signature, public_key, message, Result::<_>::Ok);
+        let output = evaluate_ecdsa_verification_internal(VARIANT, &signature, &public_key, &message)?;
         let output = Literal::Boolean(Boolean::new(output));
 
         // Store the output.
