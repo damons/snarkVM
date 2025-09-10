@@ -97,6 +97,7 @@ pub type HashManyPSD4<N> = HashInstruction<N, { HashVariant::HashManyPSD4 as u8 
 pub type HashManyPSD8<N> = HashInstruction<N, { HashVariant::HashManyPSD8 as u8 }>;
 
 /// Which hash function to use.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum HashVariant {
     HashBHP256,
     HashBHP512,

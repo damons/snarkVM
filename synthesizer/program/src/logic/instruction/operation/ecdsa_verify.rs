@@ -60,6 +60,7 @@ pub type ECDSAVerifySha3_512Raw<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSh
 pub type ECDSAVerifySha3_512Eth<N> = ECDSAVerify<N, { ECDSAVerifyVariant::HashSha3_512Eth as u8 }>;
 
 /// Which hash function to use.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ECDSAVerifyVariant {
     HashKeccak256,
     HashKeccak256Raw,
