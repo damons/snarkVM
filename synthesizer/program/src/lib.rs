@@ -941,6 +941,11 @@ impl<N: Network> ProgramCore<N> {
             .flat_map(|(_, function)| function.instructions())
             .any(|instruction| has_op(*instruction.opcode()));
 
+        // Determine if any closure instructions contain the new syntax.
+        let closure_contains = cfg_iter!(self.closures())
+            .flat_map(|(_, closure)| closure.instructions())
+            .any(|instruction| has_op(*instruction.opcode()));
+
         // Determine if any finalize commands or constructor commands contain the new syntax.
         let command_contains = cfg_iter!(self.functions())
             .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
@@ -951,7 +956,7 @@ impl<N: Network> ProgramCore<N> {
         // Determine if any of the array types exceed the previous maximum length of 32.
         let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_SIZE);
 
-        function_contains || command_contains || array_size_exceeds
+        function_contains || closure_contains || command_contains || array_size_exceeds
     }
 }
 
