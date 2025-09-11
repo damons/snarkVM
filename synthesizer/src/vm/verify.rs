@@ -1332,7 +1332,7 @@ function compute:
         ))
         .unwrap();
 
-        // Advance the ledger past ConsensusV4 where the new varuna version and deployment version starts to take place.
+        // Advance the ledger past ConsensusV9 where the new varuna version and deployment version starts to take place.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap()
         {
@@ -1344,7 +1344,7 @@ function compute:
         // Construct the deployment transaction.
         let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
-        // Advance the ledger past ConsensusV4 where the new varuna version starts to take place.
+        // Advance the ledger past ConsensusV11 where the new varuna version starts to take place.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V11).unwrap()
         {
@@ -1454,7 +1454,7 @@ function compute:
         ))
         .unwrap();
 
-        // Advance the ledger past ConsensusV4 where the new varuna version and deployment version starts to take place.
+        // Advance the ledger past ConsensusV9 where the new varuna version and deployment version starts to take place.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap()
         {
@@ -1466,7 +1466,7 @@ function compute:
         // Construct the deployment transaction.
         let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
-        // Advance the ledger past ConsensusV4 where the new varuna version starts to take place.
+        // Advance the ledger past ConsensusV11 where the new varuna version starts to take place.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V11).unwrap()
         {
