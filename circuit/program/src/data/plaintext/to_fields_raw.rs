@@ -19,10 +19,7 @@ impl<A: Aleo> ToFieldsRaw for Plaintext<A> {
     /// Returns this plaintext as a list of field elements using the raw bits.
     fn to_fields_raw(&self) -> Vec<Self::Field> {
         // Encode the data as little-endian bits without variant or identifier bits.
-        let mut bits_le = self.to_bits_raw_le();
-        // Adds one final bit to the data, to serve as a terminus indicator.
-        // During decryption, this final bit ensures we've reached the end.
-        bits_le.push(Boolean::constant(true));
+        let bits_le = self.to_bits_raw_le();
         // Pack the bits into field elements.
         let fields = bits_le.chunks(A::BaseField::size_in_data_bits()).map(Field::from_bits_le).collect::<Vec<_>>();
         // Ensure the number of field elements does not exceed the maximum allowed size.

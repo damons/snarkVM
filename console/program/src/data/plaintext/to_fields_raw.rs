@@ -19,10 +19,7 @@ impl<N: Network> ToFieldsRaw for Plaintext<N> {
     /// Returns this plaintext as a list of field elements using the raw bits.
     fn to_fields_raw(&self) -> Result<Vec<Self::Field>> {
         // Encode the data as little-endian bits without variant or identifier bits.
-        let mut bits_le = self.to_bits_raw_le();
-        // Adds one final bit to the data, to serve as a terminus indicator.
-        // During decryption, this final bit ensures we've reached the end.
-        bits_le.push(true);
+        let bits_le = self.to_bits_raw_le();
         // Pack the bits into field elements.
         let fields = bits_le
             .chunks(Field::<N>::size_in_data_bits())
