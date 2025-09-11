@@ -24,25 +24,16 @@ impl<N: Network> ToBitsRaw for Plaintext<N> {
                 vec.extend_from_slice(&literal.to_bits_le())
             }
             Self::Struct(struct_, _) => {
-                // Compute the bits.
-                let mut bits_le = vec![];
                 // Write each value of the struct.
                 for (_, value) in struct_ {
-                    bits_le.extend_from_slice(&value.to_bits_raw_le());
+                    vec.extend_from_slice(&value.to_bits_raw_le());
                 }
-                // Extend the vector with the bits.
-                vec.extend_from_slice(&bits_le)
             }
             Self::Array(array, _) => {
-                // Compute the bits.
-                let mut bits_le = vec![];
                 // Write each element of the array.
                 for element in array {
-                    // Write the element.
-                    bits_le.extend(element.to_bits_raw_le());
+                    vec.extend_from_slice(&element.to_bits_raw_le());
                 }
-                // Extend the vector with the bits.
-                vec.extend_from_slice(&bits_le)
             }
         }
     }
@@ -55,25 +46,17 @@ impl<N: Network> ToBitsRaw for Plaintext<N> {
                 vec.extend_from_slice(&literal.to_bits_be())
             }
             Self::Struct(struct_, _) => {
-                // Compute the bits.
-                let mut bits_be = vec![];
                 // Write each value of the struct.
                 for (_, value) in struct_ {
-                    bits_be.extend_from_slice(&value.to_bits_raw_be());
+                    vec.extend_from_slice(&value.to_bits_raw_be());
                 }
-                // Extend the vector with the bits.
-                vec.extend_from_slice(&bits_be)
             }
             Self::Array(array, _) => {
-                // Compute the bits.
-                let mut bits_be = vec![];
                 // Write each element of the array.
                 for element in array {
                     // Write the element.
-                    bits_be.extend(element.to_bits_raw_be());
+                    vec.extend_from_slice(&element.to_bits_raw_be());
                 }
-                // Extend the vector with the bits.
-                vec.extend_from_slice(&bits_be)
             }
         }
     }

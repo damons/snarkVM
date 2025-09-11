@@ -25,23 +25,15 @@ impl<A: Aleo> ToBitsRaw for Plaintext<A> {
             }
             Self::Struct(members, _) => {
                 // Compute the bits of the struct.
-                let mut bits_le = Vec::new();
                 for (_, value) in members {
-                    bits_le.extend(value.to_bits_raw_le());
+                    vec.extend(value.to_bits_raw_le());
                 }
-                bits_le.shrink_to_fit();
-                // Extend the vector with the bits of the struct.
-                vec.extend_from_slice(&bits_le);
             }
             Self::Array(elements, _) => {
                 // Compute the bits of the array.
-                let mut bits_le = Vec::new();
                 for value in elements {
-                    bits_le.extend(value.to_bits_raw_le());
+                    vec.extend(value.to_bits_raw_le());
                 }
-                bits_le.shrink_to_fit();
-                // Extend the vector with the bits of the array.
-                vec.extend_from_slice(&bits_le);
             }
         }
     }
@@ -57,7 +49,7 @@ impl<A: Aleo> ToBitsRaw for Plaintext<A> {
                 // Compute the bits of the struct.
                 let mut bits_be = Vec::new();
                 for (_, value) in members {
-                    bits_be.extend(value.to_bits_raw_be());
+                    vec.extend(value.to_bits_raw_be());
                 }
                 bits_be.shrink_to_fit();
                 // Extend the vector with the bits of the struct.
@@ -65,13 +57,9 @@ impl<A: Aleo> ToBitsRaw for Plaintext<A> {
             }
             Self::Array(elements, _) => {
                 // Compute the bits of the array.
-                let mut bits_be = Vec::new();
                 for value in elements {
-                    bits_be.extend(value.to_bits_raw_be());
+                    vec.extend(value.to_bits_raw_be());
                 }
-                bits_be.shrink_to_fit();
-                // Extend the vector with the bits of the array.
-                vec.extend_from_slice(&bits_be);
             }
         }
     }
