@@ -176,6 +176,9 @@ name = "anyhow"
 version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
+dependencies = [
+ "backtrace",
+]
 
 [[package]]
 name = "arrayref"
@@ -3385,6 +3388,7 @@ name = "snarkvm-ledger-block"
 version = "4.2.1"
 dependencies = [
  "aleo-std",
+ "anyhow",
  "bincode",
  "indexmap 2.11.1",
  "rayon",
@@ -3404,6 +3408,7 @@ dependencies = [
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-program",
  "snarkvm-synthesizer-snark",
+ "snarkvm-utilities",
 ]
 
 [[package]]
@@ -3613,6 +3618,7 @@ name = "snarkvm-ledger-test-helpers"
 version = "4.2.1"
 dependencies = [
  "aleo-std",
+ "anyhow",
  "snarkvm-algorithms",
  "snarkvm-circuit",
  "snarkvm-console",
@@ -3621,6 +3627,7 @@ dependencies = [
  "snarkvm-ledger-store",
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-program",
+ "snarkvm-utilities",
 ]
 
 [[package]]
@@ -3779,6 +3786,7 @@ dependencies = [
  "smol_str",
  "snarkvm-utilities-derives",
  "thiserror 2.0.16",
+ "tracing",
  "zeroize",
 ]
 

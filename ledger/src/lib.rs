@@ -228,7 +228,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Fetch the latest block.
         let block = ledger
             .get_block(latest_height)
-            .map_err(|_| anyhow!("Failed to load block {latest_height} from the ledger"))?;
+            .map_err(|err| err.context("Failed to load block {latest_height} from the ledger"))?;
 
         // Set the current block.
         ledger.current_block = Arc::new(RwLock::new(block));
@@ -441,7 +441,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     ) -> Result<Transaction<N>> {
         // Fetch the unspent records.
         let records = self.find_unspent_credits_records(&ViewKey::try_from(private_key)?)?;
-        ensure!(!records.len().is_zero(), "The Aleo account has no records to spend.");
+        ensure!(records.len() >= 2, "The Aleo account does not have enough records to spend.");
         let mut records = records.values();
 
         // Prepare the inputs.

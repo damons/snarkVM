@@ -15,6 +15,8 @@
 
 use super::*;
 
+use anyhow::Context;
+
 /// Executes an Aleo program function locally
 #[derive(Debug, Parser)]
 pub struct Execute {
@@ -46,14 +48,16 @@ impl Execute {
         let rng = &mut rand::thread_rng();
 
         // Execute the request.
-        let (response, execution, metrics) =
-            package.execute::<Aleo, _>(self.endpoint, &private_key, self.function, &self.inputs, rng)?;
+        let (response, execution, metrics) = package
+            .execute::<Aleo, _>(self.endpoint, &private_key, self.function, &self.inputs, rng)
+            .with_context(|| "Execution failed")?;
 
         // TODO (howardwu): Include the option to execute a fee.
         let fee = None;
 
         // Construct the transaction.
-        let transaction = Transaction::from_execution(execution, fee)?;
+        let transaction =
+            Transaction::from_execution(execution, fee).with_context(|| "Failed to construct transaction")?;
 
         // Count the number of times a function is called.
         let mut program_frequency = HashMap::<String, usize>::new();
