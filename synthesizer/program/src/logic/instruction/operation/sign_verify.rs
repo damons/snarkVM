@@ -17,7 +17,17 @@ use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use circuit::prelude::{ToFields as CircuitToFields, ToFieldsRaw as CircuitToFieldsRaw};
 use console::{
     network::prelude::*,
-    program::{Literal, LiteralType, PlaintextType, Register, RegisterType, ToFields as ConsoleToFields},
+    program::{
+        Address,
+        Literal,
+        LiteralType,
+        PlaintextType,
+        Register,
+        RegisterType,
+        Signature,
+        ToFields as ConsoleToFields,
+        Value,
+    },
     types::Boolean,
 };
 
@@ -70,6 +80,25 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
     }
 }
 
+/// Evaluate a Schnorr verification operation.
+///
+/// This allows running the verification without the machinery of stacks and registers.
+/// This is necessary for the Leo interpreter.
+pub fn evaluate_schnorr_verification<N: Network>(
+    is_raw: bool,
+    signature: &Signature<N>,
+    address: &Address<N>,
+    message: &Value<N>,
+) -> Result<bool> {
+    // Convert the message to fields.
+    let message_fields = match is_raw {
+        true => message.to_fields_raw()?,
+        false => message.to_fields()?,
+    };
+    // Verify the signature.
+    Ok(signature.verify(address, &message_fields))
+}
+
 impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
     /// Evaluates the instruction.
     #[inline]
@@ -91,11 +120,8 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
         let message = registers.load(stack, &self.operands[2])?;
 
         // Verify the signature.
-        let message_fields = match RAW {
-            false => message.to_fields()?,
-            true => message.to_fields_raw()?,
-        };
-        let output = Literal::Boolean(Boolean::new(signature.verify(&address, &message_fields)));
+        let output = evaluate_schnorr_verification(RAW, &signature, &address, &message)?;
+        let output = Literal::Boolean(Boolean::new(output));
 
         // Store the output.
         registers.store_literal(stack, &self.destination, output)

@@ -146,7 +146,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
 
 // Perform the ECDSA verification based on the variant.
 macro_rules! do_ecdsa_verification {
-    ($N: ident, $variant: expr, $signature: expr, $pub_key: expr, $message: expr, $q: expr) => {{
+    ($variant: expr, $signature: expr, $pub_key: expr, $message: expr) => {{
         let bits = || $message.to_bits_le();
         let bits_raw = || $message.to_bits_raw_le();
 
@@ -205,7 +205,7 @@ fn evaluate_ecdsa_verification_internal<N: Network>(
     public_key: &Value<N>,
     message: &Value<N>,
 ) -> Result<bool> {
-    Ok(do_ecdsa_verification!(N, variant, signature, public_key, message, Result::<_>::Ok))
+    Ok(do_ecdsa_verification!(variant, signature, public_key, message))
 }
 
 impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
