@@ -279,7 +279,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         // Expected byte length for the public key input depending on the variant.
         let expected_length = if matches!(VARIANT, 2 | 5 | 8 | 11 | 14 | 17) || Self::opcode().ends_with("eth") {
             // Ethereum address variant expects a 20-byte array.
-            20
+            ECDSASignature::ETHEREUM_ADDRESS_SIZE_IN_BYTES
         } else {
             // Non-Ethereum address variant expects a compressed verifying key.
             ECDSASignature::VERIFYING_KEY_SIZE_IN_BYTES

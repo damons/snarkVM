@@ -43,9 +43,11 @@ pub struct ECDSASignature {
 impl ECDSASignature {
     ///  The base signature size in bytes for secp256k1.
     pub const BASE_SIGNATURE_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE * 2;
-    /// The ECDSA Signature size in bits for secp256k1 (including the recovery ID).
+    /// The size of an Ethereum address in bytes.
+    pub const ETHEREUM_ADDRESS_SIZE_IN_BYTES: usize = 20;
+    /// The ECDSA Signature size in bits for secp256k1 (including the one-byte recovery ID).
     pub const SIGNATURE_SIZE_IN_BYTES: usize = Self::BASE_SIGNATURE_SIZE_IN_BYTES + 1;
-    /// The compressed VerifyingKey size in bytes for secp256k1.
+    /// The compressed VerifyingKey size in bytes for secp256k1 (32 byte field + one-byte header).
     pub const VERIFYING_KEY_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE + 1;
 
     /// Returns a signature on a `message` using the given `signing_key` and hash function.
@@ -103,7 +105,7 @@ impl ECDSASignature {
     /// Verify `(r,s)` against `verifying_key` using *your* hasher on `message`.
     pub fn verify_ethereum<H: Hash<Output = Vec<bool>>>(
         &self,
-        ethereum_address: &[u8; 20],
+        ethereum_address: &[u8; Self::ETHEREUM_ADDRESS_SIZE_IN_BYTES],
         hasher: &H,
         message: &[H::Input],
     ) -> Result<()> {
@@ -121,7 +123,9 @@ impl ECDSASignature {
     }
 
     /// Converts a VerifyingKey to an Ethereum address (20 bytes).
-    pub fn ethereum_address_from_public_key(verifying_key: &VerifyingKey) -> Result<[u8; 20]> {
+    pub fn ethereum_address_from_public_key(
+        verifying_key: &VerifyingKey,
+    ) -> Result<[u8; Self::ETHEREUM_ADDRESS_SIZE_IN_BYTES]> {
         // Get the uncompressed public key bytes as [0x04, x_bytes..., y_bytes...]
         let public_key_point = verifying_key.to_encoded_point(false);
         let public_key_bytes = public_key_point.as_bytes();
@@ -134,7 +138,7 @@ impl ECDSASignature {
         let address_bytes = bytes_from_bits_le(&address_hash);
 
         // Step 4: Take the last 20 bytes as the Ethereum address
-        let mut ethereum_address = [0u8; 20];
+        let mut ethereum_address = [0u8; Self::ETHEREUM_ADDRESS_SIZE_IN_BYTES];
         ethereum_address.copy_from_slice(&address_bytes[12..32]);
 
         Ok(ethereum_address)
