@@ -100,16 +100,16 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
 pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
     (ConsensusVersion::V1, 0),
-    (ConsensusVersion::V2, 10),
-    (ConsensusVersion::V3, 11),
-    (ConsensusVersion::V4, 12),
-    (ConsensusVersion::V5, 13),
-    (ConsensusVersion::V6, 14),
-    (ConsensusVersion::V7, 15),
-    (ConsensusVersion::V8, 16),
-    (ConsensusVersion::V9, 17),
-    (ConsensusVersion::V10, 18),
-    (ConsensusVersion::V11, 19),
+    (ConsensusVersion::V2, 1),
+    (ConsensusVersion::V3, 2),
+    (ConsensusVersion::V4, 3),
+    (ConsensusVersion::V5, 4),
+    (ConsensusVersion::V6, 5),
+    (ConsensusVersion::V7, 6),
+    (ConsensusVersion::V8, 7),
+    (ConsensusVersion::V9, 8),
+    (ConsensusVersion::V10, 9),
+    (ConsensusVersion::V11, 10),
 ];
 
 #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
