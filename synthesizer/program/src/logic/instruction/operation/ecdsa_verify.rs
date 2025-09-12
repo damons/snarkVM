@@ -82,6 +82,33 @@ pub enum ECDSAVerifyVariant {
     HashSha3_512Eth,
 }
 
+impl ECDSAVerifyVariant {
+    // Returns the opcode associated with the variant.
+    const fn opcode(variant: u8) -> &'static str {
+        match variant {
+            0 => "ecdsa.verify.keccak256",
+            1 => "ecdsa.verify.keccak256.raw",
+            2 => "ecdsa.verify.keccak256.eth",
+            3 => "ecdsa.verify.keccak384",
+            4 => "ecdsa.verify.keccak384.raw",
+            5 => "ecdsa.verify.keccak384.eth",
+            6 => "ecdsa.verify.keccak512",
+            7 => "ecdsa.verify.keccak512.raw",
+            8 => "ecdsa.verify.keccak512.eth",
+            9 => "ecdsa.verify.sha3_256",
+            10 => "ecdsa.verify.sha3_256.raw",
+            11 => "ecdsa.verify.sha3_256.eth",
+            12 => "ecdsa.verify.sha3_384",
+            13 => "ecdsa.verify.sha3_384.raw",
+            14 => "ecdsa.verify.sha3_384.eth",
+            15 => "ecdsa.verify.sha3_512",
+            16 => "ecdsa.verify.sha3_512.raw",
+            17 => "ecdsa.verify.sha3_512.eth",
+            _ => panic!("Invalid 'ecdsa.verify' instruction opcode"),
+        }
+    }
+}
+
 /// Computes whether `signature` is valid for the given `address` and `message`.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ECDSAVerify<N: Network, const VARIANT: u8> {
@@ -104,28 +131,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     /// Returns the opcode.
     #[inline]
     pub const fn opcode() -> Opcode {
-        let name = match VARIANT {
-            0 => "ecdsa.verify.keccak256",
-            1 => "ecdsa.verify.keccak256.raw",
-            2 => "ecdsa.verify.keccak256.eth",
-            3 => "ecdsa.verify.keccak384",
-            4 => "ecdsa.verify.keccak384.raw",
-            5 => "ecdsa.verify.keccak384.eth",
-            6 => "ecdsa.verify.keccak512",
-            7 => "ecdsa.verify.keccak512.raw",
-            8 => "ecdsa.verify.keccak512.eth",
-            9 => "ecdsa.verify.sha3_256",
-            10 => "ecdsa.verify.sha3_256.raw",
-            11 => "ecdsa.verify.sha3_256.eth",
-            12 => "ecdsa.verify.sha3_384",
-            13 => "ecdsa.verify.sha3_384.raw",
-            14 => "ecdsa.verify.sha3_384.eth",
-            15 => "ecdsa.verify.sha3_512",
-            16 => "ecdsa.verify.sha3_512.raw",
-            17 => "ecdsa.verify.sha3_512.eth",
-            _ => panic!("Invalid 'ecdsa.verify' instruction opcode"),
-        };
-        Opcode::ECDSA(name)
+        Opcode::ECDSA(ECDSAVerifyVariant::opcode(VARIANT))
     }
 
     /// Returns the operands in the operation.

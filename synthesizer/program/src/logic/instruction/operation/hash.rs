@@ -135,6 +135,48 @@ pub enum HashVariant {
     HashSha3_512Raw,
 }
 
+impl HashVariant {
+    // Returns the opcode associated with the variant.
+    const fn opcode(variant: u8) -> &'static str {
+        match variant {
+            0 => "hash.bhp256",
+            1 => "hash.bhp512",
+            2 => "hash.bhp768",
+            3 => "hash.bhp1024",
+            4 => "hash.keccak256",
+            5 => "hash.keccak384",
+            6 => "hash.keccak512",
+            7 => "hash.ped64",
+            8 => "hash.ped128",
+            9 => "hash.psd2",
+            10 => "hash.psd4",
+            11 => "hash.psd8",
+            12 => "hash.sha3_256",
+            13 => "hash.sha3_384",
+            14 => "hash.sha3_512",
+            15 => "hash_many.psd2",
+            16 => "hash_many.psd4",
+            17 => "hash_many.psd8",
+            18 => "hash.bhp256.raw",
+            19 => "hash.bhp512.raw",
+            20 => "hash.bhp768.raw",
+            21 => "hash.bhp1024.raw",
+            22 => "hash.keccak256.raw",
+            23 => "hash.keccak384.raw",
+            24 => "hash.keccak512.raw",
+            25 => "hash.ped64.raw",
+            26 => "hash.ped128.raw",
+            27 => "hash.psd2.raw",
+            28 => "hash.psd4.raw",
+            29 => "hash.psd8.raw",
+            30 => "hash.sha3_256.raw",
+            31 => "hash.sha3_384.raw",
+            32 => "hash.sha3_512.raw",
+            _ => panic!("Invalid 'hash' instruction opcode"),
+        }
+    }
+}
+
 /// Returns the expected number of operands given the variant.
 const fn expected_num_operands(variant: u8) -> usize {
     match variant {
@@ -194,42 +236,7 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
 
     /// Returns the opcode.
     pub const fn opcode() -> Opcode {
-        match VARIANT {
-            0 => Opcode::Hash("hash.bhp256"),
-            1 => Opcode::Hash("hash.bhp512"),
-            2 => Opcode::Hash("hash.bhp768"),
-            3 => Opcode::Hash("hash.bhp1024"),
-            4 => Opcode::Hash("hash.keccak256"),
-            5 => Opcode::Hash("hash.keccak384"),
-            6 => Opcode::Hash("hash.keccak512"),
-            7 => Opcode::Hash("hash.ped64"),
-            8 => Opcode::Hash("hash.ped128"),
-            9 => Opcode::Hash("hash.psd2"),
-            10 => Opcode::Hash("hash.psd4"),
-            11 => Opcode::Hash("hash.psd8"),
-            12 => Opcode::Hash("hash.sha3_256"),
-            13 => Opcode::Hash("hash.sha3_384"),
-            14 => Opcode::Hash("hash.sha3_512"),
-            15 => Opcode::Hash("hash_many.psd2"),
-            16 => Opcode::Hash("hash_many.psd4"),
-            17 => Opcode::Hash("hash_many.psd8"),
-            18 => Opcode::Hash("hash.bhp256.raw"),
-            19 => Opcode::Hash("hash.bhp512.raw"),
-            20 => Opcode::Hash("hash.bhp768.raw"),
-            21 => Opcode::Hash("hash.bhp1024.raw"),
-            22 => Opcode::Hash("hash.keccak256.raw"),
-            23 => Opcode::Hash("hash.keccak384.raw"),
-            24 => Opcode::Hash("hash.keccak512.raw"),
-            25 => Opcode::Hash("hash.ped64.raw"),
-            26 => Opcode::Hash("hash.ped128.raw"),
-            27 => Opcode::Hash("hash.psd2.raw"),
-            28 => Opcode::Hash("hash.psd4.raw"),
-            29 => Opcode::Hash("hash.psd8.raw"),
-            30 => Opcode::Hash("hash.sha3_256.raw"),
-            31 => Opcode::Hash("hash.sha3_384.raw"),
-            32 => Opcode::Hash("hash.sha3_512.raw"),
-            33.. => panic!("Invalid 'hash' instruction opcode"),
-        }
+        Opcode::Hash(HashVariant::opcode(VARIANT))
     }
 
     /// Returns the operands in the operation.

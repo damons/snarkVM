@@ -44,6 +44,21 @@ pub enum CommitVariant {
     CommitPED128,
 }
 
+impl CommitVariant {
+    // Returns the opcode associated with the variant.
+    const fn opcode(variant: u8) -> &'static str {
+        match variant {
+            0 => "commit.bhp256",
+            1 => "commit.bhp512",
+            2 => "commit.bhp768",
+            3 => "commit.bhp1024",
+            4 => "commit.ped64",
+            5 => "commit.ped128",
+            6.. => panic!("Invalid 'commit' instruction opcode"),
+        }
+    }
+}
+
 /// Returns 'true' if the destination type is valid.
 fn is_valid_destination_type(destination_type: LiteralType) -> bool {
     matches!(destination_type, LiteralType::Address | LiteralType::Field | LiteralType::Group)
@@ -75,15 +90,7 @@ impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {
     /// Returns the opcode.
     #[inline]
     pub const fn opcode() -> Opcode {
-        match VARIANT {
-            0 => Opcode::Commit("commit.bhp256"),
-            1 => Opcode::Commit("commit.bhp512"),
-            2 => Opcode::Commit("commit.bhp768"),
-            3 => Opcode::Commit("commit.bhp1024"),
-            4 => Opcode::Commit("commit.ped64"),
-            5 => Opcode::Commit("commit.ped128"),
-            6.. => panic!("Invalid 'commit' instruction opcode"),
-        }
+        Opcode::Commit(CommitVariant::opcode(VARIANT))
     }
 
     /// Returns the operands in the operation.
