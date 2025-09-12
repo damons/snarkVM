@@ -137,7 +137,7 @@ pub enum HashVariant {
 
 impl HashVariant {
     // Returns the opcode associated with the variant.
-    const fn opcode(variant: u8) -> &'static str {
+    pub const fn opcode(variant: u8) -> &'static str {
         match variant {
             0 => "hash.bhp256",
             1 => "hash.bhp512",

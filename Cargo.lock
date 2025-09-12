@@ -3896,7 +3896,7 @@ dependencies = [
  "bincode",
  "criterion",
  "indexmap 2.11.1",
-  "k256",
+ "k256",
  "paste",
  "rand 0.8.5",
  "rand_chacha 0.3.1",

@@ -84,7 +84,7 @@ pub enum ECDSAVerifyVariant {
 
 impl ECDSAVerifyVariant {
     // Returns the opcode associated with the variant.
-    const fn opcode(variant: u8) -> &'static str {
+    pub const fn opcode(variant: u8) -> &'static str {
         match variant {
             0 => "ecdsa.verify.keccak256",
             1 => "ecdsa.verify.keccak256.raw",
