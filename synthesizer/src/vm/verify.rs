@@ -678,6 +678,7 @@ mod tests {
         types::{Field, U8},
     };
     use snarkvm_ledger_block::{Block, Header, Metadata, Transaction, Transition};
+    use snarkvm_utilities::bytes_from_bits_le;
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
@@ -1327,6 +1328,19 @@ function compute:
         ecdsa.verify.keccak256.eth r0 r1 r2 into r3;
         assert.eq r3 true;
 
+    function foo_2:
+        input r0 as [u8; 65u32].public;
+        input r1 as [u8; 20u32].public;
+        input r2 as [u8; 32u32].public;
+        async foo_2 r0 r1 r2 into r3;
+        output r3 as {program_id}/foo_2.future;
+    finalize foo_2:
+        input r0 as [u8; 65u32].public;
+        input r1 as [u8; 20u32].public;
+        input r2 as [u8; 32u32].public;
+        ecdsa.verify.digest.eth r0 r1 r2 into r3;
+        assert.eq r3 true;
+
     constructor:
         assert.eq edition 0u16;",
         ))
@@ -1371,6 +1385,7 @@ function compute:
         let hasher = Keccak256::default();
         let signature = ECDSASignature::sign(&ecdsa_signing_key, &hasher, &message.to_bits_le()).unwrap();
         let signature_bytes = signature.to_bytes_le().unwrap();
+        let digest = bytes_from_bits_le(&hasher.hash(&message.to_bits_le()).unwrap());
 
         // Convert the inputs to plaintext Values.
         let ethereum_address: [U8<CurrentNetwork>; 20] =
@@ -1379,6 +1394,8 @@ function compute:
             message.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
         let signature: [U8<CurrentNetwork>; 65] =
             signature_bytes.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
+        let digest: [U8<CurrentNetwork>; 32] =
+            digest.into_iter().map(U8::new).collect::<Vec<U8<CurrentNetwork>>>().try_into().unwrap();
 
         // Construct the inputs.
         let inputs = [
@@ -1386,11 +1403,22 @@ function compute:
             Value::<CurrentNetwork>::Plaintext(Plaintext::from(ethereum_address)),
             Value::<CurrentNetwork>::Plaintext(Plaintext::from(message)),
         ];
-
         // Create the execution transaction.
-        let execution_transaction =
+        let verification_transaction =
             vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
-        let valid_tx_id = execution_transaction.id();
+        let valid_tx_id = verification_transaction.id();
+
+        // Construct the inputs for the digest verfication.
+        let inputs = [
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(signature)),
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(ethereum_address)),
+            Value::<CurrentNetwork>::Plaintext(Plaintext::from(digest)),
+        ];
+        // Create the execution transaction.
+        let digest_verification_transaction = vm
+            .execute(&private_key, (&program_id.to_string(), "foo_2"), inputs.into_iter(), None, 0, None, rng)
+            .unwrap();
+        let valid_tx_id_2 = digest_verification_transaction.id();
 
         // Construct an invalid execution transaction by mutating the message.
         let invalid_message: [u8; 100] = (0..100).map(|_| rng.r#gen::<u8>()).collect::<Vec<u8>>().try_into().unwrap();
@@ -1405,24 +1433,25 @@ function compute:
         ];
 
         // Create the execution transaction.
-        let invalid_execution_transaction =
+        let invalid_verification_transaction =
             vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
-        let invalid_tx_id = invalid_execution_transaction.id();
+        let invalid_tx_id = invalid_verification_transaction.id();
 
         // Construct a block with both transactions.
         let next_block = crate::vm::test_helpers::sample_next_block(
             &vm,
             &private_key,
-            &[execution_transaction, invalid_execution_transaction],
+            &[verification_transaction, digest_verification_transaction, invalid_verification_transaction],
             rng,
         )
         .unwrap();
         vm.add_next_block(&next_block).unwrap();
 
         // Ensure that the valid transaction was accepted and the invalid one was rejected.
-        assert_eq!(next_block.transactions().num_accepted(), 1);
+        assert_eq!(next_block.transactions().num_accepted(), 2);
         assert_eq!(next_block.transactions().num_rejected(), 1);
         assert!(vm.block_store().get_confirmed_transaction(&valid_tx_id).unwrap().unwrap().is_accepted());
+        assert!(vm.block_store().get_confirmed_transaction(&valid_tx_id_2).unwrap().unwrap().is_accepted());
         assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_id).unwrap().unwrap().is_rejected());
     }
 

@@ -30,6 +30,11 @@ fn test_ecdsa<H: Hash<Output = Vec<bool>, Input = bool>>(hasher: &H, rng: &mut T
         // Verify the signature.
         assert!(signature.verify(&verifying_key, hasher, &message.to_bits_le()).is_ok());
         assert_eq!(signature.recover_public_key(hasher, &message.to_bits_le()).unwrap(), verifying_key);
+
+        // Verify the signature using the digest.
+        let message_digest = hasher.hash(&message.to_bits_le()).unwrap();
+        assert!(signature.verify_with_digest(&verifying_key, &message_digest).is_ok());
+        assert_eq!(signature.recover_public_key_with_digest(&message_digest).unwrap(), verifying_key);
     }
 }
 
@@ -73,6 +78,11 @@ fn test_ecdsa_signature_vector_1() {
     // Check that the signature verifies against the recovered public key.
     assert!(signature.verify(&verifying_key, &hasher, &data_bytes.to_bits_le()).is_ok());
     assert!(signature.verify_ethereum(&expected_address_bytes, &hasher, &data_bytes.to_bits_le()).is_ok());
+
+    // Check that the signature verifies using the digest.
+    let message_digest = hasher.hash(&data_bytes.to_bits_le()).unwrap();
+    assert!(signature.verify_with_digest(&verifying_key, &message_digest).is_ok());
+    assert!(signature.verify_ethereum_with_digest(&expected_address_bytes, &message_digest).is_ok());
 
     // Check that the signature does not verify against modified data.
     let wrong_data = data_bytes[6..].to_vec();

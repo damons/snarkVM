@@ -169,7 +169,7 @@ fn check_ecdsa<const VARIANT: u8, H: Hash<Input = bool, Output = Vec<bool>>>(
     let signing_key = SigningKey::random(rng);
     let verifying_key = VerifyingKey::from(&signing_key);
 
-    let (expected_length, vk) = if matches!(VARIANT, 2 | 5 | 8 | 11 | 14 | 17) || opcode.ends_with("eth") {
+    let (expected_length, vk) = if matches!(VARIANT, 1 | 4 | 7 | 10 | 13 | 16 | 19) || opcode.ends_with("eth") {
         // Ethereum address variant expects a 20-byte array.
         (20, ECDSASignature::ethereum_address_from_public_key(&verifying_key).unwrap().to_vec())
     } else {

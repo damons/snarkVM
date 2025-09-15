@@ -45,6 +45,8 @@ impl ECDSASignature {
     pub const BASE_SIGNATURE_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE * 2;
     /// The size of an Ethereum address in bytes.
     pub const ETHEREUM_ADDRESS_SIZE_IN_BYTES: usize = 20;
+    /// The prehash size in bytes for secp256k1.
+    pub const PREHASH_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE;
     /// The ECDSA Signature size in bits for secp256k1 (including the one-byte recovery ID).
     pub const SIGNATURE_SIZE_IN_BYTES: usize = Self::BASE_SIGNATURE_SIZE_IN_BYTES + 1;
     /// The compressed VerifyingKey size in bytes for secp256k1 (32 byte field + one-byte header).
@@ -76,11 +78,18 @@ impl ECDSASignature {
     ) -> Result<VerifyingKey> {
         // Hash the message.
         let hash_bits = hasher.hash(message)?;
-        // Convert the hash output to bytes.
-        let hash_bytes = bytes_from_bits_le(&hash_bits);
 
         // Recover the public key using the prehash.
-        VerifyingKey::recover_from_prehash(&hash_bytes, &self.signature, self.recovery_id)
+        self.recover_public_key_with_digest(&hash_bits)
+    }
+
+    /// Recover the public key from `(r,s, recovery_id)` using *your* hasher on `message`.
+    pub fn recover_public_key_with_digest(&self, digest_bits: &[bool]) -> Result<VerifyingKey> {
+        // Convert the digest output to bytes.
+        let digest = bytes_from_bits_le(digest_bits);
+
+        // Recover the public key using the prehash.
+        VerifyingKey::recover_from_prehash(&digest, &self.signature, self.recovery_id)
             .map_err(|e| anyhow!("Failed to recover public key: {e:?}"))
     }
 
@@ -93,13 +102,18 @@ impl ECDSASignature {
     ) -> Result<()> {
         // Hash the message.
         let hash_bits = hasher.hash(message)?;
-        // Convert the hash output to bytes.
-        let hash_bytes = bytes_from_bits_le(&hash_bits);
 
         // Verify the signature using the prehash.
-        verifying_key
-            .verify_prehash(&hash_bytes, &self.signature)
-            .map_err(|e| anyhow!("Failed to verify signature: {e:?}"))
+        self.verify_with_digest(verifying_key, &hash_bits)
+    }
+
+    /// Verify `(r,s)` against `verifying_key` using the provided `digest`.
+    pub fn verify_with_digest(&self, verifying_key: &VerifyingKey, digest_bits: &[bool]) -> Result<()> {
+        // Convert the digest output to bytes.
+        let digest = bytes_from_bits_le(digest_bits);
+
+        // Verify the signature using the prehash digest.
+        verifying_key.verify_prehash(&digest, &self.signature).map_err(|e| anyhow!("Failed to verify signature: {e:?}"))
     }
 
     /// Verify `(r,s)` against `verifying_key` using *your* hasher on `message`.
@@ -109,8 +123,21 @@ impl ECDSASignature {
         hasher: &H,
         message: &[H::Input],
     ) -> Result<()> {
+        // Hash the message.
+        let hash_bits = hasher.hash(message)?;
+
+        // Ensure that the derived Ethereum address matches the provided one.
+        self.verify_ethereum_with_digest(ethereum_address, &hash_bits)
+    }
+
+    /// Verify `(r,s)` against `verifying_key` using *your* hasher on `message`.
+    pub fn verify_ethereum_with_digest(
+        &self,
+        ethereum_address: &[u8; Self::ETHEREUM_ADDRESS_SIZE_IN_BYTES],
+        digest_bits: &[bool],
+    ) -> Result<()> {
         // Derive the verifying key from the signature.
-        let verifying_key = self.recover_public_key(hasher, message)?;
+        let verifying_key = self.recover_public_key_with_digest(digest_bits)?;
 
         // Ensure that the derived Ethereum address matches the provided one.
         let derived_ethereum_address = Self::ethereum_address_from_public_key(&verifying_key)?;
@@ -146,15 +173,6 @@ impl ECDSASignature {
 
     /// Parses a verifying key from bytes.
     pub fn verifying_key_from_bytes(bytes: &[u8]) -> Result<VerifyingKey> {
-        // Ensure the byte length is valid.
-        if bytes.len() != Self::VERIFYING_KEY_SIZE_IN_BYTES {
-            bail!(
-                "Invalid ECDSA verifying key length: expected {} bytes, got {} bytes",
-                Self::VERIFYING_KEY_SIZE_IN_BYTES,
-                bytes.len()
-            );
-        }
-        // Recover the verifying key from the bytes.
         VerifyingKey::from_sec1_bytes(bytes).map_err(|e| anyhow!("Failed to parse verifying key: {e:?}"))
     }
 }

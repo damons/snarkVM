@@ -225,6 +225,10 @@ pub enum Instruction<N: Network> {
     HashSha3_512Raw(HashSha3_512Raw<N>),
     /// Computes whether `signature` is valid for the given `address` and raw `message`.
     SignVerifyRaw(SignVerifyRaw<N>),
+    /// Computes whether `signature` is valid for the given `signer` and `digest` using ECDSA.
+    ECDSAVerifyDigest(ECDSAVerifyDigest<N>),
+    /// Computes whether `signature` is valid for the given Ethereum `address` and `digest` using ECDSA.
+    ECDSAVerifyDigestEth(ECDSAVerifyDigestEth<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256.
     ECDSAVerifyKeccak256(ECDSAVerifyKeccak256<N>),
     /// Computes whether `signature` is valid for the given `signer` and `message` using ECDSA with Keccak256 and raw inputs.
@@ -375,6 +379,8 @@ macro_rules! instruction {
             HashSha3_384Raw,
             HashSha3_512Raw,
             SignVerifyRaw,
+            ECDSAVerifyDigest,
+            ECDSAVerifyDigestEth,
             ECDSAVerifyKeccak256,
             ECDSAVerifyKeccak256Raw,
             ECDSAVerifyKeccak256Eth,

@@ -370,6 +370,8 @@ pub fn cost_per_command<N: Network>(
         }
         Command::Instruction(Instruction::DivWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::Double(_)) => Ok(500),
+        Command::Instruction(Instruction::ECDSAVerifyDigest(_)) => Ok(ECDSA_VERIFY_BASE_COST),
+        Command::Instruction(Instruction::ECDSAVerifyDigestEth(_)) => Ok(ECDSA_VERIFY_ETH_BASE_COST),
         Command::Instruction(Instruction::ECDSAVerifyKeccak256(ecdsa)) => {
             cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
         }

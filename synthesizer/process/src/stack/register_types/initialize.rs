@@ -858,6 +858,14 @@ impl<N: Network> RegisterTypes<N> {
         ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
         // Ensure the instruction is the correct one.
         match opcode {
+            "ecdsa.verify.digest" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyDigest(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.digest.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyDigestEth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
             "ecdsa.verify.keccak256" => ensure!(
                 matches!(instruction, Instruction::ECDSAVerifyKeccak256(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
