@@ -2488,7 +2488,7 @@ constructor:
     // Deploy the first version of the program.
     let transaction = vm.deploy(&caller_private_key, &program_v0, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng).unwrap();
-    assert_eq!(block.height(), 18);
+    assert_eq!(block.height(), 13);
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
@@ -2497,7 +2497,7 @@ constructor:
     // Attempt to deploy the second version of the program before block height 20.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
-    assert_eq!(block.height(), 19);
+    assert_eq!(block.height(), 14);
     assert_eq!(block.transactions().num_accepted(), 0);
     assert_eq!(block.transactions().num_rejected(), 1);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
@@ -2506,7 +2506,7 @@ constructor:
     // Attempt to deploy the second version of the program at block height 20.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
-    assert_eq!(block.height(), 20);
+    assert_eq!(block.height(), 15);
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
