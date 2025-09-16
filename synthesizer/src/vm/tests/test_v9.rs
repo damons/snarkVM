@@ -2466,7 +2466,7 @@ program upgradable.aleo;
 function foo:
 constructor:
     branch.eq edition 0u16 to end;
-    gte block.height 20u32 into r0;
+    gte block.height 15u32 into r0;
     assert.eq r0 true;
     position end;
     ",
@@ -2479,7 +2479,7 @@ function foo:
 function bar:
 constructor:
     branch.eq edition 0u16 to end;
-    gte block.height 20u32 into r0;
+    gte block.height 15u32 into r0;
     assert.eq r0 true;
     position end;
     ",
@@ -2494,7 +2494,7 @@ constructor:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Attempt to deploy the second version of the program before block height 20.
+    // Attempt to deploy the second version of the program before block height 15.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.height(), 14);
@@ -2503,7 +2503,7 @@ constructor:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block)?;
 
-    // Attempt to deploy the second version of the program at block height 20.
+    // Attempt to deploy the second version of the program at block height 15.
     let transaction = vm.deploy(&caller_private_key, &program_v1, None, 0, None, rng)?;
     let block = sample_next_block(&vm, &caller_private_key, &[transaction], rng)?;
     assert_eq!(block.height(), 15);
