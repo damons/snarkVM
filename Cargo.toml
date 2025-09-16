@@ -91,11 +91,6 @@ members = [
 [lib]
 path = "vm/lib.rs"
 
-[[bin]]
-name = "snarkvm"
-path = "vm/cli/main.rs"
-required-features = [ "cli" ]
-
 [features]
 default = [
   "algorithms",
@@ -109,21 +104,9 @@ default = [
   "file",
 ]
 full = [
-  "cli",
   "default",
   "curves",
   "fields",
-]
-cli = [
-  "circuit",
-  "utilities",
-  "package",
-  "dep:clap",
-  "dep:colored",
-  "dep:self_update",
-  "dep:thiserror",
-  "dep:ureq",
-  "dep:serde_json",
 ]
 file = [
   "console",
@@ -139,6 +122,7 @@ package = [
   "dep:ureq",
   "dep:dotenvy"
 ]
+
 async = [ "snarkvm-ledger/async", "snarkvm-synthesizer/async" ]
 cuda = [ "snarkvm-algorithms/cuda" ]
 dev-print = [ 
@@ -461,6 +445,9 @@ version = "0.6"
 [workspace.dependencies.colored]
 version = "3"
 
+[workspace.dependencies.dotenvy]
+version = "0.15"
+
 [workspace.dependencies.expect-test]
 version = "1.4.1"
 
@@ -583,54 +570,29 @@ optional = true
 workspace = true
 optional = true
 
-[dependencies.anstyle]
-version = "1"
-
 [dependencies.anyhow]
 workspace = true
-
-[dependencies.clap]
-version = "4.4"
-features = [ "derive", "color" ]
-optional = true
-
-[dependencies.colored]
-workspace = true
-optional = true
 
 [dependencies.dotenvy]
 version = "0.15"
 optional = true
 
-[dependencies.num-format]
-version = "0.4.4"
-
 [dependencies.rand]
 workspace = true
-
-[dependencies.self_update]
-version = "0.42"
-optional = true
 
 [dependencies.serde_json]
 workspace = true
 optional = true
 features = [ "preserve_order" ]
 
-[dependencies.thiserror]
-workspace = true
-optional = true
-
 [dependencies.ureq]
 workspace = true
-features = [ "json" ]
 optional = true
+features = [ "json" ]
 default-features = true
 
-# Some cli helper functions are used in the tests.
 [dev-dependencies.snarkvm]
 path = "."
-features = [ "cli" ]
 
 [dev-dependencies.bincode]
 workspace = true
