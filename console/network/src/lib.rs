@@ -40,6 +40,8 @@ mod testnet_v0;
 pub use testnet_v0::*;
 
 pub mod prelude {
+    #[cfg(feature = "wasm")]
+    pub use crate::set_consensus_version_heights;
     pub use crate::{
         CANARY_V0_CONSENSUS_VERSION_HEIGHTS,
         ConsensusVersion,
@@ -251,7 +253,11 @@ pub trait Network:
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
     fn CONSENSUS_VERSION_HEIGHTS() -> &'static [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
         // NOTE: this function may panic, as it is only called during startup.
-        CONSENSUS_VERSION_HEIGHTS.get_or_init(load_test_consensus_heights)
+        #[cfg(not(feature = "wasm"))]
+        let consensus_version_heights = CONSENSUS_VERSION_HEIGHTS.get_or_init(load_test_consensus_heights);
+        #[cfg(feature = "wasm")]
+        let consensus_version_heights = CONSENSUS_VERSION_HEIGHTS.get_or_init(|| load_test_consensus_heights(None));
+        consensus_version_heights
     }
 
     /// A set of incrementing consensus version heights used for tests.
@@ -495,4 +501,12 @@ pub trait Network:
         root: &Field<Self>,
         leaf: &Vec<Field<Self>>,
     ) -> bool;
+}
+
+#[cfg(feature = "wasm")]
+pub fn set_consensus_version_heights(heights: String) -> Result<()> {
+    let heights = load_test_consensus_heights(Some(heights));
+    CONSENSUS_VERSION_HEIGHTS
+        .set(heights)
+        .map_err(|_| anyhow!("Consensus version heights have already been initialized and cannot be set twice."))
 }
