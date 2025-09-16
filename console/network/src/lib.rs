@@ -41,7 +41,7 @@ pub use testnet_v0::*;
 
 pub mod prelude {
     #[cfg(feature = "wasm")]
-    pub use crate::set_test_consensus_version_heights;
+    pub use crate::set_consensus_version_test_heights;
     pub use crate::{
         CANARY_V0_CONSENSUS_VERSION_HEIGHTS,
         ConsensusVersion,
@@ -504,7 +504,7 @@ pub trait Network:
 }
 
 #[cfg(feature = "wasm")]
-pub fn set_test_consensus_version_heights(heights: Option<String>) -> Result<()> {
+pub fn set_consensus_version_test_heights(heights: Option<String>) -> Result<()> {
     let heights = load_test_consensus_heights(heights);
     CONSENSUS_VERSION_HEIGHTS
         .set(heights)
