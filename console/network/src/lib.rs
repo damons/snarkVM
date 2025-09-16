@@ -504,9 +504,9 @@ pub trait Network:
 }
 
 #[cfg(feature = "wasm")]
-pub fn set_consensus_version_test_heights(heights: Option<String>) -> Result<()> {
+pub fn set_consensus_version_test_heights(
+    heights: Option<String>,
+) -> [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
     let heights = load_test_consensus_heights(heights);
-    CONSENSUS_VERSION_HEIGHTS
-        .set(heights)
-        .map_err(|_| anyhow!("Consensus version heights have already been initialized and cannot be set twice."))
+    *CONSENSUS_VERSION_HEIGHTS.get_or_init(|| heights)
 }
