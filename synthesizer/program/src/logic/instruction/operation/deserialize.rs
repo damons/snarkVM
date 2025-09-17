@@ -16,23 +16,21 @@
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
-    program::{ArrayType, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
+    program::{ArrayType, Literal, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
 };
 
-/// The serialize variant.
+/// The deserialization variant.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum SerializeVariant {
-    ToBits,
-    ToBitsRaw,
+pub enum DeserializeVariant {
+    FromBitsRaw,
 }
 
-impl SerializeVariant {
+impl DeserializeVariant {
     // Returns the opcode associated with the variant.
     pub const fn opcode(variant: u8) -> &'static str {
         match variant {
-            0 => "serialize.bits",
-            1 => "serialize.bits.raw",
-            _ => panic!("Invalid 'serialize' instruction opcode"),
+            0 => "deserialize.bits.raw",
+            _ => panic!("Invalid 'deserialize' instruction opcode"),
         }
     }
 }
@@ -40,15 +38,25 @@ impl SerializeVariant {
 /// Checks that the number of operands is correct.
 fn check_number_of_operands(variant: u8, num_operands: usize) -> Result<()> {
     if num_operands != 1 {
-        bail!("Instruction '{}' expects 1 operand, found {num_operands} operands", SerializeVariant::opcode(variant))
+        bail!("Instruction '{}' expects 1 operand, found {num_operands} operands", DeserializeVariant::opcode(variant))
     }
     Ok(())
 }
 
 /// Checks that the operand type is valid.
-fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Network>) -> Result<()> {
-    match operand_type {
-        RegisterType::Plaintext(PlaintextType::Literal(literal_type)) => match literal_type {
+fn check_operand_type_is_valid(variant: u8, array_type: &ArrayType<impl Network>) -> Result<()> {
+    match variant {
+        0 if array_type.is_bit_array() => Ok(()),
+        _ => {
+            bail!("Instruction '{}' cannot output type '{array_type}'", DeserializeVariant::opcode(variant))
+        }
+    }
+}
+
+/// Check that the destination type is valid.
+fn check_destination_type_is_valid(variant: u8, destination_type: &PlaintextType<impl Network>) -> Result<()> {
+    match destination_type {
+        PlaintextType::Literal(literal_type) => match literal_type {
             LiteralType::Address
             | LiteralType::Field
             | LiteralType::Group
@@ -64,43 +72,39 @@ fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Net
             | LiteralType::U128
             | LiteralType::Scalar => Ok(()),
             _ => {
-                bail!("Instruction '{}' cannot take type '{operand_type}' as input", SerializeVariant::opcode(variant))
+                bail!(
+                    "Instruction '{}' cannot take type '{destination_type}' as input",
+                    DeserializeVariant::opcode(variant)
+                )
             }
         },
-        _ => bail!("Instruction '{}' cannot take type '{operand_type}' as input", SerializeVariant::opcode(variant)),
+        _ => bail!(
+            "Instruction '{}' cannot take type '{destination_type}' as input",
+            DeserializeVariant::opcode(variant)
+        ),
     }
 }
 
-/// Check that the destination type is valid.
-fn check_destination_type_is_valid(variant: u8, destination_type: &ArrayType<impl Network>) -> Result<()> {
-    match (variant, destination_type) {
-        (0, array_type) if array_type.is_bit_array() => Ok(()),
-        _ => {
-            bail!("Instruction '{}' cannot output type '{destination_type}'", SerializeVariant::opcode(variant))
-        }
-    }
-}
-
-/// Serialize the operand into the declared type.
+/// Deserializes the operand into the declared type.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct SerializeInstruction<N: Network, const VARIANT: u8> {
+pub struct DeserializeInstruction<N: Network, const VARIANT: u8> {
     /// The operand as `input`.
     operands: Vec<Operand<N>>,
     /// The operand type.
-    operand_type: RegisterType<N>,
+    operand_type: ArrayType<N>,
     /// The destination register.
     destination: Register<N>,
     /// The destination register type.
-    destination_type: ArrayType<N>,
+    destination_type: PlaintextType<N>,
 }
 
-impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
-    /// Initializes a new `serialize` instruction.
+impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
+    /// Initializes a new `deserialize` instruction.
     pub fn new(
         operands: Vec<Operand<N>>,
-        operand_type: RegisterType<N>,
+        operand_type: ArrayType<N>,
         destination: Register<N>,
-        destination_type: ArrayType<N>,
+        destination_type: PlaintextType<N>,
     ) -> Result<Self> {
         // Sanity check the number of operands.
         check_number_of_operands(VARIANT, operands.len())?;
@@ -114,7 +118,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
 
     /// Returns the opcode.
     pub const fn opcode() -> Opcode {
-        Opcode::Serialize(SerializeVariant::opcode(VARIANT))
+        Opcode::Deserialize(DeserializeVariant::opcode(VARIANT))
     }
 
     /// Returns the operands in the operation.
@@ -130,7 +134,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     }
 
     /// Returns the operand type.
-    pub const fn operand_type(&self) -> &RegisterType<N> {
+    pub const fn operand_type(&self) -> &ArrayType<N> {
         &self.operand_type
     }
 
@@ -142,54 +146,47 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
 
     /// Returns the destination register type.
     #[inline]
-    pub const fn destination_type(&self) -> &ArrayType<N> {
+    pub const fn destination_type(&self) -> &PlaintextType<N> {
         &self.destination_type
     }
 }
 
-/// Evaluate a `serialize` operation.
+/// Evaluate a `deserialize` operation.
 ///
-/// This allows running `serialize` without the machinery of stacks and registers.
+/// This allows running `deserialize` without the machinery of stacks and registers.
 /// This is necessary for the Leo interpreter.
-pub fn evaluate_serialize<N: Network>(
-    variant: SerializeVariant,
+pub fn evaluate_deserialize<N: Network>(
+    variant: DeserializeVariant,
     input: &Value<N>,
-    destination_type: &ArrayType<N>,
+    destination_type: &PlaintextType<N>,
 ) -> Result<Value<N>> {
-    evaluate_serialize_internal(variant as u8, input, destination_type)
+    evaluate_deserialize_internal(variant as u8, input, destination_type)
 }
 
-fn evaluate_serialize_internal<N: Network>(
+fn evaluate_deserialize_internal<N: Network>(
     variant: u8,
     input: &Value<N>,
-    destination_type: &ArrayType<N>,
+    destination_type: &PlaintextType<N>,
 ) -> Result<Value<N>> {
     match (variant, destination_type) {
-        (0, array_type) if array_type.is_bit_array() => {
-            // Get the desired length of the array.
-            let length = **array_type.length();
-            // Serialize the input to bits.
-            let bits = input.to_bit_array_le(length);
-            // Return the bits as a plaintext array.
-            Ok(Value::Plaintext(Plaintext::from_bit_array(bits)))
-        }
-        (1, array_type) if array_type.is_bit_array() => {
-            // Get the desired length of the array.
-            let length = **array_type.length();
-            // Serialize the input to bits.
-            let bits = input.to_bit_array_raw_le(length);
-            // Return the bits as a plaintext array.
-            Ok(Value::Plaintext(Plaintext::from_bit_array(bits)))
+        (0, PlaintextType::Literal(literal_type)) => {
+            // Get the input as a bit array.
+            let bits = match input {
+                Value::Plaintext(plaintext) => plaintext.as_bit_array()?,
+                _ => bail!("Expected input to be a plaintext, found '{input}'"),
+            };
+            // Deserialize the bits into the desired literal type.
+            Ok(Value::Plaintext(Plaintext::from(Literal::from_bits_le(literal_type.type_id(), &bits)?)))
         }
         _ => bail!(
             "Invalid destination type '{}' for instruction '{}'",
             destination_type,
-            SerializeVariant::opcode(variant)
+            DeserializeVariant::opcode(variant)
         ),
     }
 }
 
-impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
     /// Evaluates the instruction.
     pub fn evaluate(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersTrait<N>) -> Result<()> {
         // Ensure the number of operands is correct.
@@ -202,7 +199,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load(stack, &self.operands[0])?;
 
-        let output = evaluate_serialize_internal(VARIANT, &input, &self.destination_type)?;
+        let output = evaluate_deserialize_internal(VARIANT, &input, &self.destination_type)?;
 
         // Store the output.
         registers.store(stack, &self.destination, output)
@@ -214,7 +211,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
         stack: &impl StackTrait<N>,
         registers: &mut impl RegistersCircuit<N, A>,
     ) -> Result<()> {
-        use circuit::traits::{ToBitArray, ToBitArrayRaw};
+        use crate::circuit::{Eject, Inject, Mode};
 
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, self.operands.len())?;
@@ -227,23 +224,22 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
         let input = registers.load_circuit(stack, &self.operands[0])?;
 
         let output = match (VARIANT, &self.destination_type) {
-            (0, array_type) if array_type.is_bit_array() => {
-                // Get the desired length of the array.
-                let length = **array_type.length();
-                // Serialize the input to bits.
-                let bits = input.to_bit_array_le(length);
-                // Return the bits as a plaintext array.
-                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits))
+            (0, PlaintextType::Literal(literal_type)) => {
+                // Get the input as a bit array.
+                let bits = match input {
+                    circuit::Value::Plaintext(plaintext) => plaintext.as_bit_array()?,
+                    _ => bail!("Expected input to be a plaintext, found '{}'", input.eject_value()),
+                };
+                // Deserialize the bits into the desired literal type.
+                circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::from_bits_le(
+                    &circuit::U8::<A>::new(
+                        Mode::Constant,
+                        console::types::U8::<A::Network>::new(literal_type.type_id()),
+                    ),
+                    &bits,
+                )))
             }
-            (1, array_type) if array_type.is_bit_array() => {
-                // Get the desired length of the array.
-                let length = **array_type.length();
-                // Serialize the input to bits.
-                let bits = input.to_bit_array_raw_le(length);
-                // Return the bits as a plaintext array.
-                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits))
-            }
-            _ => bail!("Invalid destination type '{}' for instruction '{}'", &self.destination_type, Self::opcode(),),
+            _ => bail!("Invalid destination type '{}' for instruction '{}'", &self.destination_type, Self::opcode()),
         };
 
         // Store the output.
@@ -271,15 +267,16 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
 
         // Check that the input type matches the operand type.
         ensure!(input_types.len() == 1, "Expected exactly one input type");
-        if input_types[0] != self.operand_type {
-            bail!("Input type {:?} does not match operand type {:?}", input_types[0], self.operand_type);
+        match &input_types[0] {
+            RegisterType::Plaintext(PlaintextType::Array(array_type)) if array_type == &self.operand_type => {}
+            _ => bail!("Input type {:?} does not match operand type {:?}", input_types[0], self.operand_type),
         }
 
-        Ok(vec![RegisterType::Plaintext(PlaintextType::Array(self.destination_type.clone()))])
+        Ok(vec![RegisterType::Plaintext(self.destination_type.clone())])
     }
 }
 
-impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> Parser for DeserializeInstruction<N, VARIANT> {
     /// Parses a string into an operation.
     fn parse(string: &str) -> ParserResult<Self> {
         /// Parse the operands from the string.
@@ -313,7 +310,7 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the operand type from the string.
-        let (string, operand_type) = RegisterType::parse(string)?;
+        let (string, operand_type) = ArrayType::parse(string)?;
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
 
@@ -333,7 +330,7 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the destination register type from the string.
-        let (string, destination_type) = ArrayType::parse(string)?;
+        let (string, destination_type) = PlaintextType::parse(string)?;
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
 
@@ -347,7 +344,7 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
     }
 }
 
-impl<N: Network, const VARIANT: u8> FromStr for SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> FromStr for DeserializeInstruction<N, VARIANT> {
     type Err = Error;
 
     /// Parses a string into an operation.
@@ -364,14 +361,14 @@ impl<N: Network, const VARIANT: u8> FromStr for SerializeInstruction<N, VARIANT>
     }
 }
 
-impl<N: Network, const VARIANT: u8> Debug for SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> Debug for DeserializeInstruction<N, VARIANT> {
     /// Prints the operation as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network, const VARIANT: u8> Display for SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> Display for DeserializeInstruction<N, VARIANT> {
     /// Prints the operation to a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{} ", Self::opcode())?;
@@ -380,17 +377,17 @@ impl<N: Network, const VARIANT: u8> Display for SerializeInstruction<N, VARIANT>
     }
 }
 
-impl<N: Network, const VARIANT: u8> FromBytes for SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> FromBytes for DeserializeInstruction<N, VARIANT> {
     /// Reads the operation from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Read the operand.
         let operand = Operand::read_le(&mut reader)?;
         // Read the operand type.
-        let operand_type = RegisterType::read_le(&mut reader)?;
+        let operand_type = ArrayType::read_le(&mut reader)?;
         // Read the destination register.
         let destination = Register::read_le(&mut reader)?;
         // Read the destination register type.
-        let destination_type = ArrayType::read_le(&mut reader)?;
+        let destination_type = PlaintextType::read_le(&mut reader)?;
         // Return the operation.
         match Self::new(vec![operand], operand_type, destination, destination_type) {
             Ok(instruction) => Ok(instruction),
@@ -399,7 +396,7 @@ impl<N: Network, const VARIANT: u8> FromBytes for SerializeInstruction<N, VARIAN
     }
 }
 
-impl<N: Network, const VARIANT: u8> ToBytes for SerializeInstruction<N, VARIANT> {
+impl<N: Network, const VARIANT: u8> ToBytes for DeserializeInstruction<N, VARIANT> {
     /// Writes the operation to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Write the operands.
@@ -420,44 +417,45 @@ mod tests {
 
     type CurrentNetwork = MainnetV0;
 
-    /// **Attention**: When changing this, also update in `tests/instruction/serialize.rs`.
-    fn valid_source_types<N: Network>() -> &'static [RegisterType<N>] {
+    /// **Attention**: When changing this, also update in `tests/instruction/deserialize.rs`.
+    fn valid_destination_types<N: Network>() -> &'static [PlaintextType<N>] {
         &[
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Address)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Field)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Group)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I8)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I16)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I32)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I128)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I64)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U8)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U32)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U64)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U128)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Scalar)),
+            PlaintextType::Literal(LiteralType::Address),
+            PlaintextType::Literal(LiteralType::Field),
+            PlaintextType::Literal(LiteralType::Group),
+            PlaintextType::Literal(LiteralType::I8),
+            PlaintextType::Literal(LiteralType::I16),
+            PlaintextType::Literal(LiteralType::I32),
+            PlaintextType::Literal(LiteralType::I64),
+            PlaintextType::Literal(LiteralType::I128),
+            PlaintextType::Literal(LiteralType::U8),
+            PlaintextType::Literal(LiteralType::U16),
+            PlaintextType::Literal(LiteralType::U32),
+            PlaintextType::Literal(LiteralType::U64),
+            PlaintextType::Literal(LiteralType::U128),
+            PlaintextType::Literal(LiteralType::Scalar),
         ]
     }
 
-    /// Randomly sample a destination type.
-    fn sample_destination_type<N: Network>(variant: SerializeVariant, rng: &mut TestRng) -> ArrayType<N> {
+    /// Randomly sample a source type.
+    fn sample_source_type<N: Network>(variant: DeserializeVariant, rng: &mut TestRng) -> PlaintextType<N> {
         // Generate a random array length between 1 and N::MAX_ARRAY_SIZE.
         let array_length = 1 + (u32::rand(rng) % N::MAX_ARRAY_SIZE);
         match variant {
-            SerializeVariant::ToBits | SerializeVariant::ToBitsRaw => {
-                ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(array_length)]).unwrap()
-            }
+            DeserializeVariant::FromBits => PlaintextType::Array(
+                ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(array_length)]).unwrap(),
+            ),
         }
     }
 
-    fn run_parser_test(variant: SerializeVariant, rng: &mut TestRng) {
-        for source_type in valid_source_types() {
+    fn run_parser_test(variant: DeserializeVariant, rng: &mut TestRng) {
+        for destination_type in valid_destination_types() {
             {
-                let opcode = SerializeVariant::opcode(variant as u8);
-                let destination_type = sample_destination_type::<CurrentNetwork>(SerializeVariant::ToBytesRaw, rng);
-                let instruction = format!("{opcode} r0 ({source_type}) into r1 ({destination_type})");
-                let (string, serialize) = SerializeInstruction::<CurrentNetwork, variant>::parse(&instruction).unwrap();
+                let opcode = DeserializeVariant::opcode(variant as u8);
+                let source_type = sample_source_type::<CurrentNetwork>(DeserializeVariant::FromBits, rng);
+                let instruction = format!("{opcode} r0 ({source_type}) into r1 ({destination_type})",);
+                let (string, serialize) =
+                    DeserializeInstruction::<CurrentNetwork, variant>::parse(&instruction).unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
                 assert_eq!(serialize.operands.len(), 1, "The number of operands is incorrect");
                 assert_eq!(
@@ -478,7 +476,6 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Run the parser test for each variant.
-        run_parser_test(SerializeVariant::ToBits, rng);
-        run_parser_test(SerializeVariant::ToBitsRaw, rng);
+        run_parser_test(DeserializeVariant::FromBits, rng);
     }
 }

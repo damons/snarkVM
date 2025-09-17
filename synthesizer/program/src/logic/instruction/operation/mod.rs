@@ -28,6 +28,9 @@ pub use cast::*;
 mod commit;
 pub use commit::*;
 
+mod deserialize;
+pub use deserialize::*;
+
 mod ecdsa_verify;
 pub use ecdsa_verify::*;
 
@@ -41,6 +44,9 @@ mod literals;
 pub use literals::*;
 
 mod macros;
+
+mod serialize;
+pub use serialize::*;
 
 mod sign_verify;
 pub use sign_verify::*;

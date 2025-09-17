@@ -96,6 +96,34 @@ pub trait ToBitsRaw: ToBits + Sized {
     }
 }
 
+pub trait ToBitArray: ToBits + Sized {
+    /// Returns `self` as a bit array in little-endian order, resizing to the given length.
+    fn to_bit_array_le(&self, length: u32) -> Vec<bool> {
+        // Get the bits.
+        let mut bits = self.to_bits_le();
+        // Resize to the given length.
+        bits.resize(length as usize, false);
+
+        bits
+    }
+}
+
+impl<T: ToBits> ToBitArray for T {}
+
+pub trait ToBitArrayRaw: ToBitsRaw + Sized {
+    /// Returns `self` as a raw bit array in little-endian order, resizing to the given length.
+    fn to_bit_array_raw_le(&self, length: u32) -> Vec<bool> {
+        // Get the bits.
+        let mut bits = self.to_bits_raw_le();
+        // Resize to the given length.
+        bits.resize(length as usize, false);
+
+        bits
+    }
+}
+
+impl<T: ToBitsRaw> ToBitArrayRaw for T {}
+
 pub trait FromBits: Sized {
     /// Reads `Self` from a boolean array in little-endian order.
     fn from_bits_le(bits: &[bool]) -> Result<Self>;
