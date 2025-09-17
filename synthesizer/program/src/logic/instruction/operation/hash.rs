@@ -133,6 +133,19 @@ pub enum HashVariant {
     HashSha3_256Raw,
     HashSha3_384Raw,
     HashSha3_512Raw,
+    // The variants that perform the underlying hash, returning bit arrays.
+    HashKeccak256Native,
+    HashKeccak256NativeRaw,
+    HashKeccak384Native,
+    HashKeccak384NativeRaw,
+    HashKeccak512Native,
+    HashKeccak512NativeRaw,
+    HashSha3_256Native,
+    HashSha3_256NativeRaw,
+    HashSha3_384Native,
+    HashSha3_384NativeRaw,
+    HashSha3_512Native,
+    HashSha3_512NativeRaw,
 }
 
 impl HashVariant {
@@ -157,6 +170,7 @@ impl HashVariant {
             15 => "hash_many.psd2",
             16 => "hash_many.psd4",
             17 => "hash_many.psd8",
+            // The variants that hash the raw inputs.
             18 => "hash.bhp256.raw",
             19 => "hash.bhp512.raw",
             20 => "hash.bhp768.raw",
@@ -172,6 +186,19 @@ impl HashVariant {
             30 => "hash.sha3_256.raw",
             31 => "hash.sha3_384.raw",
             32 => "hash.sha3_512.raw",
+            // The variants that perform the underlying hash, returning bit arrays.
+            33 => "hash.keccak256.native",
+            34 => "hash.keccak256.native.raw",
+            35 => "hash.keccak384.native",
+            36 => "hash.keccak384.native.raw",
+            37 => "hash.keccak512.native",
+            38 => "hash.keccak512.native.raw",
+            39 => "hash.sha3_256.native",
+            40 => "hash.sha3_256.native.raw",
+            41 => "hash.sha3_384.native",
+            42 => "hash.sha3_384.native.raw",
+            43 => "hash.sha3_512.native",
+            44 => "hash.sha3_512.native.raw",
             _ => panic!("Invalid 'hash' instruction opcode"),
         }
     }
@@ -269,8 +296,9 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
 //
 // The `$q` parameter allows us to wrap a value in `Result::Ok`, since
 // the `Aleo` functions don't return a `Result` but the `Network` ones do.
+#[rustfmt::skip]
 macro_rules! do_hash {
-    ($N: ident, $variant: expr, $destination_type: expr, $input: expr, $ty: ty, $q: expr) => {{
+    ($N: ident, $variant: expr, $destination_type: expr, $input: expr, $pt: ty, $lt: ty, $q: expr) => {{
         let bits = || $input.to_bits_le();
         let bits_raw = || $input.to_bits_raw_le();
 
@@ -283,50 +311,64 @@ macro_rules! do_hash {
             PlaintextType::Array(..) => bail!("Cannot hash into an array (yet)"),
         };
 
-        let literal_output: $ty = match ($variant, literal_type) {
-            (0, _) => $q($N::hash_to_group_bhp256(&bits()))?.into(),
-            (1, _) => $q($N::hash_to_group_bhp512(&bits()))?.into(),
-            (2, _) => $q($N::hash_to_group_bhp768(&bits()))?.into(),
-            (3, _) => $q($N::hash_to_group_bhp1024(&bits()))?.into(),
-            (4, _) => $q($N::hash_to_group_bhp256(&$q($N::hash_keccak256(&bits()))?))?.into(),
-            (5, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_keccak384(&bits()))?))?.into(),
-            (6, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_keccak512(&bits()))?))?.into(),
-            (7, _) => $q($N::hash_to_group_ped64(&bits()))?.into(),
-            (8, _) => $q($N::hash_to_group_ped128(&bits()))?.into(),
-            (9, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd2(&fields()?))?.into(),
-            (9, _) => $q($N::hash_psd2(&fields()?))?.into(),
-            (10, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd4(&fields()?))?.into(),
-            (10, _) => $q($N::hash_psd4(&fields()?))?.into(),
-            (11, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd8(&fields()?))?.into(),
-            (11, _) => $q($N::hash_psd8(&fields()?))?.into(),
-            (12, _) => $q($N::hash_to_group_bhp256(&$q($N::hash_sha3_256(&bits()))?))?.into(),
-            (13, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_sha3_384(&bits()))?))?.into(),
-            (14, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_sha3_512(&bits()))?))?.into(),
+        match ($variant, literal_type) {
+            (0, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp256(&bits()))?).cast_lossy(literal_type)?),
+            (1, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&bits()))?).cast_lossy(literal_type)?),
+            (2, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp768(&bits()))?).cast_lossy(literal_type)?),
+            (3, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp1024(&bits()))?).cast_lossy(literal_type)?),
+            (4, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp256(&$q($N::hash_keccak256(&bits()))?))?).cast_lossy(literal_type)?),
+            (5, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_keccak384(&bits()))?))?).cast_lossy(literal_type)?),
+            (6, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_keccak512(&bits()))?))?).cast_lossy(literal_type)?),
+            (7, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_ped64(&bits()))?).cast_lossy(literal_type)?),
+            (8, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_ped128(&bits()))?).cast_lossy(literal_type)?),
+            (9, LiteralType::Address | LiteralType::Group) => <$pt>::from(<$lt>::from($q($N::hash_to_group_psd2(&fields()?))?).cast_lossy(literal_type)?),
+            (9, _) => <$pt>::from(<$lt>::from($q($N::hash_psd2(&fields()?))?).cast_lossy(literal_type)?),
+            (10, LiteralType::Address | LiteralType::Group) => <$pt>::from(<$lt>::from($q($N::hash_to_group_psd4(&fields()?))?).cast_lossy(literal_type)?),
+            (10, _) => <$pt>::from(<$lt>::from($q($N::hash_psd4(&fields()?))?).cast_lossy(literal_type)?),
+            (11, LiteralType::Address | LiteralType::Group) => <$pt>::from(<$lt>::from($q($N::hash_to_group_psd8(&fields()?))?).cast_lossy(literal_type)?),
+            (11, _) => <$pt>::from(<$lt>::from($q($N::hash_psd8(&fields()?))?).cast_lossy(literal_type)?),
+            (12, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp256(&$q($N::hash_sha3_256(&bits()))?))?).cast_lossy(literal_type)?),
+            (13, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_sha3_384(&bits()))?))?).cast_lossy(literal_type)?),
+            (14, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_sha3_512(&bits()))?))?).cast_lossy(literal_type)?),
             (15, _) => bail!("'hash_many.psd2' is not yet implemented"),
             (16, _) => bail!("'hash_many.psd4' is not yet implemented"),
             (17, _) => bail!("'hash_many.psd8' is not yet implemented"),
-            (18, _) => $q($N::hash_to_group_bhp256(&bits_raw()))?.into(),
-            (19, _) => $q($N::hash_to_group_bhp512(&bits_raw()))?.into(),
-            (20, _) => $q($N::hash_to_group_bhp768(&bits_raw()))?.into(),
-            (21, _) => $q($N::hash_to_group_bhp1024(&bits_raw()))?.into(),
-            (22, _) => $q($N::hash_to_group_bhp256(&$q($N::hash_keccak256(&bits_raw()))?))?.into(),
-            (23, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_keccak384(&bits_raw()))?))?.into(),
-            (24, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_keccak512(&bits_raw()))?))?.into(),
-            (25, _) => $q($N::hash_to_group_ped64(&bits_raw()))?.into(),
-            (26, _) => $q($N::hash_to_group_ped128(&bits_raw()))?.into(),
-            (27, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd2(&fields_raw()?))?.into(),
-            (27, _) => $q($N::hash_psd2(&fields_raw()?))?.into(),
-            (28, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd4(&fields_raw()?))?.into(),
-            (28, _) => $q($N::hash_psd4(&fields_raw()?))?.into(),
-            (29, LiteralType::Address | LiteralType::Group) => $q($N::hash_to_group_psd8(&fields_raw()?))?.into(),
-            (29, _) => $q($N::hash_psd8(&fields_raw()?))?.into(),
-            (30, _) => $q($N::hash_to_group_bhp256(&$q($N::hash_sha3_256(&bits_raw()))?))?.into(),
-            (31, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_sha3_384(&bits_raw()))?))?.into(),
-            (32, _) => $q($N::hash_to_group_bhp512(&$q($N::hash_sha3_512(&bits_raw()))?))?.into(),
-            (33.., _) => bail!("Invalid 'hash' variant: {}", $variant),
-        };
 
-        literal_output.cast_lossy(literal_type)?
+            // The variants that hash the raw inputs.
+            (18, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp256(&bits_raw()))?).cast_lossy(literal_type)?),
+            (19, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&bits_raw()))?).cast_lossy(literal_type)?),
+            (20, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp768(&bits_raw()))?).cast_lossy(literal_type)?),
+            (21, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp1024(&bits_raw()))?).cast_lossy(literal_type)?),
+            (22, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp256(&$q($N::hash_keccak256(&bits_raw()))?))?).cast_lossy(literal_type)?),
+            (23, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_keccak384(&bits_raw()))?))?).cast_lossy(literal_type)?),
+            (24, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_keccak512(&bits_raw()))?))?).cast_lossy(literal_type)?),
+            (25, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_ped64(&bits_raw()))?).cast_lossy(literal_type)?),
+            (26, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_ped128(&bits_raw()))?).cast_lossy(literal_type)?),
+            (27, LiteralType::Address | LiteralType::Group) => <$pt>::from(<$lt>::from($q($N::hash_to_group_psd2(&fields_raw()?))?).cast_lossy(literal_type)?),
+            (27, _) => <$pt>::from(<$lt>::from($q($N::hash_psd2(&fields_raw()?))?).cast_lossy(literal_type)?),
+            (28, LiteralType::Address | LiteralType::Group) => <$pt>::from(<$lt>::from($q($N::hash_to_group_psd4(&fields_raw()?))?).cast_lossy(literal_type)?),
+            (28, _) => <$pt>::from(<$lt>::from($q($N::hash_psd4(&fields_raw()?))?).cast_lossy(literal_type)?),
+            (29, LiteralType::Address | LiteralType::Group) => <$pt>::from(<$lt>::from($q($N::hash_to_group_psd8(&fields_raw()?))?).cast_lossy(literal_type)?),
+            (29, _) => <$pt>::from(<$lt>::from($q($N::hash_psd8(&fields_raw()?))?).cast_lossy(literal_type)?),
+            (30, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp256(&$q($N::hash_sha3_256(&bits_raw()))?))?).cast_lossy(literal_type)?),
+            (31, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_sha3_384(&bits_raw()))?))?).cast_lossy(literal_type)?),
+            (32, _) => <$pt>::from(<$lt>::from($q($N::hash_to_group_bhp512(&$q($N::hash_sha3_512(&bits_raw()))?))?).cast_lossy(literal_type)?),
+
+            // The variants that perform the underlying hash, returning bit arrays.
+            (33, _) => <$pt>::from_bit_array($q($N::hash_keccak256(&bits()))?),
+            (34, _) => <$pt>::from_bit_array($q($N::hash_keccak256(&bits_raw()))?),
+            (35, _) => <$pt>::from_bit_array($q($N::hash_keccak384(&bits()))?),
+            (36, _) => <$pt>::from_bit_array($q($N::hash_keccak384(&bits_raw()))?),
+            (37, _) => <$pt>::from_bit_array($q($N::hash_keccak512(&bits()))?),
+            (38, _) => <$pt>::from_bit_array($q($N::hash_keccak512(&bits_raw()))?),
+            (39, _) => <$pt>::from_bit_array($q($N::hash_sha3_256(&bits()))?),
+            (40, _) => <$pt>::from_bit_array($q($N::hash_sha3_256(&bits_raw()))?),
+            (41, _) => <$pt>::from_bit_array($q($N::hash_sha3_384(&bits()))?),
+            (42, _) => <$pt>::from_bit_array($q($N::hash_sha3_384(&bits_raw()))?),
+            (43, _) => <$pt>::from_bit_array($q($N::hash_sha3_512(&bits()))?),
+            (44, _) => <$pt>::from_bit_array($q($N::hash_sha3_512(&bits_raw()))?),
+            (45.., _) => bail!("Invalid 'hash' variant: {}", $variant),
+        }
     }};
 }
 
@@ -338,7 +380,7 @@ pub fn evaluate_hash<N: Network>(
     variant: HashVariant,
     input: &Value<N>,
     destination_type: &PlaintextType<N>,
-) -> Result<Literal<N>> {
+) -> Result<Plaintext<N>> {
     evaluate_hash_internal(variant as u8, input, destination_type)
 }
 
@@ -346,8 +388,8 @@ fn evaluate_hash_internal<N: Network>(
     variant: u8,
     input: &Value<N>,
     destination_type: &PlaintextType<N>,
-) -> Result<Literal<N>> {
-    Ok(do_hash!(N, variant, destination_type, input, Literal<N>, |x| x))
+) -> Result<Plaintext<N>> {
+    Ok(do_hash!(N, variant, destination_type, input, Plaintext::<N>, Literal::<N>, |x| x))
 }
 
 impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
@@ -361,10 +403,11 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load(stack, &self.operands[0])?;
 
+        // Compute the output.
         let output = evaluate_hash_internal(VARIANT, &input, &self.destination_type)?;
 
         // Store the output.
-        registers.store(stack, &self.destination, Value::Plaintext(Plaintext::from(output)))
+        registers.store(stack, &self.destination, Value::Plaintext(output))
     }
 
     /// Executes the instruction.
@@ -383,12 +426,19 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load_circuit(stack, &self.operands[0])?;
 
-        let output = do_hash!(A, VARIANT, &self.destination_type, input, circuit::Literal<A>, Result::<_>::Ok);
+        // Compute the output.
+        let output = do_hash!(
+            A,
+            VARIANT,
+            &self.destination_type,
+            input,
+            circuit::Plaintext::<A>,
+            circuit::Literal::<A>,
+            Result::<_>::Ok
+        );
 
-        // Convert the output to a stack value.
-        let output = circuit::Value::Plaintext(circuit::Plaintext::Literal(output, Default::default()));
         // Store the output.
-        registers.store_circuit(stack, &self.destination, output)
+        registers.store_circuit(stack, &self.destination, circuit::Value::Plaintext(output))
     }
 
     /// Finalizes the instruction.
