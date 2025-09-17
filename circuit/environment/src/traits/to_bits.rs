@@ -59,6 +59,36 @@ pub trait ToBitsRaw: ToBits {
     fn write_bits_raw_be(&self, vec: &mut Vec<Self::Boolean>);
 }
 
+pub trait ToBitArray: ToBits {
+    /// Returns `self` as a bit array in little-endian order, resizing to the given length.
+    fn to_bit_array_le(&self, length: u32) -> Vec<Self::Boolean> {
+        use crate::traits::Inject;
+        // Get the bits.
+        let mut bits = self.to_bits_le();
+        // Resize to the given length.
+        bits.resize(length as usize, Self::Boolean::constant(false));
+
+        bits
+    }
+}
+
+impl<T: ToBits> ToBitArray for T {}
+
+pub trait ToBitArrayRaw: ToBitsRaw {
+    /// Returns `self` as a raw bit array in little-endian order, resizing to the given length.
+    fn to_bit_array_raw_le(&self, length: u32) -> Vec<Self::Boolean> {
+        use crate::traits::Inject;
+        // Get the bits.
+        let mut bits = self.to_bits_raw_le();
+        // Resize to the given length.
+        bits.resize(length as usize, Self::Boolean::constant(false));
+
+        bits
+    }
+}
+
+impl<T: ToBitsRaw> ToBitArrayRaw for T {}
+
 /********************/
 /****** Arrays ******/
 /********************/

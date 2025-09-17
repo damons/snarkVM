@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use snarkvm_utilities::{ToBits, ToBitsRaw, to_bits_le, to_bits_raw_le};
+pub use snarkvm_utilities::{ToBitArray, ToBitArrayRaw, ToBits, ToBitsRaw, to_bits_le, to_bits_raw_le};
 
 pub mod algorithms;
 pub use algorithms::*;

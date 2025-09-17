@@ -45,6 +45,41 @@ pub enum Plaintext<N: Network> {
     Array(Vec<Plaintext<N>>, OnceLock<Vec<bool>>),
 }
 
+impl<N: Network> Plaintext<N> {
+    /// Returns a new `Plaintext::Array` from `Vec<u8>`.
+    pub fn from_byte_array(bytes: Vec<u8>) -> Self {
+        Self::Array(
+            bytes.into_iter().map(|byte| Plaintext::from(Literal::U8(U8::new(byte)))).collect(),
+            OnceLock::new(),
+        )
+    }
+
+    /// Returns a new `Plaintext::Array` from `Vec<bool>`.
+    pub fn from_bit_array(bits: Vec<bool>) -> Self {
+        Self::Array(
+            bits.into_iter().map(|bit| Plaintext::from(Literal::Boolean(Boolean::new(bit)))).collect(),
+            OnceLock::new(),
+        )
+    }
+
+    /// Returns the `Plaintext` as a `Vec<bool>`, if it is a bit array.
+    pub fn as_bit_array(&self) -> Result<Vec<bool>> {
+        match self {
+            Self::Array(elements, _) => {
+                let mut bits = Vec::with_capacity(elements.len());
+                for element in elements {
+                    match element {
+                        Self::Literal(Literal::Boolean(bit), _) => bits.push(**bit),
+                        _ => bail!("Expected a bit array, found a non-boolean element."),
+                    }
+                }
+                Ok(bits)
+            }
+            _ => bail!("Expected a bit array, found a non-array plaintext."),
+        }
+    }
+}
+
 impl<N: Network> From<Literal<N>> for Plaintext<N> {
     /// Returns a new `Plaintext` from a `Literal`.
     fn from(literal: Literal<N>) -> Self {

@@ -44,6 +44,35 @@ pub enum Plaintext<A: Aleo> {
     Array(Vec<Plaintext<A>>, OnceCell<Vec<Boolean<A>>>),
 }
 
+impl<A: Aleo> Plaintext<A> {
+    /// Returns a new `Plaintext::Array` from `Vec<U8<A>>`.
+    pub fn from_byte_array(bytes: Vec<U8<A>>) -> Self {
+        Self::Array(bytes.into_iter().map(|byte| Plaintext::from(Literal::U8(byte))).collect(), OnceCell::new())
+    }
+
+    /// Returns a new `Plaintext::Array` from `Vec<Boolean<A>>`.
+    pub fn from_bit_array(bits: Vec<Boolean<A>>) -> Self {
+        Self::Array(bits.into_iter().map(|bit| Plaintext::from(Literal::Boolean(bit))).collect(), OnceCell::new())
+    }
+
+    /// Returns the `Plaintext` as a `Vec<Boolean<A>>`, if it is a bit array.
+    pub fn as_bit_array(&self) -> Result<Vec<Boolean<A>>> {
+        match self {
+            Self::Array(elements, _) => {
+                let mut bits = Vec::with_capacity(elements.len());
+                for element in elements {
+                    match element {
+                        Self::Literal(Literal::Boolean(bit), _) => bits.push(bit.clone()),
+                        _ => bail!("Expected a bit array, found a non-boolean element."),
+                    }
+                }
+                Ok(bits)
+            }
+            _ => bail!("Expected a bit array, found a non-array plaintext."),
+        }
+    }
+}
+
 impl<A: Aleo> Inject for Plaintext<A> {
     type Primitive = console::Plaintext<A::Network>;
 

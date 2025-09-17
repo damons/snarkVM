@@ -17,7 +17,7 @@ mod bytes;
 mod parse;
 pub(crate) mod serialize;
 
-use crate::{PlaintextType, U32};
+use crate::{LiteralType, PlaintextType, U32};
 use snarkvm_console_network::prelude::*;
 
 use core::fmt::{Debug, Display};
@@ -29,6 +29,18 @@ pub struct ArrayType<N: Network> {
     element_type: Box<PlaintextType<N>>,
     /// The length of the array.
     length: U32<N>,
+}
+
+impl<N: Network> ArrayType<N> {
+    /// Returns `true` if the `ArrayType` is a byte array.
+    pub const fn is_byte_array(&self) -> bool {
+        matches!(self.next_element_type(), PlaintextType::Literal(LiteralType::U8))
+    }
+
+    /// Returns `true` if the `ArrayType` is a bit array.
+    pub const fn is_bit_array(&self) -> bool {
+        matches!(self.next_element_type(), PlaintextType::Literal(LiteralType::Boolean))
+    }
 }
 
 impl<N: Network> ArrayType<N> {
