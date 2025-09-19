@@ -798,7 +798,7 @@ jobs:
 
   check-cargo-semver-checks:
     executor: rust-docker
-    resource_class: << pipeline.parameters.large >>
+    resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - checkout
       - setup_environment:
@@ -807,7 +807,7 @@ jobs:
           name: Check for semver violations
           no_output_timeout: 15m
           command: |
-            bash ./semver-checks.sh
+            bash ./.circleci/semver-checks.sh
 
       - clear_environment:
           cache_key: v4.2.0-rust-1.88.0-cargo-semver-checks-cache
