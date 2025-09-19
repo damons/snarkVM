@@ -592,6 +592,8 @@ impl<N: Network> RegisterTypes<N> {
             Opcode::ECDSA(opcode) => {
                 bail!("Forbidden operation: Instruction '{instruction}' cannot invoke command '{opcode}'.")
             }
+            Opcode::Serialize(opcode) => Self::check_serialize_opcode(opcode, instruction)?,
+            Opcode::Deserialize(opcode) => Self::check_deserialize_opcode(opcode, instruction)?,
         }
         Ok(())
     }
@@ -846,6 +848,54 @@ impl<N: Network> RegisterTypes<N> {
                 matches!(instruction, Instruction::HashSha3_512Raw(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
+            "hash.keccack256.native" => ensure!(
+                matches!(instruction, Instruction::HashKeccak256Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccack256.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak256NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccack384.native" => ensure!(
+                matches!(instruction, Instruction::HashKeccak384Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccack384.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak384NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccack512.native" => ensure!(
+                matches!(instruction, Instruction::HashKeccak512Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccack512.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak512NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_256.native" => ensure!(
+                matches!(instruction, Instruction::HashSha3_256Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_256.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_256NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_384.native" => ensure!(
+                matches!(instruction, Instruction::HashSha3_384Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_384.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_384NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_512.native" => ensure!(
+                matches!(instruction, Instruction::HashSha3_512Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_512.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_512NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
             _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
         }
         Ok(())
@@ -940,7 +990,50 @@ impl<N: Network> RegisterTypes<N> {
             ),
             _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
         }
+        Ok(())
+    }
 
+    /// Ensures the opcode is a valid opcode and corresponds to the `serialize` instruction.
+    #[inline]
+    pub(crate) fn check_serialize_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+        // Ensure that the instruction has exactly one operand register.
+        ensure!(instruction.operands().len() == 1, "Instruction '{instruction}' must have exactly one operand.");
+        // Ensure the instruction has one destination register.
+        ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
+        // Ensure the instruction is the correct one.
+        match opcode {
+            "serialize.bits" => ensure!(
+                matches!(instruction, Instruction::SerializeBits(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "serialize.bits.raw" => ensure!(
+                matches!(instruction, Instruction::SerializeBitsRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
+        }
+        Ok(())
+    }
+
+    /// Ensures the opcode is a valid opcode and corresponds to the `deserialize` instruction.
+    #[inline]
+    pub(crate) fn check_deserialize_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+        // Ensure that the instruction has exactly one operand register.
+        ensure!(instruction.operands().len() == 1, "Instruction '{instruction}' must have exactly one operand.");
+        // Ensure the instruction has one destination register.
+        ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
+        // Ensure the instruction is the correct one.
+        match opcode {
+            "deserialize.bits" => ensure!(
+                matches!(instruction, Instruction::DeserializeBits(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "deserialize.bits.raw" => ensure!(
+                matches!(instruction, Instruction::DeserializeBitsRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
+        }
         Ok(())
     }
 }

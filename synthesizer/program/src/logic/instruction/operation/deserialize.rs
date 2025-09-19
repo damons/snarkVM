@@ -19,9 +19,15 @@ use console::{
     program::{ArrayType, Literal, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
 };
 
+/// Deserializes the bits into a value.
+pub type DeserializeBits<N> = DeserializeInstruction<N, { DeserializeVariant::FromBits as u8 }>;
+/// Deserializes the raw bits into a value.
+pub type DeserializeBitsRaw<N> = DeserializeInstruction<N, { DeserializeVariant::FromBitsRaw as u8 }>;
+
 /// The deserialization variant.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DeserializeVariant {
+    FromBits,
     FromBitsRaw,
 }
 
@@ -29,7 +35,8 @@ impl DeserializeVariant {
     // Returns the opcode associated with the variant.
     pub const fn opcode(variant: u8) -> &'static str {
         match variant {
-            0 => "deserialize.bits.raw",
+            0 => "deserialize.bits",
+            1 => "deserialize.bits.raw",
             _ => panic!("Invalid 'deserialize' instruction opcode"),
         }
     }
@@ -413,7 +420,7 @@ impl<N: Network, const VARIANT: u8> ToBytes for DeserializeInstruction<N, VARIAN
 #[cfg(test)]
 mod tests {
     use super::*;
-    use console::network::MainnetV0;
+    use console::{network::MainnetV0, types::U32};
 
     type CurrentNetwork = MainnetV0;
 
@@ -438,34 +445,35 @@ mod tests {
     }
 
     /// Randomly sample a source type.
-    fn sample_source_type<N: Network>(variant: DeserializeVariant, rng: &mut TestRng) -> PlaintextType<N> {
-        // Generate a random array length between 1 and N::MAX_ARRAY_SIZE.
-        let array_length = 1 + (u32::rand(rng) % N::MAX_ARRAY_SIZE);
-        match variant {
-            DeserializeVariant::FromBits => PlaintextType::Array(
-                ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(array_length)]).unwrap(),
-            ),
+    fn sample_source_type<N: Network, const VARIANT: u8>(rng: &mut TestRng) -> ArrayType<N> {
+        // Generate a random array length between 1 and N::MAX_ARRAY_ELEMENTS.
+        let array_length = 1 + (u32::rand(rng) % u32::try_from(N::MAX_ARRAY_ELEMENTS).unwrap());
+        match VARIANT {
+            0 | 1 => {
+                ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(array_length)]).unwrap()
+            }
+            _ => panic!("Invalid variant"),
         }
     }
 
-    fn run_parser_test(variant: DeserializeVariant, rng: &mut TestRng) {
-        for destination_type in valid_destination_types() {
+    fn run_parser_test<const VARIANT: u8>(rng: &mut TestRng) {
+        for destination_type in valid_destination_types::<CurrentNetwork>() {
             {
-                let opcode = DeserializeVariant::opcode(variant as u8);
-                let source_type = sample_source_type::<CurrentNetwork>(DeserializeVariant::FromBits, rng);
+                let opcode = DeserializeVariant::opcode(VARIANT);
+                let source_type = sample_source_type::<CurrentNetwork, VARIANT>(rng);
                 let instruction = format!("{opcode} r0 ({source_type}) into r1 ({destination_type})",);
-                let (string, serialize) =
-                    DeserializeInstruction::<CurrentNetwork, variant>::parse(&instruction).unwrap();
+                let (string, deserialize) =
+                    DeserializeInstruction::<CurrentNetwork, VARIANT>::parse(&instruction).unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-                assert_eq!(serialize.operands.len(), 1, "The number of operands is incorrect");
+                assert_eq!(deserialize.operands.len(), 1, "The number of operands is incorrect");
                 assert_eq!(
-                    serialize.operands[0],
+                    deserialize.operands[0],
                     Operand::Register(Register::Locator(0)),
                     "The first operand is incorrect"
                 );
-                assert_eq!(&serialize.operand_type, source_type, "The operand type is incorrect");
-                assert_eq!(serialize.destination, Register::Locator(1), "The destination register is incorrect");
-                assert_eq!(&serialize.destination_type, destination_type, "The destination type is incorrect");
+                assert_eq!(&deserialize.operand_type, &source_type, "The operand type is incorrect");
+                assert_eq!(deserialize.destination, Register::Locator(1), "The destination register is incorrect");
+                assert_eq!(&deserialize.destination_type, destination_type, "The destination type is incorrect");
             }
         }
     }
@@ -476,6 +484,7 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Run the parser test for each variant.
-        run_parser_test(DeserializeVariant::FromBits, rng);
+        run_parser_test::<{ DeserializeVariant::FromBits as u8 }>(rng);
+        run_parser_test::<{ DeserializeVariant::FromBitsRaw as u8 }>(rng);
     }
 }

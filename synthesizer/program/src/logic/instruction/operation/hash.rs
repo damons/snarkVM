@@ -51,6 +51,20 @@ pub type HashKeccak384Raw<N> = HashInstruction<N, { HashVariant::HashKeccak384Ra
 /// Keccak512Raw is a cryptographic hash function that outputs a 512-bit digest using the input's raw bits.
 pub type HashKeccak512Raw<N> = HashInstruction<N, { HashVariant::HashKeccak512Raw as u8 }>;
 
+/// Keccak256Native is a cryptographic hash function that outputs a 256-bit digest as a bit array.
+pub type HashKeccak256Native<N> = HashInstruction<N, { HashVariant::HashKeccak256Native as u8 }>;
+/// Keccak384Native is a cryptographic hash function that outputs a 384-bit digest as a bit array.
+pub type HashKeccak384Native<N> = HashInstruction<N, { HashVariant::HashKeccak384Native as u8 }>;
+/// Keccak512Native is a cryptographic hash function that outputs a 512-bit digest as a bit array.
+pub type HashKeccak512Native<N> = HashInstruction<N, { HashVariant::HashKeccak512Native as u8 }>;
+
+/// Keccak256NativeRaw is a cryptographic hash function that outputs a 256-bit digest as a bit array using the input's raw bits.
+pub type HashKeccak256NativeRaw<N> = HashInstruction<N, { HashVariant::HashKeccak256NativeRaw as u8 }>;
+/// Keccak384NativeRaw is a cryptographic hash function that outputs a 384-bit digest as a bit array using the input's raw bits.
+pub type HashKeccak384NativeRaw<N> = HashInstruction<N, { HashVariant::HashKeccak384NativeRaw as u8 }>;
+/// Keccak512NativeRaw is a cryptographic hash function that outputs a 512-bit digest as a bit array using the input's raw bits.
+pub type HashKeccak512NativeRaw<N> = HashInstruction<N, { HashVariant::HashKeccak512NativeRaw as u8 }>;
+
 /// Pedersen64 is a collision-resistant hash function that processes inputs in 64-bit chunks.
 pub type HashPED64<N> = HashInstruction<N, { HashVariant::HashPED64 as u8 }>;
 /// Pedersen128 is a collision-resistant hash function that processes inputs in 128-bit chunks.
@@ -88,6 +102,20 @@ pub type HashSha3_256Raw<N> = HashInstruction<N, { HashVariant::HashSha3_256Raw 
 pub type HashSha3_384Raw<N> = HashInstruction<N, { HashVariant::HashSha3_384Raw as u8 }>;
 /// SHA3-512Raw is a cryptographic hash function that outputs a 512-bit digest using the input's raw bits.
 pub type HashSha3_512Raw<N> = HashInstruction<N, { HashVariant::HashSha3_512Raw as u8 }>;
+
+/// SHA3-256Native is a cryptographic hash function that outputs a 256-bit digest as a bit array.
+pub type HashSha3_256Native<N> = HashInstruction<N, { HashVariant::HashSha3_256Native as u8 }>;
+/// SHA3-384Native is a cryptographic hash function that outputs a 384-bit digest as a bit array.
+pub type HashSha3_384Native<N> = HashInstruction<N, { HashVariant::HashSha3_384Native as u8 }>;
+/// SHA3-512Native is a cryptographic hash function that outputs a 512-bit digest as a bit array.
+pub type HashSha3_512Native<N> = HashInstruction<N, { HashVariant::HashSha3_512Native as u8 }>;
+
+/// SHA3-256NativeRaw is a cryptographic hash function that outputs a 256-bit digest as a bit array using the input's raw bits.
+pub type HashSha3_256NativeRaw<N> = HashInstruction<N, { HashVariant::HashSha3_256NativeRaw as u8 }>;
+/// SHA3-384NativeRaw is a cryptographic hash function that outputs a 384-bit digest as a bit array using the input's raw bits.
+pub type HashSha3_384NativeRaw<N> = HashInstruction<N, { HashVariant::HashSha3_384NativeRaw as u8 }>;
+/// SHA3-512NativeRaw is a cryptographic hash function that outputs a 512-bit digest as a bit array using the input's raw bits.
+pub type HashSha3_512NativeRaw<N> = HashInstruction<N, { HashVariant::HashSha3_512NativeRaw as u8 }>;
 
 /// Poseidon2 is a cryptographic hash function that processes inputs in 2-field chunks.
 pub type HashManyPSD2<N> = HashInstruction<N, { HashVariant::HashManyPSD2 as u8 }>;

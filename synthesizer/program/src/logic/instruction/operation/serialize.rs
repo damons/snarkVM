@@ -19,6 +19,11 @@ use console::{
     program::{ArrayType, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
 };
 
+/// Serializes the bits of the input.
+pub type SerializeBits<N> = SerializeInstruction<N, { SerializeVariant::ToBits as u8 }>;
+/// Serializes the raw bits of the input.
+pub type SerializeBitsRaw<N> = SerializeInstruction<N, { SerializeVariant::ToBitsRaw as u8 }>;
+
 /// The serialize variant.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SerializeVariant {
@@ -416,7 +421,7 @@ impl<N: Network, const VARIANT: u8> ToBytes for SerializeInstruction<N, VARIANT>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use console::network::MainnetV0;
+    use console::{network::MainnetV0, types::U32};
 
     type CurrentNetwork = MainnetV0;
 
@@ -441,23 +446,24 @@ mod tests {
     }
 
     /// Randomly sample a destination type.
-    fn sample_destination_type<N: Network>(variant: SerializeVariant, rng: &mut TestRng) -> ArrayType<N> {
-        // Generate a random array length between 1 and N::MAX_ARRAY_SIZE.
-        let array_length = 1 + (u32::rand(rng) % N::MAX_ARRAY_SIZE);
-        match variant {
-            SerializeVariant::ToBits | SerializeVariant::ToBitsRaw => {
+    fn sample_destination_type<N: Network, const VARIANT: u8>(rng: &mut TestRng) -> ArrayType<N> {
+        // Generate a random array length between 1 and N::MAX_ARRAY_ELEMENTS.
+        let array_length = 1 + (u32::rand(rng) % u32::try_from(N::MAX_ARRAY_ELEMENTS).unwrap());
+        match VARIANT {
+            0 | 1 => {
                 ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(array_length)]).unwrap()
             }
+            _ => panic!("Invalid variant"),
         }
     }
 
-    fn run_parser_test(variant: SerializeVariant, rng: &mut TestRng) {
+    fn run_parser_test<const VARIANT: u8>(rng: &mut TestRng) {
         for source_type in valid_source_types() {
             {
-                let opcode = SerializeVariant::opcode(variant as u8);
-                let destination_type = sample_destination_type::<CurrentNetwork>(SerializeVariant::ToBytesRaw, rng);
+                let opcode = SerializeVariant::opcode(VARIANT);
+                let destination_type = sample_destination_type::<CurrentNetwork, VARIANT>(rng);
                 let instruction = format!("{opcode} r0 ({source_type}) into r1 ({destination_type})");
-                let (string, serialize) = SerializeInstruction::<CurrentNetwork, variant>::parse(&instruction).unwrap();
+                let (string, serialize) = SerializeInstruction::<CurrentNetwork, VARIANT>::parse(&instruction).unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
                 assert_eq!(serialize.operands.len(), 1, "The number of operands is incorrect");
                 assert_eq!(
@@ -467,7 +473,7 @@ mod tests {
                 );
                 assert_eq!(&serialize.operand_type, source_type, "The operand type is incorrect");
                 assert_eq!(serialize.destination, Register::Locator(1), "The destination register is incorrect");
-                assert_eq!(&serialize.destination_type, destination_type, "The destination type is incorrect");
+                assert_eq!(&serialize.destination_type, &destination_type, "The destination type is incorrect");
             }
         }
     }
@@ -478,7 +484,7 @@ mod tests {
         let rng = &mut TestRng::default();
 
         // Run the parser test for each variant.
-        run_parser_test(SerializeVariant::ToBits, rng);
-        run_parser_test(SerializeVariant::ToBitsRaw, rng);
+        run_parser_test::<{ SerializeVariant::ToBits as u8 }>(rng);
+        run_parser_test::<{ SerializeVariant::ToBitsRaw as u8 }>(rng);
     }
 }

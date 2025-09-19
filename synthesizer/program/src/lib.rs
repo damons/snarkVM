@@ -931,7 +931,7 @@ impl<N: Network> ProgramCore<N> {
     #[inline]
     pub fn contains_v11_syntax(&self) -> bool {
         // The previous maximum array size before V11.
-        const V10_MAX_ARRAY_SIZE: u32 = 32;
+        const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
 
         // Helper to check if any of the opcodes start with `ecdsa.verify` or end with `.raw`.
         let has_op = |opcode: &str| opcode.starts_with("ecdsa.verify") || opcode.ends_with(".raw");
@@ -954,7 +954,7 @@ impl<N: Network> ProgramCore<N> {
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
         // Determine if any of the array types exceed the previous maximum length of 32.
-        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_SIZE);
+        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
 
         function_contains || closure_contains || command_contains || array_size_exceeds
     }

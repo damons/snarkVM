@@ -175,7 +175,7 @@ pub trait Network:
     /// The minimum number of elements in an array.
     const MIN_ARRAY_ELEMENTS: usize = 1; // This ensures the array is not empty.
     /// The maximum number of elements in an array.
-    const MAX_ARRAY_ELEMENTS: usize = 256;
+    const MAX_ARRAY_ELEMENTS: usize = 512;
 
     /// The minimum number of entries in a record.
     const MIN_RECORD_ENTRIES: usize = 1; // This accounts for 'record.owner'.

@@ -90,141 +90,16 @@ pub enum Instruction<N: Network> {
     CommitPED64(CommitPED64<N>),
     /// Performs a Pedersen commitment on up to a 128-bit input.
     CommitPED128(CommitPED128<N>),
+    /// Deserializes the bits into a value.
+    DeserializeBits(DeserializeBits<N>),
+    /// Deserializes the raw bits into a value.
+    DeserializeBitsRaw(DeserializeBitsRaw<N>),
     /// Divides `first` by `second`, storing the outcome in `destination`.
     Div(Div<N>),
     /// Divides `first` by `second`, wrapping around at the boundary of the type, and storing the outcome in `destination`.
     DivWrapped(DivWrapped<N>),
     /// Doubles `first`, storing the outcome in `destination`.
     Double(Double<N>),
-    /// Computes whether `first` is greater than `second` as a boolean, storing the outcome in `destination`.
-    GreaterThan(GreaterThan<N>),
-    /// Computes whether `first` is greater than or equal to `second` as a boolean, storing the outcome in `destination`.
-    GreaterThanOrEqual(GreaterThanOrEqual<N>),
-    /// Performs a BHP hash on inputs of 256-bit chunks.
-    HashBHP256(HashBHP256<N>),
-    /// Performs a BHP hash on inputs of 512-bit chunks.
-    HashBHP512(HashBHP512<N>),
-    /// Performs a BHP hash on inputs of 768-bit chunks.
-    HashBHP768(HashBHP768<N>),
-    /// Performs a BHP hash on inputs of 1024-bit chunks.
-    HashBHP1024(HashBHP1024<N>),
-    /// Performs a Keccak hash, outputting 256 bits.
-    HashKeccak256(HashKeccak256<N>),
-    /// Performs a Keccak hash, outputting 384 bits.
-    HashKeccak384(HashKeccak384<N>),
-    /// Performs a Keccak hash, outputting 512 bits.
-    HashKeccak512(HashKeccak512<N>),
-    /// Performs a Pedersen hash on up to a 64-bit input.
-    HashPED64(HashPED64<N>),
-    /// Performs a Pedersen hash on up to a 128-bit input.
-    HashPED128(HashPED128<N>),
-    /// Performs a Poseidon hash with an input rate of 2.
-    HashPSD2(HashPSD2<N>),
-    /// Performs a Poseidon hash with an input rate of 4.
-    HashPSD4(HashPSD4<N>),
-    /// Performs a Poseidon hash with an input rate of 8.
-    HashPSD8(HashPSD8<N>),
-    /// Performs a SHA-3 hash, outputting 256 bits.
-    HashSha3_256(HashSha3_256<N>),
-    /// Performs a SHA-3 hash, outputting 384 bits.
-    HashSha3_384(HashSha3_384<N>),
-    /// Performs a SHA-3 hash, outputting 512 bits.
-    HashSha3_512(HashSha3_512<N>),
-    /// Performs a Poseidon hash with an input rate of 2.
-    HashManyPSD2(HashManyPSD2<N>),
-    /// Performs a Poseidon hash with an input rate of 4.
-    HashManyPSD4(HashManyPSD4<N>),
-    /// Performs a Poseidon hash with an input rate of 8.
-    HashManyPSD8(HashManyPSD8<N>),
-    /// Computes the multiplicative inverse of `first`, storing the outcome in `destination`.
-    Inv(Inv<N>),
-    /// Computes whether `first` equals `second` as a boolean, storing the outcome in `destination`.
-    IsEq(IsEq<N>),
-    /// Computes whether `first` does **not** equals `second` as a boolean, storing the outcome in `destination`.
-    IsNeq(IsNeq<N>),
-    /// Computes whether `first` is less than `second` as a boolean, storing the outcome in `destination`.
-    LessThan(LessThan<N>),
-    /// Computes whether `first` is less than or equal to `second` as a boolean, storing the outcome in `destination`.
-    LessThanOrEqual(LessThanOrEqual<N>),
-    /// Computes `first` mod `second`, storing the outcome in `destination`.
-    Modulo(Modulo<N>),
-    /// Multiplies `first` with `second`, storing the outcome in `destination`.
-    Mul(Mul<N>),
-    /// Multiplies `first` with `second`, wrapping around at the boundary of the type, and storing the outcome in `destination`.
-    MulWrapped(MulWrapped<N>),
-    /// Returns `false` if `first` and `second` are true, storing the outcome in `destination`.
-    Nand(Nand<N>),
-    /// Negates `first`, storing the outcome in `destination`.
-    Neg(Neg<N>),
-    /// Returns `true` if neither `first` nor `second` is `true`, storing the outcome in `destination`.
-    Nor(Nor<N>),
-    /// Flips each bit in the representation of `first`, storing the outcome in `destination`.
-    Not(Not<N>),
-    /// Performs a bitwise `or` on `first` and `second`, storing the outcome in `destination`.
-    Or(Or<N>),
-    /// Raises `first` to the power of `second`, storing the outcome in `destination`.
-    Pow(Pow<N>),
-    /// Raises `first` to the power of `second`, wrapping around at the boundary of the type, storing the outcome in `destination`.
-    PowWrapped(PowWrapped<N>),
-    /// Divides `first` by `second`, storing the remainder in `destination`.
-    Rem(Rem<N>),
-    /// Divides `first` by `second`, wrapping around at the boundary of the type, storing the remainder in `destination`.
-    RemWrapped(RemWrapped<N>),
-    /// Shifts `first` left by `second` bits, storing the outcome in `destination`.
-    Shl(Shl<N>),
-    /// Shifts `first` left by `second` bits, wrapping around at the boundary of the type, storing the outcome in `destination`.
-    ShlWrapped(ShlWrapped<N>),
-    /// Shifts `first` right by `second` bits, storing the outcome in `destination`.
-    Shr(Shr<N>),
-    /// Shifts `first` right by `second` bits, wrapping around at the boundary of the type, storing the outcome in `destination`.
-    ShrWrapped(ShrWrapped<N>),
-    /// Computes whether `signature` is valid for the given `address` and `message`.
-    SignVerify(SignVerify<N>),
-    /// Squares 'first', storing the outcome in `destination`.
-    Square(Square<N>),
-    /// Compute the square root of 'first', storing the outcome in `destination`.
-    SquareRoot(SquareRoot<N>),
-    /// Computes `first - second`, storing the outcome in `destination`.
-    Sub(Sub<N>),
-    /// Computes `first - second`, wrapping around at the boundary of the type, and storing the outcome in `destination`.
-    SubWrapped(SubWrapped<N>),
-    /// Selects `first`, if `condition` is true, otherwise selects `second`, storing the result in `destination`.
-    Ternary(Ternary<N>),
-    /// Performs a bitwise `xor` on `first` and `second`, storing the outcome in `destination`.
-    Xor(Xor<N>),
-    // Note: The following instructions are added to the end of the enum to preserve the existing instruction indexes.
-    /// Performs a BHP hash on the input's raw bits in 256-bit chunks.
-    HashBHP256Raw(HashBHP256Raw<N>),
-    /// Performs a BHP hash on the input's raw bits in 512-bit chunks.
-    HashBHP512Raw(HashBHP512Raw<N>),
-    /// Performs a BHP hash on the input's raw bits in 768-bit chunks.
-    HashBHP768Raw(HashBHP768Raw<N>),
-    /// Performs a BHP hash on the input's raw bits in 1024-bit chunks.
-    HashBHP1024Raw(HashBHP1024Raw<N>),
-    /// Performs a Keccak hash on the input's raw bits, outputting 256 bits.
-    HashKeccak256Raw(HashKeccak256Raw<N>),
-    /// Performs a Keccak hash on the input's raw bits, outputting 384 bits.
-    HashKeccak384Raw(HashKeccak384Raw<N>),
-    /// Performs a Keccak hash on the input's raw bits, outputting 512 bits.
-    HashKeccak512Raw(HashKeccak512Raw<N>),
-    /// Performs a Pedersen hash on the input's raw bits up to a 64-bit input.
-    HashPED64Raw(HashPED64Raw<N>),
-    /// Performs a Pedersen hash on the input's raw bits up to a 128-bit input.
-    HashPED128Raw(HashPED128Raw<N>),
-    /// Performs a Poseidon hash on the input's raw fields with an input rate of 2.
-    HashPSD2Raw(HashPSD2Raw<N>),
-    /// Performs a Poseidon hash on the input's raw fields with an input rate of 4.
-    HashPSD4Raw(HashPSD4Raw<N>),
-    /// Performs a Poseidon hash on the input's raw fields with an input rate of 8.
-    HashPSD8Raw(HashPSD8Raw<N>),
-    /// Performs a SHA-3 hash on the input's raw bits, outputting 256 bits.
-    HashSha3_256Raw(HashSha3_256Raw<N>),
-    /// Performs a SHA-3 hash on the input's raw bits, outputting 384 bits.
-    HashSha3_384Raw(HashSha3_384Raw<N>),
-    /// Performs a SHA-3 hash on the input's raw bits, outputting 512 bits.
-    HashSha3_512Raw(HashSha3_512Raw<N>),
-    /// Computes whether `signature` is valid for the given `address` and raw `message`.
-    SignVerifyRaw(SignVerifyRaw<N>),
     /// Computes whether `signature` is valid for the given `signer` and `digest` using ECDSA.
     ECDSAVerifyDigest(ECDSAVerifyDigest<N>),
     /// Computes whether `signature` is valid for the given Ethereum `address` and `digest` using ECDSA.
@@ -265,6 +140,162 @@ pub enum Instruction<N: Network> {
     ECDSAVerifySha3_512Raw(ECDSAVerifySha3_512Raw<N>),
     /// Computes whether `signature` is valid for the given Ethereum `address` and `message` using ECDSA with SHA3-512 and raw inputs.
     ECDSAVerifySha3_512Eth(ECDSAVerifySha3_512Eth<N>),
+    /// Computes whether `first` is greater than `second` as a boolean, storing the outcome in `destination`.
+    GreaterThan(GreaterThan<N>),
+    /// Computes whether `first` is greater than or equal to `second` as a boolean, storing the outcome in `destination`.
+    GreaterThanOrEqual(GreaterThanOrEqual<N>),
+    /// Performs a BHP hash on inputs of 256-bit chunks.
+    HashBHP256(HashBHP256<N>),
+    /// Performs a BHP hash on the input's raw bits in 256-bit chunks.  
+    HashBHP256Raw(HashBHP256Raw<N>),
+    /// Performs a BHP hash on inputs of 512-bit chunks.
+    HashBHP512(HashBHP512<N>),
+    /// Performs a BHP hash on the input's raw bits in 512-bit chunks.  
+    HashBHP512Raw(HashBHP512Raw<N>),
+    /// Performs a BHP hash on inputs of 768-bit chunks.
+    HashBHP768(HashBHP768<N>),
+    /// Performs a BHP hash on the input's raw bits in 768-bit chunks.  
+    HashBHP768Raw(HashBHP768Raw<N>),
+    /// Performs a BHP hash on inputs of 1024-bit chunks.
+    HashBHP1024(HashBHP1024<N>),
+    /// Performs a BHP hash on the input's raw bits in 1024-bit chunks.
+    HashBHP1024Raw(HashBHP1024Raw<N>),
+    /// Performs a Keccak hash on the input, outputting 256 bits, hashing the result with BHP256.
+    HashKeccak256(HashKeccak256<N>),
+    /// Performs a Keccak hash on the input's raw bits, hashing the result with BHP256.
+    HashKeccak256Raw(HashKeccak256Raw<N>),
+    /// Performs a Keccak hash on the input, outputting 256 bits.
+    HashKeccak256Native(HashKeccak256Native<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 256 bits.
+    HashKeccak256NativeRaw(HashKeccak256NativeRaw<N>),
+    /// Performs a Keccak hash on the input, outputting 384 bits, hashing the result with BHP512.
+    HashKeccak384(HashKeccak384<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 384 bits, hashing the result with BHP512.
+    HashKeccak384Raw(HashKeccak384Raw<N>),
+    /// Performs a Keccak hash on the input, outputting 384 bits.
+    HashKeccak384Native(HashKeccak384Native<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 384 bits.
+    HashKeccak384NativeRaw(HashKeccak384NativeRaw<N>),
+    /// Performs a Keccak hash on the input, outputting 512 bits, hashing the result with BHP512.
+    HashKeccak512(HashKeccak512<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 512 bits, hashing the result with BHP512.
+    HashKeccak512Raw(HashKeccak512Raw<N>),
+    /// Performs a Keccak hash on the input, outputting 512 bits.
+    HashKeccak512Native(HashKeccak512Native<N>),
+    /// Performs a Keccak hash on the input's raw bits, outputting 512 bits.
+    HashKeccak512NativeRaw(HashKeccak512NativeRaw<N>),
+    /// Performs a Pedersen hash on up to a 64-bit input.
+    HashPED64(HashPED64<N>),
+    /// Performs a Pedersen hash on the input's raw bits up to a 64-bit input.
+    HashPED64Raw(HashPED64Raw<N>),
+    /// Performs a Pedersen hash on up to a 128-bit input.
+    HashPED128(HashPED128<N>),
+    /// Performs a Pedersen hash on the input's raw bits up to a 128-bit input.
+    HashPED128Raw(HashPED128Raw<N>),
+    /// Performs a Poseidon hash with an input rate of 2.
+    HashPSD2(HashPSD2<N>),
+    /// Performs a Poseidon hash on the input's raw fields with an input rate of 2.
+    HashPSD2Raw(HashPSD2Raw<N>),
+    /// Performs a Poseidon hash with an input rate of 4.
+    HashPSD4(HashPSD4<N>),
+    /// Performs a Poseidon hash on the input's raw fields with an input rate of 4.
+    HashPSD4Raw(HashPSD4Raw<N>),
+    /// Performs a Poseidon hash with an input rate of 8.
+    HashPSD8(HashPSD8<N>),
+    /// Performs a Poseidon hash on the input's raw fields with an input rate of 8.
+    HashPSD8Raw(HashPSD8Raw<N>),
+    /// Performs a SHA-3 hash on the input, outputting 256 bits, hashing the result with BHP256.
+    HashSha3_256(HashSha3_256<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 256 bits, hashing the result with BHP256.
+    HashSha3_256Raw(HashSha3_256Raw<N>),
+    /// Performs a SHA-3 hash on the input's bits, outputting 256 bits.
+    HashSha3_256Native(HashSha3_256Native<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 256 bits.
+    HashSha3_256NativeRaw(HashSha3_256NativeRaw<N>),
+    /// Performs a SHA-3 hash on the input, outputting 384 bits, hashing the result with BHP512.
+    HashSha3_384(HashSha3_384<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 384 bits, hashing the result with BHP512.
+    HashSha3_384Raw(HashSha3_384Raw<N>),
+    /// Performs a SHA-3 hash on the input's bits, outputting 384 bits.
+    HashSha3_384Native(HashSha3_384Native<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 384 bits.
+    HashSha3_384NativeRaw(HashSha3_384NativeRaw<N>),
+    /// Performs a SHA-3 hash, outputting 512 bits, hashing the result with BHP512.
+    HashSha3_512(HashSha3_512<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 512 bits, hashing the result with BHP512.
+    HashSha3_512Raw(HashSha3_512Raw<N>),
+    /// Performs a SHA-3 hash on the input's bits, outputting 512 bits.
+    HashSha3_512Native(HashSha3_512Native<N>),
+    /// Performs a SHA-3 hash on the input's raw bits, outputting 512 bits.
+    HashSha3_512NativeRaw(HashSha3_512NativeRaw<N>),
+    /// Performs a Poseidon hash with an input rate of 2.
+    HashManyPSD2(HashManyPSD2<N>),
+    /// Performs a Poseidon hash with an input rate of 4.
+    HashManyPSD4(HashManyPSD4<N>),
+    /// Performs a Poseidon hash with an input rate of 8.
+    HashManyPSD8(HashManyPSD8<N>),
+    /// Computes the multiplicative inverse of `first`, storing the outcome in `destination`.
+    Inv(Inv<N>),
+    /// Computes whether `first` equals `second` as a boolean, storing the outcome in `destination`.
+    IsEq(IsEq<N>),
+    /// Computes whether `first` does **not** equals `second` as a boolean, storing the outcome in `destination`.
+    IsNeq(IsNeq<N>),
+    /// Computes whether `first` is less than `second` as a boolean, storing the outcome in `destination`.
+    LessThan(LessThan<N>),
+    /// Computes whether `first` is less than or equal to `second` as a boolean, storing the outcome in `destination`.
+    LessThanOrEqual(LessThanOrEqual<N>),
+    /// Computes `first` mod `second`, storing the outcome in `destination`.
+    Modulo(Modulo<N>),
+    /// Multiplies `first` with `second`, storing the outcome in `destination`.
+    Mul(Mul<N>),
+    /// Multiplies `first` with `second`, wrapping around at the boundary of the type, and storing the outcome in `destination`.
+    MulWrapped(MulWrapped<N>),
+    /// Returns `false` if `first` and `second` are true, storing the outcome in `destination`.
+    Nand(Nand<N>),
+    /// Negates `first`, storing the outcome in `destination`.
+    Neg(Neg<N>),
+    /// Returns `true` if neither `first` nor `second` is `true`, storing the outcome in `destination`.
+    Nor(Nor<N>),
+    /// Flips each bit in the representation of `first`, storing the outcome in `destination`.
+    Not(Not<N>),
+    /// Performs a bitwise `or` on `first` and `second`, storing the outcome in `destination`.
+    Or(Or<N>),
+    /// Raises `first` to the power of `second`, storing the outcome in `destination`.
+    Pow(Pow<N>),
+    /// Raises `first` to the power of `second`, wrapping around at the boundary of the type, storing the outcome in `destination`.
+    PowWrapped(PowWrapped<N>),
+    /// Divides `first` by `second`, storing the remainder in `destination`.
+    Rem(Rem<N>),
+    /// Divides `first` by `second`, wrapping around at the boundary of the type, storing the remainder in `destination`.
+    RemWrapped(RemWrapped<N>),
+    /// Serializes the bits of the input.
+    SerializeBits(SerializeBits<N>),
+    /// Serializes the raw bits of the input.
+    SerializeBitsRaw(SerializeBitsRaw<N>),
+    /// Shifts `first` left by `second` bits, storing the outcome in `destination`.
+    Shl(Shl<N>),
+    /// Shifts `first` left by `second` bits, wrapping around at the boundary of the type, storing the outcome in `destination`.
+    ShlWrapped(ShlWrapped<N>),
+    /// Shifts `first` right by `second` bits, storing the outcome in `destination`.
+    Shr(Shr<N>),
+    /// Shifts `first` right by `second` bits, wrapping around at the boundary of the type, storing the outcome in `destination`.
+    ShrWrapped(ShrWrapped<N>),
+    /// Computes whether `signature` is valid for the given `address` and `message`.
+    SignVerify(SignVerify<N>),
+    /// Computes whether `signature` is valid for the given `address` and raw `message`.
+    SignVerifyRaw(SignVerifyRaw<N>),
+    /// Squares 'first', storing the outcome in `destination`.
+    Square(Square<N>),
+    /// Compute the square root of 'first', storing the outcome in `destination`.
+    SquareRoot(SquareRoot<N>),
+    /// Computes `first - second`, storing the outcome in `destination`.
+    Sub(Sub<N>),
+    /// Computes `first - second`, wrapping around at the boundary of the type, and storing the outcome in `destination`.
+    SubWrapped(SubWrapped<N>),
+    /// Selects `first`, if `condition` is true, otherwise selects `second`, storing the result in `destination`.
+    Ternary(Ternary<N>),
+    /// Performs a bitwise `xor` on `first` and `second`, storing the outcome in `destination`.
+    Xor(Xor<N>),
 }
 
 /// Creates a match statement that applies the given operation for each instruction.
@@ -295,6 +326,7 @@ macro_rules! instruction {
     // i.e. `instruction!(custom_macro, self, |instruction| { operation(instruction) })`.
     ($macro_:ident, $object:expr, |$input:ident| $operation:block) => {
         $macro_!{$object, |$input| $operation, {
+            // The original opcodes.
             Abs,
             AbsWrapped,
             Add,
@@ -363,22 +395,10 @@ macro_rules! instruction {
             SubWrapped,
             Ternary,
             Xor,
-            HashBHP256Raw,
-            HashBHP512Raw,
-            HashBHP768Raw,
-            HashBHP1024Raw,
-            HashKeccak256Raw,
-            HashKeccak384Raw,
-            HashKeccak512Raw,
-            HashPED64Raw,
-            HashPED128Raw,
-            HashPSD2Raw,
-            HashPSD4Raw,
-            HashPSD8Raw,
-            HashSha3_256Raw,
-            HashSha3_384Raw,
-            HashSha3_512Raw,
-            SignVerifyRaw,
+
+            // New opcodes added in `ConsensusVersion::V11`
+            DeserializeBits,
+            DeserializeBitsRaw,
             ECDSAVerifyDigest,
             ECDSAVerifyDigestEth,
             ECDSAVerifyKeccak256,
@@ -399,6 +419,38 @@ macro_rules! instruction {
             ECDSAVerifySha3_512,
             ECDSAVerifySha3_512Raw,
             ECDSAVerifySha3_512Eth,
+            HashBHP256Raw,
+            HashBHP512Raw,
+            HashBHP768Raw,
+            HashBHP1024Raw,
+            HashKeccak256Raw,
+            HashKeccak256Native,
+            HashKeccak256NativeRaw,
+            HashKeccak384Raw,
+            HashKeccak384Native,
+            HashKeccak384NativeRaw,
+            HashKeccak512Raw,
+            HashKeccak512Native,
+            HashKeccak512NativeRaw,
+            HashPED64Raw,
+            HashPED128Raw,
+            HashPSD2Raw,
+            HashPSD4Raw,
+            HashPSD8Raw,
+            HashSha3_256Raw,
+            HashSha3_256Native,
+            HashSha3_256NativeRaw,
+            HashSha3_384Raw,
+            HashSha3_384Native,
+            HashSha3_384NativeRaw,
+            HashSha3_512Raw,
+            HashSha3_512Native,
+            HashSha3_512NativeRaw,
+            SerializeBits,
+            SerializeBitsRaw,
+            SignVerifyRaw,
+
+            // New opcodes should be added here, with a comment on which consensus version they were added in.
         }}
     };
     // A variant **without** curly braces:
