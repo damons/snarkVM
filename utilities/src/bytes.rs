@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use std::{
+    cell::Cell,
     fmt,
     io::{Read, Result as IoResult, Write},
     marker::PhantomData,
@@ -27,6 +28,21 @@ use serde::{
     ser::{self, SerializeTuple},
 };
 use smol_str::SmolStr;
+
+thread_local! {
+    static UNCHECKED_DESERIALIZE: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Performs a bincode deserialization without any checks of the data.
+///
+/// Important: This should only be used when deserializing from local storage.
+#[inline(always)]
+pub fn unchecked_deserialize<T: de::DeserializeOwned>(data: &[u8]) -> Result<T, bincode::Error> {
+    UNCHECKED_DESERIALIZE.set(true);
+    let result = bincode::deserialize(data);
+    UNCHECKED_DESERIALIZE.set(false);
+    result
+}
 
 /// Takes as input a sequence of structs, and converts them to a series of little-endian bytes.
 /// All traits that implement `ToBytes` can be automatically converted to bytes in this manner.
@@ -183,14 +199,19 @@ impl<'de, T: FromBytes> FromBytesDeserializer<T> {
     }
 }
 
-pub struct FromBytesUncheckedDeserializer<T: FromBytesUnchecked>(PhantomData<T>);
+pub struct FromBytesUncheckedDeserializer<T: FromBytesUnchecked + FromBytes>(PhantomData<T>);
 
-impl<'de, T: FromBytesUnchecked> FromBytesUncheckedDeserializer<T> {
+impl<'de, T: FromBytesUnchecked + FromBytes> FromBytesUncheckedDeserializer<T> {
     /// Deserializes a dynamically-sized byte array.
     pub fn deserialize_with_size_encoding<D: Deserializer<'de>>(deserializer: D, name: &str) -> Result<T, D::Error> {
         let mut buffer = Vec::with_capacity(32);
         deserializer.deserialize_bytes(FromBytesVisitor::new(&mut buffer, name))?;
-        FromBytesUnchecked::read_le_unchecked(&*buffer).map_err(de::Error::custom)
+
+        if UNCHECKED_DESERIALIZE.get() {
+            FromBytesUnchecked::read_le_unchecked(&*buffer).map_err(de::Error::custom)
+        } else {
+            FromBytes::read_le(&*buffer).map_err(de::Error::custom)
+        }
     }
 }
 
