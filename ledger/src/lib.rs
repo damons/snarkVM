@@ -33,7 +33,7 @@ pub use snarkvm_ledger_store as store;
 pub mod test_helpers;
 
 mod helpers;
-use helpers::*;
+pub use helpers::*;
 
 pub use crate::block::*;
 
