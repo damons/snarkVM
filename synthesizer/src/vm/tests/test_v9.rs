@@ -697,7 +697,7 @@ constructor:
         &Plaintext::from_str("0u8")?,
     )? {
         Some(Value::Plaintext(Plaintext::Literal(Literal::U8(value), _))) => *value,
-        value => bail!(format!("Unexpected value: {:?}", value)),
+        value => bail!(format!("Unexpected value: {value:?}")),
     };
     assert_eq!(value, 0u8);
 
@@ -748,7 +748,7 @@ constructor:
         &Plaintext::from_str("0u8")?,
     )? {
         Some(Value::Plaintext(Plaintext::Literal(Literal::U8(value), _))) => *value,
-        value => bail!(format!("Unexpected value: {:?}", value)),
+        value => bail!(format!("Unexpected value: {value:?}")),
     };
     assert_eq!(value, 0u8);
 
@@ -786,7 +786,7 @@ constructor:
         &Plaintext::from_str("1u8")?,
     )? {
         Some(Value::Plaintext(Plaintext::Literal(Literal::U8(value), _))) => *value,
-        value => bail!(format!("Unexpected value: {:?}", value)),
+        value => bail!(format!("Unexpected value: {value:?}")),
     };
     assert_eq!(value, 1u8);
 
