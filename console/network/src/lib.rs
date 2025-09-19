@@ -41,7 +41,7 @@ pub use testnet_v0::*;
 
 pub mod prelude {
     #[cfg(feature = "wasm")]
-    pub use crate::set_consensus_version_test_heights;
+    pub use crate::get_or_init_consensus_version_heights;
     pub use crate::{
         CANARY_V0_CONSENSUS_VERSION_HEIGHTS,
         ConsensusVersion,
@@ -252,12 +252,7 @@ pub trait Network:
     #[allow(non_snake_case)]
     #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
     fn CONSENSUS_VERSION_HEIGHTS() -> &'static [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
-        // NOTE: this function may panic, as it is only called during startup.
-        #[cfg(not(feature = "wasm"))]
-        let consensus_version_heights = CONSENSUS_VERSION_HEIGHTS.get_or_init(load_test_consensus_heights);
-        #[cfg(feature = "wasm")]
-        let consensus_version_heights = CONSENSUS_VERSION_HEIGHTS.get_or_init(|| load_test_consensus_heights(None));
-        consensus_version_heights
+        CONSENSUS_VERSION_HEIGHTS.get_or_init(load_test_consensus_heights)
     }
 
     /// A set of incrementing consensus version heights used for tests.
@@ -503,10 +498,21 @@ pub trait Network:
     ) -> bool;
 }
 
+/// Returns the consensus version heights, initializing them if necessary.
+///
+/// If `heights` is provided, it must be a comma-separated list of ascending block heights
+/// starting from zero (e.g., `"0,2,3,4,..."`) with exactly `NUM_CONSENSUS_VERSIONS` entries.  
+/// These heights correspond to the activation block of each `ConsensusVersion`.
+///
+/// If `heights` is `None`, the function uses SnarkVM's default test consensus heights.
+///
+/// This function caches the initialized heights, so subsequent calls return the same values.  
+/// It should be called first by `wasm` users who need to work with test consensus heights,
+/// immediately after the wasm module is initialized.
 #[cfg(feature = "wasm")]
-pub fn set_consensus_version_test_heights(
+pub fn get_or_init_consensus_version_heights(
     heights: Option<String>,
 ) -> [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
-    let heights = load_test_consensus_heights(heights);
+    let heights = load_test_consensus_heights_inner(heights);
     *CONSENSUS_VERSION_HEIGHTS.get_or_init(|| heights)
 }
