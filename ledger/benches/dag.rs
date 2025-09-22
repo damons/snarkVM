@@ -78,7 +78,12 @@ fn bench_serialization<T: Serialize + DeserializeOwned + ToBytes + FromBytes + C
 fn subdag_serialization(c: &mut Criterion) {
     let rng = &mut TestRng::default();
     let subdag = sample_subdag(rng);
-    bench_serialization(c, "Subdag", subdag);
+    let batch = subdag.iter().next().unwrap().1.iter().next().unwrap().clone();
+    let batch_header = batch.batch_header().clone();
+
+    bench_serialization(c, "BatchHeader", batch_header);
+    bench_serialization(c, "BatchCertificate", batch);
+    bench_serialization(c, "Subdag", subdag.clone());
 }
 
 criterion_group! {
