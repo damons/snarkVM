@@ -15,11 +15,12 @@
 
 use snarkvm_console::prelude::*;
 use snarkvm_ledger::narwhal::subdag::test_helpers::sample_subdag;
+use snarkvm_utilities::bytes::unchecked_deserialize;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 
 /// Helper method to benchmark serialization.
-fn bench_serialization<T: Serialize + DeserializeOwned + ToBytes + FromBytes + FromBytesUnchecked + Clone>(
+fn bench_serialization<T: Serialize + DeserializeOwned + ToBytes + FromBytes + Clone>(
     c: &mut Criterion,
     name: &str,
     object: T,
@@ -29,24 +30,15 @@ fn bench_serialization<T: Serialize + DeserializeOwned + ToBytes + FromBytes + F
     ///////////////
 
     // snarkvm_utilities::ToBytes
-    {
-        let object = object.clone();
-        c.bench_function(&format!("{name}::to_bytes_le"), move |b| b.iter(|| object.to_bytes_le().unwrap()));
-    }
+    c.bench_function(&format!("{name}::to_bytes_le"), |b| b.iter(|| object.to_bytes_le().unwrap()));
+
     // bincode::serialize
-    {
-        let object = object.clone();
-        c.bench_function(&format!("{name}::serialize (bincode)"), move |b| {
-            b.iter(|| bincode::serialize(&object).unwrap())
-        });
-    }
+    c.bench_function(&format!("{name}::serialize (bincode)"), |b| b.iter(|| bincode::serialize(&object).unwrap()));
+
     // serde_json::to_string
-    {
-        let object = object.clone();
-        c.bench_function(&format!("{name}::to_string (serde_json)"), move |b| {
-            b.iter(|| serde_json::to_string(&object).unwrap())
-        });
-    }
+    c.bench_function(&format!("{name}::to_string (serde_json)"), |b| {
+        b.iter(|| serde_json::to_string(&object).unwrap())
+    });
 
     /////////////////
     // Deserialize //
@@ -55,22 +47,25 @@ fn bench_serialization<T: Serialize + DeserializeOwned + ToBytes + FromBytes + F
     // snarkvm_utilities::FromBytes
     {
         let buffer = object.to_bytes_le().unwrap();
-        c.bench_function(&format!("{name}::from_bytes_le"), move |b| b.iter(|| T::from_bytes_le(&buffer).unwrap()));
-    }
-    // snarkvm_utilities::FromBytesUnchecked
-    {
-        let buffer = object.to_bytes_le().unwrap();
-        c.bench_function(&format!("{name}::from_bytes_le_unchecked"), move |b| {
+        c.bench_function(&format!("{name}::from_bytes_le"), |b| b.iter(|| T::from_bytes_le(&buffer).unwrap()));
+
+        c.bench_function(&format!("{name}::from_bytes_le_unchecked"), |b| {
             b.iter(|| T::from_bytes_le_unchecked(&buffer).unwrap())
         });
     }
-    // bincode::deserialize
+
+    // bincode::deserialize and unchecked_deserialize.
     {
         let buffer = bincode::serialize(&object).unwrap();
-        c.bench_function(&format!("{name}::deserialize (bincode)"), move |b| {
+        c.bench_function(&format!("{name}::deserialize (bincode)"), |b| {
             b.iter(|| bincode::deserialize::<T>(&buffer).unwrap())
         });
+
+        c.bench_function(&format!("{name}::unchecked_deserialize (bincode)"), |b| {
+            b.iter(|| unchecked_deserialize::<T>(&buffer).unwrap())
+        });
     }
+
     // serde_json::from_str
     {
         let object = serde_json::to_string(&object).unwrap();

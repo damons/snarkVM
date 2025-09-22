@@ -32,7 +32,7 @@ impl<N: Network> BatchCertificate<N> {
         reader.read_exact(&mut signature_bytes)?;
         // Read the signatures.
         cfg_chunks!(signature_bytes, Signature::<N>::size_in_bytes())
-            .map(|data| if unchecked { Signature::read_le_unchecked(data) } else { Signature::read_le(data) })
+            .map(|data| Signature::read_le_with_unchecked(data, unchecked))
             .collect::<Result<IndexSet<_>, _>>()
     }
 }
@@ -53,6 +53,23 @@ impl<N: Network> FromBytes for BatchCertificate<N> {
         // Return the batch certificate.
         Self::from(batch_header, signatures).map_err(error)
     }
+
+    /// Reads the batch certificate from the buffer.
+    fn read_le_unchecked<R: Read>(mut reader: R) -> IoResult<Self> {
+        // Read the version.
+        let version = u8::read_le(&mut reader)?;
+        // Ensure the version is valid.
+        if version != 1 {
+            return Err(error("Invalid batch certificate version"));
+        }
+
+        // Read the batch header and signatures.
+        let batch_header = BatchHeader::read_le_unchecked(&mut reader)?;
+        let signatures = Self::read_signatures(reader, true)?;
+
+        // Return the batch certificate without performing additional checks.
+        Self::from_unchecked(batch_header, signatures).map_err(error)
+    }
 }
 
 impl<N: Network> ToBytes for BatchCertificate<N> {
@@ -70,25 +87,6 @@ impl<N: Network> ToBytes for BatchCertificate<N> {
             signature.write_le(&mut writer)?;
         }
         Ok(())
-    }
-}
-
-impl<N: Network> FromBytesUnchecked for BatchCertificate<N> {
-    /// Reads the batch certificate from the buffer.
-    fn read_le_unchecked<R: Read>(mut reader: R) -> IoResult<Self> {
-        // Read the version.
-        let version = u8::read_le(&mut reader)?;
-        // Ensure the version is valid.
-        if version != 1 {
-            return Err(error("Invalid batch certificate version"));
-        }
-
-        // Read the batch header and signatures.
-        let batch_header = BatchHeader::read_le_unchecked(&mut reader)?;
-        let signatures = Self::read_signatures(reader, true)?;
-
-        // Return the batch certificate without performing additional checks.
-        Self::from_unchecked(batch_header, signatures).map_err(error)
     }
 }
 

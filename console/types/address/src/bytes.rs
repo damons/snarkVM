@@ -21,13 +21,11 @@ impl<E: Environment> FromBytes for Address<E> {
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         Ok(Address::new(FromBytes::read_le(&mut reader)?))
     }
-}
 
-impl<E: Environment> FromBytesUnchecked for Address<E> {
-    /// Reads in an account address from a buffer.
+    /// Reads in an account address from a buffer without performing checks on the data.
     #[inline]
     fn read_le_unchecked<R: Read>(mut reader: R) -> IoResult<Self> {
-        Ok(Address::new(FromBytesUnchecked::read_le_unchecked(&mut reader)?))
+        Ok(Address::new(FromBytes::read_le_unchecked(&mut reader)?))
     }
 }
 

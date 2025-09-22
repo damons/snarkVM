@@ -26,18 +26,6 @@ impl<N: Network> FromBytes for Signature<N> {
     }
 }
 
-impl<N: Network> FromBytesUnchecked for Signature<N> {
-    /// Reads an account signature from a buffer (unchecked version).
-    #[inline]
-    fn read_le_unchecked<R: Read>(mut reader: R) -> IoResult<Self> {
-        // This is currently the same as `read_le` but might change in the future.
-        let challenge = Scalar::new(FromBytes::read_le(&mut reader)?);
-        let response = Scalar::new(FromBytes::read_le(&mut reader)?);
-        let compute_key = ComputeKey::read_le(&mut reader)?;
-        Ok(Self { challenge, response, compute_key })
-    }
-}
-
 impl<N: Network> ToBytes for Signature<N> {
     /// Writes an account signature to a buffer.
     #[inline]

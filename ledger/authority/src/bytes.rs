@@ -27,17 +27,15 @@ impl<N: Network> FromBytes for Authority<N> {
             2.. => Err(error("Invalid authority variant")),
         }
     }
-}
 
-impl<N: Network> FromBytesUnchecked for Authority<N> {
-    /// Reads the authority from the buffer.
+    /// Reads the authority from the buffer without performing any checks on the data.
     fn read_le_unchecked<R: Read>(mut reader: R) -> IoResult<Self> {
         // Read the variant.
         let variant = u8::read_le(&mut reader)?;
         // Match the variant.
         match variant {
             0 => Ok(Self::Beacon(FromBytes::read_le(&mut reader)?)),
-            1 => Ok(Self::Quorum(FromBytesUnchecked::read_le_unchecked(&mut reader)?)),
+            1 => Ok(Self::Quorum(FromBytes::read_le_unchecked(&mut reader)?)),
             2.. => Err(error("Invalid authority variant")),
         }
     }

@@ -94,21 +94,35 @@ pub trait FromBytes {
     {
         Ok(Self::read_le(bytes)?)
     }
-}
 
-pub trait FromBytesUnchecked {
-    /// Reads `Self` from `reader` as little-endian bytes.
-    /// Does not perform input validation.
-    fn read_le_unchecked<R: Read>(reader: R) -> IoResult<Self>
-    where
-        Self: Sized;
-
+    /// Same behavior as `Self::from_bytes_le` but avoids costly checks.
+    /// This shall only be called when deserializing from a trusted source, such as local storage.
+    ///
     /// Returns `Self` from a byte array in little-endian order.
     fn from_bytes_le_unchecked(bytes: &[u8]) -> anyhow::Result<Self>
     where
         Self: Sized,
     {
         Ok(Self::read_le_unchecked(bytes)?)
+    }
+
+    /// Same behavior as [`Self::read_le`] but avoids costly checks.
+    /// This shall only be called when deserializing from a trusted source, such as local storage.
+    ///
+    /// The default implementation simply calls [`Self::read_le`].
+    fn read_le_unchecked<R: Read>(reader: R) -> IoResult<Self>
+    where
+        Self: Sized,
+    {
+        Self::read_le(reader)
+    }
+
+    /// Helper function that deserializes either unchecked or checked based on the given boolean flag.
+    fn read_le_with_unchecked<R: Read>(reader: R, unchecked: bool) -> IoResult<Self>
+    where
+        Self: Sized,
+    {
+        if unchecked { Self::read_le_unchecked(reader) } else { Self::read_le(reader) }
     }
 }
 
@@ -199,16 +213,16 @@ impl<'de, T: FromBytes> FromBytesDeserializer<T> {
     }
 }
 
-pub struct FromBytesUncheckedDeserializer<T: FromBytesUnchecked + FromBytes>(PhantomData<T>);
+pub struct FromBytesUncheckedDeserializer<T: FromBytes>(PhantomData<T>);
 
-impl<'de, T: FromBytesUnchecked + FromBytes> FromBytesUncheckedDeserializer<T> {
+impl<'de, T: FromBytes> FromBytesUncheckedDeserializer<T> {
     /// Deserializes a dynamically-sized byte array.
     pub fn deserialize_with_size_encoding<D: Deserializer<'de>>(deserializer: D, name: &str) -> Result<T, D::Error> {
         let mut buffer = Vec::with_capacity(32);
         deserializer.deserialize_bytes(FromBytesVisitor::new(&mut buffer, name))?;
 
         if UNCHECKED_DESERIALIZE.get() {
-            FromBytesUnchecked::read_le_unchecked(&*buffer).map_err(de::Error::custom)
+            FromBytes::read_le_unchecked(&*buffer).map_err(de::Error::custom)
         } else {
             FromBytes::read_le(&*buffer).map_err(de::Error::custom)
         }

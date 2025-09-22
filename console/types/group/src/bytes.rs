@@ -23,15 +23,6 @@ impl<E: Environment> FromBytes for Group<E> {
     }
 }
 
-impl<E: Environment> FromBytesUnchecked for Group<E> {
-    /// Reads the group from a buffer.
-    #[inline]
-    fn read_le_unchecked<R: Read>(mut reader: R) -> IoResult<Self> {
-        // Currently the same as the checked version, but might change in the future.
-        Self::from_x_coordinate(FromBytes::read_le(&mut reader)?).map_err(into_io_error)
-    }
-}
-
 impl<E: Environment> ToBytes for Group<E> {
     /// Writes the group to a buffer.
     #[inline]

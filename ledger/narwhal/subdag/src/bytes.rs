@@ -61,14 +61,12 @@ impl<N: Network> Subdag<N> {
     }
 }
 impl<N: Network> FromBytes for Subdag<N> {
-    /// Reads the subdag from the buffer.
+    /// Reads the subDAG from the given buffer.
     fn read_le<R: Read>(reader: R) -> IoResult<Self> {
         Self::internal_read_le(reader, false)
     }
-}
 
-impl<N: Network> FromBytesUnchecked for Subdag<N> {
-    /// Reads the subdag from the buffer.
+    /// Reads the subDAG from the given buffer without performing any checks on the data.
     fn read_le_unchecked<R: Read>(reader: R) -> IoResult<Self> {
         Self::internal_read_le(reader, true)
     }

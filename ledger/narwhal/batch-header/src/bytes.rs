@@ -15,9 +15,9 @@
 
 use super::*;
 
-impl<N: Network> BatchHeader<N> {
-    /// Shared functionality between FromBytes and FromBytesUnchecked.
-    fn internal_read_le<R: Read>(mut reader: R, unchecked: bool) -> IoResult<Self> {
+impl<N: Network> FromBytes for BatchHeader<N> {
+    /// Read the batch header either with or without checks on the data.
+    fn read_le_with_unchecked<R: Read>(mut reader: R, unchecked: bool) -> IoResult<Self> {
         // Read the version.
         let version = u8::read_le(&mut reader)?;
         // Ensure the version is valid.
@@ -97,20 +97,16 @@ impl<N: Network> BatchHeader<N> {
             false => Err(error("Invalid batch ID")),
         }
     }
-}
 
-impl<N: Network> FromBytes for BatchHeader<N> {
     /// Reads the batch header from the buffer.
     fn read_le<R: Read>(reader: R) -> IoResult<Self> {
-        Self::internal_read_le(reader, false)
+        Self::read_le_with_unchecked(reader, false)
     }
-}
 
-impl<N: Network> FromBytesUnchecked for BatchHeader<N> {
     /// Reads the batch header from the buffer *without* performing any checks
     /// for consistency/correctness.
     fn read_le_unchecked<R: Read>(reader: R) -> IoResult<Self> {
-        Self::internal_read_le(reader, true)
+        Self::read_le_with_unchecked(reader, true)
     }
 }
 
