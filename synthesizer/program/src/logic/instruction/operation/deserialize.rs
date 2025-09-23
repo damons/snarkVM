@@ -16,8 +16,24 @@
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
-    program::{ArrayType, Literal, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
+    program::{
+        ArrayType,
+        Identifier,
+        Literal,
+        LiteralType,
+        Plaintext,
+        PlaintextType,
+        Register,
+        RegisterType,
+        StructType,
+        U8,
+        U16,
+        U32,
+        Value,
+    },
 };
+
+use indexmap::IndexMap;
 
 /// Deserializes the bits into a value.
 pub type DeserializeBits<N> = DeserializeInstruction<N, { DeserializeVariant::FromBits as u8 }>;
@@ -38,6 +54,15 @@ impl DeserializeVariant {
             0 => "deserialize.bits",
             1 => "deserialize.bits.raw",
             _ => panic!("Invalid 'deserialize' instruction opcode"),
+        }
+    }
+
+    // Returns the variant, given a `u8`.
+    pub const fn from_u8(variant: u8) -> Self {
+        match variant {
+            0 => Self::FromBits,
+            1 => Self::FromBitsRaw,
+            _ => panic!("Invalid 'deserialize' instruction variant"),
         }
     }
 }
@@ -85,6 +110,9 @@ fn check_destination_type_is_valid(variant: u8, destination_type: &PlaintextType
                 )
             }
         },
+        PlaintextType::Array(array_type) if matches!(array_type.base_element_type(), &PlaintextType::Literal(_)) => {
+            Ok(())
+        }
         _ => bail!(
             "Instruction '{}' cannot take type '{destination_type}' as input",
             DeserializeVariant::opcode(variant)
@@ -164,32 +192,359 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
 /// This is necessary for the Leo interpreter.
 pub fn evaluate_deserialize<N: Network>(
     variant: DeserializeVariant,
-    input: &Value<N>,
+    bits: &[bool],
     destination_type: &PlaintextType<N>,
-) -> Result<Value<N>> {
-    evaluate_deserialize_internal(variant as u8, input, destination_type)
+    get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
+) -> Result<Plaintext<N>> {
+    evaluate_deserialize_internal(variant as u8, bits, destination_type, get_struct, 0)
 }
 
 fn evaluate_deserialize_internal<N: Network>(
     variant: u8,
-    input: &Value<N>,
+    bits: &[bool],
     destination_type: &PlaintextType<N>,
-) -> Result<Value<N>> {
-    match (variant, destination_type) {
-        (0, PlaintextType::Literal(literal_type)) => {
-            // Get the input as a bit array.
-            let bits = match input {
-                Value::Plaintext(plaintext) => plaintext.as_bit_array()?,
-                _ => bail!("Expected input to be a plaintext, found '{input}'"),
-            };
-            // Deserialize the bits into the desired literal type.
-            Ok(Value::Plaintext(Plaintext::from(Literal::from_bits_le(literal_type.type_id(), &bits)?)))
+    get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
+    depth: usize,
+) -> Result<Plaintext<N>> {
+    // Ensure that the depth is within the maximum limit.
+    if depth > N::MAX_DATA_DEPTH {
+        bail!("Plaintext depth exceeds maximum limit: {}", N::MAX_DATA_DEPTH)
+    }
+
+    // A helper to get the number of bits needed.
+    let get_size_in_bits = |plaintext_type: &PlaintextType<N>| -> Result<usize> {
+        match DeserializeVariant::from_u8(variant) {
+            DeserializeVariant::FromBits => plaintext_type.plaintext_size_in_bits(&get_struct),
+            DeserializeVariant::FromBitsRaw => plaintext_type.plaintext_size_in_raw_bits(&get_struct),
         }
-        _ => bail!(
-            "Invalid destination type '{}' for instruction '{}'",
-            destination_type,
-            DeserializeVariant::opcode(variant)
-        ),
+    };
+
+    // Get the number of bits needed.
+    let num_bits = get_size_in_bits(destination_type)?;
+
+    // Resize the bits to the appropriate length.
+    let mut bits = bits.to_vec();
+    bits.resize(num_bits, false);
+
+    // The starting index used to create subsequent subslices of the `bits` slice.
+    let mut index = 0;
+
+    // Helper function to get the next n bits as a slice.
+    let mut next_bits = |n: usize| -> Result<&[bool]> {
+        // Safely procure a subslice with the length `n` starting at `index`.
+        let subslice = bits.get(index..index + n);
+        // Check if the range is within bounds.
+        if let Some(next_bits) = subslice {
+            // Move the starting index.
+            index += n;
+            // Return the subslice.
+            Ok(next_bits)
+        } else {
+            bail!("Insufficient bits");
+        }
+    };
+
+    match destination_type {
+        PlaintextType::Literal(literal_type) => {
+            // Get the expected size of the literal.
+            let expected_size = literal_type.size_in_bits::<N>();
+
+            // If the variant is `FromBits`, check the variant and metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let plaintext_variant = next_bits(2)?;
+                let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
+                ensure!(
+                    plaintext_variant == [false, false],
+                    "Invalid plaintext variant for literal type '{literal_type}'"
+                );
+
+                let literal_variant = u8::from_bits_le(next_bits(8)?)?;
+                ensure!(
+                    literal_variant == literal_type.type_id(),
+                    "Mismatched literal type. Expected '{literal_type}', found '{literal_variant}'"
+                );
+
+                let literal_size = u16::from_bits_le(next_bits(16)?)?;
+                ensure!(
+                    literal_size == expected_size,
+                    "Mismatched literal size. Expected '{expected_size}', found '{literal_size}'",
+                );
+            };
+            // Deserialize the literal.
+            let literal = Literal::from_bits_le(literal_type.type_id(), next_bits(expected_size as usize)?)?;
+            Ok(Plaintext::Literal(literal, bits.to_vec().into()))
+        }
+        PlaintextType::Struct(identifier) => {
+            // Get the struct.
+            let struct_ = get_struct(identifier)?;
+            // If the variant is `FromBits`, check the variant and metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let plaintext_variant = next_bits(2)?;
+                let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
+                ensure!(plaintext_variant == [false, true], "Invalid plaintext variant for struct type '{identifier}'");
+
+                let num_members = u8::from_bits_le(next_bits(8)?)?;
+                ensure!(struct_.members().len() == num_members as usize, "Struct exceeds maximum of entries.");
+            }
+
+            // Get the members.
+            let mut members = IndexMap::with_capacity(struct_.members().len());
+
+            for (member_identifier, member_type) in struct_.members().iter() {
+                // Get the expected member size.
+                let expected_member_size = get_size_in_bits(member_type)?;
+
+                // If the variant is `FromBits`, check the member metadata.
+                if variant == (DeserializeVariant::FromBits as u8) {
+                    let identifier_size = u8::from_bits_le(next_bits(8)?)?;
+                    ensure!(
+                        member_identifier.size_in_bits() == identifier_size,
+                        "Mismatched identifier size. Expected '{}', found '{}'",
+                        member_identifier.size_in_bits(),
+                        identifier_size
+                    );
+
+                    let identifier_bits = next_bits(identifier_size as usize)?;
+                    let identifier = Identifier::<N>::from_bits_le(identifier_bits)?;
+                    ensure!(
+                        *member_identifier == identifier,
+                        "Mismatched identifier. Expected '{member_identifier}', found '{identifier}'",
+                    );
+
+                    let member_size = u16::from_bits_le(next_bits(16)?)?;
+                    ensure!(
+                        member_size as usize == expected_member_size,
+                        "Mismatched member size. Expected '{expected_member_size}', found '{member_size}'",
+                    );
+                }
+
+                let value = evaluate_deserialize_internal(
+                    variant,
+                    next_bits(expected_member_size)?,
+                    member_type,
+                    &get_struct,
+                    depth + 1,
+                )?;
+
+                if members.insert(*member_identifier, value).is_some() {
+                    bail!("Duplicate identifier in struct.");
+                }
+            }
+
+            // Cache the plaintext bits, and return the struct.
+            Ok(Plaintext::Struct(members, bits.to_vec().into()))
+        }
+        PlaintextType::Array(array_type) => {
+            // If the variant is `FromBits`, check the variant and metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let plaintext_variant = next_bits(2)?;
+                let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
+                ensure!(plaintext_variant == [true, false], "Invalid plaintext variant for array type");
+
+                let num_elements = u32::from_bits_le(next_bits(32)?)?;
+                ensure!(
+                    **array_type.length() == num_elements,
+                    "Mismatched array length. Expected '{}', found '{}'",
+                    **array_type.length(),
+                    num_elements
+                );
+            }
+
+            let expected_element_type = array_type.next_element_type();
+            let expected_element_size = get_size_in_bits(expected_element_type)?;
+
+            let mut elements = Vec::with_capacity(**array_type.length() as usize);
+
+            for _ in 0..**array_type.length() {
+                if variant == (DeserializeVariant::FromBits as u8) {
+                    let element_size = u16::from_bits_le(next_bits(16)?)?;
+                    ensure!(
+                        element_size as usize == expected_element_size,
+                        "Mismatched element size. Expected '{expected_element_size}', found '{element_size}'",
+                    );
+                }
+                let element = evaluate_deserialize_internal(
+                    variant,
+                    next_bits(expected_element_size)?,
+                    expected_element_type,
+                    &get_struct,
+                    depth + 1,
+                )?;
+                elements.push(element);
+            }
+
+            // Cache the plaintext bits, and return the array.
+            Ok(Plaintext::Array(elements, bits.to_vec().into()))
+        }
+    }
+}
+
+fn execute_deserialize_internal<A: circuit::Aleo<Network = N>, N: Network>(
+    variant: u8,
+    bits: &[circuit::Boolean<A>],
+    destination_type: &PlaintextType<N>,
+    get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
+    depth: usize,
+) -> Result<circuit::Plaintext<A>> {
+    use snarkvm_circuit::{Inject, traits::FromBits};
+
+    // Ensure that the depth is within the maximum limit.
+    if depth > A::Network::MAX_DATA_DEPTH {
+        bail!("Plaintext depth exceeds maximum limit: {}", N::MAX_DATA_DEPTH)
+    }
+
+    // A helper to get the number of bits needed.
+    let get_size_in_bits = |plaintext_type: &PlaintextType<N>| -> Result<usize> {
+        match DeserializeVariant::from_u8(variant) {
+            DeserializeVariant::FromBits => plaintext_type.plaintext_size_in_bits(&get_struct),
+            DeserializeVariant::FromBitsRaw => plaintext_type.plaintext_size_in_raw_bits(&get_struct),
+        }
+    };
+
+    // Get the number of bits needed.
+    let num_bits = get_size_in_bits(destination_type)?;
+
+    // Resize the bits to the appropriate length.
+    let mut bits = bits.to_vec();
+    bits.resize(num_bits, circuit::Boolean::<A>::constant(false));
+
+    // The starting index used to create subsequent subslices of the `bits` slice.
+    let mut index = 0;
+
+    // Helper function to get the next n bits as a slice.
+    let mut next_bits = |n: usize| -> Result<&[circuit::Boolean<A>]> {
+        // Safely procure a subslice with the length `n` starting at `index`.
+        let subslice = bits.get(index..index + n);
+        // Check if the range is within bounds.
+        if let Some(next_bits) = subslice {
+            // Move the starting index.
+            index += n;
+            // Return the subslice.
+            Ok(next_bits)
+        } else {
+            bail!("Insufficient bits");
+        }
+    };
+
+    match destination_type {
+        PlaintextType::Literal(literal_type) => {
+            // Get the expected size of the literal.
+            let expected_size = literal_type.size_in_bits::<A::Network>();
+
+            // If the variant is `FromBits`, check the variant and metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let plaintext_variant = next_bits(2)?;
+                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[0]);
+                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[1]);
+
+                let literal_variant = circuit::U8::<A>::from_bits_le(next_bits(8)?);
+                A::assert_eq(&literal_variant, circuit::U8::<A>::constant(U8::new(literal_type.type_id())));
+
+                let literal_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
+                A::assert_eq(&literal_size, circuit::U16::<A>::constant(U16::new(expected_size)));
+            };
+            // Deserialize the literal.
+            let literal = circuit::Literal::<A>::from_bits_le(
+                &circuit::U8::<A>::constant(U8::new(literal_type.type_id())),
+                next_bits(expected_size as usize)?,
+            );
+            Ok(circuit::Plaintext::Literal(literal, bits.to_vec().into()))
+        }
+        PlaintextType::Struct(identifier) => {
+            // Get the struct.
+            let struct_ = get_struct(identifier)?;
+
+            // Get the expected number of members.
+            let expected_num_members =
+                u8::try_from(struct_.members().len()).map_err(|_| anyhow!("Struct exceeds maximum of entries."))?;
+
+            // If the variant is `FromBits`, check the variant and metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let plaintext_variant = next_bits(2)?;
+                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[0]);
+                A::assert_eq(circuit::Boolean::<A>::constant(true), &plaintext_variant[1]);
+
+                let num_members = circuit::U8::<A>::from_bits_le(next_bits(8)?);
+                A::assert_eq(num_members, circuit::U8::<A>::constant(U8::new(expected_num_members)));
+            }
+
+            // Get the members.
+            let mut members = IndexMap::with_capacity(struct_.members().len());
+
+            for (member_identifier, member_type) in struct_.members().iter() {
+                // Get the expected member size.
+                let expected_member_size = u16::try_from(get_size_in_bits(member_type)?)
+                    .map_err(|_| anyhow!("Member size exceeds maximum of 65535 bits."))?;
+
+                // If the variant is `FromBits`, check the member metadata.
+                if variant == (DeserializeVariant::FromBits as u8) {
+                    let expected_identifier_size = member_identifier.size_in_bits();
+                    let identifier_size = circuit::U8::<A>::from_bits_le(next_bits(8)?);
+                    A::assert_eq(&identifier_size, circuit::U8::<A>::constant(U8::new(expected_identifier_size)));
+
+                    let identifier_bits = next_bits(expected_identifier_size as usize)?;
+                    let identifier = circuit::Identifier::<A>::from_bits_le(identifier_bits);
+                    A::assert_eq(circuit::Identifier::<A>::constant(*member_identifier), &identifier);
+
+                    let member_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
+                    A::assert_eq(&member_size, circuit::U16::<A>::constant(U16::new(expected_member_size)));
+                }
+
+                let value = execute_deserialize_internal(
+                    variant,
+                    next_bits(expected_member_size as usize)?,
+                    member_type,
+                    &get_struct,
+                    depth + 1,
+                )?;
+
+                if members.insert(circuit::Identifier::constant(*member_identifier), value).is_some() {
+                    bail!("Duplicate identifier in struct.");
+                }
+            }
+
+            // Cache the plaintext bits, and return the struct.
+            Ok(circuit::Plaintext::Struct(members, bits.to_vec().into()))
+        }
+        PlaintextType::Array(array_type) => {
+            // Get the expected length of the array.
+            let expected_length = **array_type.length();
+
+            // If the variant is `FromBits`, check the variant and metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let plaintext_variant = next_bits(2)?;
+                A::assert_eq(circuit::Boolean::<A>::constant(true), &plaintext_variant[0]);
+                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[1]);
+
+                let num_elements = circuit::U32::<A>::from_bits_le(next_bits(32)?);
+                A::assert_eq(&num_elements, circuit::U32::<A>::constant(U32::new(expected_length)));
+            }
+
+            let expected_element_type = array_type.next_element_type();
+            let expected_element_size = u16::try_from(get_size_in_bits(expected_element_type)?)
+                .map_err(|_| anyhow!("Element size exceeds maximum of 65535 bits."))?;
+
+            let mut elements = Vec::with_capacity(expected_length as usize);
+
+            for _ in 0..**array_type.length() {
+                if variant == (DeserializeVariant::FromBits as u8) {
+                    let element_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
+                    A::assert_eq(&element_size, circuit::U16::<A>::constant(U16::new(expected_element_size)));
+                }
+
+                let element = execute_deserialize_internal(
+                    variant,
+                    next_bits(expected_element_size as usize)?,
+                    expected_element_type,
+                    &get_struct,
+                    depth + 1,
+                )?;
+                elements.push(element);
+            }
+
+            // Cache the plaintext bits, and return the array.
+            Ok(circuit::Plaintext::Array(elements, bits.to_vec().into()))
+        }
     }
 }
 
@@ -206,10 +561,23 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load(stack, &self.operands[0])?;
 
-        let output = evaluate_deserialize_internal(VARIANT, &input, &self.destination_type)?;
+        // Get the bits of the operand.
+        let bits = match input {
+            Value::Plaintext(plaintext) => {
+                // Get the plaintext as a bit array.
+                plaintext.as_bit_array()?
+            }
+            _ => bail!("Expected input to be a plaintext bit array"),
+        };
+
+        // A helper to get a struct declaration.
+        let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
+
+        // Deserialize into the desired output.
+        let output = evaluate_deserialize_internal(VARIANT, &bits, &self.destination_type, get_struct, 0)?;
 
         // Store the output.
-        registers.store(stack, &self.destination, output)
+        registers.store(stack, &self.destination, Value::Plaintext(output))
     }
 
     /// Executes the instruction.
@@ -218,8 +586,6 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         stack: &impl StackTrait<N>,
         registers: &mut impl RegistersCircuit<N, A>,
     ) -> Result<()> {
-        use crate::circuit::{Eject, Inject, Mode};
-
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, self.operands.len())?;
         // Ensure that the operand type is valid.
@@ -230,27 +596,20 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // Load the operand.
         let input = registers.load_circuit(stack, &self.operands[0])?;
 
-        let output = match (VARIANT, &self.destination_type) {
-            (0, PlaintextType::Literal(literal_type)) => {
-                // Get the input as a bit array.
-                let bits = match input {
-                    circuit::Value::Plaintext(plaintext) => plaintext.as_bit_array()?,
-                    _ => bail!("Expected input to be a plaintext, found '{}'", input.eject_value()),
-                };
-                // Deserialize the bits into the desired literal type.
-                circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::from_bits_le(
-                    &circuit::U8::<A>::new(
-                        Mode::Constant,
-                        console::types::U8::<A::Network>::new(literal_type.type_id()),
-                    ),
-                    &bits,
-                )))
-            }
-            _ => bail!("Invalid destination type '{}' for instruction '{}'", &self.destination_type, Self::opcode()),
+        // Get the input as a bit array.
+        let bits = match input {
+            circuit::Value::Plaintext(plaintext) => plaintext.as_bit_array()?,
+            _ => bail!("Expected input to be a plaintext"),
         };
 
+        // A helper to get a struct declaration.
+        let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
+
+        // Deserialize the bits into the desired literal type.
+        let output = execute_deserialize_internal(VARIANT, &bits, &self.destination_type, get_struct, 0)?;
+
         // Store the output.
-        registers.store_circuit(stack, &self.destination, output)
+        registers.store_circuit(stack, &self.destination, circuit::Value::Plaintext(output))
     }
 
     /// Finalizes the instruction.
