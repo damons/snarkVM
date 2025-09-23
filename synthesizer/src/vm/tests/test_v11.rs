@@ -13,17 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "test")]
-mod test_v8;
-
-#[cfg(feature = "test")]
-mod test_v9;
-
-#[cfg(feature = "test")]
-mod test_v10;
-
-#[cfg(feature = "test")]
-mod test_v11;
-
-#[cfg(feature = "test")]
-use super::*;
+// This test verifies that the programs using syntax introduced in `V11` cannot be deployed before `V11`.
+#[test]
+fn test_deployment_for_v11_features() {
+    todo!()
+}

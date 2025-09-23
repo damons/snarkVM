@@ -848,27 +848,27 @@ impl<N: Network> RegisterTypes<N> {
                 matches!(instruction, Instruction::HashSha3_512Raw(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
-            "hash.keccack256.native" => ensure!(
+            "hash.keccak256.native" => ensure!(
                 matches!(instruction, Instruction::HashKeccak256Native(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
-            "hash.keccack256.native.raw" => ensure!(
+            "hash.keccak256.native.raw" => ensure!(
                 matches!(instruction, Instruction::HashKeccak256NativeRaw(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
-            "hash.keccack384.native" => ensure!(
+            "hash.keccak384.native" => ensure!(
                 matches!(instruction, Instruction::HashKeccak384Native(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
-            "hash.keccack384.native.raw" => ensure!(
+            "hash.keccak384.native.raw" => ensure!(
                 matches!(instruction, Instruction::HashKeccak384NativeRaw(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
-            "hash.keccack512.native" => ensure!(
+            "hash.keccak512.native" => ensure!(
                 matches!(instruction, Instruction::HashKeccak512Native(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
-            "hash.keccack512.native.raw" => ensure!(
+            "hash.keccak512.native.raw" => ensure!(
                 matches!(instruction, Instruction::HashKeccak512NativeRaw(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),

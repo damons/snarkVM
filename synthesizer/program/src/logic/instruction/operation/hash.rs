@@ -251,14 +251,18 @@ fn check_number_of_operands(variant: u8, opcode: Opcode, num_operands: usize) ->
 }
 
 /// Returns 'true' if the destination type is valid.
-fn is_valid_destination_type<N: Network>(destination_type: &PlaintextType<N>) -> bool {
-    !matches!(
-        destination_type,
-        PlaintextType::Literal(LiteralType::Boolean)
-            | PlaintextType::Literal(LiteralType::String)
-            | PlaintextType::Struct(..)
-            | PlaintextType::Array(..)
-    )
+fn is_valid_destination_type<N: Network>(variant: u8, destination_type: &PlaintextType<N>) -> bool {
+    match variant {
+        0..=32 => !matches!(
+            destination_type,
+            PlaintextType::Literal(LiteralType::Boolean)
+                | PlaintextType::Literal(LiteralType::String)
+                | PlaintextType::Struct(..)
+                | PlaintextType::Array(..)
+        ),
+        33..=44 => matches!(destination_type, PlaintextType::Array(array_type) if array_type.is_bit_array()),
+        _ => panic!("Invalid 'hash' instruction opcode"),
+    }
 }
 
 /// Hashes the operand into the declared type.
@@ -282,7 +286,7 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Sanity check the number of operands.
         check_number_of_operands(VARIANT, Self::opcode(), operands.len())?;
         // Sanity check the destination type.
-        if !is_valid_destination_type(&destination_type) {
+        if !is_valid_destination_type(VARIANT, &destination_type) {
             bail!("Invalid destination type for 'hash' instruction")
         }
         // Return the instruction.
@@ -426,7 +430,10 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, Self::opcode(), self.operands.len())?;
         // Ensure the destination type is valid.
-        ensure!(is_valid_destination_type(&self.destination_type), "Invalid destination type in 'hash' instruction");
+        ensure!(
+            is_valid_destination_type(VARIANT, &self.destination_type),
+            "Invalid destination type in 'hash' instruction"
+        );
 
         // Load the operand.
         let input = registers.load(stack, &self.operands[0])?;
@@ -449,7 +456,10 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, Self::opcode(), self.operands.len())?;
         // Ensure the destination type is valid.
-        ensure!(is_valid_destination_type(&self.destination_type), "Invalid destination type in 'hash' instruction");
+        ensure!(
+            is_valid_destination_type(VARIANT, &self.destination_type),
+            "Invalid destination type in 'hash' instruction"
+        );
 
         // Load the operand.
         let input = registers.load_circuit(stack, &self.operands[0])?;
@@ -486,15 +496,18 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, Self::opcode(), self.operands.len())?;
         // Ensure the destination type is valid.
-        ensure!(is_valid_destination_type(&self.destination_type), "Invalid destination type in 'hash' instruction");
+        ensure!(
+            is_valid_destination_type(VARIANT, &self.destination_type),
+            "Invalid destination type in 'hash' instruction"
+        );
 
         // TODO (howardwu): If the operation is Pedersen, check that it is within the number of bits.
 
         match VARIANT {
             0..=14 => Ok(vec![RegisterType::Plaintext(self.destination_type.clone())]),
             15..=17 => bail!("'hash_many' is not yet implemented"),
-            18..=32 => Ok(vec![RegisterType::Plaintext(self.destination_type.clone())]),
-            33.. => bail!("Invalid 'hash' variant: {VARIANT}"),
+            18..=44 => Ok(vec![RegisterType::Plaintext(self.destination_type.clone())]),
+            45.. => bail!("Invalid 'hash' variant: {VARIANT}"),
         }
     }
 }
@@ -622,48 +635,128 @@ impl<N: Network, const VARIANT: u8> ToBytes for HashInstruction<N, VARIANT> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use console::network::MainnetV0;
+    use console::{network::MainnetV0, program::ArrayType, types::U32};
 
     type CurrentNetwork = MainnetV0;
 
     /// **Attention**: When changing this, also update in `tests/instruction/hash.rs`.
-    fn valid_destination_types<N: Network>() -> &'static [PlaintextType<N>] {
-        &[
-            PlaintextType::Literal(LiteralType::Address),
-            PlaintextType::Literal(LiteralType::Field),
-            PlaintextType::Literal(LiteralType::Group),
-            PlaintextType::Literal(LiteralType::I8),
-            PlaintextType::Literal(LiteralType::I16),
-            PlaintextType::Literal(LiteralType::I32),
-            PlaintextType::Literal(LiteralType::I64),
-            PlaintextType::Literal(LiteralType::I128),
-            PlaintextType::Literal(LiteralType::U8),
-            PlaintextType::Literal(LiteralType::U16),
-            PlaintextType::Literal(LiteralType::U32),
-            PlaintextType::Literal(LiteralType::U64),
-            PlaintextType::Literal(LiteralType::U128),
-            PlaintextType::Literal(LiteralType::Scalar),
-        ]
+    fn sample_valid_destination_types<N: Network, R: CryptoRng + Rng>(
+        variant: u8,
+        rng: &mut R,
+    ) -> Vec<PlaintextType<N>> {
+        match variant {
+            0..=32 => vec![
+                PlaintextType::Literal(LiteralType::Address),
+                PlaintextType::Literal(LiteralType::Field),
+                PlaintextType::Literal(LiteralType::Group),
+                PlaintextType::Literal(LiteralType::I8),
+                PlaintextType::Literal(LiteralType::I16),
+                PlaintextType::Literal(LiteralType::I32),
+                PlaintextType::Literal(LiteralType::I64),
+                PlaintextType::Literal(LiteralType::I128),
+                PlaintextType::Literal(LiteralType::U8),
+                PlaintextType::Literal(LiteralType::U16),
+                PlaintextType::Literal(LiteralType::U32),
+                PlaintextType::Literal(LiteralType::U64),
+                PlaintextType::Literal(LiteralType::U128),
+                PlaintextType::Literal(LiteralType::Scalar),
+            ],
+            33..=44 => (0..10)
+                .map(|_| {
+                    PlaintextType::Array(
+                        ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(
+                            u32::try_from(rng.gen_range(1..=CurrentNetwork::MAX_ARRAY_ELEMENTS)).unwrap(),
+                        )])
+                        .unwrap(),
+                    )
+                })
+                .collect(),
+            _ => panic!("Invalid 'hash' instruction opcode"),
+        }
+    }
+
+    // A helper function to run a test.
+    fn run_test<N: Network, const VARIANT: u8>() {
+        // Initialize the RNG.
+        let rng = &mut TestRng::default();
+
+        // Get the opcode.
+        let opcode = HashInstruction::<N, VARIANT>::opcode();
+
+        for destination_type in sample_valid_destination_types(VARIANT, rng) {
+            let instruction = format!("{opcode} r0 into r1 as {destination_type}");
+            println!("Testing instruction: '{instruction}'");
+
+            let (string, hash) = HashInstruction::<CurrentNetwork, VARIANT>::parse(&instruction).unwrap();
+            assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+            assert_eq!(hash.operands.len(), 1, "The number of operands is incorrect");
+            assert_eq!(hash.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
+            assert_eq!(hash.destination, Register::Locator(1), "The destination register is incorrect");
+            assert_eq!(&hash.destination_type, &destination_type, "The destination type is incorrect");
+        }
     }
 
     #[test]
     fn test_parse() {
-        for destination_type in valid_destination_types() {
-            let instruction = format!("hash.bhp512 r0 into r1 as {destination_type}");
-            let (string, hash) = HashBHP512::<CurrentNetwork>::parse(&instruction).unwrap();
-            assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-            assert_eq!(hash.operands.len(), 1, "The number of operands is incorrect");
-            assert_eq!(hash.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
-            assert_eq!(hash.destination, Register::Locator(1), "The destination register is incorrect");
-            assert_eq!(&hash.destination_type, destination_type, "The destination type is incorrect");
+        run_test::<CurrentNetwork, { HashVariant::HashBHP256 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashBHP512 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashBHP768 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashBHP1024 as u8 }>();
 
-            let instruction = format!("hash.bhp512.raw r0 into r1 as {destination_type}");
-            let (string, hash) = HashBHP512Raw::<CurrentNetwork>::parse(&instruction).unwrap();
-            assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-            assert_eq!(hash.operands.len(), 1, "The number of operands is incorrect");
-            assert_eq!(hash.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
-            assert_eq!(hash.destination, Register::Locator(1), "The destination register is incorrect");
-            assert_eq!(&hash.destination_type, destination_type, "The destination type is incorrect");
-        }
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak256 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak384 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak512 as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashPED64 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashPED128 as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashPSD2 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashPSD4 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashPSD8 as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_256 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_384 as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_512 as u8 }>();
+
+        // Note: `run_test` needs to be updated when `hash_many` is implemented.
+        //run_test::<CurrentNetwork, { HashVariant::HashManyPSD2 as u8 }>();
+        //run_test::<CurrentNetwork, { HashVariant::HashManyPSD4 as u8 }>();
+        //run_test::<CurrentNetwork, { HashVariant::HashManyPSD8 as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashBHP256Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashBHP512Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashBHP768Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashBHP1024Raw as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak256Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak384Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak512Raw as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashPED64Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashPED128Raw as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashPSD2Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashPSD4Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashPSD8Raw as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_256Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_384Raw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_512Raw as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak256Native as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak384Native as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak512Native as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_256Native as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_384Native as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_512Native as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak256NativeRaw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak384NativeRaw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashKeccak512NativeRaw as u8 }>();
+
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_256NativeRaw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_384NativeRaw as u8 }>();
+        run_test::<CurrentNetwork, { HashVariant::HashSha3_512NativeRaw as u8 }>();
     }
 }

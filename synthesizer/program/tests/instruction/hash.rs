@@ -21,7 +21,7 @@ use circuit::{AleoV0, Eject};
 use console::{
     network::MainnetV0,
     prelude::*,
-    program::{Identifier, Literal, LiteralType, Plaintext, PlaintextType, Register, Value},
+    program::{ArrayType, Identifier, Literal, LiteralType, Plaintext, PlaintextType, Register, U32, Value},
 };
 use snarkvm_synthesizer_process::{Process, Stack};
 use snarkvm_synthesizer_program::{
@@ -35,10 +35,16 @@ use snarkvm_synthesizer_program::{
     HashBHP1024Raw,
     HashInstruction,
     HashKeccak256,
+    HashKeccak256Native,
+    HashKeccak256NativeRaw,
     HashKeccak256Raw,
     HashKeccak384,
+    HashKeccak384Native,
+    HashKeccak384NativeRaw,
     HashKeccak384Raw,
     HashKeccak512,
+    HashKeccak512Native,
+    HashKeccak512NativeRaw,
     HashKeccak512Raw,
     HashPED64,
     HashPED64Raw,
@@ -51,11 +57,18 @@ use snarkvm_synthesizer_program::{
     HashPSD8,
     HashPSD8Raw,
     HashSha3_256,
+    HashSha3_256Native,
+    HashSha3_256NativeRaw,
     HashSha3_256Raw,
     HashSha3_384,
+    HashSha3_384Native,
+    HashSha3_384NativeRaw,
     HashSha3_384Raw,
     HashSha3_512,
+    HashSha3_512Native,
+    HashSha3_512NativeRaw,
     HashSha3_512Raw,
+    HashVariant,
     Opcode,
     Operand,
     Program,
@@ -69,23 +82,49 @@ type CurrentAleo = AleoV0;
 const ITERATIONS: usize = 25;
 
 /// **Attention**: When changing this, also update in `src/logic/instruction/hash.rs`.
-fn valid_destination_types<N: Network>() -> &'static [PlaintextType<N>] {
-    &[
-        PlaintextType::Literal(LiteralType::Address),
-        PlaintextType::Literal(LiteralType::Field),
-        PlaintextType::Literal(LiteralType::Group),
-        PlaintextType::Literal(LiteralType::I8),
-        PlaintextType::Literal(LiteralType::I16),
-        PlaintextType::Literal(LiteralType::I32),
-        PlaintextType::Literal(LiteralType::I64),
-        PlaintextType::Literal(LiteralType::I128),
-        PlaintextType::Literal(LiteralType::U8),
-        PlaintextType::Literal(LiteralType::U16),
-        PlaintextType::Literal(LiteralType::U32),
-        PlaintextType::Literal(LiteralType::U64),
-        PlaintextType::Literal(LiteralType::U128),
-        PlaintextType::Literal(LiteralType::Scalar),
-    ]
+fn sample_valid_destination_types<N: Network, R: CryptoRng + Rng>(
+    variant: HashVariant,
+    rng: &mut R,
+) -> Vec<PlaintextType<N>> {
+    match variant {
+        HashVariant::HashKeccak256Native
+        | HashVariant::HashKeccak384Native
+        | HashVariant::HashKeccak512Native
+        | HashVariant::HashSha3_256Native
+        | HashVariant::HashSha3_384Native
+        | HashVariant::HashSha3_512Native
+        | HashVariant::HashKeccak256NativeRaw
+        | HashVariant::HashKeccak384NativeRaw
+        | HashVariant::HashKeccak512NativeRaw
+        | HashVariant::HashSha3_256NativeRaw
+        | HashVariant::HashSha3_384NativeRaw
+        | HashVariant::HashSha3_512NativeRaw => (0..10)
+            .map(|_| {
+                PlaintextType::Array(
+                    ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(
+                        u32::try_from(rng.gen_range(1..=CurrentNetwork::MAX_ARRAY_ELEMENTS)).unwrap(),
+                    )])
+                    .unwrap(),
+                )
+            })
+            .collect(),
+        _ => vec![
+            PlaintextType::Literal(LiteralType::Address),
+            PlaintextType::Literal(LiteralType::Field),
+            PlaintextType::Literal(LiteralType::Group),
+            PlaintextType::Literal(LiteralType::I8),
+            PlaintextType::Literal(LiteralType::I16),
+            PlaintextType::Literal(LiteralType::I32),
+            PlaintextType::Literal(LiteralType::I64),
+            PlaintextType::Literal(LiteralType::I128),
+            PlaintextType::Literal(LiteralType::U8),
+            PlaintextType::Literal(LiteralType::U16),
+            PlaintextType::Literal(LiteralType::U32),
+            PlaintextType::Literal(LiteralType::U64),
+            PlaintextType::Literal(LiteralType::U128),
+            PlaintextType::Literal(LiteralType::Scalar),
+        ],
+    }
 }
 
 /// Samples the stack. Note: Do not replicate this for real program use, it is insecure.
@@ -218,16 +257,16 @@ macro_rules! test_hash {
                     let opcode = $hash::<CurrentNetwork>::opcode();
 
                     // Prepare the rng.
-                    let mut rng = TestRng::default();
+                    let rng = &mut TestRng::default();
 
                     // Prepare the test.
                     let modes = [circuit::Mode::Public, circuit::Mode::Private];
 
                     for _ in 0..$iterations {
-                        let literals = sample_literals!(CurrentNetwork, &mut rng);
+                        let literals = sample_literals!(CurrentNetwork, rng);
                         for literal in literals.iter() {
                             for mode in modes.iter() {
-                                for destination_type in valid_destination_types() {
+                                for destination_type in sample_valid_destination_types(HashVariant::$hash, rng) {
                                     check_hash(
                                         operation,
                                         opcode,
@@ -278,11 +317,27 @@ test_hash!(hash_sha3_256_raw, HashSha3_256Raw, 5);
 test_hash!(hash_sha3_384_raw, HashSha3_384Raw, 5);
 test_hash!(hash_sha3_512_raw, HashSha3_512Raw, 5);
 
+test_hash!(hash_keccak256_native, HashKeccak256Native, 5);
+test_hash!(hash_keccak384_native, HashKeccak384Native, 5);
+test_hash!(hash_keccak512_native, HashKeccak512Native, 5);
+
+test_hash!(hash_sha3_256_native, HashSha3_256Native, 5);
+test_hash!(hash_sha3_384_native, HashSha3_384Native, 5);
+test_hash!(hash_sha3_512_native, HashSha3_512Native, 5);
+
+test_hash!(hash_keccak256_native_raw, HashKeccak256NativeRaw, 5);
+test_hash!(hash_keccak384_native_raw, HashKeccak384NativeRaw, 5);
+test_hash!(hash_keccak512_native_raw, HashKeccak512NativeRaw, 5);
+
+test_hash!(hash_sha3_256_native_raw, HashSha3_256NativeRaw, 5);
+test_hash!(hash_sha3_384_native_raw, HashSha3_384NativeRaw, 5);
+test_hash!(hash_sha3_512_native_raw, HashSha3_512NativeRaw, 5);
+
 // Note this test must be explicitly written, instead of using the macro, because HashPED64 fails on certain input types.
 #[test]
 fn test_hash_ped64_is_consistent() {
     // Prepare the rng.
-    let mut rng = TestRng::default();
+    let rng = &mut TestRng::default();
 
     // Prepare the test.
     let modes = [circuit::Mode::Public, circuit::Mode::Private];
@@ -291,17 +346,17 @@ fn test_hash_ped64_is_consistent() {
         ($operation:tt) => {
             for _ in 0..ITERATIONS {
                 let literals = [
-                    Literal::Boolean(console::types::Boolean::rand(&mut rng)),
-                    Literal::I8(console::types::I8::rand(&mut rng)),
-                    Literal::I16(console::types::I16::rand(&mut rng)),
-                    Literal::I32(console::types::I32::rand(&mut rng)),
-                    Literal::U8(console::types::U8::rand(&mut rng)),
-                    Literal::U16(console::types::U16::rand(&mut rng)),
-                    Literal::U32(console::types::U32::rand(&mut rng)),
+                    Literal::Boolean(console::types::Boolean::rand(rng)),
+                    Literal::I8(console::types::I8::rand(rng)),
+                    Literal::I16(console::types::I16::rand(rng)),
+                    Literal::I32(console::types::I32::rand(rng)),
+                    Literal::U8(console::types::U8::rand(rng)),
+                    Literal::U16(console::types::U16::rand(rng)),
+                    Literal::U32(console::types::U32::rand(rng)),
                 ];
                 for literal in literals.iter() {
                     for mode in modes.iter() {
-                        for destination_type in valid_destination_types() {
+                        for destination_type in sample_valid_destination_types(HashVariant::$operation, rng) {
                             check_hash(
                                 |operands, destination, destination_type| {
                                     $operation::<CurrentNetwork>::new(operands, destination, destination_type).unwrap()
@@ -325,7 +380,7 @@ fn test_hash_ped64_is_consistent() {
 #[test]
 fn test_hash_ped128_is_consistent() {
     // Prepare the rng.
-    let mut rng = TestRng::default();
+    let rng = &mut TestRng::default();
 
     // Prepare the test.
     let modes = [circuit::Mode::Public, circuit::Mode::Private];
@@ -334,19 +389,19 @@ fn test_hash_ped128_is_consistent() {
         ($operation:tt) => {
             for _ in 0..ITERATIONS {
                 let literals = [
-                    Literal::Boolean(console::types::Boolean::rand(&mut rng)),
-                    Literal::I8(console::types::I8::rand(&mut rng)),
-                    Literal::I16(console::types::I16::rand(&mut rng)),
-                    Literal::I32(console::types::I32::rand(&mut rng)),
-                    Literal::I64(console::types::I64::rand(&mut rng)),
-                    Literal::U8(console::types::U8::rand(&mut rng)),
-                    Literal::U16(console::types::U16::rand(&mut rng)),
-                    Literal::U32(console::types::U32::rand(&mut rng)),
-                    Literal::U64(console::types::U64::rand(&mut rng)),
+                    Literal::Boolean(console::types::Boolean::rand(rng)),
+                    Literal::I8(console::types::I8::rand(rng)),
+                    Literal::I16(console::types::I16::rand(rng)),
+                    Literal::I32(console::types::I32::rand(rng)),
+                    Literal::I64(console::types::I64::rand(rng)),
+                    Literal::U8(console::types::U8::rand(rng)),
+                    Literal::U16(console::types::U16::rand(rng)),
+                    Literal::U32(console::types::U32::rand(rng)),
+                    Literal::U64(console::types::U64::rand(rng)),
                 ];
                 for literal in literals.iter() {
                     for mode in modes.iter() {
-                        for destination_type in valid_destination_types() {
+                        for destination_type in sample_valid_destination_types(HashVariant::$operation, rng) {
                             check_hash(
                                 |operands, destination, destination_type| {
                                     $operation::<CurrentNetwork>::new(operands, destination, destination_type).unwrap()
