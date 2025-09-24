@@ -55,6 +55,7 @@ fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Net
     match operand_type {
         RegisterType::Plaintext(PlaintextType::Literal(literal_type)) => match literal_type {
             LiteralType::Address
+            | LiteralType::Boolean
             | LiteralType::Field
             | LiteralType::Group
             | LiteralType::I8
@@ -72,6 +73,11 @@ fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Net
                 bail!("Instruction '{}' cannot take type '{operand_type}' as input", SerializeVariant::opcode(variant))
             }
         },
+        RegisterType::Plaintext(PlaintextType::Array(array_type))
+            if matches!(array_type.base_element_type(), PlaintextType::Literal(_)) =>
+        {
+            Ok(())
+        }
         _ => bail!("Instruction '{}' cannot take type '{operand_type}' as input", SerializeVariant::opcode(variant)),
     }
 }
@@ -79,7 +85,7 @@ fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Net
 /// Check that the destination type is valid.
 fn check_destination_type_is_valid(variant: u8, destination_type: &ArrayType<impl Network>) -> Result<()> {
     match (variant, destination_type) {
-        (0, array_type) if array_type.is_bit_array() => Ok(()),
+        (0 | 1, array_type) if array_type.is_bit_array() => Ok(()),
         _ => {
             bail!("Instruction '{}' cannot output type '{destination_type}'", SerializeVariant::opcode(variant))
         }
@@ -109,10 +115,13 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     ) -> Result<Self> {
         // Sanity check the number of operands.
         check_number_of_operands(VARIANT, operands.len())?;
+        println!("a");
         // Ensure that the operand type is valid.
         check_operand_type_is_valid(VARIANT, &operand_type)?;
+        println!("b");
         // Sanity check the destination type.
         check_destination_type_is_valid(VARIANT, &destination_type)?;
+        println!("c");
         // Return the instruction.
         Ok(Self { operands, operand_type, destination, destination_type })
     }
@@ -306,10 +315,14 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
             Ok((string, operands))
         }
 
+        println!("1");
+
         // Parse the opcode from the string.
         let (string, _) = tag(*Self::opcode())(string)?;
         // Parse the operands from the string.
         let (string, operands) = parse_operands(string, 1)?;
+
+        println!("2");
 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
@@ -322,6 +335,8 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
 
+        println!("3");
+
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the "into" from the string.
@@ -330,6 +345,8 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the destination register from the string.
         let (string, destination) = Register::parse(string)?;
+
+        println!("4");
 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
@@ -341,6 +358,8 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         let (string, destination_type) = ArrayType::parse(string)?;
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
+
+        println!("5");
 
         // Construct the instruction, checking for errors.
         match Self::new(operands, operand_type, destination, destination_type) {
@@ -463,6 +482,8 @@ mod tests {
                 let opcode = SerializeVariant::opcode(VARIANT);
                 let destination_type = sample_destination_type::<CurrentNetwork, VARIANT>(rng);
                 let instruction = format!("{opcode} r0 ({source_type}) into r1 ({destination_type})");
+                println!("Parsing instruction: '{instruction}'");
+
                 let (string, serialize) = SerializeInstruction::<CurrentNetwork, VARIANT>::parse(&instruction).unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
                 assert_eq!(serialize.operands.len(), 1, "The number of operands is incorrect");
@@ -486,5 +507,8 @@ mod tests {
         // Run the parser test for each variant.
         run_parser_test::<{ SerializeVariant::ToBits as u8 }>(rng);
         run_parser_test::<{ SerializeVariant::ToBitsRaw as u8 }>(rng);
+
+        SerializeBitsRaw::<CurrentNetwork>::from_str("serialize.bits.raw r0 (boolean) into r1 ([boolean; 1u32])")
+            .unwrap();
     }
 }

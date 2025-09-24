@@ -78,7 +78,7 @@ fn check_number_of_operands(variant: u8, num_operands: usize) -> Result<()> {
 /// Checks that the operand type is valid.
 fn check_operand_type_is_valid(variant: u8, array_type: &ArrayType<impl Network>) -> Result<()> {
     match variant {
-        0 if array_type.is_bit_array() => Ok(()),
+        0 | 1 if array_type.is_bit_array() => Ok(()),
         _ => {
             bail!("Instruction '{}' cannot output type '{array_type}'", DeserializeVariant::opcode(variant))
         }
@@ -190,22 +190,28 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
 ///
 /// This allows running `deserialize` without the machinery of stacks and registers.
 /// This is necessary for the Leo interpreter.
-pub fn evaluate_deserialize<N: Network>(
+pub fn evaluate_deserialize<N: Network, F>(
     variant: DeserializeVariant,
     bits: &[bool],
     destination_type: &PlaintextType<N>,
-    get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
-) -> Result<Plaintext<N>> {
+    get_struct: &F,
+) -> Result<Plaintext<N>>
+where
+    F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+{
     evaluate_deserialize_internal(variant as u8, bits, destination_type, get_struct, 0)
 }
 
-fn evaluate_deserialize_internal<N: Network>(
+fn evaluate_deserialize_internal<N: Network, F>(
     variant: u8,
     bits: &[bool],
     destination_type: &PlaintextType<N>,
-    get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
+    get_struct: &F,
     depth: usize,
-) -> Result<Plaintext<N>> {
+) -> Result<Plaintext<N>>
+where
+    F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+{
     // Ensure that the depth is within the maximum limit.
     if depth > N::MAX_DATA_DEPTH {
         bail!("Plaintext depth exceeds maximum limit: {}", N::MAX_DATA_DEPTH)
@@ -322,7 +328,7 @@ fn evaluate_deserialize_internal<N: Network>(
                     variant,
                     next_bits(expected_member_size)?,
                     member_type,
-                    &get_struct,
+                    get_struct,
                     depth + 1,
                 )?;
 
@@ -367,7 +373,7 @@ fn evaluate_deserialize_internal<N: Network>(
                     variant,
                     next_bits(expected_element_size)?,
                     expected_element_type,
-                    &get_struct,
+                    get_struct,
                     depth + 1,
                 )?;
                 elements.push(element);
@@ -379,13 +385,16 @@ fn evaluate_deserialize_internal<N: Network>(
     }
 }
 
-fn execute_deserialize_internal<A: circuit::Aleo<Network = N>, N: Network>(
+fn execute_deserialize_internal<A: circuit::Aleo<Network = N>, N: Network, F>(
     variant: u8,
     bits: &[circuit::Boolean<A>],
     destination_type: &PlaintextType<N>,
-    get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
+    get_struct: &F,
     depth: usize,
-) -> Result<circuit::Plaintext<A>> {
+) -> Result<circuit::Plaintext<A>>
+where
+    F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+{
     use snarkvm_circuit::{Inject, traits::FromBits};
 
     // Ensure that the depth is within the maximum limit.
@@ -396,8 +405,8 @@ fn execute_deserialize_internal<A: circuit::Aleo<Network = N>, N: Network>(
     // A helper to get the number of bits needed.
     let get_size_in_bits = |plaintext_type: &PlaintextType<N>| -> Result<usize> {
         match DeserializeVariant::from_u8(variant) {
-            DeserializeVariant::FromBits => plaintext_type.plaintext_size_in_bits(&get_struct),
-            DeserializeVariant::FromBitsRaw => plaintext_type.plaintext_size_in_raw_bits(&get_struct),
+            DeserializeVariant::FromBits => plaintext_type.plaintext_size_in_bits(get_struct),
+            DeserializeVariant::FromBitsRaw => plaintext_type.plaintext_size_in_raw_bits(get_struct),
         }
     };
 
@@ -494,7 +503,7 @@ fn execute_deserialize_internal<A: circuit::Aleo<Network = N>, N: Network>(
                     variant,
                     next_bits(expected_member_size as usize)?,
                     member_type,
-                    &get_struct,
+                    get_struct,
                     depth + 1,
                 )?;
 
@@ -536,7 +545,7 @@ fn execute_deserialize_internal<A: circuit::Aleo<Network = N>, N: Network>(
                     variant,
                     next_bits(expected_element_size as usize)?,
                     expected_element_type,
-                    &get_struct,
+                    get_struct,
                     depth + 1,
                 )?;
                 elements.push(element);
@@ -574,7 +583,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
 
         // Deserialize into the desired output.
-        let output = evaluate_deserialize_internal(VARIANT, &bits, &self.destination_type, get_struct, 0)?;
+        let output = evaluate_deserialize_internal(VARIANT, &bits, &self.destination_type, &get_struct, 0)?;
 
         // Store the output.
         registers.store(stack, &self.destination, Value::Plaintext(output))
@@ -606,7 +615,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
 
         // Deserialize the bits into the desired literal type.
-        let output = execute_deserialize_internal(VARIANT, &bits, &self.destination_type, get_struct, 0)?;
+        let output = execute_deserialize_internal(VARIANT, &bits, &self.destination_type, &get_struct, 0)?;
 
         // Store the output.
         registers.store_circuit(stack, &self.destination, circuit::Value::Plaintext(output))
@@ -821,6 +830,8 @@ mod tests {
                 let opcode = DeserializeVariant::opcode(VARIANT);
                 let source_type = sample_source_type::<CurrentNetwork, VARIANT>(rng);
                 let instruction = format!("{opcode} r0 ({source_type}) into r1 ({destination_type})",);
+                println!("Parsing instruction: '{instruction}'");
+
                 let (string, deserialize) =
                     DeserializeInstruction::<CurrentNetwork, VARIANT>::parse(&instruction).unwrap();
                 assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");

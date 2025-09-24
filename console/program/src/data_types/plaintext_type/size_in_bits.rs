@@ -19,19 +19,18 @@ use crate::StructType;
 
 impl<N: Network> PlaintextType<N> {
     /// Returns the number of bits of a plaintext type.
-    pub fn plaintext_size_in_bits(
-        &self,
-        get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
-    ) -> Result<usize> {
+    pub fn plaintext_size_in_bits<F>(&self, get_struct: &F) -> Result<usize>
+    where
+        F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+    {
         self.plaintext_size_in_bits_internal(get_struct, 0)
     }
 
     /// A helper function to determine the number of bits of a plaintext type, while tracking the depth of the data.
-    fn plaintext_size_in_bits_internal(
-        &self,
-        get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
-        depth: usize,
-    ) -> Result<usize> {
+    fn plaintext_size_in_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
+    where
+        F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+    {
         // Ensure that the depth is within the maximum limit.
         ensure!(depth <= N::MAX_DATA_DEPTH, "Plaintext depth exceeds maximum limit: {}", N::MAX_DATA_DEPTH);
 
@@ -69,7 +68,7 @@ impl<N: Network> PlaintextType<N> {
                     // Account for the size of the member
                     total = total.checked_add(16).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                     // Account for the member itself.
-                    let member_size = member_type.plaintext_size_in_bits_internal(&get_struct, depth + 1)?;
+                    let member_size = member_type.plaintext_size_in_bits_internal(get_struct, depth + 1)?;
                     total = total.checked_add(member_size).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 }
 
@@ -100,19 +99,18 @@ impl<N: Network> PlaintextType<N> {
     }
 
     /// Returns the number of raw bits of a plaintext type.
-    pub fn plaintext_size_in_raw_bits(
-        &self,
-        get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
-    ) -> Result<usize> {
+    pub fn plaintext_size_in_raw_bits<F>(&self, get_struct: &F) -> Result<usize>
+    where
+        F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+    {
         self.plaintext_size_in_raw_bits_internal(get_struct, 0)
     }
 
     // A helper function to determine the number of raw bits of a plaintext type, while tracking the depth of the data.
-    fn plaintext_size_in_raw_bits_internal(
-        &self,
-        get_struct: impl Fn(&Identifier<N>) -> Result<StructType<N>>,
-        depth: usize,
-    ) -> Result<usize> {
+    fn plaintext_size_in_raw_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
+    where
+        F: Fn(&Identifier<N>) -> Result<StructType<N>>,
+    {
         // Ensure that the depth is within the maximum limit.
         ensure!(depth <= N::MAX_DATA_DEPTH, "Plaintext depth exceeds maximum limit: {}", N::MAX_DATA_DEPTH);
 
@@ -125,7 +123,7 @@ impl<N: Network> PlaintextType<N> {
                 let mut total = 0usize;
                 for member_type in struct_.members().values() {
                     // Get the size of the member.
-                    let member_size = member_type.plaintext_size_in_raw_bits_internal(&get_struct, depth + 1)?;
+                    let member_size = member_type.plaintext_size_in_raw_bits_internal(get_struct, depth + 1)?;
                     // Add to the total size, ensuring no overflow occurs.
                     total = total.checked_add(member_size).ok_or(anyhow!("`size_in_raw_bits` overflowed"))?;
                 }

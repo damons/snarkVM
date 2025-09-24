@@ -195,15 +195,18 @@ fn check_hash<const VARIANT: u8>(
     let destination_operand = Operand::Register(destination);
 
     // Attempt to evaluate the valid operand case.
-    let mut evaluate_registers = sample_registers(&stack, &function_name, &[(literal, None)]).unwrap();
+    let mut evaluate_registers =
+        sample_registers(&stack, &function_name, &[(Value::Plaintext(Plaintext::from(literal)), None)]).unwrap();
     let result_a = operation.evaluate(&stack, &mut evaluate_registers);
 
     // Attempt to execute the valid operand case.
-    let mut execute_registers = sample_registers(&stack, &function_name, &[(literal, Some(*mode))]).unwrap();
+    let mut execute_registers =
+        sample_registers(&stack, &function_name, &[(Value::Plaintext(Plaintext::from(literal)), Some(*mode))]).unwrap();
     let result_b = operation.execute::<CurrentAleo>(&stack, &mut execute_registers);
 
     // Attempt to finalize the valid operand case.
-    let mut finalize_registers = sample_finalize_registers(&stack, &function_name, &[literal]).unwrap();
+    let mut finalize_registers =
+        sample_finalize_registers(&stack, &function_name, &[Plaintext::from(literal)]).unwrap();
     let result_c = operation.finalize(&stack, &mut finalize_registers);
 
     // Check that either all operations failed, or all operations succeeded.
