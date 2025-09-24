@@ -17,12 +17,6 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(test, allow(clippy::assertions_on_result_states))]
 
-#[cfg(feature = "cli")]
-#[macro_use]
-extern crate thiserror;
-
-#[cfg(feature = "cli")]
-pub mod cli;
 #[cfg(feature = "file")]
 pub mod file;
 #[cfg(feature = "package")]
