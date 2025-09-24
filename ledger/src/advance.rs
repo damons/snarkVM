@@ -104,7 +104,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 "The given block is not the direct successor of the latest block"
             );
         } else {
-            ensure!(block.height() > 0, "Non-genesis blocks cannot have height 0");
+            ensure!(block.height() != 0, "Non-genesis blocks cannot have height 0");
             ensure!(
                 current_block.height() + 1 == block.height(),
                 "The given block is not the direct successor of the latest block"
