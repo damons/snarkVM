@@ -31,6 +31,7 @@ use snarkvm_synthesizer_program::{
     SerializeBits,
     SerializeBitsRaw,
     SerializeInstruction,
+    SerializeVariant,
 };
 
 type CurrentNetwork = MainnetV0;
@@ -91,8 +92,6 @@ fn check_hash<const VARIANT: u8>(
     mode: &circuit::Mode,
     iterations: usize,
 ) {
-    println!("Checking '{opcode}' for '{type_}.{mode}'");
-
     // Initalize an RNG.
     let rng = &mut TestRng::default();
 
@@ -107,14 +106,16 @@ fn check_hash<const VARIANT: u8>(
     };
     let size_in_bits = u32::try_from(size_in_bits).unwrap();
 
+    println!("Checking '{opcode}' for '{type_}.{mode}' to [boolean; {size_in_bits}u32]");
+
     // Construct the array type.
-    let bits = ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(size_in_bits)]).unwrap();
+    let bits_type = ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(size_in_bits)]).unwrap();
 
     // Initialize the stack.
-    let (stack, operands, destination) = sample_stack(opcode, type_, &bits, *mode).unwrap();
+    let (stack, operands, destination) = sample_stack(opcode, type_, &bits_type, *mode).unwrap();
 
     // Initialize the operation.
-    let operation = operation(operands, RegisterType::Plaintext(type_.clone()), destination.clone(), bits);
+    let operation = operation(operands, RegisterType::Plaintext(type_.clone()), destination.clone(), bits_type);
     // Initialize the function name.
     let function_name = Identifier::from_str("run").unwrap();
     // Initialize a destination operand.
@@ -124,6 +125,16 @@ fn check_hash<const VARIANT: u8>(
     for _ in 0..iterations {
         // Sample the plaintext.
         let plaintext = stack.sample_plaintext(type_, rng).unwrap();
+
+        // Get the bits of the plaintext.
+        let bits = match VARIANT {
+            0 => plaintext.to_bits_le(),
+            1 => plaintext.to_bits_raw_le(),
+            _ => panic!("Invalid 'serialize' veriant"),
+        };
+
+        // Check that the number of bits matches.
+        assert_eq!(bits.len(), size_in_bits as usize, "The number of bits does not match the expected size");
 
         // Attempt to evaluate the valid operand case.
         let mut evaluate_registers =
@@ -189,8 +200,8 @@ fn check_hash<const VARIANT: u8>(
 }
 
 // Get the types to be tested.
-fn test_types() -> Vec<PlaintextType<CurrentNetwork>> {
-    vec![
+fn test_types(variant: SerializeVariant) -> Vec<PlaintextType<CurrentNetwork>> {
+    let mut types = vec![
         PlaintextType::Literal(LiteralType::Address),
         PlaintextType::Literal(LiteralType::Boolean),
         PlaintextType::Literal(LiteralType::Field),
@@ -206,12 +217,21 @@ fn test_types() -> Vec<PlaintextType<CurrentNetwork>> {
         PlaintextType::Literal(LiteralType::U64),
         PlaintextType::Literal(LiteralType::U128),
         PlaintextType::Literal(LiteralType::Scalar),
-        PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(32)]).unwrap()),
-    ]
+        PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(8)]).unwrap()),
+    ];
+
+    // Add additional types for the raw variant.
+    if variant == SerializeVariant::ToBitsRaw {
+        types.push(PlaintextType::Array(
+            ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(32)]).unwrap(),
+        ))
+    }
+
+    types
 }
 
 macro_rules! test_serialize {
-        ($name: tt, $serialize:ident, $iterations:expr) => {
+        ($name: tt, $serialize:ident, $variant:ident, $iterations:expr) => {
             paste::paste! {
                 #[test]
                 fn [<test _ $name _ is _ consistent>]() {
@@ -224,7 +244,7 @@ macro_rules! test_serialize {
                     let modes = [circuit::Mode::Public, circuit::Mode::Private];
 
                     for mode in modes.iter() {
-                        for type_ in test_types().iter() {
+                        for type_ in test_types(SerializeVariant::$variant).iter() {
                             check_hash(
                                 operation,
                                 opcode,
@@ -239,5 +259,5 @@ macro_rules! test_serialize {
         };
     }
 
-test_serialize!(serialize_bits, SerializeBits, ITERATIONS);
-test_serialize!(serialize_bits_raw, SerializeBitsRaw, ITERATIONS);
+test_serialize!(serialize_bits, SerializeBits, ToBits, ITERATIONS);
+test_serialize!(serialize_bits_raw, SerializeBitsRaw, ToBitsRaw, ITERATIONS);
