@@ -90,6 +90,7 @@ fn check_destination_type_is_valid(variant: u8, destination_type: &PlaintextType
     match destination_type {
         PlaintextType::Literal(literal_type) => match literal_type {
             LiteralType::Address
+            | LiteralType::Boolean
             | LiteralType::Field
             | LiteralType::Group
             | LiteralType::I8

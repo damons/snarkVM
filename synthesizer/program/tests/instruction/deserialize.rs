@@ -19,19 +19,19 @@ use circuit::{AleoV0, Eject};
 use console::{
     network::MainnetV0,
     prelude::*,
-    program::{ArrayType, Identifier, LiteralType, PlaintextType, Register, RegisterType, U32, Value},
+    program::{ArrayType, Identifier, LiteralType, Plaintext, PlaintextType, Register, U32, Value},
 };
 use snarkvm_synthesizer_process::{Process, Stack};
 use snarkvm_synthesizer_program::{
+    DeserializeBits,
+    DeserializeBitsRaw,
+    DeserializeInstruction,
+    DeserializeVariant,
     Opcode,
     Operand,
     Program,
     RegistersCircuit as _,
     RegistersTrait as _,
-    SerializeBits,
-    SerializeBitsRaw,
-    SerializeInstruction,
-    SerializeVariant,
 };
 
 type CurrentNetwork = MainnetV0;
@@ -61,13 +61,13 @@ fn sample_stack(
     let program = Program::from_str(&format!(
         "program testing.aleo;
             function {function_name}:
-                input {r0} as {type_}.{mode};
-                {opcode} {r0} ({type_}) into {r1} ({bits});
+                input {r0} as {bits}.{mode};
+                {opcode} {r0} ({bits}) into {r1} ({type_});
                 async {function_name} {r0} into r2;
                 output r2 as testing.aleo/{function_name}.future;
             finalize {function_name}:
-                input {r0} as {type_}.public;
-                {opcode} {r0} ({type_}) into {r1} ({bits});
+                input {r0} as {bits}.public;
+                {opcode} {r0} ({bits}) into {r1} ({type_});
         "
     ))?;
 
@@ -80,13 +80,13 @@ fn sample_stack(
     Ok((stack, operands, r1))
 }
 
-fn check_serialize<const VARIANT: u8>(
+fn check_deserialize<const VARIANT: u8>(
     operation: impl FnOnce(
         Vec<Operand<CurrentNetwork>>,
-        RegisterType<CurrentNetwork>,
-        Register<CurrentNetwork>,
         ArrayType<CurrentNetwork>,
-    ) -> SerializeInstruction<CurrentNetwork, VARIANT>,
+        Register<CurrentNetwork>,
+        PlaintextType<CurrentNetwork>,
+    ) -> DeserializeInstruction<CurrentNetwork, VARIANT>,
     opcode: Opcode,
     type_: &PlaintextType<CurrentNetwork>,
     mode: &circuit::Mode,
@@ -102,7 +102,7 @@ fn check_serialize<const VARIANT: u8>(
     let size_in_bits = match VARIANT {
         0 => type_.plaintext_size_in_bits(&fail_get_struct).unwrap(),
         1 => type_.plaintext_size_in_raw_bits(&fail_get_struct).unwrap(),
-        _ => panic!("Invalid 'serialize' veriant"),
+        _ => panic!("Invalid 'deserialize' veriant"),
     };
     let size_in_bits = u32::try_from(size_in_bits).unwrap();
 
@@ -115,7 +115,7 @@ fn check_serialize<const VARIANT: u8>(
     let (stack, operands, destination) = sample_stack(opcode, type_, &bits_type, *mode).unwrap();
 
     // Initialize the operation.
-    let operation = operation(operands, RegisterType::Plaintext(type_.clone()), destination.clone(), bits_type);
+    let operation = operation(operands, bits_type, destination.clone(), type_.clone());
     // Initialize the function name.
     let function_name = Identifier::from_str("run").unwrap();
     // Initialize a destination operand.
@@ -130,24 +130,27 @@ fn check_serialize<const VARIANT: u8>(
         let bits = match VARIANT {
             0 => plaintext.to_bits_le(),
             1 => plaintext.to_bits_raw_le(),
-            _ => panic!("Invalid 'serialize' veriant"),
+            _ => panic!("Invalid 'deserialize' veriant"),
         };
 
         // Check that the number of bits matches.
         assert_eq!(bits.len(), size_in_bits as usize, "The number of bits does not match the expected size");
 
+        // Construct the bit array input.
+        let bit_array = Plaintext::from_bit_array(bits);
+
         // Attempt to evaluate the valid operand case.
         let mut evaluate_registers =
-            sample_registers(&stack, &function_name, &[(Value::Plaintext(plaintext.clone()), None)]).unwrap();
+            sample_registers(&stack, &function_name, &[(Value::Plaintext(bit_array.clone()), None)]).unwrap();
         let result_a = operation.evaluate(&stack, &mut evaluate_registers);
 
         // Attempt to execute the valid operand case.
         let mut execute_registers =
-            sample_registers(&stack, &function_name, &[(Value::Plaintext(plaintext.clone()), Some(*mode))]).unwrap();
+            sample_registers(&stack, &function_name, &[(Value::Plaintext(bit_array.clone()), Some(*mode))]).unwrap();
         let result_b = operation.execute::<CurrentAleo>(&stack, &mut execute_registers);
 
         // Attempt to finalize the valid operand case.
-        let mut finalize_registers = sample_finalize_registers(&stack, &function_name, &[plaintext]).unwrap();
+        let mut finalize_registers = sample_finalize_registers(&stack, &function_name, &[bit_array]).unwrap();
         let result_c = operation.finalize(&stack, &mut finalize_registers);
 
         // Check that either all operations failed, or all operations succeeded.
@@ -179,17 +182,9 @@ fn check_serialize<const VARIANT: u8>(
 
             // Check that the output type is consistent with the declared type.
             match output_a {
-                Value::Plaintext(plaintext) => {
-                    // Check that the plaintext is a bit array.
-                    let Ok(bit_array) = plaintext.as_bit_array() else {
-                        panic!("The output type is inconsistent with the declared type");
-                    };
-                    // Check that the lengths match.
-                    assert_eq!(
-                        bit_array.len(),
-                        size_in_bits as usize,
-                        "The output type is inconsistent with the declared type"
-                    );
+                Value::Plaintext(output_plaintext) => {
+                    // Check that the output plaintext matches the input.
+                    assert_eq!(output_plaintext, plaintext, "The output value does not match the input type");
                 }
                 _ => unreachable!("The output type is inconsistent with the declared type"),
             }
@@ -200,7 +195,7 @@ fn check_serialize<const VARIANT: u8>(
 }
 
 // Get the types to be tested.
-fn test_types(variant: SerializeVariant) -> Vec<PlaintextType<CurrentNetwork>> {
+fn test_types(variant: DeserializeVariant) -> Vec<PlaintextType<CurrentNetwork>> {
     let mut types = vec![
         PlaintextType::Literal(LiteralType::Address),
         PlaintextType::Literal(LiteralType::Boolean),
@@ -221,7 +216,7 @@ fn test_types(variant: SerializeVariant) -> Vec<PlaintextType<CurrentNetwork>> {
     ];
 
     // Add additional types for the raw variant.
-    if variant == SerializeVariant::ToBitsRaw {
+    if variant == DeserializeVariant::FromBitsRaw {
         types.push(PlaintextType::Array(
             ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(32)]).unwrap(),
         ))
@@ -230,22 +225,22 @@ fn test_types(variant: SerializeVariant) -> Vec<PlaintextType<CurrentNetwork>> {
     types
 }
 
-macro_rules! test_serialize {
-        ($name: tt, $serialize:ident, $variant:ident, $iterations:expr) => {
+macro_rules! test_deserialize {
+        ($name: tt, $deserialize:ident, $variant:ident, $iterations:expr) => {
             paste::paste! {
                 #[test]
                 fn [<test _ $name _ is _ consistent>]() {
                     // Initialize the operation.
-                    let operation = |operands, operand_type, destination, destination_type| $serialize::<CurrentNetwork>::new(operands, operand_type, destination, destination_type).unwrap();
+                    let operation = |operands, operand_type, destination, destination_type| $deserialize::<CurrentNetwork>::new(operands, operand_type, destination, destination_type).unwrap();
                     // Initialize the opcode.
-                    let opcode = $serialize::<CurrentNetwork>::opcode();
+                    let opcode = $deserialize::<CurrentNetwork>::opcode();
 
                     // Prepare the test.
                     let modes = [circuit::Mode::Public, circuit::Mode::Private];
 
                     for mode in modes.iter() {
-                        for type_ in test_types(SerializeVariant::$variant).iter() {
-                            check_serialize(
+                        for type_ in test_types(DeserializeVariant::$variant).iter() {
+                            check_deserialize(
                                 operation,
                                 opcode,
                                 type_,
@@ -259,5 +254,5 @@ macro_rules! test_serialize {
         };
     }
 
-test_serialize!(serialize_bits, SerializeBits, ToBits, ITERATIONS);
-test_serialize!(serialize_bits_raw, SerializeBitsRaw, ToBitsRaw, ITERATIONS);
+test_deserialize!(deserialize_bits, DeserializeBits, FromBits, ITERATIONS);
+test_deserialize!(deserialize_bits_raw, DeserializeBitsRaw, FromBitsRaw, ITERATIONS);
