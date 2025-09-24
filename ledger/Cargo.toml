@@ -179,8 +179,7 @@ features = [ "test" ]
 workspace = true
 
 [dev-dependencies.aleo-std-storage]
-version = "1"
-default-features = false
+workspace = true
 
 [dev-dependencies.serde_json]
 workspace = true
