@@ -45,11 +45,7 @@ impl<N: Network> Subdag<N> {
             // Read the certificates.
             let mut certificates = IndexSet::with_capacity(num_certificates as usize);
             for _ in 0..num_certificates {
-                let cert = if unchecked {
-                    BatchCertificate::read_le_unchecked(&mut reader)?
-                } else {
-                    BatchCertificate::read_le(&mut reader)?
-                };
+                let cert = BatchCertificate::read_le_with_unchecked(&mut reader, unchecked)?;
                 certificates.insert(cert);
             }
             // Insert the round and certificates.

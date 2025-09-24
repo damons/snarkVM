@@ -34,7 +34,7 @@ impl<N: Network> FromBytes for Authority<N> {
         let variant = u8::read_le(&mut reader)?;
         // Match the variant.
         match variant {
-            0 => Ok(Self::Beacon(FromBytes::read_le(&mut reader)?)),
+            0 => Ok(Self::Beacon(FromBytes::read_le_unchecked(&mut reader)?)),
             1 => Ok(Self::Quorum(FromBytes::read_le_unchecked(&mut reader)?)),
             2.. => Err(error("Invalid authority variant")),
         }

@@ -26,24 +26,20 @@ impl<N: Network> FromBytes for Block<N> {
         }
 
         // Read the block hash.
-        let block_hash: N::BlockHash = FromBytes::read_le(&mut reader)?;
+        let block_hash: N::BlockHash = FromBytes::read_le_with_unchecked(&mut reader, unchecked)?;
         // Read the previous block hash.
-        let previous_hash = FromBytes::read_le(&mut reader)?;
+        let previous_hash = FromBytes::read_le_with_unchecked(&mut reader, unchecked)?;
         // Read the header.
-        let header = FromBytes::read_le(&mut reader)?;
+        let header = FromBytes::read_le_with_unchecked(&mut reader, unchecked)?;
 
         // Read the authority.
-        let authority = if unchecked {
-            Authority::<N>::read_le_unchecked(&mut reader)?
-        } else {
-            Authority::<N>::read_le(&mut reader)?
-        };
+        let authority = Authority::<N>::read_le_with_unchecked(&mut reader, unchecked)?;
 
         // Read the ratifications.
-        let ratifications = Ratifications::read_le(&mut reader)?;
+        let ratifications = Ratifications::read_le_with_unchecked(&mut reader, unchecked)?;
 
         // Read the solutions.
-        let solutions: Solutions<N> = FromBytes::read_le(&mut reader)?;
+        let solutions: Solutions<N> = FromBytes::read_le_with_unchecked(&mut reader, unchecked)?;
 
         // Read the number of aborted solution IDs.
         let num_aborted_solutions = u32::read_le(&mut reader)?;
@@ -54,11 +50,11 @@ impl<N: Network> FromBytes for Block<N> {
         // Read the aborted solution IDs.
         let mut aborted_solution_ids = Vec::with_capacity(num_aborted_solutions as usize);
         for _ in 0..num_aborted_solutions {
-            aborted_solution_ids.push(FromBytes::read_le(&mut reader)?);
+            aborted_solution_ids.push(FromBytes::read_le_with_unchecked(&mut reader, unchecked)?);
         }
 
         // Read the transactions.
-        let transactions = FromBytes::read_le(&mut reader)?;
+        let transactions = FromBytes::read_le_with_unchecked(&mut reader, unchecked)?;
 
         // Read the number of aborted transaction IDs.
         let num_aborted_transactions = u32::read_le(&mut reader)?;
@@ -69,7 +65,7 @@ impl<N: Network> FromBytes for Block<N> {
         // Read the aborted transaction IDs.
         let mut aborted_transaction_ids = Vec::with_capacity(num_aborted_transactions as usize);
         for _ in 0..num_aborted_transactions {
-            aborted_transaction_ids.push(FromBytes::read_le(&mut reader)?);
+            aborted_transaction_ids.push(FromBytes::read_le_with_unchecked(&mut reader, unchecked)?);
         }
 
         // Construct the block.
