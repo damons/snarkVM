@@ -233,14 +233,31 @@ fn check_hash<const VARIANT: u8>(
         assert_eq!(output_a, output_c, "The results of the evaluation and finalization are inconsistent");
 
         // Check that the output type is consistent with the declared type.
-        match output_a {
-            Value::Plaintext(Plaintext::Literal(literal, _)) => {
+        match (VARIANT, output_a) {
+            (0..=32, Value::Plaintext(Plaintext::Literal(literal, _))) => {
                 assert_eq!(
                     PlaintextType::Literal(literal.to_type()),
                     destination_type,
                     "The output type is inconsistent with the declared type"
                 );
             }
+            (33..=44, Value::Plaintext(plaintext)) => {
+                // Check that the plaintext is a bit array.
+                let Ok(bit_array) = plaintext.as_bit_array() else {
+                    panic!("The output type is inconsistent with the declared type");
+                };
+                // Get the destination type.
+                let PlaintextType::Array(array_type) = &destination_type else {
+                    panic!("The output type is inconsistent with the declared type");
+                };
+                // Check that the lengths match.
+                assert_eq!(
+                    bit_array.len(),
+                    **array_type.length() as usize,
+                    "The output type is inconsistent with the declared type"
+                );
+            }
+
             _ => unreachable!("The output type is inconsistent with the declared type"),
         }
     }
