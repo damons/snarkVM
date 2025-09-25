@@ -185,7 +185,7 @@ fn evaluate_serialize_internal<N: Network>(
             // Serialize the input to bits.
             let bits = input.to_bit_array_le(length);
             // Return the bits as a plaintext array.
-            Ok(Value::Plaintext(Plaintext::from_bit_array(bits)))
+            Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)))
         }
         (1, array_type) if array_type.is_bit_array() => {
             // Get the desired length of the array.
@@ -193,7 +193,7 @@ fn evaluate_serialize_internal<N: Network>(
             // Serialize the input to bits.
             let bits = input.to_bit_array_raw_le(length);
             // Return the bits as a plaintext array.
-            Ok(Value::Plaintext(Plaintext::from_bit_array(bits)))
+            Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)))
         }
         _ => bail!(
             "Invalid destination type '{}' for instruction '{}'",
@@ -247,7 +247,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
                 // Serialize the input to bits.
                 let bits = input.to_bit_array_le(length);
                 // Return the bits as a plaintext array.
-                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits))
+                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length))
             }
             (1, array_type) if array_type.is_bit_array() => {
                 // Get the desired length of the array.
@@ -255,7 +255,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
                 // Serialize the input to bits.
                 let bits = input.to_bit_array_raw_le(length);
                 // Return the bits as a plaintext array.
-                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits))
+                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length))
             }
             _ => bail!("Invalid destination type '{}' for instruction '{}'", &self.destination_type, Self::opcode(),),
         };
@@ -315,14 +315,10 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
             Ok((string, operands))
         }
 
-        println!("1");
-
         // Parse the opcode from the string.
         let (string, _) = tag(*Self::opcode())(string)?;
         // Parse the operands from the string.
         let (string, operands) = parse_operands(string, 1)?;
-
-        println!("2");
 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
@@ -335,8 +331,6 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
 
-        println!("3");
-
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the "into" from the string.
@@ -345,8 +339,6 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the destination register from the string.
         let (string, destination) = Register::parse(string)?;
-
-        println!("4");
 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
@@ -358,8 +350,6 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         let (string, destination_type) = ArrayType::parse(string)?;
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
-
-        println!("5");
 
         // Construct the instruction, checking for errors.
         match Self::new(operands, operand_type, destination, destination_type) {

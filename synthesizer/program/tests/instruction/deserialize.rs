@@ -137,7 +137,7 @@ fn check_deserialize<const VARIANT: u8>(
         assert_eq!(bits.len(), size_in_bits as usize, "The number of bits does not match the expected size");
 
         // Construct the bit array input.
-        let bit_array = Plaintext::from_bit_array(bits);
+        let bit_array = Plaintext::from_bit_array(bits, size_in_bits);
 
         // Attempt to evaluate the valid operand case.
         let mut evaluate_registers =

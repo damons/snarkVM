@@ -46,16 +46,9 @@ pub enum Plaintext<N: Network> {
 }
 
 impl<N: Network> Plaintext<N> {
-    /// Returns a new `Plaintext::Array` from `Vec<u8>`.
-    pub fn from_byte_array(bytes: Vec<u8>) -> Self {
-        Self::Array(
-            bytes.into_iter().map(|byte| Plaintext::from(Literal::U8(U8::new(byte)))).collect(),
-            OnceLock::new(),
-        )
-    }
-
-    /// Returns a new `Plaintext::Array` from `Vec<bool>`.
-    pub fn from_bit_array(bits: Vec<bool>) -> Self {
+    /// Returns a new `Plaintext::Array` from `Vec<bool>`, resizing to the specified size.
+    pub fn from_bit_array(mut bits: Vec<bool>, size: u32) -> Self {
+        bits.resize(size as usize, false);
         Self::Array(
             bits.into_iter().map(|bit| Plaintext::from(Literal::Boolean(Boolean::new(bit)))).collect(),
             OnceLock::new(),
