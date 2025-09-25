@@ -58,14 +58,12 @@ fn test_ecdsa_signature_vector_1() {
 
     // Declare the test vector values.
     let data_string = "0x2bcc5ce70000000100000000000000000000000000000000000000000000000000000000000f424000002712000000000000000000000000a0b86a33e6f8ec61cc62f1b0cb2ad6dfe3c10e8b000000000000000000000000742d35cc6e4c6e42e2a6e1b6d6e19d3bb14d3d1a000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000002222222222222222222222222222222222222222000000000000000000000000000000000000000000000000000000000000c350bfab0940d5a2410c007e06c8b1bb24e34391ddc5298e18840df438e8e05b9ac800000000";
-    let signature_string = "0xab5373ec68978e102a9084d6d07aa1e328174d12337e0a028ec3b0c63abdb89e7a906d9de841006143de25cab83b380618972c4803bf978c5b02d4e863465b8a";
-    let recovery_id = 0;
+    let signature_string = "0xab5373ec68978e102a9084d6d07aa1e328174d12337e0a028ec3b0c63abdb89e7a906d9de841006143de25cab83b380618972c4803bf978c5b02d4e863465b8a1b";
     let expected_address = "0x1Be31A94361a391bBaFB2a4CCd704F57dc04d4bb";
 
     // Convert the test vector values to bytes.
     let data_bytes = hex::decode(&data_string[2..]).unwrap();
-    let mut signature_bytes = hex::decode(&signature_string[2..]).unwrap();
-    signature_bytes.extend_from_slice(&[recovery_id]);
+    let signature_bytes = hex::decode(&signature_string[2..]).unwrap();
 
     // Recover the public key from the signature.
     let signature = ECDSASignature::from_bytes_le(&signature_bytes).unwrap();
