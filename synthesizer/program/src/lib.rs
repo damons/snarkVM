@@ -933,8 +933,16 @@ impl<N: Network> ProgramCore<N> {
         // The previous maximum array size before V11.
         const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
 
-        // Helper to check if any of the opcodes start with `ecdsa.verify` or end with `.raw`.
-        let has_op = |opcode: &str| opcode.starts_with("ecdsa.verify") || opcode.ends_with(".raw");
+        // Helper to check if any of the opcodes:
+        // - start with `ecdsa.verify`, `serialize`, or `deserialize`
+        // - end with `.raw` or `.native`
+        let has_op = |opcode: &str| {
+            opcode.starts_with("ecdsa.verify")
+                || opcode.starts_with("serialize")
+                || opcode.starts_with("deserialize")
+                || opcode.ends_with(".raw")
+                || opcode.ends_with(".native")
+        };
 
         // Determine if any function instructions contain the new syntax.
         let function_contains = cfg_iter!(self.functions())
