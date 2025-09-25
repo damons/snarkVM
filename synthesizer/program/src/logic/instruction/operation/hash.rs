@@ -394,7 +394,7 @@ macro_rules! do_hash {
             (42, PlaintextType::Array(array_type)) => <$pt>::from_bit_array($q($N::hash_sha3_384(&bits_raw()))?, **array_type.length()),
             (43, PlaintextType::Array(array_type)) => <$pt>::from_bit_array($q($N::hash_sha3_512(&bits()))?, **array_type.length()),
             (44, PlaintextType::Array(array_type)) => <$pt>::from_bit_array($q($N::hash_sha3_512(&bits_raw()))?, **array_type.length()),
-            (0..=44, _) => bail!("Invalid destination type for 'hash' variant: {}", $variant),
+            (0..=44, destination_type) => bail!("Invalid destination type '{destination_type}' for 'hash' variant: {}", $variant),
             (45.., _) => bail!("Invalid 'hash' variant: {}", $variant),
         }
     }};

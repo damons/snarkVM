@@ -28,7 +28,7 @@ mod to_bits_raw;
 mod to_fields;
 mod to_fields_raw;
 
-use crate::{Access, Ciphertext, Identifier, Literal};
+use crate::{Access, Ciphertext, Identifier, Literal, PlaintextType};
 use snarkvm_console_network::Network;
 use snarkvm_console_types::prelude::*;
 

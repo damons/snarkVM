@@ -37,7 +37,7 @@ impl<N: Network> PlaintextType<N> {
         match &self {
             PlaintextType::Literal(literal) => {
                 // Account for the plaintext variant bits.
-                let mut total = 2usize;
+                let mut total = PlaintextType::<N>::LITERAL_PREFIX_BITS.len();
                 // Account for the literal variant bits.
                 total = total.checked_add(8).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 // Account for the size of the literal in bits.
@@ -54,7 +54,7 @@ impl<N: Network> PlaintextType<N> {
                 let struct_ = get_struct(identifier)?;
 
                 // Account for the plaintext variant bits.
-                let mut total = 2usize;
+                let mut total = PlaintextType::<N>::STRUCT_PREFIX_BITS.len();
                 // Account for the number of members in the struct.
                 total = total.checked_add(8).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 // Add up the sizes of each member.
@@ -76,7 +76,7 @@ impl<N: Network> PlaintextType<N> {
             }
             PlaintextType::Array(array_type) => {
                 // Account for the plaintext variant bits.
-                let mut total = 2usize;
+                let mut total = PlaintextType::<N>::ARRAY_PREFIX_BITS.len();
                 // Account for the size of the array length.
                 total = total.checked_add(32).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 // Get the size of the element type.

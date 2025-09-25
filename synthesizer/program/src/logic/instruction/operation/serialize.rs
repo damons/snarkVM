@@ -52,8 +52,9 @@ fn check_number_of_operands(variant: u8, num_operands: usize) -> Result<()> {
 
 /// Checks that the operand type is valid.
 fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Network>) -> Result<()> {
-    match operand_type {
-        RegisterType::Plaintext(PlaintextType::Literal(literal_type)) => match literal_type {
+    // A helper function to check a literal type.
+    fn check_literal_type(literal_type: &LiteralType) -> Result<()> {
+        match literal_type {
             LiteralType::Address
             | LiteralType::Boolean
             | LiteralType::Field
@@ -69,15 +70,16 @@ fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Net
             | LiteralType::U64
             | LiteralType::U128
             | LiteralType::Scalar => Ok(()),
-            _ => {
-                bail!("Instruction '{}' cannot take type '{operand_type}' as input", SerializeVariant::opcode(variant))
-            }
-        },
-        RegisterType::Plaintext(PlaintextType::Array(array_type))
-            if matches!(array_type.base_element_type(), PlaintextType::Literal(_)) =>
-        {
-            Ok(())
+            _ => bail!("Invalid literal type '{literal_type}' for 'serialize' instruction"),
         }
+    }
+
+    match operand_type {
+        RegisterType::Plaintext(PlaintextType::Literal(literal_type)) => check_literal_type(literal_type),
+        RegisterType::Plaintext(PlaintextType::Array(array_type)) => match array_type.base_element_type() {
+            PlaintextType::Literal(literal_type) => check_literal_type(literal_type),
+            _ => bail!("Invalid element type '{array_type}' for 'serialize' instruction"),
+        },
         _ => bail!("Instruction '{}' cannot take type '{operand_type}' as input", SerializeVariant::opcode(variant)),
     }
 }
@@ -115,13 +117,10 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     ) -> Result<Self> {
         // Sanity check the number of operands.
         check_number_of_operands(VARIANT, operands.len())?;
-        println!("a");
         // Ensure that the operand type is valid.
         check_operand_type_is_valid(VARIANT, &operand_type)?;
-        println!("b");
         // Sanity check the destination type.
         check_destination_type_is_valid(VARIANT, &destination_type)?;
-        println!("c");
         // Return the instruction.
         Ok(Self { operands, operand_type, destination, destination_type })
     }

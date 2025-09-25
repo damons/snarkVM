@@ -261,7 +261,7 @@ where
                 let plaintext_variant = next_bits(2)?;
                 let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
                 ensure!(
-                    plaintext_variant == [false, false],
+                    plaintext_variant == PlaintextType::<N>::LITERAL_PREFIX_BITS,
                     "Invalid plaintext variant for literal type '{literal_type}'"
                 );
 
@@ -288,7 +288,10 @@ where
             if variant == (DeserializeVariant::FromBits as u8) {
                 let plaintext_variant = next_bits(2)?;
                 let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
-                ensure!(plaintext_variant == [false, true], "Invalid plaintext variant for struct type '{identifier}'");
+                ensure!(
+                    plaintext_variant == PlaintextType::<N>::STRUCT_PREFIX_BITS,
+                    "Invalid plaintext variant for struct type '{identifier}'"
+                );
 
                 let num_members = u8::from_bits_le(next_bits(8)?)?;
                 ensure!(struct_.members().len() == num_members as usize, "Struct exceeds maximum of entries.");
@@ -346,7 +349,10 @@ where
             if variant == (DeserializeVariant::FromBits as u8) {
                 let plaintext_variant = next_bits(2)?;
                 let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
-                ensure!(plaintext_variant == [true, false], "Invalid plaintext variant for array type");
+                ensure!(
+                    plaintext_variant == PlaintextType::<N>::ARRAY_PREFIX_BITS,
+                    "Invalid plaintext variant for array type"
+                );
 
                 let num_elements = u32::from_bits_le(next_bits(32)?)?;
                 ensure!(
@@ -444,8 +450,10 @@ where
             // If the variant is `FromBits`, check the variant and metadata.
             if variant == (DeserializeVariant::FromBits as u8) {
                 let plaintext_variant = next_bits(2)?;
-                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[0]);
-                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[1]);
+                let expected_bits =
+                    PlaintextType::<A::Network>::LITERAL_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
+                A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
+                A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
 
                 let literal_variant = circuit::U8::<A>::from_bits_le(next_bits(8)?);
                 A::assert_eq(&literal_variant, circuit::U8::<A>::constant(U8::new(literal_type.type_id())));
@@ -471,8 +479,10 @@ where
             // If the variant is `FromBits`, check the variant and metadata.
             if variant == (DeserializeVariant::FromBits as u8) {
                 let plaintext_variant = next_bits(2)?;
-                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[0]);
-                A::assert_eq(circuit::Boolean::<A>::constant(true), &plaintext_variant[1]);
+                let expected_bits =
+                    PlaintextType::<A::Network>::STRUCT_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
+                A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
+                A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
 
                 let num_members = circuit::U8::<A>::from_bits_le(next_bits(8)?);
                 A::assert_eq(num_members, circuit::U8::<A>::constant(U8::new(expected_num_members)));
@@ -523,8 +533,9 @@ where
             // If the variant is `FromBits`, check the variant and metadata.
             if variant == (DeserializeVariant::FromBits as u8) {
                 let plaintext_variant = next_bits(2)?;
-                A::assert_eq(circuit::Boolean::<A>::constant(true), &plaintext_variant[0]);
-                A::assert_eq(circuit::Boolean::<A>::constant(false), &plaintext_variant[1]);
+                let expected_bits = PlaintextType::<A::Network>::ARRAY_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
+                A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
+                A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
 
                 let num_elements = circuit::U32::<A>::from_bits_le(next_bits(32)?);
                 A::assert_eq(&num_elements, circuit::U32::<A>::constant(U32::new(expected_length)));

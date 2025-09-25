@@ -57,6 +57,13 @@ impl<N: Network> From<ArrayType<N>> for PlaintextType<N> {
 }
 
 impl<N: Network> PlaintextType<N> {
+    // Prefix bits for (de)serializing the `Array` variant.
+    pub const ARRAY_PREFIX_BITS: [bool; 2] = [true, false];
+    /// Prefix bits for (de)serializing the `Literal` variant.
+    pub const LITERAL_PREFIX_BITS: [bool; 2] = [false, false];
+    /// Prefix bits for (de)serializing the `Struct` variant.
+    pub const STRUCT_PREFIX_BITS: [bool; 2] = [false, true];
+
     /// Returns `true` if the plaintext type is an array and the size exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         match self {
