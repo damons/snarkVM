@@ -30,8 +30,6 @@ pub mod prelude {
         environment::*,
         helpers::*,
         traits::{
-            ToBitArray,
-            ToBitArrayRaw,
             ToBits,
             ToBitsRaw,
             algorithms::*,

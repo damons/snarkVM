@@ -20,7 +20,7 @@ use console::{
     network::{MainnetV0, prelude::*},
     program::{ArrayType, Identifier, LiteralType, PlaintextType, U32, Value},
 };
-use snarkvm_synthesizer_program::Program;
+use snarkvm_synthesizer_program::{Program, StackTrait};
 
 #[cfg(feature = "locktick")]
 use locktick::parking_lot::RwLock;
@@ -180,6 +180,102 @@ function test_serde_equivalence:
     for is_raw in [false, true] {
         test_types(is_raw).into_par_iter().for_each(|type_| {
             run_test(type_, is_raw, ITERATIONS);
+        })
+    }
+}
+
+#[test]
+fn test_plaintext_size_in_bits() {
+    const ITERATIONS: usize = 1000;
+
+    // Load a process.
+    let mut process = Process::<CurrentNetwork>::load().unwrap();
+
+    // Define a program with structs that we want to test.
+    let program = Program::<CurrentNetwork>::from_str(
+        r"
+program test.aleo;
+
+struct A:
+    one as field;
+    two as u8;
+    three as signature;
+
+struct B:
+    one as [scalar; 32u32];
+    two as [A; 4u32];
+
+function dummy:
+",
+    )
+    .unwrap();
+
+    // Add the program to the process.
+    process.add_program(&program).unwrap();
+
+    // Get the stack.
+    let stack = process.get_stack(program.id()).unwrap();
+
+    // A helper function to get the struct.
+    let get_struct = |id: &Identifier<CurrentNetwork>| stack.program().get_struct(id).cloned();
+
+    // Define the types we want to test.
+    let types = [
+        PlaintextType::Literal(LiteralType::Address),
+        PlaintextType::Literal(LiteralType::Boolean),
+        PlaintextType::Literal(LiteralType::Field),
+        PlaintextType::Literal(LiteralType::Group),
+        PlaintextType::Literal(LiteralType::I8),
+        PlaintextType::Literal(LiteralType::I16),
+        PlaintextType::Literal(LiteralType::I32),
+        PlaintextType::Literal(LiteralType::I64),
+        PlaintextType::Literal(LiteralType::I128),
+        PlaintextType::Literal(LiteralType::U8),
+        PlaintextType::Literal(LiteralType::U16),
+        PlaintextType::Literal(LiteralType::U32),
+        PlaintextType::Literal(LiteralType::U64),
+        PlaintextType::Literal(LiteralType::U128),
+        PlaintextType::Literal(LiteralType::Scalar),
+        PlaintextType::Literal(LiteralType::Signature),
+        PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(8)]).unwrap()),
+        PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::Field), vec![U32::new(17)]).unwrap()),
+        PlaintextType::Array(
+            ArrayType::new(PlaintextType::Literal(LiteralType::Signature), vec![U32::new(45)]).unwrap(),
+        ),
+        PlaintextType::Struct(Identifier::from_str("A").unwrap()),
+        PlaintextType::Struct(Identifier::from_str("B").unwrap()),
+        PlaintextType::Array(
+            ArrayType::new(PlaintextType::Struct(Identifier::from_str("A").unwrap()), vec![U32::new(3)]).unwrap(),
+        ),
+        PlaintextType::Array(
+            ArrayType::new(PlaintextType::Struct(Identifier::from_str("B").unwrap()), vec![U32::new(2)]).unwrap(),
+        ),
+    ];
+
+    for is_raw in [false, true] {
+        types.par_iter().for_each(|type_| {
+            // Initialize an RNG.
+            let rng = &mut TestRng::default();
+
+            for _ in 0..ITERATIONS {
+                // Get the size in bits.
+                let size_in_bits = match is_raw {
+                    true => type_.plaintext_size_in_raw_bits(&get_struct).unwrap(),
+                    false => type_.plaintext_size_in_bits(&get_struct).unwrap(),
+                };
+
+                // Sample the plaintext.
+                let plaintext = stack.sample_plaintext(type_, rng).unwrap();
+
+                // Get the bits of the plaintext.
+                let bits = match is_raw {
+                    false => plaintext.to_bits_le(),
+                    true => plaintext.to_bits_raw_le(),
+                };
+
+                // Check that the number of bits matches the expected size.
+                assert_eq!(bits.len(), size_in_bits);
+            }
         })
     }
 }

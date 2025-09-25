@@ -182,15 +182,15 @@ fn evaluate_serialize_internal<N: Network>(
             // Get the desired length of the array.
             let length = **array_type.length();
             // Serialize the input to bits.
-            let bits = input.to_bit_array_le(length);
+            let bits = input.to_bits_le();
             // Return the bits as a plaintext array.
             Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)))
         }
         (1, array_type) if array_type.is_bit_array() => {
             // Get the desired length of the array.
             let length = **array_type.length();
-            // Serialize the input to bits.
-            let bits = input.to_bit_array_raw_le(length);
+            // Serialize the input to raw bits.
+            let bits = input.to_bits_raw_le();
             // Return the bits as a plaintext array.
             Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)))
         }
@@ -227,7 +227,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
         stack: &impl StackTrait<N>,
         registers: &mut impl RegistersCircuit<N, A>,
     ) -> Result<()> {
-        use circuit::traits::{ToBitArray, ToBitArrayRaw};
+        use crate::circuit::traits::{ToBits, ToBitsRaw};
 
         // Ensure the number of operands is correct.
         check_number_of_operands(VARIANT, self.operands.len())?;
@@ -244,15 +244,15 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
                 // Get the desired length of the array.
                 let length = **array_type.length();
                 // Serialize the input to bits.
-                let bits = input.to_bit_array_le(length);
+                let bits = input.to_bits_le();
                 // Return the bits as a plaintext array.
                 circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length))
             }
             (1, array_type) if array_type.is_bit_array() => {
                 // Get the desired length of the array.
                 let length = **array_type.length();
-                // Serialize the input to bits.
-                let bits = input.to_bit_array_raw_le(length);
+                // Serialize the input to raw bits.
+                let bits = input.to_bits_raw_le();
                 // Return the bits as a plaintext array.
                 circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length))
             }
