@@ -24,7 +24,7 @@ use snarkvm_utilities::bytes_from_bits_le;
 use k256::{
     Secp256k1,
     ecdsa::{
-        RecoveryId,
+        RecoveryId as ECDSARecoveryId,
         Signature,
         SigningKey,
         VerifyingKey,
@@ -33,11 +33,84 @@ use k256::{
     elliptic_curve::{Curve, generic_array::typenum::Unsigned},
 };
 
-/// An ECDSA/Secp256k1 signature (r,s) signature.
+/// The recovery ID for an ECDSA/Secp256k1 signature.
+#[derive(Clone, PartialEq, Eq)]
+pub struct RecoveryID {
+    /// The recovery ID.
+    recovery_id: ECDSARecoveryId,
+    /// The Ethereum chain ID (if applicable).
+    /// None = non-Ethereum canonical
+    /// Some(0) = ETH legacy (v = 27 or 28)
+    /// Some(id>=1) = EIP-155(id).
+    chain_id: Option<u64>,
+}
+
+impl RecoveryID {
+    /// The offset to add to the recovery ID for EIP-155 signatures (>= 35).
+    const ETH_EIP155_OFFSET: u8 = 35;
+    /// The offset to add to the recovery ID for legacy Ethereum signatures (27 or 28).
+    const ETH_LEGACY_OFFSET: u8 = 27;
+
+    /// For your *byte* encoding (not raw Ethereum tx `v`):
+    /// - Standard (None): write 0..=3
+    /// - ETH legacy (Some(0)): write 27/28
+    /// - EIP-155 (Some(id>=1)): still just write y (0/1); full `v` is derived via `to_eth_v`.
+    #[inline]
+    fn encoded_byte(&self) -> Result<u8> {
+        let recovery_id = self.recovery_id.to_byte();
+        match self.chain_id {
+            // Standard
+            None => Ok(recovery_id),
+            // ETH legacy
+            Some(0) => Ok(recovery_id.saturating_add(Self::ETH_LEGACY_OFFSET)), // 27/28
+            // EIP-155
+            Some(chain_id) => {
+                let recovery_id = (recovery_id as u64)
+                    .saturating_add(chain_id.saturating_mul(2))
+                    .saturating_add(Self::ETH_EIP155_OFFSET as u64);
+                Ok(u8::try_from(recovery_id)?)
+            }
+        }
+    }
+}
+
+impl ToBytes for RecoveryID {
+    fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
+        let encoded_byte = self.encoded_byte().map_err(error)?;
+        encoded_byte.write_le(&mut writer)
+    }
+}
+
+impl FromBytes for RecoveryID {
+    fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
+        // Read the recovery ID byte.
+        let recovery_id_byte = u8::read_le(&mut reader)?;
+
+        // Determine if the recovery ID follows the Ethereum convention.
+        let (recovery_id_without_offset, chain_id) = match recovery_id_byte {
+            27 | 28 => (recovery_id_byte.saturating_sub(Self::ETH_LEGACY_OFFSET), Some(0u64)),
+            v if v >= Self::ETH_EIP155_OFFSET => {
+                let y = (v.saturating_sub(Self::ETH_EIP155_OFFSET)) % 2;
+                let id = (v.saturating_sub(Self::ETH_EIP155_OFFSET)) / 2;
+                (y, Some(id as u64))
+            }
+            _ => (recovery_id_byte, None),
+        };
+
+        // Construct the recovery ID from the byte.
+        let recovery_id = ECDSARecoveryId::from_byte(recovery_id_without_offset)
+            .ok_or_else(|| error(format!("Invalid recovery ID byte {recovery_id_byte}")))?;
+        Ok(Self { recovery_id, chain_id })
+    }
+}
+
+/// An ECDSA/Secp256k1 signature (r,s) signature along with the recovery ID.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ECDSASignature {
+    /// The (r,s) signature.
     pub signature: Signature,
-    pub recovery_id: RecoveryId,
+    /// The recovery ID.
+    pub recovery_id: RecoveryID,
 }
 
 impl ECDSASignature {
@@ -51,6 +124,11 @@ impl ECDSASignature {
     pub const SIGNATURE_SIZE_IN_BYTES: usize = Self::BASE_SIGNATURE_SIZE_IN_BYTES + 1;
     /// The compressed VerifyingKey size in bytes for secp256k1 (32 byte field + one-byte header).
     pub const VERIFYING_KEY_SIZE_IN_BYTES: usize = <Secp256k1 as Curve>::FieldBytesSize::USIZE + 1;
+
+    /// Returns the recovery ID.
+    pub const fn recovery_id(&self) -> ECDSARecoveryId {
+        self.recovery_id.recovery_id
+    }
 
     /// Returns a signature on a `message` using the given `signing_key` and hash function.
     pub fn sign<H: Hash<Output = Vec<bool>>>(
@@ -66,7 +144,10 @@ impl ECDSASignature {
         // Sign the prehashed message.
         signing_key
             .sign_prehash(&hash_bytes)
-            .map(|(signature, recovery_id)| Self { signature, recovery_id })
+            .map(|(signature, recovery_id)| {
+                let recovery_id = RecoveryID { recovery_id, chain_id: None };
+                Self { signature, recovery_id }
+            })
             .map_err(|e| anyhow!("Failed to sign message: {e:?}"))
     }
 
@@ -89,7 +170,7 @@ impl ECDSASignature {
         let digest = bytes_from_bits_le(digest_bits);
 
         // Recover the public key using the prehash.
-        VerifyingKey::recover_from_prehash(&digest, &self.signature, self.recovery_id)
+        VerifyingKey::recover_from_prehash(&digest, &self.signature, self.recovery_id())
             .map_err(|e| anyhow!("Failed to recover public key: {e:?}"))
     }
 
@@ -179,9 +260,10 @@ impl ECDSASignature {
 
 impl ToBytes for ECDSASignature {
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
-        let bytes = self.signature.to_bytes().to_vec();
-        bytes.write_le(&mut writer)?;
-        self.recovery_id.to_byte().write_le(&mut writer)
+        // Write the signature bytes.
+        self.signature.to_bytes().to_vec().write_le(&mut writer)?;
+        // Write the recovery ID.
+        self.recovery_id.write_le(&mut writer)
     }
 }
 
@@ -190,14 +272,11 @@ impl FromBytes for ECDSASignature {
         // Read the signature bytes.
         let mut bytes = vec![0u8; Self::BASE_SIGNATURE_SIZE_IN_BYTES];
         reader.read_exact(&mut bytes)?;
-
-        // Read the recovery ID byte.
-        let recovery_id_byte = u8::read_le(&mut reader)?;
-
-        // Construct the signature and recovery ID from the bytes.
+        // Construct the signature from the bytes.
         let signature = Signature::from_slice(&bytes).map_err(error)?;
-        let recovery_id = RecoveryId::from_byte(recovery_id_byte)
-            .ok_or_else(|| error(format!("Invalid recovery ID byte {recovery_id_byte}")))?;
+
+        // Read the recovery ID
+        let recovery_id = RecoveryID::read_le(&mut reader)?;
 
         Ok(Self { signature, recovery_id })
     }
