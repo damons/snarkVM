@@ -25,7 +25,7 @@ pub use operation::*;
 mod bytes;
 mod parse;
 
-use crate::{RegistersCircuit, RegistersSigner, RegistersTrait, StackTrait};
+use crate::{RegistersCircuit, RegistersSigner, RegistersTrait, StackTrait, instruction};
 use console::{
     network::Network,
     prelude::{
@@ -597,8 +597,16 @@ impl<N: Network> Instruction<N> {
         // Only cast instructions may contain an explicit reference to an array.
         // Calls may produce them, but they don't explicitly reference the type, and that's
         // always been allowed.
-        matches!(self,
-            Self::Cast(instruction) if instruction.cast_type().exceeds_max_array_size(max_array_size))
+        match self {
+            Self::Cast(instruction) => instruction.cast_type().exceeds_max_array_size(max_array_size),
+            Self::SerializeBits(instruction) => instruction.destination_type().exceeds_max_array_size(max_array_size),
+            Self::SerializeBitsRaw(instruction) => {
+                instruction.destination_type().exceeds_max_array_size(max_array_size)
+            }
+            Self::DeserializeBits(instruction) => instruction.operand_type().exceeds_max_array_size(max_array_size),
+            Self::DeserializeBitsRaw(instruction) => instruction.operand_type().exceeds_max_array_size(max_array_size),
+            _ => false,
+        }
     }
 }
 

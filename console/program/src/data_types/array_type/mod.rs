@@ -36,6 +36,28 @@ impl<N: Network> ArrayType<N> {
     pub const fn is_bit_array(&self) -> bool {
         matches!(self.next_element_type(), PlaintextType::Literal(LiteralType::Boolean))
     }
+
+    /// Returns `true` if the record contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        // Initialize depth counter and current array type.
+        let mut array_type = self;
+
+        // Check nested array types up to the maximum data depth.
+        for _ in 0..=N::MAX_DATA_DEPTH {
+            // Check if the current array's length exceeds the maximum allowed size.
+            if **array_type.length() > max_array_size {
+                return true;
+            }
+            // If the next eleemtn is an array, continue to the next depth. Otherwise, we can stop checking.
+            if let PlaintextType::Array(next) = array_type.next_element_type() {
+                array_type = next;
+            } else {
+                return false;
+            }
+        }
+        // If we reach here, it means we've exceeded the maximum depth without finding a non-array type.
+        true
+    }
 }
 
 impl<N: Network> ArrayType<N> {

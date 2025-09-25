@@ -68,7 +68,7 @@ impl<N: Network> PlaintextType<N> {
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         match self {
             Self::Literal(_) | Self::Struct(_) => false,
-            Self::Array(array_type) => **array_type.length() > max_array_size,
+            Self::Array(array_type) => array_type.exceeds_max_array_size(max_array_size),
         }
     }
 }
