@@ -329,7 +329,6 @@ fn finalize_transition<N: Network, P: FinalizeStorage<N>>(
         while counter < finalize.commands().len() {
             // Retrieve the command.
             let command = &finalize.commands()[counter];
-            println!("Comand: {command}");
             // Finalize the command.
             match &command {
                 Command::Await(await_) => {
