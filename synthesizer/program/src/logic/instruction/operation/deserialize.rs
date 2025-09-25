@@ -87,8 +87,9 @@ fn check_operand_type_is_valid(variant: u8, array_type: &ArrayType<impl Network>
 
 /// Check that the destination type is valid.
 fn check_destination_type_is_valid(variant: u8, destination_type: &PlaintextType<impl Network>) -> Result<()> {
-    match destination_type {
-        PlaintextType::Literal(literal_type) => match literal_type {
+    // A helper function to check a literal type.
+    fn check_literal_type(literal_type: &LiteralType) -> Result<()> {
+        match literal_type {
             LiteralType::Address
             | LiteralType::Boolean
             | LiteralType::Field
@@ -104,16 +105,16 @@ fn check_destination_type_is_valid(variant: u8, destination_type: &PlaintextType
             | LiteralType::U64
             | LiteralType::U128
             | LiteralType::Scalar => Ok(()),
-            _ => {
-                bail!(
-                    "Instruction '{}' cannot take type '{destination_type}' as input",
-                    DeserializeVariant::opcode(variant)
-                )
-            }
-        },
-        PlaintextType::Array(array_type) if matches!(array_type.base_element_type(), &PlaintextType::Literal(_)) => {
-            Ok(())
+            _ => bail!("Invalid literal type '{literal_type}' for 'serialize' instruction"),
         }
+    }
+
+    match destination_type {
+        PlaintextType::Literal(literal_type) => check_literal_type(literal_type),
+        PlaintextType::Array(array_type) => match array_type.base_element_type() {
+            PlaintextType::Literal(literal_type) => check_literal_type(literal_type),
+            _ => bail!("Invalid element type '{array_type}' for 'deserialize' instruction"),
+        },
         _ => bail!(
             "Instruction '{}' cannot take type '{destination_type}' as input",
             DeserializeVariant::opcode(variant)
