@@ -555,6 +555,7 @@ jobs:
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
+          timeout: 20
           workspace_member: snarkvm-parameters
           flags: -- --test-threads=2
 
