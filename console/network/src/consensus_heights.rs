@@ -131,7 +131,7 @@ pub(crate) fn load_test_consensus_heights_inner(
     // Define consensus version heights container used for testing.
     let mut test_consensus_heights = TEST_CONSENSUS_VERSION_HEIGHTS;
 
-    // If version heights have been specified, validate and then return them.
+    // If version heights have been specified, verify and return them.
     match consensus_version_heights {
         Some(height_string) => {
             let parsing_error = format!("Expected exactly {NUM_CONSENSUS_VERSIONS} ConsensusVersion heights.");

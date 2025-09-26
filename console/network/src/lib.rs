@@ -500,15 +500,19 @@ pub trait Network:
 
 /// Returns the consensus version heights, initializing them if necessary.
 ///
-/// If `heights` is provided, it must be a comma-separated list of ascending block heights
-/// starting from zero (e.g., `"0,2,3,4,..."`) with exactly `NUM_CONSENSUS_VERSIONS` entries.  
-/// These heights correspond to the activation block of each `ConsensusVersion`.
+/// If a `heights` string is provided, it must be a comma-separated list of ascending block heights
+/// starting from zero (e.g., `"0,2,3,4,..."`) with a number of heights exactly equal to the value
+/// of the Network trait's `NUM_CONSENSUS_VERSIONS` constant. These heights correspond to the
+/// activation block of each `ConsensusVersion`.
 ///
-/// If `heights` is `None`, the function uses SnarkVM's default test consensus heights.
+/// If `heights` is `None`, the function will use SnarkVM's default test consensus heights.
 ///
-/// This function caches the initialized heights, so subsequent calls return the same values.  
-/// It should be called first by `wasm` users who need to work with test consensus heights,
-/// immediately after the wasm module is initialized.
+/// This function caches the initialized heights, and can be set only once. Further calls will
+/// return the cached heights.
+///
+/// This method should be called by `wasm` users who need to set test values for consensus heights
+/// for purposes such as testing on a local devnet. If this method needs to be used, it should be
+/// called immediately after the wasm module is initialized.
 #[cfg(feature = "wasm")]
 pub fn get_or_init_consensus_version_heights(
     heights: Option<String>,
