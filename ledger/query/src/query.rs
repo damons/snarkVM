@@ -29,10 +29,10 @@ use anyhow::{Context, Result};
 use ureq::http;
 
 mod static_;
-use static_::StaticQuery;
+pub use static_::StaticQuery;
 
 mod rest;
-use rest::RestQuery;
+pub use rest::RestQuery;
 
 /// Make the REST error type available public as it can be used for any API endpoint.
 pub use rest::RestError;
