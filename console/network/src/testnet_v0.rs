@@ -234,34 +234,16 @@ impl Network for TestnetV0 {
             .ok_or_else(|| anyhow!("Verifying key for credits.aleo/{function_name}' not found"))
     }
 
-    /// Returns the `proving key` for the inclusion_v0 circuit.
     #[cfg(not(feature = "wasm"))]
     /// Returns the `proving key` for the inclusion_v0 circuit.
     fn inclusion_v0_proving_key() -> &'static Arc<VarunaProvingKey<Self>> {
         static INSTANCE: OnceLock<Arc<VarunaProvingKey<Console>>> = OnceLock::new();
         INSTANCE.get_or_init(|| {
             // Skipping the first byte, which is the encoded version.
-            #[cfg(feature = "wasm")]
-            let inclusion_key = inclusion_key_bytes
-                .map(|bytes| {
-                    snarkvm_parameters::testnet::InclusionProver::verify_bytes(&bytes)
-                        .expect("Bytes provided did not match expected inclusion checksum.");
-                    Arc::new(
-                        CircuitProvingKey::from_bytes_le(&bytes[1..]).expect("Failed to load inclusion proving key."),
-                    )
-                })
-                .unwrap_or_else(|| {
-                    Arc::new(
-                        CircuitProvingKey::from_bytes_le(&snarkvm_parameters::testnet::INCLUSION_V0_PROVING_KEY[1..])
-                            .expect("Failed to load inclusion proving key."),
-                    )
-                });
-            #[cfg(not(feature = "wasm"))]
-            let inclusion_key = Arc::new(
+            Arc::new(
                 CircuitProvingKey::from_bytes_le(&snarkvm_parameters::testnet::INCLUSION_V0_PROVING_KEY[1..])
-                    .expect("Failed to load inclusion proving key."),
-            );
-            inclusion_key
+                    .expect("Failed to load inclusion_v0 proving key."),
+            )
         })
     }
 
@@ -272,7 +254,7 @@ impl Network for TestnetV0 {
         INSTANCE.get_or_init(|| {
             inclusion_key_bytes
                 .map(|bytes| {
-                    snarkvm_parameters::testnet::InclusionProver::verify_bytes(&bytes)
+                    snarkvm_parameters::testnet::InclusionV0Prover::verify_bytes(&bytes)
                         .expect("Bytes provided did not match expected inclusion checksum.");
                     Arc::new(
                         CircuitProvingKey::from_bytes_le(&bytes[1..]).expect("Failed to load inclusion proving key."),
