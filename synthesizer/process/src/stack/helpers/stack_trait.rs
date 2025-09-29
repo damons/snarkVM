@@ -449,7 +449,7 @@ impl<N: Network> Stack<N> {
                     // Ensure the literal type matches.
                     match literal.to_type() == *literal_type {
                         true => Ok(()),
-                        false => bail!("'{plaintext_type}' is invalid: expected {literal_type}, found {literal}"),
+                        false => bail!("'{literal}' is invalid: expected {literal_type}"),
                     }
                 }
                 // If `plaintext` is a struct, this is a mismatch.
