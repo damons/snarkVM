@@ -37,14 +37,16 @@ commands:
       - restore_cache:
           key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
-          name: "Install Rust and run cargo check"
+          name: "Install Rust"
+          timeout: 10m
           command: |
             $ProgressPreference = "SilentlyContinue"
             # Remove the circleci installed rustc.
-            choco uninstall -y rust
+            choco uninstall -y --force rust
             # Install rust with rustup.
             Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "C:\rustup-init.exe"
             & C:\rustup-init.exe -y --default-toolchain "1.88.0-x86_64-pc-windows-msvc" --no-modify-path --profile minimal # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+            # Add cargo to the PATH.
             $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
             # Verify the installation.
             cargo --version --verbose
@@ -52,7 +54,13 @@ commands:
             if (!(Test-Path "Cargo.lock" -PathType Leaf)) {
                 cargo generate-lockfile
             }
-            cd << parameters.workspace_member >>
+      - run:
+          name: "Run cargo check"
+          command: |
+            # Add cargo to the PATH.
+            $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
+            # Run cargo check for the given crate.
+             cd << parameters.workspace_member >>
             cargo check --examples --benches --tests
       - save_cache:
           paths:
