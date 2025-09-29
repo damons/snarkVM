@@ -280,7 +280,7 @@ where
             };
             // Deserialize the literal.
             let literal = Literal::from_bits_le(literal_type.type_id(), next_bits(expected_size as usize)?)?;
-            Ok(Plaintext::Literal(literal, bits.to_vec().into()))
+            Ok(Plaintext::Literal(literal, Default::default()))
         }
         PlaintextType::Struct(identifier) => {
             // Get the struct.
@@ -343,7 +343,7 @@ where
             }
 
             // Cache the plaintext bits, and return the struct.
-            Ok(Plaintext::Struct(members, bits.to_vec().into()))
+            Ok(Plaintext::Struct(members, Default::default()))
         }
         PlaintextType::Array(array_type) => {
             // If the variant is `FromBits`, check the variant and metadata.
@@ -388,7 +388,7 @@ where
             }
 
             // Cache the plaintext bits, and return the array.
-            Ok(Plaintext::Array(elements, bits.to_vec().into()))
+            Ok(Plaintext::Array(elements, Default::default()))
         }
     }
 }
@@ -467,7 +467,7 @@ where
                 &circuit::U8::<A>::constant(U8::new(literal_type.type_id())),
                 next_bits(expected_size as usize)?,
             );
-            Ok(circuit::Plaintext::Literal(literal, bits.to_vec().into()))
+            Ok(circuit::Plaintext::from(literal))
         }
         PlaintextType::Struct(identifier) => {
             // Get the struct.
@@ -525,7 +525,7 @@ where
             }
 
             // Cache the plaintext bits, and return the struct.
-            Ok(circuit::Plaintext::Struct(members, bits.to_vec().into()))
+            Ok(circuit::Plaintext::Struct(members, Default::default()))
         }
         PlaintextType::Array(array_type) => {
             // Get the expected length of the array.
@@ -565,7 +565,7 @@ where
             }
 
             // Cache the plaintext bits, and return the array.
-            Ok(circuit::Plaintext::Array(elements, bits.to_vec().into()))
+            Ok(circuit::Plaintext::Array(elements, Default::default()))
         }
     }
 }
