@@ -239,7 +239,7 @@ pub fn execution_cost_v3<N: Network>(
     let finalize_cost = cost_in_microcredits_v3(&stack, transition.function_name())?;
 
     // Compute the minimum cost in microcredits.
-    let minimum_cost = storage_cost // TODO: test whether these extra types here actually add safety.
+    let minimum_cost = storage_cost
         .checked_add(finalize_cost)
         .ok_or(anyhow!("The total cost computation overflowed for an execution"))?;
 
