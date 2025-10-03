@@ -422,11 +422,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 let (minimum_cost, cost_details) =
                     deployment_cost(&self.process().read(), deployment, consensus_version)?;
                 // Ensure the compute cost does not exceed the transaction spend limit.
-                let compute_spend = deploy_compute_cost_in_microcredits(cost_details, consensus_version)?;
-                ensure!(
-                    compute_spend <= transaction_spend_limit,
-                    "Transaction '{id}' exceeds the transaction spend limit with compute_spend: '{compute_spend}'"
-                );
+                // Comparison logic before ConsensusVersion::V10 has been pruned to simplify the code.
+                if consensus_version >= ConsensusVersion::V10 {
+                    let compute_spend = deploy_compute_cost_in_microcredits(cost_details, consensus_version)?;
+                    ensure!(
+                        compute_spend <= transaction_spend_limit,
+                        "Transaction '{id}' exceeds the transaction spend limit with compute_spend: '{compute_spend}'"
+                    );
+                }
                 // Ensure the fee is sufficient to cover the cost.
                 if *fee.base_amount()? < minimum_cost {
                     bail!(
@@ -450,11 +453,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         let (minimum_cost, cost_details) =
                             execution_cost(&self.process().read(), execution, consensus_version)?;
                         // Ensure the compute cost does not exceed the transaction spend limit.
-                        let compute_spend = execute_compute_cost_in_microcredits(cost_details, consensus_version)?;
-                        ensure!(
-                            compute_spend <= transaction_spend_limit,
-                            "Transaction '{id}' exceeds the transaction spend limit with compute_spend: '{compute_spend}'"
-                        );
+                        // Comparison logic before ConsensusVersion::V10 has been pruned to simplify the code.
+                        if consensus_version >= ConsensusVersion::V10 {
+                            let compute_spend = execute_compute_cost_in_microcredits(cost_details, consensus_version)?;
+                            ensure!(
+                                compute_spend <= transaction_spend_limit,
+                                "Transaction '{id}' exceeds the transaction spend limit with compute_spend: '{compute_spend}'"
+                            );
+                        }
                         // Ensure the fee is sufficient to cover the cost.
                         if *fee.base_amount()? < minimum_cost {
                             bail!(
