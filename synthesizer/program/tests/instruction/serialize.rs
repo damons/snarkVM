@@ -19,7 +19,7 @@ use circuit::{AleoV0, Eject};
 use console::{
     network::MainnetV0,
     prelude::*,
-    program::{ArrayType, Identifier, LiteralType, PlaintextType, Register, RegisterType, U32, Value},
+    program::{ArrayType, Identifier, LiteralType, PlaintextType, Register, U32, Value},
 };
 use snarkvm_synthesizer_process::{Process, Stack};
 use snarkvm_synthesizer_program::{
@@ -83,7 +83,7 @@ fn sample_stack(
 fn check_serialize<const VARIANT: u8>(
     operation: impl FnOnce(
         Vec<Operand<CurrentNetwork>>,
-        RegisterType<CurrentNetwork>,
+        PlaintextType<CurrentNetwork>,
         Register<CurrentNetwork>,
         ArrayType<CurrentNetwork>,
     ) -> SerializeInstruction<CurrentNetwork, VARIANT>,
@@ -100,8 +100,8 @@ fn check_serialize<const VARIANT: u8>(
 
     // Get the size in bits.
     let size_in_bits = match VARIANT {
-        0 => type_.plaintext_size_in_bits(&fail_get_struct).unwrap(),
-        1 => type_.plaintext_size_in_raw_bits(&fail_get_struct).unwrap(),
+        0 => type_.size_in_bits(&fail_get_struct).unwrap(),
+        1 => type_.size_in_bits_raw(&fail_get_struct).unwrap(),
         _ => panic!("Invalid 'serialize' veriant"),
     };
     let size_in_bits = u32::try_from(size_in_bits).unwrap();
@@ -115,7 +115,7 @@ fn check_serialize<const VARIANT: u8>(
     let (stack, operands, destination) = sample_stack(opcode, type_, &bits_type, *mode).unwrap();
 
     // Initialize the operation.
-    let operation = operation(operands, RegisterType::Plaintext(type_.clone()), destination.clone(), bits_type);
+    let operation = operation(operands, type_.clone(), destination.clone(), bits_type);
     // Initialize the function name.
     let function_name = Identifier::from_str("run").unwrap();
     // Initialize a destination operand.

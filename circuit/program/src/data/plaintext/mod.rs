@@ -46,10 +46,10 @@ pub enum Plaintext<A: Aleo> {
 }
 
 impl<A: Aleo> Plaintext<A> {
-    /// Returns a new `Plaintext::Array` from `Vec<Boolean<A>>`, resizing to the specified size.
-    pub fn from_bit_array(mut bits: Vec<Boolean<A>>, size: u32) -> Self {
-        bits.resize_with(size as usize, || Boolean::new(Mode::Constant, false));
-        Self::Array(bits.into_iter().map(|bit| Plaintext::from(Literal::Boolean(bit))).collect(), OnceCell::new())
+    /// Returns a new `Plaintext::Array` from `Vec<Boolean<A>>`, checking that the length is correct.
+    pub fn from_bit_array(bits: Vec<Boolean<A>>, length: u32) -> Result<Self> {
+        ensure!(bits.len() == length as usize, "Expected '{length}' bits, got '{}' bits", bits.len());
+        Ok(Self::Array(bits.into_iter().map(|bit| Plaintext::from(Literal::Boolean(bit))).collect(), OnceCell::new()))
     }
 
     /// Returns the `Plaintext` as a `Vec<Boolean<A>>`, if it is a bit array.

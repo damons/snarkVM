@@ -16,7 +16,7 @@
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
-    program::{ArrayType, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
+    program::{ArrayType, Identifier, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
 };
 
 /// Serializes the bits of the input.
@@ -51,7 +51,7 @@ fn check_number_of_operands(variant: u8, num_operands: usize) -> Result<()> {
 }
 
 /// Checks that the operand type is valid.
-fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Network>) -> Result<()> {
+fn check_operand_type_is_valid(variant: u8, operand_type: &PlaintextType<impl Network>) -> Result<()> {
     // A helper function to check a literal type.
     fn check_literal_type(literal_type: &LiteralType) -> Result<()> {
         match literal_type {
@@ -75,8 +75,8 @@ fn check_operand_type_is_valid(variant: u8, operand_type: &RegisterType<impl Net
     }
 
     match operand_type {
-        RegisterType::Plaintext(PlaintextType::Literal(literal_type)) => check_literal_type(literal_type),
-        RegisterType::Plaintext(PlaintextType::Array(array_type)) => match array_type.base_element_type() {
+        PlaintextType::Literal(literal_type) => check_literal_type(literal_type),
+        PlaintextType::Array(array_type) => match array_type.base_element_type() {
             PlaintextType::Literal(literal_type) => check_literal_type(literal_type),
             _ => bail!("Invalid element type '{array_type}' for 'serialize' instruction"),
         },
@@ -100,7 +100,7 @@ pub struct SerializeInstruction<N: Network, const VARIANT: u8> {
     /// The operand as `input`.
     operands: Vec<Operand<N>>,
     /// The operand type.
-    operand_type: RegisterType<N>,
+    operand_type: PlaintextType<N>,
     /// The destination register.
     destination: Register<N>,
     /// The destination register type.
@@ -111,7 +111,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     /// Initializes a new `serialize` instruction.
     pub fn new(
         operands: Vec<Operand<N>>,
-        operand_type: RegisterType<N>,
+        operand_type: PlaintextType<N>,
         destination: Register<N>,
         destination_type: ArrayType<N>,
     ) -> Result<Self> {
@@ -143,7 +143,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     }
 
     /// Returns the operand type.
-    pub const fn operand_type(&self) -> &RegisterType<N> {
+    pub const fn operand_type(&self) -> &PlaintextType<N> {
         &self.operand_type
     }
 
@@ -184,7 +184,7 @@ fn evaluate_serialize_internal<N: Network>(
             // Serialize the input to bits.
             let bits = input.to_bits_le();
             // Return the bits as a plaintext array.
-            Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)))
+            Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)?))
         }
         (1, array_type) if array_type.is_bit_array() => {
             // Get the desired length of the array.
@@ -192,7 +192,7 @@ fn evaluate_serialize_internal<N: Network>(
             // Serialize the input to raw bits.
             let bits = input.to_bits_raw_le();
             // Return the bits as a plaintext array.
-            Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)))
+            Ok(Value::Plaintext(Plaintext::from_bit_array(bits, length)?))
         }
         _ => bail!(
             "Invalid destination type '{}' for instruction '{}'",
@@ -246,7 +246,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
                 // Serialize the input to bits.
                 let bits = input.to_bits_le();
                 // Return the bits as a plaintext array.
-                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length))
+                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length)?)
             }
             (1, array_type) if array_type.is_bit_array() => {
                 // Get the desired length of the array.
@@ -254,7 +254,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
                 // Serialize the input to raw bits.
                 let bits = input.to_bits_raw_le();
                 // Return the bits as a plaintext array.
-                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length))
+                circuit::Value::Plaintext(circuit::Plaintext::from_bit_array(bits, length)?)
             }
             _ => bail!("Invalid destination type '{}' for instruction '{}'", &self.destination_type, Self::opcode(),),
         };
@@ -272,7 +272,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     /// Returns the output type from the given program and input types.
     pub fn output_types(
         &self,
-        _stack: &impl StackTrait<N>,
+        stack: &impl StackTrait<N>,
         input_types: &[RegisterType<N>],
     ) -> Result<Vec<RegisterType<N>>> {
         // Ensure the number of operands is correct.
@@ -284,9 +284,34 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
 
         // Check that the input type matches the operand type.
         ensure!(input_types.len() == 1, "Expected exactly one input type");
-        if input_types[0] != self.operand_type {
-            bail!("Input type {:?} does not match operand type {:?}", input_types[0], self.operand_type);
+        match &input_types[0] {
+            RegisterType::Plaintext(plaintext_type) => {
+                ensure!(
+                    plaintext_type == &self.operand_type,
+                    "Input type {} does not match operand type {}",
+                    input_types[0],
+                    self.operand_type
+                )
+            }
+            type_ => bail!("Input type {type_} does not match operand type {}", self.operand_type),
         }
+
+        // A helper to get a struct declaration.
+        let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
+
+        // Get the size in bits of the operand.
+        let size_in_bits = match VARIANT {
+            0 => self.operand_type.size_in_bits(&get_struct)?,
+            1 => self.operand_type.size_in_bits_raw(&get_struct)?,
+            variant => bail!("Invalid `serialize` variant '{variant}'"),
+        };
+
+        // Check that the number of bits of the operand matches the destination.
+        ensure!(
+            size_in_bits == **self.destination_type.length() as usize,
+            "The number of bits of the operand '{size_in_bits}' does not match the destination '{}",
+            **self.destination_type.length()
+        );
 
         Ok(vec![RegisterType::Plaintext(PlaintextType::Array(self.destination_type.clone()))])
     }
@@ -326,7 +351,7 @@ impl<N: Network, const VARIANT: u8> Parser for SerializeInstruction<N, VARIANT> 
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the operand type from the string.
-        let (string, operand_type) = RegisterType::parse(string)?;
+        let (string, operand_type) = PlaintextType::parse(string)?;
         // Parse the ")" from the string.
         let (string, _) = tag(")")(string)?;
 
@@ -399,7 +424,7 @@ impl<N: Network, const VARIANT: u8> FromBytes for SerializeInstruction<N, VARIAN
         // Read the operand.
         let operand = Operand::read_le(&mut reader)?;
         // Read the operand type.
-        let operand_type = RegisterType::read_le(&mut reader)?;
+        let operand_type = PlaintextType::read_le(&mut reader)?;
         // Read the destination register.
         let destination = Register::read_le(&mut reader)?;
         // Read the destination register type.
@@ -434,22 +459,22 @@ mod tests {
     type CurrentNetwork = MainnetV0;
 
     /// **Attention**: When changing this, also update in `tests/instruction/serialize.rs`.
-    fn valid_source_types<N: Network>() -> &'static [RegisterType<N>] {
+    fn valid_source_types<N: Network>() -> &'static [PlaintextType<N>] {
         &[
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Address)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Field)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Group)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I8)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I16)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I32)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I128)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I64)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U8)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U32)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U64)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U128)),
-            RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Scalar)),
+            PlaintextType::Literal(LiteralType::Address),
+            PlaintextType::Literal(LiteralType::Field),
+            PlaintextType::Literal(LiteralType::Group),
+            PlaintextType::Literal(LiteralType::I8),
+            PlaintextType::Literal(LiteralType::I16),
+            PlaintextType::Literal(LiteralType::I32),
+            PlaintextType::Literal(LiteralType::I128),
+            PlaintextType::Literal(LiteralType::I64),
+            PlaintextType::Literal(LiteralType::U8),
+            PlaintextType::Literal(LiteralType::U16),
+            PlaintextType::Literal(LiteralType::U32),
+            PlaintextType::Literal(LiteralType::U64),
+            PlaintextType::Literal(LiteralType::U128),
+            PlaintextType::Literal(LiteralType::Scalar),
         ]
     }
 

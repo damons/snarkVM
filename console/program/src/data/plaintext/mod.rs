@@ -46,13 +46,13 @@ pub enum Plaintext<N: Network> {
 }
 
 impl<N: Network> Plaintext<N> {
-    /// Returns a new `Plaintext::Array` from `Vec<bool>`, resizing to the specified size.
-    pub fn from_bit_array(mut bits: Vec<bool>, size: u32) -> Self {
-        bits.resize(size as usize, false);
-        Self::Array(
+    /// Returns a new `Plaintext::Array` from `Vec<bool>`, checking that the length is correct.
+    pub fn from_bit_array(bits: Vec<bool>, length: u32) -> Result<Self> {
+        ensure!(bits.len() == length as usize, "Expected '{length}' bits, got '{}' bits", bits.len());
+        Ok(Self::Array(
             bits.into_iter().map(|bit| Plaintext::from(Literal::Boolean(Boolean::new(bit)))).collect(),
             OnceLock::new(),
-        )
+        ))
     }
 
     /// Returns the `Plaintext` as a `Vec<bool>`, if it is a bit array.

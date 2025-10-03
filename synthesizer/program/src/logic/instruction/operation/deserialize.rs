@@ -222,8 +222,8 @@ where
     // A helper to get the number of bits needed.
     let get_size_in_bits = |plaintext_type: &PlaintextType<N>| -> Result<usize> {
         match DeserializeVariant::from_u8(variant) {
-            DeserializeVariant::FromBits => plaintext_type.plaintext_size_in_bits(&get_struct),
-            DeserializeVariant::FromBitsRaw => plaintext_type.plaintext_size_in_raw_bits(&get_struct),
+            DeserializeVariant::FromBits => plaintext_type.size_in_bits(&get_struct),
+            DeserializeVariant::FromBitsRaw => plaintext_type.size_in_bits_raw(&get_struct),
         }
     };
 
@@ -413,8 +413,8 @@ where
     // A helper to get the number of bits needed.
     let get_size_in_bits = |plaintext_type: &PlaintextType<N>| -> Result<usize> {
         match DeserializeVariant::from_u8(variant) {
-            DeserializeVariant::FromBits => plaintext_type.plaintext_size_in_bits(get_struct),
-            DeserializeVariant::FromBitsRaw => plaintext_type.plaintext_size_in_raw_bits(get_struct),
+            DeserializeVariant::FromBits => plaintext_type.size_in_bits(get_struct),
+            DeserializeVariant::FromBitsRaw => plaintext_type.size_in_bits_raw(get_struct),
         }
     };
 
@@ -595,6 +595,20 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // A helper to get a struct declaration.
         let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
 
+        // Get the size in bits of the operand.
+        let size_in_bits = match VARIANT {
+            0 => self.destination_type.size_in_bits(&get_struct)?,
+            1 => self.destination_type.size_in_bits_raw(&get_struct)?,
+            variant => bail!("Invalid `deserialize` variant '{variant}'"),
+        };
+
+        // Check that the number of bits matches the desired length.
+        ensure!(
+            bits.len() == size_in_bits,
+            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+            bits.len()
+        );
+
         // Deserialize into the desired output.
         let output = evaluate_deserialize_internal(VARIANT, &bits, &self.destination_type, &get_struct, 0)?;
 
@@ -627,6 +641,20 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // A helper to get a struct declaration.
         let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
 
+        // Get the size in bits of the operand.
+        let size_in_bits = match VARIANT {
+            0 => self.destination_type.size_in_bits(&get_struct)?,
+            1 => self.destination_type.size_in_bits_raw(&get_struct)?,
+            variant => bail!("Invalid `deserialize` variant '{variant}'"),
+        };
+
+        // Check that the number of bits matches the desired length.
+        ensure!(
+            bits.len() == size_in_bits,
+            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+            bits.len()
+        );
+
         // Deserialize the bits into the desired literal type.
         let output = execute_deserialize_internal(VARIANT, &bits, &self.destination_type, &get_struct, 0)?;
 
@@ -643,7 +671,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
     /// Returns the output type from the given program and input types.
     pub fn output_types(
         &self,
-        _stack: &impl StackTrait<N>,
+        stack: &impl StackTrait<N>,
         input_types: &[RegisterType<N>],
     ) -> Result<Vec<RegisterType<N>>> {
         // Ensure the number of operands is correct.
@@ -659,6 +687,23 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
             RegisterType::Plaintext(PlaintextType::Array(array_type)) if array_type == &self.operand_type => {}
             _ => bail!("Input type {:?} does not match operand type {:?}", input_types[0], self.operand_type),
         }
+
+        // A helper to get a struct declaration.
+        let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
+
+        // Get the size in bits of the operand.
+        let size_in_bits = match VARIANT {
+            0 => self.destination_type.size_in_bits(&get_struct)?,
+            1 => self.destination_type.size_in_bits_raw(&get_struct)?,
+            variant => bail!("Invalid `deserialize` variant '{variant}'"),
+        };
+
+        // Check that the number of bits of the operand matches the destination.
+        ensure!(
+            **self.operand_type.length() as usize == size_in_bits,
+            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+            **self.operand_type.length()
+        );
 
         Ok(vec![RegisterType::Plaintext(self.destination_type.clone())])
     }

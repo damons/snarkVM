@@ -100,8 +100,8 @@ fn check_deserialize<const VARIANT: u8>(
 
     // Get the size in bits.
     let size_in_bits = match VARIANT {
-        0 => type_.plaintext_size_in_bits(&fail_get_struct).unwrap(),
-        1 => type_.plaintext_size_in_raw_bits(&fail_get_struct).unwrap(),
+        0 => type_.size_in_bits(&fail_get_struct).unwrap(),
+        1 => type_.size_in_bits_raw(&fail_get_struct).unwrap(),
         _ => panic!("Invalid 'deserialize' veriant"),
     };
     let size_in_bits = u32::try_from(size_in_bits).unwrap();
@@ -137,7 +137,7 @@ fn check_deserialize<const VARIANT: u8>(
         assert_eq!(bits.len(), size_in_bits as usize, "The number of bits does not match the expected size");
 
         // Construct the bit array input.
-        let bit_array = Plaintext::from_bit_array(bits, size_in_bits);
+        let bit_array = Plaintext::from_bit_array(bits, size_in_bits).unwrap();
 
         // Attempt to evaluate the valid operand case.
         let mut evaluate_registers =

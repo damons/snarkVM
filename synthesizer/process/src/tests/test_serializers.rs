@@ -104,8 +104,8 @@ function test_serde_equivalence:
 
         // Get the bits type.
         let num_bits = match is_raw {
-            true => type_.plaintext_size_in_raw_bits(&fail_get_struct).unwrap(),
-            false => type_.plaintext_size_in_bits(&fail_get_struct).unwrap(),
+            true => type_.size_in_bits_raw(&fail_get_struct).unwrap(),
+            false => type_.size_in_bits(&fail_get_struct).unwrap(),
         };
         let num_bits = u32::try_from(num_bits).unwrap();
         let bits_type = ArrayType::new(PlaintextType::Literal(LiteralType::Boolean), vec![U32::new(num_bits)]).unwrap();
@@ -260,8 +260,8 @@ function dummy:
             for _ in 0..ITERATIONS {
                 // Get the size in bits.
                 let size_in_bits = match is_raw {
-                    true => type_.plaintext_size_in_raw_bits(&get_struct).unwrap(),
-                    false => type_.plaintext_size_in_bits(&get_struct).unwrap(),
+                    true => type_.size_in_bits_raw(&get_struct).unwrap(),
+                    false => type_.size_in_bits(&get_struct).unwrap(),
                 };
 
                 // Sample the plaintext.

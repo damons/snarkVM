@@ -18,7 +18,7 @@ mod parse;
 mod serialize;
 mod size_in_bits;
 
-use crate::{ArrayType, Identifier, LiteralType};
+use crate::{ArrayType, Identifier, LiteralType, StructType};
 use snarkvm_console_network::prelude::*;
 
 /// A `PlaintextType` defines the type parameter for a literal, struct, or array.

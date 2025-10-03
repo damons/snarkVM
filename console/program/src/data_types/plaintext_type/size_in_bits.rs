@@ -15,19 +15,17 @@
 
 use super::*;
 
-use crate::StructType;
-
 impl<N: Network> PlaintextType<N> {
     /// Returns the number of bits of a plaintext type.
-    pub fn plaintext_size_in_bits<F>(&self, get_struct: &F) -> Result<usize>
+    pub fn size_in_bits<F>(&self, get_struct: &F) -> Result<usize>
     where
         F: Fn(&Identifier<N>) -> Result<StructType<N>>,
     {
-        self.plaintext_size_in_bits_internal(get_struct, 0)
+        self.size_in_bits_internal(get_struct, 0)
     }
 
     /// A helper function to determine the number of bits of a plaintext type, while tracking the depth of the data.
-    fn plaintext_size_in_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
+    fn size_in_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
     where
         F: Fn(&Identifier<N>) -> Result<StructType<N>>,
     {
@@ -68,7 +66,7 @@ impl<N: Network> PlaintextType<N> {
                     // Account for the size of the member
                     total = total.checked_add(16).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                     // Account for the member itself.
-                    let member_size = member_type.plaintext_size_in_bits_internal(get_struct, depth + 1)?;
+                    let member_size = member_type.size_in_bits_internal(get_struct, depth + 1)?;
                     total = total.checked_add(member_size).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 }
 
@@ -80,8 +78,7 @@ impl<N: Network> PlaintextType<N> {
                 // Account for the size of the array length.
                 total = total.checked_add(32).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 // Get the size of the element type.
-                let element_size =
-                    array_type.next_element_type().plaintext_size_in_bits_internal(get_struct, depth + 1)?;
+                let element_size = array_type.next_element_type().size_in_bits_internal(get_struct, depth + 1)?;
                 // Get the total size of an element.
                 let element_total = 16usize.checked_add(element_size).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 // Multiply by the length of the array, ensuring no overflow occurs.
@@ -99,15 +96,15 @@ impl<N: Network> PlaintextType<N> {
     }
 
     /// Returns the number of raw bits of a plaintext type.
-    pub fn plaintext_size_in_raw_bits<F>(&self, get_struct: &F) -> Result<usize>
+    pub fn size_in_bits_raw<F>(&self, get_struct: &F) -> Result<usize>
     where
         F: Fn(&Identifier<N>) -> Result<StructType<N>>,
     {
-        self.plaintext_size_in_raw_bits_internal(get_struct, 0)
+        self.size_in_bits_raw_internal(get_struct, 0)
     }
 
     // A helper function to determine the number of raw bits of a plaintext type, while tracking the depth of the data.
-    fn plaintext_size_in_raw_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
+    fn size_in_bits_raw_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
     where
         F: Fn(&Identifier<N>) -> Result<StructType<N>>,
     {
@@ -123,20 +120,19 @@ impl<N: Network> PlaintextType<N> {
                 let mut total = 0usize;
                 for member_type in struct_.members().values() {
                     // Get the size of the member.
-                    let member_size = member_type.plaintext_size_in_raw_bits_internal(get_struct, depth + 1)?;
+                    let member_size = member_type.size_in_bits_raw_internal(get_struct, depth + 1)?;
                     // Add to the total size, ensuring no overflow occurs.
-                    total = total.checked_add(member_size).ok_or(anyhow!("`size_in_raw_bits` overflowed"))?;
+                    total = total.checked_add(member_size).ok_or(anyhow!("`size_in_bits_raw` overflowed"))?;
                 }
                 Ok(total)
             }
             PlaintextType::Array(array_type) => {
                 // Get the size of the element type.
-                let element_size =
-                    array_type.next_element_type().plaintext_size_in_raw_bits_internal(get_struct, depth + 1)?;
+                let element_size = array_type.next_element_type().size_in_bits_raw_internal(get_struct, depth + 1)?;
                 // Multiply by the length of the array, ensuring no overflow occurs.
                 let total = element_size
                     .checked_mul(**array_type.length() as usize)
-                    .ok_or(anyhow!("`size_in_raw_bits` overflowed"))?;
+                    .ok_or(anyhow!("`size_in_bits_raw` overflowed"))?;
 
                 Ok(total)
             }
