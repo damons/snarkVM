@@ -296,27 +296,27 @@ impl<N: Network> StackTrait<N> for Stack<N> {
         Ok(num_calls)
     }
 
-    /// Returns a value for the given value type.
+    /// Returns a value for the given register type.
     fn sample_value<R: Rng + CryptoRng>(
         &self,
         burner_address: &Address<N>,
-        value_type: &ValueType<N>,
+        register_type: &RegisterType<N>,
         rng: &mut R,
     ) -> Result<Value<N>> {
-        match value_type {
-            ValueType::Constant(plaintext_type)
-            | ValueType::Public(plaintext_type)
-            | ValueType::Private(plaintext_type) => Ok(Value::Plaintext(self.sample_plaintext(plaintext_type, rng)?)),
-            ValueType::Record(record_name) => {
+        match register_type {
+            RegisterType::Plaintext(plaintext_type) => {
+                Ok(Value::Plaintext(self.sample_plaintext(plaintext_type, rng)?))
+            }
+            RegisterType::Record(record_name) => {
                 Ok(Value::Record(self.sample_record(burner_address, record_name, Group::rand(rng), rng)?))
             }
-            ValueType::ExternalRecord(locator) => {
+            RegisterType::ExternalRecord(locator) => {
                 // Retrieve the external stack.
                 let stack = self.get_external_stack(locator.program_id())?;
                 // Sample the output.
                 Ok(Value::Record(stack.sample_record(burner_address, locator.resource(), Group::rand(rng), rng)?))
             }
-            ValueType::Future(locator) => Ok(Value::Future(self.sample_future(locator, rng)?)),
+            RegisterType::Future(locator) => Ok(Value::Future(self.sample_future(locator, rng)?)),
         }
     }
 

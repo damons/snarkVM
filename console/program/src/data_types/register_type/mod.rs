@@ -48,6 +48,13 @@ impl<N: Network> From<ValueType<N>> for RegisterType<N> {
     }
 }
 
+impl<N: Network> From<&ValueType<N>> for RegisterType<N> {
+    /// Converts a value type to a register type.
+    fn from(value: &ValueType<N>) -> Self {
+        value.clone().into()
+    }
+}
+
 impl<N: Network> From<FinalizeType<N>> for RegisterType<N> {
     /// Converts a finalize type to a register type.
     fn from(finalize: FinalizeType<N>) -> Self {
