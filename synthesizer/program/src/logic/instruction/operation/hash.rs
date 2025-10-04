@@ -177,6 +177,7 @@ pub enum HashVariant {
 }
 
 impl HashVariant {
+    // Initializes a new `HashVariant`.
     pub const fn new(variant: u8) -> Self {
         match variant {
             0 => Self::HashBHP256,

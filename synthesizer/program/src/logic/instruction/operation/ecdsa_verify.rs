@@ -17,7 +17,7 @@ use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     algorithms::{ECDSASignature, Keccak256, Keccak384, Keccak512, Sha3_256, Sha3_384, Sha3_512},
     network::prelude::*,
-    program::{Boolean, Literal, LiteralType, PlaintextType, Register, RegisterType, Value},
+    program::{Address, Boolean, Literal, LiteralType, PlaintextType, Register, RegisterType, Value},
 };
 use snarkvm_utilities::bytes_from_bits_le;
 
@@ -90,30 +90,108 @@ pub enum ECDSAVerifyVariant {
 }
 
 impl ECDSAVerifyVariant {
-    // Returns the opcode associated with the variant.
-    pub const fn opcode(variant: u8) -> &'static str {
+    // Initializes a new `ECDSAVerifyVariant`.
+    pub const fn new(variant: u8) -> Self {
         match variant {
-            0 => "ecdsa.verify.digest",
-            1 => "ecdsa.verify.digest.eth",
-            2 => "ecdsa.verify.keccak256",
-            3 => "ecdsa.verify.keccak256.raw",
-            4 => "ecdsa.verify.keccak256.eth",
-            5 => "ecdsa.verify.keccak384",
-            6 => "ecdsa.verify.keccak384.raw",
-            7 => "ecdsa.verify.keccak384.eth",
-            8 => "ecdsa.verify.keccak512",
-            9 => "ecdsa.verify.keccak512.raw",
-            10 => "ecdsa.verify.keccak512.eth",
-            11 => "ecdsa.verify.sha3_256",
-            12 => "ecdsa.verify.sha3_256.raw",
-            13 => "ecdsa.verify.sha3_256.eth",
-            14 => "ecdsa.verify.sha3_384",
-            15 => "ecdsa.verify.sha3_384.raw",
-            16 => "ecdsa.verify.sha3_384.eth",
-            17 => "ecdsa.verify.sha3_512",
-            18 => "ecdsa.verify.sha3_512.raw",
-            19 => "ecdsa.verify.sha3_512.eth",
+            0 => Self::Digest,
+            1 => Self::DigestEth,
+            2 => Self::HashKeccak256,
+            3 => Self::HashKeccak256Raw,
+            4 => Self::HashKeccak256Eth,
+            5 => Self::HashKeccak384,
+            6 => Self::HashKeccak384Raw,
+            7 => Self::HashKeccak384Eth,
+            8 => Self::HashKeccak512,
+            9 => Self::HashKeccak512Raw,
+            10 => Self::HashKeccak512Eth,
+            11 => Self::HashSha3_256,
+            12 => Self::HashSha3_256Raw,
+            13 => Self::HashSha3_256Eth,
+            14 => Self::HashSha3_384,
+            15 => Self::HashSha3_384Raw,
+            16 => Self::HashSha3_384Eth,
+            17 => Self::HashSha3_512,
+            18 => Self::HashSha3_512Raw,
+            19 => Self::HashSha3_512Eth,
             _ => panic!("Invalid 'ecdsa.verify' instruction opcode"),
+        }
+    }
+
+    // Returns the opcode associated with the variant.
+    pub const fn opcode(&self) -> &'static str {
+        match self {
+            Self::Digest => "ecdsa.verify.digest",
+            Self::DigestEth => "ecdsa.verify.digest.eth",
+            Self::HashKeccak256 => "ecdsa.verify.keccak256",
+            Self::HashKeccak256Raw => "ecdsa.verify.keccak256.raw",
+            Self::HashKeccak256Eth => "ecdsa.verify.keccak256.eth",
+            Self::HashKeccak384 => "ecdsa.verify.keccak384",
+            Self::HashKeccak384Raw => "ecdsa.verify.keccak384.raw",
+            Self::HashKeccak384Eth => "ecdsa.verify.keccak384.eth",
+            Self::HashKeccak512 => "ecdsa.verify.keccak512",
+            Self::HashKeccak512Raw => "ecdsa.verify.keccak512.raw",
+            Self::HashKeccak512Eth => "ecdsa.verify.keccak512.eth",
+            Self::HashSha3_256 => "ecdsa.verify.sha3_256",
+            Self::HashSha3_256Raw => "ecdsa.verify.sha3_256.raw",
+            Self::HashSha3_256Eth => "ecdsa.verify.sha3_256.eth",
+            Self::HashSha3_384 => "ecdsa.verify.sha3_384",
+            Self::HashSha3_384Raw => "ecdsa.verify.sha3_384.raw",
+            Self::HashSha3_384Eth => "ecdsa.verify.sha3_384.eth",
+            Self::HashSha3_512 => "ecdsa.verify.sha3_512",
+            Self::HashSha3_512Raw => "ecdsa.verify.sha3_512.raw",
+            Self::HashSha3_512Eth => "ecdsa.verify.sha3_512.eth",
+        }
+    }
+
+    // Returns true if the variant requires byte alignment.
+    pub const fn requires_byte_alignment(&self) -> bool {
+        match self {
+            Self::Digest => true,
+            Self::DigestEth => true,
+            Self::HashKeccak256 => false,
+            Self::HashKeccak256Raw => true,
+            Self::HashKeccak256Eth => true,
+            Self::HashKeccak384 => false,
+            Self::HashKeccak384Raw => true,
+            Self::HashKeccak384Eth => true,
+            Self::HashKeccak512 => false,
+            Self::HashKeccak512Raw => true,
+            Self::HashKeccak512Eth => true,
+            Self::HashSha3_256 => false,
+            Self::HashSha3_256Raw => true,
+            Self::HashSha3_256Eth => true,
+            Self::HashSha3_384 => false,
+            Self::HashSha3_384Raw => true,
+            Self::HashSha3_384Eth => true,
+            Self::HashSha3_512 => false,
+            Self::HashSha3_512Raw => true,
+            Self::HashSha3_512Eth => true,
+        }
+    }
+
+    // Returns `true` if the variant uses raw bits.
+    pub const fn is_raw(&self) -> bool {
+        match self {
+            Self::Digest => true,
+            Self::DigestEth => true,
+            Self::HashKeccak256 => false,
+            Self::HashKeccak256Raw => true,
+            Self::HashKeccak256Eth => true,
+            Self::HashKeccak384 => false,
+            Self::HashKeccak384Raw => true,
+            Self::HashKeccak384Eth => true,
+            Self::HashKeccak512 => false,
+            Self::HashKeccak512Raw => true,
+            Self::HashKeccak512Eth => true,
+            Self::HashSha3_256 => false,
+            Self::HashSha3_256Raw => true,
+            Self::HashSha3_256Eth => true,
+            Self::HashSha3_384 => false,
+            Self::HashSha3_384Raw => true,
+            Self::HashSha3_384Eth => true,
+            Self::HashSha3_512 => false,
+            Self::HashSha3_512Raw => true,
+            Self::HashSha3_512Eth => true,
         }
     }
 }
@@ -140,7 +218,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     /// Returns the opcode.
     #[inline]
     pub const fn opcode() -> Opcode {
-        Opcode::ECDSA(ECDSAVerifyVariant::opcode(VARIANT))
+        Opcode::ECDSA(ECDSAVerifyVariant::new(VARIANT).opcode())
     }
 
     /// Returns the operands in the operation.
@@ -160,6 +238,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
 }
 
 // Perform the ECDSA verification based on the variant.
+#[rustfmt::skip]
 macro_rules! do_ecdsa_verification {
     ($variant: expr, $signature: expr, $pub_key: expr, $message: expr) => {{
         let bits = || $message.to_bits_le();
@@ -176,27 +255,26 @@ macro_rules! do_ecdsa_verification {
         let ecdsa_signature = ECDSASignature::from_bytes_le(&signature_bytes)?;
 
         let output = match $variant {
-            0 => ecdsa_signature.verify_with_digest(&pub_key()?, &bits_raw()),
-            1 => ecdsa_signature.verify_ethereum_with_digest(&ethereum_address()?, &bits_raw()),
-            2 => ecdsa_signature.verify(&pub_key()?, &Keccak256::default(), &bits()),
-            3 => ecdsa_signature.verify(&pub_key()?, &Keccak256::default(), &bits_raw()),
-            4 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak256::default(), &bits_raw()),
-            5 => ecdsa_signature.verify(&pub_key()?, &Keccak384::default(), &bits()),
-            6 => ecdsa_signature.verify(&pub_key()?, &Keccak384::default(), &bits_raw()),
-            7 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak384::default(), &bits_raw()),
-            8 => ecdsa_signature.verify(&pub_key()?, &Keccak512::default(), &bits()),
-            9 => ecdsa_signature.verify(&pub_key()?, &Keccak512::default(), &bits_raw()),
-            10 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak512::default(), &bits_raw()),
-            11 => ecdsa_signature.verify(&pub_key()?, &Sha3_256::default(), &bits()),
-            12 => ecdsa_signature.verify(&pub_key()?, &Sha3_256::default(), &bits_raw()),
-            13 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_256::default(), &bits_raw()),
-            14 => ecdsa_signature.verify(&pub_key()?, &Sha3_384::default(), &bits()),
-            15 => ecdsa_signature.verify(&pub_key()?, &Sha3_384::default(), &bits_raw()),
-            16 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_384::default(), &bits_raw()),
-            17 => ecdsa_signature.verify(&pub_key()?, &Sha3_512::default(), &bits()),
-            18 => ecdsa_signature.verify(&pub_key()?, &Sha3_512::default(), &bits_raw()),
-            19 => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_512::default(), &bits_raw()),
-            20.. => bail!("Invalid 'ecdsa.verify' variant: {}", $variant),
+            ECDSAVerifyVariant::Digest           => ecdsa_signature.verify_with_digest(&pub_key()?, &bits_raw()),
+            ECDSAVerifyVariant::DigestEth        => ecdsa_signature.verify_ethereum_with_digest(&ethereum_address()?, &bits_raw()),
+            ECDSAVerifyVariant::HashKeccak256    => ecdsa_signature.verify(&pub_key()?, &Keccak256::default(), &bits()),
+            ECDSAVerifyVariant::HashKeccak256Raw => ecdsa_signature.verify(&pub_key()?, &Keccak256::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashKeccak256Eth => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak256::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashKeccak384    => ecdsa_signature.verify(&pub_key()?, &Keccak384::default(), &bits()),
+            ECDSAVerifyVariant::HashKeccak384Raw => ecdsa_signature.verify(&pub_key()?, &Keccak384::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashKeccak384Eth => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak384::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashKeccak512    => ecdsa_signature.verify(&pub_key()?, &Keccak512::default(), &bits()),
+            ECDSAVerifyVariant::HashKeccak512Raw => ecdsa_signature.verify(&pub_key()?, &Keccak512::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashKeccak512Eth => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Keccak512::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashSha3_256     => ecdsa_signature.verify(&pub_key()?, &Sha3_256::default(), &bits()),
+            ECDSAVerifyVariant::HashSha3_256Raw  => ecdsa_signature.verify(&pub_key()?, &Sha3_256::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashSha3_256Eth  => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_256::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashSha3_384     => ecdsa_signature.verify(&pub_key()?, &Sha3_384::default(), &bits()),
+            ECDSAVerifyVariant::HashSha3_384Raw  => ecdsa_signature.verify(&pub_key()?, &Sha3_384::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashSha3_384Eth  => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_384::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashSha3_512     => ecdsa_signature.verify(&pub_key()?, &Sha3_512::default(), &bits()),
+            ECDSAVerifyVariant::HashSha3_512Raw  => ecdsa_signature.verify(&pub_key()?, &Sha3_512::default(), &bits_raw()),
+            ECDSAVerifyVariant::HashSha3_512Eth  => ecdsa_signature.verify_ethereum(&ethereum_address()?, &Sha3_512::default(), &bits_raw()),
         };
 
         output.is_ok()
@@ -213,11 +291,11 @@ pub fn evaluate_ecdsa_verification<N: Network>(
     public_key: &Value<N>,
     message: &Value<N>,
 ) -> Result<bool> {
-    evaluate_ecdsa_verification_internal(variant as u8, signature, public_key, message)
+    evaluate_ecdsa_verification_internal(variant, signature, public_key, message)
 }
 
 fn evaluate_ecdsa_verification_internal<N: Network>(
-    variant: u8,
+    variant: ECDSAVerifyVariant,
     signature: &Value<N>,
     public_key: &Value<N>,
     message: &Value<N>,
@@ -257,7 +335,8 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         let message = registers.load(stack, &self.operands[2])?;
 
         // Perform the verification.
-        let output = evaluate_ecdsa_verification_internal(VARIANT, &signature, &public_key, &message)?;
+        let output =
+            evaluate_ecdsa_verification_internal(ECDSAVerifyVariant::new(VARIANT), &signature, &public_key, &message)?;
         let output = Literal::Boolean(Boolean::new(output));
 
         // Store the output.
@@ -268,7 +347,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
     #[inline]
     pub fn output_types(
         &self,
-        _stack: &impl StackTrait<N>,
+        stack: &impl StackTrait<N>,
         input_types: &[RegisterType<N>],
     ) -> Result<Vec<RegisterType<N>>> {
         // Ensure the number of input types is correct.
@@ -292,13 +371,33 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
             ),
         }
 
+        // Get the variant.
+        let variant = ECDSAVerifyVariant::new(VARIANT);
+
         // Expected byte length for the public key input depending on the variant.
-        let expected_length = if matches!(VARIANT, 1 | 4 | 7 | 10 | 13 | 16 | 19) || Self::opcode().ends_with("eth") {
-            // Ethereum address variant expects a 20-byte array.
-            ECDSASignature::ETHEREUM_ADDRESS_SIZE_IN_BYTES
-        } else {
+        let expected_length = match variant {
             // Non-Ethereum address variant expects a compressed verifying key.
-            ECDSASignature::VERIFYING_KEY_SIZE_IN_BYTES
+            ECDSAVerifyVariant::Digest
+            | ECDSAVerifyVariant::HashKeccak256
+            | ECDSAVerifyVariant::HashKeccak256Raw
+            | ECDSAVerifyVariant::HashKeccak384
+            | ECDSAVerifyVariant::HashKeccak384Raw
+            | ECDSAVerifyVariant::HashKeccak512
+            | ECDSAVerifyVariant::HashKeccak512Raw
+            | ECDSAVerifyVariant::HashSha3_256
+            | ECDSAVerifyVariant::HashSha3_256Raw
+            | ECDSAVerifyVariant::HashSha3_384
+            | ECDSAVerifyVariant::HashSha3_384Raw
+            | ECDSAVerifyVariant::HashSha3_512
+            | ECDSAVerifyVariant::HashSha3_512Raw => ECDSASignature::VERIFYING_KEY_SIZE_IN_BYTES,
+            // Ethereum address variant expects a 20-byte array.
+            ECDSAVerifyVariant::DigestEth
+            | ECDSAVerifyVariant::HashKeccak256Eth
+            | ECDSAVerifyVariant::HashKeccak384Eth
+            | ECDSAVerifyVariant::HashKeccak512Eth
+            | ECDSAVerifyVariant::HashSha3_256Eth
+            | ECDSAVerifyVariant::HashSha3_384Eth
+            | ECDSAVerifyVariant::HashSha3_512Eth => ECDSASignature::ETHEREUM_ADDRESS_SIZE_IN_BYTES,
         };
 
         // Validate that the public key input type is correct.
@@ -316,7 +415,7 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
         }
 
         // If the variant uses a precomputed digest, ensure the message is a 32-byte array.
-        if matches!(VARIANT, 0 | 1) {
+        if matches!(variant, ECDSAVerifyVariant::Digest | ECDSAVerifyVariant::DigestEth) {
             // Expected byte length for the digest input.
             let expected_message_length = ECDSASignature::PREHASH_SIZE_IN_BYTES;
 
@@ -332,6 +431,24 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
                     invalid_input_type
                 ),
             }
+        }
+        // Otherwise if the variant requires byte alignment, check that the input bits are a multiple of 8.
+        else if variant.requires_byte_alignment() {
+            // Initialize an RNG.
+            let rng = &mut TestRng::default();
+            // Sample a random value for the input type.
+            let value = stack.sample_value(&Address::<N>::rand(rng), &input_types[2], rng)?;
+            // Get the size in bits.
+            let size_in_bits = match variant.is_raw() {
+                false => value.to_bits_le().len(),
+                true => value.to_bits_raw_le().len(),
+            };
+            // Check the number of bits.
+            ensure!(
+                size_in_bits % 8 == 0,
+                "Expected a multiple of 8 bits for '{}', found '{size_in_bits}'",
+                variant.opcode()
+            );
         }
 
         Ok(vec![RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Boolean))])
