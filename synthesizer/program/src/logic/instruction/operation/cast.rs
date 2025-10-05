@@ -1059,7 +1059,7 @@ impl<N: Network, const VARIANT: u8> FromBytes for CastOperation<N, VARIANT> {
         // Note: Although a similar check is performed later, this check is performed to ensure that an exceedingly large number of operands is not allocated.
         // Note: This check is purely a sanity check, as it is not type-aware.
         if num_operands.is_zero() || num_operands > N::MAX_ARRAY_ELEMENTS {
-            return Err(error(format!("The number of operands must be nonzero and <= {}", N::MAX_RECORD_ENTRIES)));
+            return Err(error(format!("The number of operands must be nonzero and <= {}", N::MAX_ARRAY_ELEMENTS)));
         }
 
         // Initialize the vector for the operands.
