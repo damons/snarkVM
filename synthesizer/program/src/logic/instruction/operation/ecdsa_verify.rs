@@ -17,7 +17,7 @@ use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     algorithms::{ECDSASignature, Keccak256, Keccak384, Keccak512, Sha3_256, Sha3_384, Sha3_512},
     network::prelude::*,
-    program::{Address, Boolean, Literal, LiteralType, PlaintextType, Register, RegisterType, Value},
+    program::{Boolean, Identifier, Literal, LiteralType, Locator, PlaintextType, Register, RegisterType, Value},
 };
 use snarkvm_utilities::bytes_from_bits_le;
 
@@ -432,16 +432,42 @@ impl<N: Network, const VARIANT: u8> ECDSAVerify<N, VARIANT> {
                 ),
             }
         }
-        // Otherwise if the variant requires byte alignment, check that the input bits are a multiple of 8.
+        // Otherwise if the variant needs to be byte aligned, check that its size in bits is a multiple of 8.
         else if variant.requires_byte_alignment() {
-            // Initialize an RNG.
-            let rng = &mut TestRng::default();
-            // Sample a random value for the input type.
-            let value = stack.sample_value(&Address::<N>::rand(rng), &input_types[2], rng)?;
-            // Get the size in bits.
+            // A helper to get a struct declaration.
+            let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
+
+            // A helper to get a record declaration.
+            let get_record = |identifier: &Identifier<N>| stack.program().get_record(identifier).cloned();
+
+            // A helper to get an external record declaration.
+            let get_external_record = |locator: &Locator<N>| {
+                stack.get_external_stack(locator.program_id())?.program().get_record(locator.resource()).cloned()
+            };
+
+            // A helper to get the argument types of a future.
+            let get_future = |locator: &Locator<N>| {
+                Ok(match stack.program_id() == locator.program_id() {
+                    true => stack
+                        .program()
+                        .get_function_ref(locator.resource())?
+                        .finalize_logic()
+                        .ok_or_else(|| anyhow!("'{locator}' does not have a finalize scope"))?
+                        .input_types(),
+                    false => stack
+                        .get_external_stack(locator.program_id())?
+                        .program()
+                        .get_function_ref(locator.resource())?
+                        .finalize_logic()
+                        .ok_or_else(|| anyhow!("Failed to find function '{locator}'"))?
+                        .input_types(),
+                })
+            };
+
+            // Get the size in bits of the message.
             let size_in_bits = match variant.is_raw() {
-                false => value.to_bits_le().len(),
-                true => value.to_bits_raw_le().len(),
+                false => input_types[2].size_in_bits(&get_struct, &get_record, &get_external_record, &get_future)?,
+                true => input_types[2].size_in_bits_raw(&get_struct, &get_record, &get_external_record, &get_future)?,
             };
             // Check the number of bits.
             ensure!(

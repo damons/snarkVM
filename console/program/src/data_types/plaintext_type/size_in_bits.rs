@@ -25,7 +25,7 @@ impl<N: Network> PlaintextType<N> {
     }
 
     /// A helper function to determine the number of bits of a plaintext type, while tracking the depth of the data.
-    fn size_in_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
+    pub(crate) fn size_in_bits_internal<F>(&self, get_struct: &F, depth: usize) -> Result<usize>
     where
         F: Fn(&Identifier<N>) -> Result<StructType<N>>,
     {
@@ -41,6 +41,7 @@ impl<N: Network> PlaintextType<N> {
                 // Account for the size of the literal in bits.
                 total = total.checked_add(16).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 // Account for the literal.
+
                 total = total
                     .checked_add(literal.size_in_bits::<N>() as usize)
                     .ok_or(anyhow!("`size_in_bits` overflowed"))?;

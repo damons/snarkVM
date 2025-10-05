@@ -16,7 +16,7 @@
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
-    program::{Address, Literal, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
+    program::{Identifier, Literal, LiteralType, Locator, Plaintext, PlaintextType, Register, RegisterType, Value},
 };
 
 /// BHP256 is a collision-resistant hash function that processes inputs in 256-bit chunks.
@@ -651,18 +651,10 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
             "Invalid destination type in 'hash' instruction"
         );
 
-        // // A helper to get a struct declaration.
-        // let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
-
-        // // A helper to get a record declaration.
-        // let get_record = |identifier: &Identifier<N>| stack.program().get_record(identifier).cloned();
-
         // Get the variant.
         let variant = HashVariant::new(VARIANT);
 
         // If the variant needs to be byte aligned, check that its size in bits is a multiple of 8.
-        // TODO (@reviewers) We need a second opinion here on this method for determining the size.
-        //   The alternative is to support a closed form solution like for `PlaintextType`.
         if variant.requires_byte_alignment() {
             // Check that there is only one operand type.
             ensure!(
@@ -671,14 +663,41 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
                 variant.opcode(),
                 variant.expected_num_operands()
             );
-            // Initialize an RNG.
-            let rng = &mut TestRng::default();
-            // Sample a random value for the input type.
-            let value = stack.sample_value(&Address::<N>::rand(rng), &input_types[0], rng)?;
+
+            // A helper to get a struct declaration.
+            let get_struct = |identifier: &Identifier<N>| stack.program().get_struct(identifier).cloned();
+
+            // A helper to get a record declaration.
+            let get_record = |identifier: &Identifier<N>| stack.program().get_record(identifier).cloned();
+
+            // A helper to get an external record declaration.
+            let get_external_record = |locator: &Locator<N>| {
+                stack.get_external_stack(locator.program_id())?.program().get_record(locator.resource()).cloned()
+            };
+
+            // A helper to get the argument types of a future.
+            let get_future = |locator: &Locator<N>| {
+                Ok(match stack.program_id() == locator.program_id() {
+                    true => stack
+                        .program()
+                        .get_function_ref(locator.resource())?
+                        .finalize_logic()
+                        .ok_or_else(|| anyhow!("'{locator}' does not have a finalize scope"))?
+                        .input_types(),
+                    false => stack
+                        .get_external_stack(locator.program_id())?
+                        .program()
+                        .get_function_ref(locator.resource())?
+                        .finalize_logic()
+                        .ok_or_else(|| anyhow!("Failed to find function '{locator}'"))?
+                        .input_types(),
+                })
+            };
+
             // Get the size in bits.
             let size_in_bits = match variant.is_raw() {
-                false => value.to_bits_le().len(),
-                true => value.to_bits_raw_le().len(),
+                false => input_types[0].size_in_bits(&get_struct, &get_record, &get_external_record, &get_future)?,
+                true => input_types[0].size_in_bits_raw(&get_struct, &get_record, &get_external_record, &get_future)?,
             };
             // Check the number of bits.
             ensure!(

@@ -228,11 +228,15 @@ where
     };
 
     // Get the number of bits needed.
-    let num_bits = get_size_in_bits(destination_type)?;
+    let size_in_bits = get_size_in_bits(destination_type)?;
 
-    // Resize the bits to the appropriate length.
-    let mut bits = bits.to_vec();
-    bits.resize(num_bits, false);
+    // Check that the number of bits is correct.
+    let bits = bits.to_vec();
+    ensure!(
+        bits.len() == size_in_bits,
+        "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+        bits.len()
+    );
 
     // The starting index used to create subsequent subslices of the `bits` slice.
     let mut index = 0;
@@ -419,11 +423,15 @@ where
     };
 
     // Get the number of bits needed.
-    let num_bits = get_size_in_bits(destination_type)?;
+    let size_in_bits = get_size_in_bits(destination_type)?;
 
-    // Resize the bits to the appropriate length.
-    let mut bits = bits.to_vec();
-    bits.resize(num_bits, circuit::Boolean::<A>::constant(false));
+    // Check that the number of bits is correct.
+    let bits = bits.to_vec();
+    ensure!(
+        bits.len() == size_in_bits,
+        "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+        bits.len()
+    );
 
     // The starting index used to create subsequent subslices of the `bits` slice.
     let mut index = 0;
@@ -604,7 +612,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
 
         // Check that the number of bits matches the desired length.
         ensure!(
-            bits.len() == size_in_bits,
+            bits.len() == size_in_bits as usize,
             "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
             bits.len()
         );
@@ -650,7 +658,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
 
         // Check that the number of bits matches the desired length.
         ensure!(
-            bits.len() == size_in_bits,
+            bits.len() == size_in_bits as usize,
             "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
             bits.len()
         );
