@@ -18,7 +18,7 @@ use circuit::network::AleoV0;
 use console::{
     account::PrivateKey,
     network::{MainnetV0, prelude::*},
-    program::{ArrayType, Identifier, LiteralType, PlaintextType, U32, Value},
+    program::{Address, ArrayType, Identifier, LiteralType, Locator, PlaintextType, RegisterType, U32, Value},
 };
 use snarkvm_synthesizer_program::{Program, StackTrait};
 
@@ -185,13 +185,13 @@ function test_serde_equivalence:
 }
 
 #[test]
-fn test_plaintext_size_in_bits() {
+fn test_value_size_in_bits() {
     const ITERATIONS: usize = 1000;
 
     // Load a process.
     let mut process = Process::<CurrentNetwork>::load().unwrap();
 
-    // Define a program with structs that we want to test.
+    // Define a program with data types that we want to test.
     let program = Program::<CurrentNetwork>::from_str(
         r"
 program test.aleo;
@@ -205,8 +205,27 @@ struct B:
     one as [scalar; 32u32];
     two as [A; 4u32];
 
+record credits:
+    owner as address.private;
+    microcredits as u64.private;
+
+record C:
+    owner as address.private;
+    data as [u8; 16u32].private;
+    amount as u32.private;
+    ayyy as A.private;
+    bees as [B; 2u32].private;
+
 function dummy:
-",
+    input r0 as A.public;
+    input r1 as B.public;
+    async dummy r0 r1 into r2;
+    output r2 as test.aleo/dummy.future;
+finalize dummy:
+    input r0 as A.public;
+    input r1 as B.public;
+    assert.eq r0.one r1.two[0u32].one;
+    ",
     )
     .unwrap();
 
@@ -219,61 +238,98 @@ function dummy:
     // A helper function to get the struct.
     let get_struct = |id: &Identifier<CurrentNetwork>| stack.program().get_struct(id).cloned();
 
+    // A helper to get a record declaration.
+    let get_record = |identifier: &Identifier<CurrentNetwork>| stack.program().get_record(identifier).cloned();
+
+    // A helper to get an external record declaration.
+    let get_external_record = |_locator: &Locator<CurrentNetwork>| unimplemented!("Not tested");
+
+    // A helper to get the argument types of a future.
+    let get_future = |locator: &Locator<CurrentNetwork>| {
+        Ok(match stack.program_id() == locator.program_id() {
+            true => stack
+                .program()
+                .get_function_ref(locator.resource())?
+                .finalize_logic()
+                .ok_or_else(|| anyhow!("'{locator}' does not have a finalize scope"))?
+                .input_types(),
+            false => stack
+                .get_external_stack(locator.program_id())?
+                .program()
+                .get_function_ref(locator.resource())?
+                .finalize_logic()
+                .ok_or_else(|| anyhow!("Failed to find function '{locator}'"))?
+                .input_types(),
+        })
+    };
+
     // Define the types we want to test.
     let types = [
-        PlaintextType::Literal(LiteralType::Address),
-        PlaintextType::Literal(LiteralType::Boolean),
-        PlaintextType::Literal(LiteralType::Field),
-        PlaintextType::Literal(LiteralType::Group),
-        PlaintextType::Literal(LiteralType::I8),
-        PlaintextType::Literal(LiteralType::I16),
-        PlaintextType::Literal(LiteralType::I32),
-        PlaintextType::Literal(LiteralType::I64),
-        PlaintextType::Literal(LiteralType::I128),
-        PlaintextType::Literal(LiteralType::U8),
-        PlaintextType::Literal(LiteralType::U16),
-        PlaintextType::Literal(LiteralType::U32),
-        PlaintextType::Literal(LiteralType::U64),
-        PlaintextType::Literal(LiteralType::U128),
-        PlaintextType::Literal(LiteralType::Scalar),
-        PlaintextType::Literal(LiteralType::Signature),
-        PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(8)]).unwrap()),
-        PlaintextType::Array(ArrayType::new(PlaintextType::Literal(LiteralType::Field), vec![U32::new(17)]).unwrap()),
-        PlaintextType::Array(
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Address)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Boolean)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Field)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I8)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Group)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I16)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I32)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I64)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::I128)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U8)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U32)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U64)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U128)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Scalar)),
+        RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Signature)),
+        RegisterType::Plaintext(PlaintextType::Array(
+            ArrayType::new(PlaintextType::Literal(LiteralType::U8), vec![U32::new(8)]).unwrap(),
+        )),
+        RegisterType::Plaintext(PlaintextType::Array(
+            ArrayType::new(PlaintextType::Literal(LiteralType::Field), vec![U32::new(17)]).unwrap(),
+        )),
+        RegisterType::Plaintext(PlaintextType::Array(
             ArrayType::new(PlaintextType::Literal(LiteralType::Signature), vec![U32::new(45)]).unwrap(),
-        ),
-        PlaintextType::Struct(Identifier::from_str("A").unwrap()),
-        PlaintextType::Struct(Identifier::from_str("B").unwrap()),
-        PlaintextType::Array(
+        )),
+        RegisterType::Plaintext(PlaintextType::Struct(Identifier::from_str("A").unwrap())),
+        RegisterType::Plaintext(PlaintextType::Struct(Identifier::from_str("B").unwrap())),
+        RegisterType::Plaintext(PlaintextType::Array(
             ArrayType::new(PlaintextType::Struct(Identifier::from_str("A").unwrap()), vec![U32::new(3)]).unwrap(),
-        ),
-        PlaintextType::Array(
+        )),
+        RegisterType::Plaintext(PlaintextType::Array(
             ArrayType::new(PlaintextType::Struct(Identifier::from_str("B").unwrap()), vec![U32::new(2)]).unwrap(),
-        ),
+        )),
+        RegisterType::Record(Identifier::from_str("credits").unwrap()),
+        RegisterType::Record(Identifier::from_str("C").unwrap()),
+        RegisterType::Future(Locator::from_str("test.aleo/dummy").unwrap()),
     ];
 
     for is_raw in [false, true] {
-        types.par_iter().for_each(|type_| {
+        types.iter().for_each(|type_| {
             // Initialize an RNG.
             let rng = &mut TestRng::default();
 
-            for _ in 0..ITERATIONS {
+            for i in 0..ITERATIONS {
+                println!("Testing type '{type_}' (is_raw: {is_raw}, iteration: {i})");
+
                 // Get the size in bits.
                 let size_in_bits = match is_raw {
-                    true => type_.size_in_bits_raw(&get_struct).unwrap(),
-                    false => type_.size_in_bits(&get_struct).unwrap(),
+                    true => {
+                        type_.size_in_bits_raw(&get_struct, &get_record, &get_external_record, &get_future).unwrap()
+                    }
+                    false => type_.size_in_bits(&get_struct, &get_record, &get_external_record, &get_future).unwrap(),
                 };
 
-                // Sample the plaintext.
-                let plaintext = stack.sample_plaintext(type_, rng).unwrap();
+                // Sample the value.
+                let value = stack.sample_value(&Address::rand(rng), type_, rng).unwrap();
 
                 // Get the bits of the plaintext.
                 let bits = match is_raw {
-                    false => plaintext.to_bits_le(),
-                    true => plaintext.to_bits_raw_le(),
+                    false => value.to_bits_le(),
+                    true => value.to_bits_raw_le(),
                 };
 
                 // Check that the number of bits matches the expected size.
+                println!("Expected size in bits: {size_in_bits}, Actual size in bits: {}", bits.len());
                 assert_eq!(bits.len(), size_in_bits);
             }
         })

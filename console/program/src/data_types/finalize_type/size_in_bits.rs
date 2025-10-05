@@ -71,6 +71,9 @@ impl<N: Network> FinalizeType<N> {
 
                 // Account for each of the arguments.
                 for argument in &arguments {
+                    // Account for the argument variant bit.
+                    size = size.checked_add(1).ok_or(anyhow!("`size_in_bits` overflowed"))?;
+
                     // Account for the size of the argument bits.
                     size = size.checked_add(16).ok_or(anyhow!("`size_in_bits` overflowed"))?;
 
