@@ -88,7 +88,20 @@ macro_rules! ensure_equals {
     };
 }
 
-/// A trait that allows turning  an Error into a log message.
+/// A trait that allows printing the entire error chain of an Error (it is implemented for [`anyhow::Error`]) along with a custom context message.
+///
+/// This reduces the need for custom error printing code and ensures consistency across log messages.
+///
+/// # Example
+/// The following code will log `user-facing message - low level error` as an error.
+///
+/// ```rust
+/// use anyhow::anyhow;
+/// use snarkvm_utilities::LoggableError;
+///
+/// let my_error = anyhow!("low level problem");
+/// my_error.log_error("user-facing message");
+/// ```
 pub trait LoggableError {
     /// Log the error with the given context and log level `ERROR`.
     fn log_error<S: Send + Sync + Display + 'static>(self, context: S);
@@ -128,7 +141,7 @@ impl<E: Into<anyhow::Error>> LoggableError for E {
 pub trait PrettyUnwrap {
     type Inner;
 
-    /// Behaves like [`std::Result::unwrap`] but will print the entire anyhow chain to stderr.
+    /// Behaves like [`std::result::Result::unwrap`] but will print the entire anyhow chain to stderr.
     fn pretty_unwrap(self) -> Self::Inner;
 }
 

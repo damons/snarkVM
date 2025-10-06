@@ -18,12 +18,11 @@
 use super::*;
 use crate::helpers::{NestedMap, NestedMapRead};
 use console::prelude::{FromBytes, anyhow, cfg_into_iter};
-use snarkvm_utilities::bytes::unchecked_deserialize;
+use snarkvm_utilities::{LoggableError, bytes::unchecked_deserialize};
 
 use anyhow::Context;
 use core::{fmt, fmt::Debug, hash::Hash, mem};
 use std::{borrow::Cow, sync::atomic::Ordering};
-use tracing::error;
 
 #[cfg(not(feature = "serial"))]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -648,28 +647,19 @@ impl<
         let (map_key, value) = self.db_iter.item()?;
 
         // Extract the bytes belonging to the map and the key.
-        let (entry_map, entry_key) = get_map_and_key(map_key)
-            .map_err(|e| {
-                error!("RocksDB NestedIter get_map_and_key error: {e}");
-            })
-            .ok()?;
+        let (entry_map, entry_key) =
+            get_map_and_key(map_key).map_err(|err| err.log_error("RocksDB NestedIter get_map_and_key error")).ok()?;
 
         // Deserialize the map, key, and value.
         let map = unchecked_deserialize(entry_map)
-            .map_err(|e| {
-                error!("RocksDB NestedIter deserialize(map) error: {e}");
-            })
+            .map_err(|err| err.log_error("RocksDB NestedIter deserialize(map) error"))
             .ok()?;
         let key = unchecked_deserialize(entry_key)
-            .map_err(|e| {
-                error!("RocksDB NestedIter deserialize(key) error: {e}");
-            })
+            .map_err(|err| err.log_error("RocksDB NestedIter deserialize(key) error"))
             .ok()?;
         // Deserialize the value.
         let value = unchecked_deserialize(value)
-            .map_err(|e| {
-                error!("RocksDB NestedIter deserialize(value) error: {e}");
-            })
+            .map_err(|err| err.log_error("RocksDB NestedIter deserialize(value) error"))
             .ok()?;
 
         self.db_iter.next();
@@ -715,22 +705,15 @@ impl<
         let map_key = self.db_iter.key()?;
 
         // Extract the bytes belonging to the map and the key.
-        let (entry_map, entry_key) = get_map_and_key(map_key)
-            .map_err(|e| {
-                error!("RocksDB NestedKeys get_map_and_key error: {e}");
-            })
-            .ok()?;
+        let (entry_map, entry_key) =
+            get_map_and_key(map_key).map_err(|err| err.log_error("RocksDB NestedKeys get_map_and_key error")).ok()?;
 
         // Deserialize the map and key.
         let map = unchecked_deserialize(entry_map)
-            .map_err(|e| {
-                error!("RocksDB NestedKeys deserialize(map) error: {e}");
-            })
+            .map_err(|err| err.log_error("RocksDB NestedKeys deserialize(map) error"))
             .ok()?;
         let key = unchecked_deserialize(entry_key)
-            .map_err(|e| {
-                error!("RocksDB NestedKeys deserialize(key) error: {e}");
-            })
+            .map_err(|err| err.log_error("RocksDB NestedKeys deserialize(key) error"))
             .ok()?;
 
         self.db_iter.next();
@@ -763,8 +746,8 @@ impl<'a, V: 'a + Clone + Serialize + DeserializeOwned> Iterator for NestedValues
 
         // Deserialize the value.
         let value = unchecked_deserialize(value)
-            .map_err(|e| {
-                error!("RocksDB NestedValues deserialize(value) error: {e}");
+            .map_err(|err| {
+                err.log_error("RocksDB NestedValues deserialize(value) error");
             })
             .ok()?;
 
