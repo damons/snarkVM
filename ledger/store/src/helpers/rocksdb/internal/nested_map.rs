@@ -20,6 +20,7 @@ use crate::helpers::{NestedMap, NestedMapRead};
 use console::prelude::{FromBytes, anyhow, cfg_into_iter};
 use snarkvm_utilities::bytes::unchecked_deserialize;
 
+use anyhow::Context;
 use core::{fmt, fmt::Debug, hash::Hash, mem};
 use std::{borrow::Cow, sync::atomic::Ordering};
 use tracing::error;
@@ -60,10 +61,11 @@ impl<M: Serialize + DeserializeOwned, K: Serialize + DeserializeOwned, V: Serial
     fn create_prefixed_map(&self, map: &M) -> Result<Vec<u8>> {
         let mut raw_map = self.context.clone();
 
-        let map_size: u32 = bincode::serialized_size(&map)?.try_into()?;
+        let map_size: u32 =
+            bincode::serialized_size(&map).with_context(|| "Failed to get size of serialize map")?.try_into()?;
         raw_map.extend_from_slice(&map_size.to_le_bytes());
 
-        bincode::serialize_into(&mut raw_map, map)?;
+        bincode::serialize_into(&mut raw_map, map).with_context(|| "Failed to serialize map")?;
         Ok(raw_map)
     }
 
@@ -464,14 +466,15 @@ impl<
         }
 
         // Possibly deserialize the entries in parallel.
-        Ok(cfg_into_iter!(entries)
+        cfg_into_iter!(entries)
             .map(|(k, v)| {
                 let k = unchecked_deserialize::<K>(&k);
                 let v = unchecked_deserialize::<V>(&v);
 
                 k.and_then(|k| v.map(|v| (k, v)))
             })
-            .collect::<Result<_, bincode::Error>>()?)
+            .collect::<Result<_, bincode::Error>>()
+            .with_context(|| "Failed to deserialize map entries")
     }
 
     ///

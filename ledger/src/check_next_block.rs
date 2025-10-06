@@ -17,6 +17,8 @@ use super::*;
 
 use crate::narwhal::BatchHeader;
 
+use anyhow::{Context, bail};
+
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Checks the given block is valid next block.
     pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
@@ -74,14 +76,17 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
         // Ensure speculation over the unconfirmed transactions is correct and ensure each transaction is well-formed and unique.
         let time_since_last_block = block.timestamp().saturating_sub(self.latest_timestamp());
-        let ratified_finalize_operations = self.vm.check_speculate(
-            state,
-            time_since_last_block,
-            block.ratifications(),
-            block.solutions(),
-            block.transactions(),
-            rng,
-        )?;
+        let ratified_finalize_operations = self
+            .vm
+            .check_speculate(
+                state,
+                time_since_last_block,
+                block.ratifications(),
+                block.solutions(),
+                block.transactions(),
+                rng,
+            )
+            .with_context(|| "Failed to speculate over unconfirmed transactions")?;
 
         // Retrieve the committee lookback.
         let committee_lookback = self
@@ -98,16 +103,18 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         };
 
         // Ensure the block is correct.
-        let (expected_existing_solution_ids, expected_existing_transaction_ids) = block.verify(
-            &latest_block,
-            self.latest_state_root(),
-            &previous_committee_lookback,
-            &committee_lookback,
-            self.puzzle(),
-            self.latest_epoch_hash()?,
-            OffsetDateTime::now_utc().unix_timestamp(),
-            ratified_finalize_operations,
-        )?;
+        let (expected_existing_solution_ids, expected_existing_transaction_ids) = block
+            .verify(
+                &latest_block,
+                self.latest_state_root(),
+                &previous_committee_lookback,
+                &committee_lookback,
+                self.puzzle(),
+                self.latest_epoch_hash()?,
+                OffsetDateTime::now_utc().unix_timestamp(),
+                ratified_finalize_operations,
+            )
+            .with_context(|| "Failed to verify block")?;
 
         // Ensure that the provers are within their stake bounds.
         if let Some(solutions) = block.solutions().deref() {
@@ -130,7 +137,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Determine if the block subdag is correctly constructed and is not a combination of multiple subdags.
         self.check_block_subdag_atomicity(block)?;
 
-        // Ensure that all leafs of the subdag point to valid batches in other subdags/blocks.
+        // Ensure that all leaves of the subdag point to valid batches in other subdags/blocks.
         self.check_block_subdag_leaves(block)?;
 
         // Ensure that each existing solution ID from the block exists in the ledger.
@@ -204,8 +211,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         cfg_iter!(subdag).try_for_each(|(round, certificates)| {
             // Retrieve the committee lookback for the round.
             let committee_lookback = self
-                .get_committee_lookback_for_round(*round)?
-                .ok_or_else(|| anyhow!("No committee lookback found for round {round}"))?;
+                .get_committee_lookback_for_round(*round)
+                .with_context(|| format!("Failed to get committee lookback for round {round}"))?
+                .ok_or_else(|| anyhow!("No committee lookback for round {round}"))?;
 
             // Check that each certificate for this round has met quorum requirements.
             // Note that we do not need to check the quorum requirement for the previous certificates
@@ -273,7 +281,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             // Compute the leader for the commit round.
             let computed_leader = previous_committee_lookback
                 .get_leader(round)
-                .map_err(|e| anyhow!("Failed to compute leader for round {round}: {e}"))?;
+                .with_context(|| format!("Failed to compute leader for round {round}"))?;
 
             // Retrieve the previous leader certificates.
             let previous_certificate = match subdag.get(&round).and_then(|certificates| {
