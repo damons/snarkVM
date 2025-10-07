@@ -287,15 +287,6 @@ impl<N: Network> PartialEq for Authorization<N> {
 impl<N: Network> Eq for Authorization<N> {}
 
 impl<N: Network> Authorization<N> {
-    /// Returns the number of inputs of any of the `Transition`s in the `Authorization` that are of type `Input::Record`.
-    #[inline]
-    pub(crate) fn number_of_input_records(&self) -> usize {
-        self.transitions()
-            .values()
-            .map(|transition| transition.inputs().iter().filter(|input| matches!(input, Input::Record(_, _))).count())
-            .sum()
-    }
-
     /// Returns the (exact) predicted size of the Varuna proof of an Authorization
     ///
     /// *Arguments*:
@@ -328,7 +319,7 @@ impl<N: Network> Authorization<N> {
                 let mut batch_sizes: Vec<usize> = circuit_frequencies.values().cloned().collect();
 
                 // We now add the single inclusion circuit for input records, if any:
-                let n_input_records = self.number_of_input_records();
+                let n_input_records = Self::number_of_input_records(self.transitions().values());
                 if n_input_records > 0 {
                     batch_sizes.push(n_input_records);
                 }
@@ -337,6 +328,21 @@ impl<N: Network> Authorization<N> {
                 proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true)
             }
         }
+    }
+
+    /// Total number of inputs to the passed `Transition`s that are of type
+    /// `Input::Record`.
+    // This method is used to ensure consistency between
+    // `prepare_verifier_inputs` and the batch-size calculation used in
+    // `Authorization::proof_size` above. The specifics of the former mean this
+    // method must receive an iterator of `Transition`s instead of the
+    // `Authorization` itself. Notably, the `transitions` argument can be
+    // `authorization.transitions().values()`.
+    #[inline]
+    pub(crate) fn number_of_input_records<'a>(transitions: impl ExactSizeIterator<Item = &'a Transition<N>>) -> usize {
+        transitions
+            .map(|transition| transition.inputs().iter().filter(|input| matches!(input, Input::Record(_, _))).count())
+            .sum()
     }
 }
 
