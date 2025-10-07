@@ -24,6 +24,7 @@ mod varuna {
             VarunaSNARK,
             VarunaVersion,
             mode::SNARKMode,
+            proof::proof_size,
             test_circuit::TestCircuit,
         },
         traits::{AlgebraicSponge, SNARK},
@@ -33,6 +34,7 @@ mod varuna {
 
     use snarkvm_curves::bls12_377::{Bls12_377, Fq, Fr};
     use snarkvm_utilities::{
+        CanonicalSerialize,
         ToBytes,
         rand::{TestRng, Uniform},
     };
@@ -130,6 +132,15 @@ mod varuna {
                             let proof =
                                 $snark_inst::prove_batch(universal_prover, &fs_parameters, varuna_version, &pks_to_constraints, rng).unwrap();
                             println!("Called prover");
+
+                            if varuna_version == VarunaVersion::V2 {
+                                let batch_sizes = proof.batch_sizes();
+                                let mut proof_bytes = vec![];
+                                proof.serialize_compressed(&mut proof_bytes).unwrap();
+                                let actual_size = proof_size::<Bls12_377>(&batch_sizes, $snark_mode::ZK, VarunaVersion::V2).unwrap();
+                                assert_eq!(proof_bytes.len(), actual_size);
+                                println!("Compressed size is as expected ({actual_size} B)");
+                            }
 
                             assert!(
                                 $snark_inst::verify_batch(universal_verifier, &fs_parameters, varuna_version, &vks_to_inputs, &proof).unwrap(),
