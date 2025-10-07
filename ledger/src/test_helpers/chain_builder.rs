@@ -34,6 +34,8 @@ use aleo_std::StorageMode;
 
 use anyhow::{Context, Result};
 use indexmap::{IndexMap, IndexSet};
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 use std::collections::{BTreeMap, HashMap};
 use time::OffsetDateTime;
 
@@ -132,6 +134,23 @@ impl<N: Network> TestChainBuilder<N> {
     /// Initialize the builder with the specified quorum size.
     pub fn new_with_quorum_size(num_validators: usize, rng: &mut TestRng) -> Result<Self> {
         let (private_keys, genesis) = Self::initialize_components(num_validators, rng)?;
+        Self::from_components(private_keys, genesis)
+    }
+
+    /// Initialize the builder with the specified genesis block..
+    /// Note: this function mirrors the way the private keys are sampled in snarkOS `fn parse_genesis`.
+    pub fn new_with_quorum_size_and_genesis_block(num_validators: usize, genesis_path: String) -> Result<Self> {
+        // Attempts to load the genesis block file.
+        let buffer = std::fs::read(genesis_path)?;
+        // Return the genesis block.
+        let genesis = Block::from_bytes_le(&buffer)?;
+        /// The development mode RNG seed.
+        pub const DEVELOPMENT_MODE_RNG_SEED: u64 = 1234567890u64;
+        // Initialize the (fixed) RNG.
+        let mut rng = ChaChaRng::seed_from_u64(DEVELOPMENT_MODE_RNG_SEED);
+        // Initialize the development private keys.
+        let private_keys = (0..num_validators).map(|_| PrivateKey::new(&mut rng).unwrap()).collect();
+        // Initialize the builder with the specified committee and genesis block.
         Self::from_components(private_keys, genesis)
     }
 
