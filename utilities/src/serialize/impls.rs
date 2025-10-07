@@ -197,7 +197,8 @@ impl<T: CanonicalSerialize> CanonicalSerialize for Option<T> {
 
     #[inline]
     fn serialized_size(&self, compress: Compress) -> usize {
-        8 + self.as_ref().map(|s| s.serialized_size(compress)).unwrap_or(0)
+        bool::serialized_size(&self.is_some(), compress)
+            + self.as_ref().map(|s| s.serialized_size(compress)).unwrap_or(0)
     }
 }
 
