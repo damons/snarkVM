@@ -395,8 +395,8 @@ impl<E: PairingEngine> FromBytes for Proof<E> {
 ///  - `None` for `VarunaVersion::V1`.
 pub fn proof_size<E: PairingEngine>(
     batch_sizes: &[usize],
-    hiding: bool,
     varuna_version: VarunaVersion,
+    hiding: bool,
 ) -> Option<usize> {
     let n_circuits: usize = batch_sizes.len();
     let n_instances: usize = batch_sizes.iter().sum();

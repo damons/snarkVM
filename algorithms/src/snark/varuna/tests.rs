@@ -137,7 +137,7 @@ mod varuna {
                                 let batch_sizes = proof.batch_sizes();
                                 let mut proof_bytes = vec![];
                                 proof.serialize_compressed(&mut proof_bytes).unwrap();
-                                let actual_size = proof_size::<Bls12_377>(&batch_sizes, $snark_mode::ZK, VarunaVersion::V2).unwrap();
+                                let actual_size = proof_size::<Bls12_377>(&batch_sizes, VarunaVersion::V2, $snark_mode::ZK).unwrap();
                                 assert_eq!(proof_bytes.len(), actual_size);
                                 println!("Compressed size is as expected ({actual_size} B)");
                             }

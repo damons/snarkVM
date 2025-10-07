@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, InclusionVersion, Process, Stack, Trace};
+use crate::{CallStack, InclusionVersion, Process, Stack, Trace, authorization_proof_size};
 use circuit::{Aleo, network::AleoV0};
 use console::{
     account::{Address, PrivateKey, ViewKey},
@@ -39,6 +39,7 @@ use aleo_std::StorageMode;
 use locktick::parking_lot::RwLock;
 #[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
+use snarkvm_utilities::CanonicalSerialize;
 use std::sync::Arc;
 
 type CurrentNetwork = MainnetV0;
@@ -2012,8 +2013,7 @@ function a:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
 }
 
-#[test]
-fn test_complex_execution_order() {
+fn test_complex_execution_order(varuna_version: VarunaVersion) {
     // This test checks that the execution order is correct.
     // The functions are invoked in the following order:
     // "four::a"
@@ -2151,6 +2151,8 @@ fn test_complex_execution_order() {
     assert_eq!(authorization.len(), 10);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
 
+    let expected_proof_size = authorization_proof_size::<CurrentNetwork>(&authorization, varuna_version);
+
     let output = Value::<CurrentNetwork>::from_str("17u8").unwrap();
 
     // Compute the output value.
@@ -2193,10 +2195,27 @@ fn test_complex_execution_order() {
     // Prepare the trace.
     trace.prepare(&Query::from(block_store)).unwrap();
     // Prove the execution.
-    let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V1, rng).unwrap();
+    let execution = trace.prove_execution::<CurrentAleo, _>("four", varuna_version, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V1, InclusionVersion::V0, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V8, varuna_version, InclusionVersion::V0, &execution).unwrap();
+
+    // Check the proof size
+    if varuna_version == VarunaVersion::V2 {
+        let mut serialized_proof = vec![];
+        execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
+        assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    }
+}
+
+#[test]
+fn test_complex_execution_order_varuna_v1() {
+    test_complex_execution_order(VarunaVersion::V1);
+}
+
+#[test]
+fn test_complex_execution_order_varuna_v2() {
+    test_complex_execution_order(VarunaVersion::V2);
 }
 
 #[test]
