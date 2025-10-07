@@ -663,6 +663,8 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer-program
           flags: keccak
+          timeout: 30m
+          no_output_timeout: 20m
           cache_key_suffix: -integration-keccak
 
   synthesizer-program-integration-psd:
@@ -681,6 +683,8 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer-program
           flags: sha
+          timeout: 30m
+          no_output_timeout: 20m
           cache_key_suffix: -integration-sha
 
   synthesizer-program-integration-instruction-is:
