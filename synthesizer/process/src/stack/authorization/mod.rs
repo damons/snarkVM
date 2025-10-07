@@ -18,7 +18,8 @@ mod serialize;
 mod string;
 
 use console::{network::prelude::*, program::Request, types::Field};
-use snarkvm_ledger_block::{Transaction, Transition};
+use snarkvm_algorithms::snark::varuna::{VarunaVersion, proof_size};
+use snarkvm_ledger_block::{Input, Transaction, Transition};
 use snarkvm_synthesizer_program::StackTrait;
 
 use indexmap::IndexMap;
@@ -284,6 +285,60 @@ impl<N: Network> PartialEq for Authorization<N> {
 }
 
 impl<N: Network> Eq for Authorization<N> {}
+
+impl<N: Network> Authorization<N> {
+    /// Returns the number of inputs of any of the `Transition`s in the `Authorization` that are of type `Input::Record`.
+    #[inline]
+    pub(crate) fn number_of_input_records(&self) -> usize {
+        self.transitions()
+            .values()
+            .map(|transition| transition.inputs().iter().filter(|input| matches!(input, Input::Record(_, _))).count())
+            .sum()
+    }
+
+    /// Returns the (exact) predicted size of the Varuna proof of an Authorization
+    ///
+    /// *Arguments*:
+    ///  - `varuna_version`: the version of Varuna to use. Only `VarunaVersion::V2` is supported.
+    ///
+    /// *Returns*:
+    ///  - `Some(size)` for `VarunaVersion::V2`, where `size` is the size of the proof in bytes.
+    ///  - `None` for `VarunaVersion::V1`.
+    pub fn proof_size(&self, varuna_version: VarunaVersion) -> Option<usize> {
+        match varuna_version {
+            VarunaVersion::V1 => None,
+            VarunaVersion::V2 => {
+                // The Varuna circuits that must be proved as part of an Authorization are:
+                // - the circuits of each function in the authorization
+                // - one the inclusion circuit for input records to *all* of those functions
+                // TODO: Dynamic dispatch, once implemented, will cause a third type
+                // of circuit to appear which needs to be accounted for here.
+
+                let mut circuit_frequencies = HashMap::new();
+
+                // In order to compute the frequencies of function circuits, we mimic the
+                // operation of Process::verify_execution:
+                for transition in self.transitions().values() {
+                    let entry = circuit_frequencies
+                        .entry((*transition.program_id(), *transition.function_name()))
+                        .or_insert(0usize);
+                    *entry += 1;
+                }
+
+                let mut batch_sizes: Vec<usize> = circuit_frequencies.values().cloned().collect();
+
+                // We now add the single inclusion circuit for input records, if any:
+                let n_input_records = self.number_of_input_records();
+                if n_input_records > 0 {
+                    batch_sizes.push(n_input_records);
+                }
+
+                // Varuna is always ran in hiding (i. e. ZK) mode when proving Executions
+                proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true)
+            }
+        }
+    }
+}
 
 /// Ensures the given request and transition correspond to one another.
 fn ensure_request_and_transition_matches<N: Network>(

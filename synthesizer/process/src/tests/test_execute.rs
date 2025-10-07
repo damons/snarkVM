@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, InclusionVersion, Process, Stack, Trace, authorization_proof_size};
+use crate::{CallStack, InclusionVersion, Process, Stack, Trace};
 use circuit::{Aleo, network::AleoV0};
 use console::{
     account::{Address, PrivateKey, ViewKey},
@@ -2151,7 +2151,7 @@ fn test_complex_execution_order(varuna_version: VarunaVersion) {
     assert_eq!(authorization.len(), 10);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
 
-    let expected_proof_size = authorization_proof_size::<CurrentNetwork>(&authorization, varuna_version);
+    let expected_proof_size = authorization.proof_size(varuna_version);
 
     let output = Value::<CurrentNetwork>::from_str("17u8").unwrap();
 
