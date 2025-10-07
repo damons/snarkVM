@@ -130,8 +130,11 @@ commands:
         type: string
         default: ""
       timeout:
-        type: integer
-        default: 10
+        type: string
+        default: 10m
+      no_output_timeout:
+        type: string
+        default: 10m
     steps:
       - checkout
       - setup_environment:
@@ -139,6 +142,7 @@ commands:
       - run:
           name: "Run Tests"
           timeout: << parameters.timeout >>
+          no_output_timeout: << parameters.no_output_timeout >>
           command: RUST_MIN_STACK=67108864 cargo test --package=<< parameters.workspace_member >> << parameters.flags >>
       - clear_environment:
           cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
@@ -432,7 +436,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-ledger
           flags: --release --features=rocks -- --test-threads=2
-          timeout: 20
+          timeout: 20m
 
   ledger-with-valid-solutions:
     executor: rust-docker
@@ -555,7 +559,7 @@ jobs:
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
-          timeout: 20
+          timeout: 20m
           workspace_member: snarkvm-parameters
           flags: -- --test-threads=2
 
@@ -567,6 +571,9 @@ jobs:
           workspace_member: snarkvm-parameters
           flags: --no-run --features large_params
           cache_key_suffix: -large
+          # Compilation can take very long and produce no output for a while.
+          no_output_timeout: 20m
+          timeout: 30m
 
   parameters-uncached:
     executor: rust-docker
@@ -584,7 +591,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer
           flags: --lib --bins
-          timeout: 20
+          timeout: 20m
 
   synthesizer-test:
     executor: rust-docker
@@ -594,7 +601,7 @@ jobs:
           workspace_member: snarkvm-synthesizer
           flags: --lib --bins --features test
           cache_key_suffix: -test
-          timeout: 25
+          timeout: 25m
 
 #  synthesizer-mem-heavy:
 #    executor: rust-docker
@@ -612,7 +619,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer
           flags: --test '*' --features test
-          timeout: 30
+          timeout: 30m
           cache_key_suffix: -integration
 
   synthesizer-process:
