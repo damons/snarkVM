@@ -329,7 +329,7 @@ impl<N: Network> Authorization<N> {
                 }
 
                 // Varuna is always ran in hiding (i. e. ZK) mode when proving
-                // Executions. The added 1 corresponds to the version number.
+                // Executions. The added 1 corresponds to the version number written in Proof::to_bytes_le.
                 proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true).map(|size| 1 + size)
             }
         }
