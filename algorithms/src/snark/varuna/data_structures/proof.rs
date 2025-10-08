@@ -380,8 +380,8 @@ impl<E: PairingEngine> FromBytes for Proof<E> {
     }
 }
 
-/// Computes the size of a Varuna proof in bytes without receiving the proof
-/// itself.
+/// Predicts the size in bytes of a Varuna proof as produced by
+/// `Proof::serialize_compressed` without needing to receive the proof itself.
 ///
 /// *Arguments*:
 ///  - `batch_sizes`: the batch sizes of the circuits and instances being
