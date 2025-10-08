@@ -295,6 +295,10 @@ impl<N: Network> Authorization<N> {
     /// *Returns*:
     ///  - `Some(size)` for `VarunaVersion::V2`, where `size` is the size of the proof in bytes.
     ///  - `None` for `VarunaVersion::V1`.
+    ///
+    // The value returned coincides with `Proof<N: Network>::write_le()`, which
+    // includes 1 byte for the version number. The result is one more than that
+    // returned by `compressed_size()`
     pub fn proof_size(&self, varuna_version: VarunaVersion) -> Option<usize> {
         match varuna_version {
             VarunaVersion::V1 => None,
@@ -324,8 +328,9 @@ impl<N: Network> Authorization<N> {
                     batch_sizes.push(n_input_records);
                 }
 
-                // Varuna is always ran in hiding (i. e. ZK) mode when proving Executions
-                proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true)
+                // Varuna is always ran in hiding (i. e. ZK) mode when proving
+                // Executions. The added 1 corresponds to the version number.
+                proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true).map(|size| 1 + size)
             }
         }
     }

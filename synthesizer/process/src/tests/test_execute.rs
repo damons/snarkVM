@@ -39,7 +39,6 @@ use aleo_std::StorageMode;
 use locktick::parking_lot::RwLock;
 #[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
-use snarkvm_utilities::CanonicalSerialize;
 use std::sync::Arc;
 
 type CurrentNetwork = MainnetV0;
@@ -549,7 +548,7 @@ fn test_process_execute_transfer_public_to_private() {
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -571,9 +570,8 @@ fn test_process_execute_transfer_public_to_private() {
         process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
         // Check the proof size
-        let mut serialized_proof = vec![];
-        execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-        assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+        let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+        assert_eq!(actual_size, expected_proof_size);
 
         // Ensure there is only one transition.
         assert_eq!(1, execution.transitions().len());
@@ -1342,7 +1340,7 @@ finalize compute:
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Compute the output value.
     let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
@@ -1365,9 +1363,8 @@ finalize compute:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1461,7 +1458,7 @@ finalize compute:
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Compute the output value.
     let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
@@ -1485,9 +1482,8 @@ finalize compute:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1607,7 +1603,7 @@ finalize mint_public:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -1623,9 +1619,8 @@ finalize mint_public:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1774,7 +1769,7 @@ finalize init:
         .unwrap();
     assert_eq!(authorization.len(), 2);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Compute the output value.
     let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
@@ -1798,9 +1793,8 @@ finalize init:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1904,7 +1898,7 @@ finalize compute:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -1920,9 +1914,8 @@ finalize compute:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2023,7 +2016,7 @@ function a:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 3);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -2057,9 +2050,8 @@ function a:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 }
 
 #[test]
@@ -2201,7 +2193,7 @@ fn test_complex_execution_order() {
     assert_eq!(authorization.len(), 10);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     let output = Value::<CurrentNetwork>::from_str("17u8").unwrap();
 
@@ -2251,9 +2243,8 @@ fn test_complex_execution_order() {
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 }
 
 #[test]
@@ -2353,7 +2344,7 @@ finalize compute:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -2369,9 +2360,8 @@ finalize compute:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2464,7 +2454,7 @@ function compute:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2);
+    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -2485,9 +2475,8 @@ function compute:
     process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
     // Check the proof size
-    let mut serialized_proof = vec![];
-    execution.proof().unwrap().clone().serialize_compressed(&mut serialized_proof).unwrap();
-    assert_eq!(serialized_proof.len(), expected_proof_size.unwrap());
+    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
+    assert_eq!(actual_size, expected_proof_size);
 }
 
 #[test]
