@@ -108,6 +108,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     fn check_block_content_inner<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
+        // Ensure only one task performs block advacement or speculation.
+        let _lock = self.block_advancement_lock.lock();
+
         let latest_block = self.latest_block();
 
         // Construct the finalize state.
