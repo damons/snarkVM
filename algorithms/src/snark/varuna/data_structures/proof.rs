@@ -380,7 +380,7 @@ impl<E: PairingEngine> FromBytes for Proof<E> {
     }
 }
 
-/// Computes the size of a Varuna proof in bytes without reciving the proof
+/// Computes the size of a Varuna proof in bytes without receiving the proof
 /// itself.
 ///
 /// *Arguments*:
@@ -404,11 +404,12 @@ pub fn proof_size<E: PairingEngine>(
     match varuna_version {
         VarunaVersion::V1 => None,
         VarunaVersion::V2 => {
-            // All fields are serialised in Compressed mode The breakdown is as follows:
+            // All fields are serialised in Compressed mode The breakdown is as
+            // follows:
             // - batch sizes: (boils down to CanonicalSerialize for [usize])
-            //   + one u64 for the length (the number of circuits) followed that many
-            //   usize This contains the size information for the vectors in all other
-            //   fields, which are therefore serialised without their length
+            //   + one u64 for the length (the number of circuits) followed that many usize
+            //     This contains the size information for the vectors in all other fields,
+            //     which are therefore serialised without their length
             // - commitments:
             //   + witness_commitments: n_instances commitments
             //   + mask_poly: 1 byte to encode the enum tag (a bool) plus one commitment if
@@ -436,14 +437,15 @@ pub fn proof_size<E: PairingEngine>(
             // The next three sizes are const functions
             let size_bool = size_of::<bool>();
             let size_u64 = size_of::<u64>();
-            // The next two can be hard-coded if performance becomes critical and they
-            // are considered fully stable. They are 32 and 48 bytes at the time of
-            // writing, respectively (commitments are affine points written in compressed
-            // form).
+            // The next two can be hard-coded if performance becomes critical
+            // and they are considered fully stable. They are 32 and 48 bytes at
+            // the time of writing, respectively (commitments are affine points
+            // written in compressed form).
             let size_field_element = E::Fr::one().compressed_size();
             let size_commitment = KZGCommitment::<E>::empty().compressed_size();
 
-            let size_pc_proof = 8 + 3 * (size_commitment + 1) + if hiding { size_field_element } else { 0 };
+            let size_pc_proof =
+                size_of::<usize>() + 3 * (size_commitment + 1) + if hiding { size_field_element } else { 0 };
 
             Some(
                 n_bool * size_bool
