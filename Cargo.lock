@@ -3649,6 +3649,7 @@ version = "4.2.1"
 dependencies = [
  "bincode",
  "criterion",
+ "enum-iterator",
  "indexmap 2.11.4",
  "k256",
  "paste",

@@ -19,6 +19,8 @@ use console::{
     program::{Identifier, Literal, LiteralType, Locator, Plaintext, PlaintextType, Register, RegisterType, Value},
 };
 
+use enum_iterator::Sequence;
+
 /// BHP256 is a collision-resistant hash function that processes inputs in 256-bit chunks.
 pub type HashBHP256<N> = HashInstruction<N, { HashVariant::HashBHP256 as u8 }>;
 /// BHP512 is a collision-resistant hash function that processes inputs in 512-bit chunks.
@@ -125,7 +127,7 @@ pub type HashManyPSD4<N> = HashInstruction<N, { HashVariant::HashManyPSD4 as u8 
 pub type HashManyPSD8<N> = HashInstruction<N, { HashVariant::HashManyPSD8 as u8 }>;
 
 /// Which hash function to use.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Sequence)]
 pub enum HashVariant {
     HashBHP256,
     HashBHP512,
@@ -968,11 +970,15 @@ mod tests {
 
     #[test]
     fn check_number_of_hash_variants() {
-        todo!() // Add enum length.
+        assert_eq!(enum_iterator::cardinality::<HashVariant>(), 45);
     }
 
     #[test]
     fn check_byte_aligned_variants_all_have_one_opcode() {
-        todo!() // Enum iterator.
+        for variant in enum_iterator::all::<HashVariant>() {
+            if variant.requires_byte_alignment() {
+                assert_eq!(variant.expected_num_operands(), 1)
+            }
+        }
     }
 }

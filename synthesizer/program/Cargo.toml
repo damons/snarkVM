@@ -40,6 +40,9 @@ path = "../../utilities"
 version = "=4.2.1"
 default-features = false
 
+[dependencies.enum-iterator]
+workspace = true
+
 [dependencies.indexmap]
 workspace = true
 features = [ "serde", "rayon" ]
