@@ -78,7 +78,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V7, 7_570_000),
     (ConsensusVersion::V8, 9_430_000),
     (ConsensusVersion::V9, 10_272_000),
-    (ConsensusVersion::V10, 11_115_000),
+    (ConsensusVersion::V10, 11_205_000),
     (ConsensusVersion::V11, 13_575_000),
 ];
 
@@ -100,20 +100,28 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
 pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
     (ConsensusVersion::V1, 0),
-    (ConsensusVersion::V2, 10),
-    (ConsensusVersion::V3, 11),
-    (ConsensusVersion::V4, 12),
-    (ConsensusVersion::V5, 13),
-    (ConsensusVersion::V6, 14),
-    (ConsensusVersion::V7, 15),
-    (ConsensusVersion::V8, 16),
-    (ConsensusVersion::V9, 17),
-    (ConsensusVersion::V10, 18),
-    (ConsensusVersion::V11, 19),
+    (ConsensusVersion::V2, 5),
+    (ConsensusVersion::V3, 6),
+    (ConsensusVersion::V4, 7),
+    (ConsensusVersion::V5, 8),
+    (ConsensusVersion::V6, 9),
+    (ConsensusVersion::V7, 10),
+    (ConsensusVersion::V8, 11),
+    (ConsensusVersion::V9, 12),
+    (ConsensusVersion::V10, 13),
+    (ConsensusVersion::V11, 14),
 ];
 
 #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
 pub fn load_test_consensus_heights() -> [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
+    // Attempt to read the test consensus heights from the environment variable.
+    load_test_consensus_heights_inner(std::env::var("CONSENSUS_VERSION_HEIGHTS").ok())
+}
+
+#[cfg(any(test, feature = "test", feature = "test_consensus_heights", feature = "wasm"))]
+pub(crate) fn load_test_consensus_heights_inner(
+    consensus_version_heights: Option<String>,
+) -> [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
     // Define a closure to verify the consensus heights.
     let verify_consensus_heights = |heights: &[(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS]| {
         // Assert that the genesis height is 0.
@@ -129,9 +137,9 @@ pub fn load_test_consensus_heights() -> [(ConsensusVersion, u32); NUM_CONSENSUS_
     // Define consensus version heights container used for testing.
     let mut test_consensus_heights = TEST_CONSENSUS_VERSION_HEIGHTS;
 
-    // Check if we can read the heights from an environment variable.
-    match std::env::var("CONSENSUS_VERSION_HEIGHTS") {
-        Ok(height_string) => {
+    // If version heights have been specified, verify and return them.
+    match consensus_version_heights {
+        Some(height_string) => {
             let parsing_error = format!("Expected exactly {NUM_CONSENSUS_VERSIONS} ConsensusVersion heights.");
             // Parse the heights from the environment variable.
             let parsed_test_consensus_heights: [u32; NUM_CONSENSUS_VERSIONS] = height_string
@@ -149,7 +157,7 @@ pub fn load_test_consensus_heights() -> [(ConsensusVersion, u32); NUM_CONSENSUS_
             verify_consensus_heights(&test_consensus_heights);
             test_consensus_heights
         }
-        Err(_) => {
+        None => {
             // Verify and return the default test consensus heights.
             verify_consensus_heights(&test_consensus_heights);
             test_consensus_heights

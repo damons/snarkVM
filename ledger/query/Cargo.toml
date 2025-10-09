@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger-query"
-version = "4.1.0"
+version = "4.2.1"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A query for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -14,6 +14,7 @@ keywords = [
 ]
 categories = [ "cryptography", "web-programming" ]
 license = "Apache-2.0"
+include = [ "Cargo.toml", "src", "README.md", "LICENSE.md" ]
 edition = "2024"
 
 [features]

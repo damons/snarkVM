@@ -13,17 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use aleo_std::StorageMode;
+use crate::{
+    Block,
+    Ledger,
+    Transaction,
+    Transmission,
+    TransmissionID,
+    narwhal::{BatchCertificate, BatchHeader, Subdag},
+    puzzle::Solution,
+    store::ConsensusStore,
+};
 use snarkvm_console::{
     account::{Address, PrivateKey},
     network::MainnetV0,
     prelude::*,
 };
-use snarkvm_ledger::{Block, Ledger};
-use snarkvm_ledger_narwhal::{BatchCertificate, BatchHeader, Subdag};
-use snarkvm_ledger_store::ConsensusStore;
 use snarkvm_synthesizer::vm::VM;
 
+use aleo_std::StorageMode;
+
+use anyhow::{Context, Result};
 use indexmap::{IndexMap, IndexSet};
 use std::collections::{BTreeMap, HashMap};
 use time::OffsetDateTime;
@@ -56,43 +65,106 @@ pub struct TestChainBuilder {
     genesis_block: Block<CurrentNetwork>,
 }
 
-/// Additional options you can pass to the builder when generating blocks.
-#[derive(Default)]
-pub struct BlockOptions {
+/// Additional options you can pass to the builder when generating a set of blocks.
+#[derive(Clone, Default)]
+pub struct GenerateBlocksOptions {
     /// Do not include votes to the previous leader certificate
     pub skip_votes: bool,
     /// Do not generate certificates for the specific node indices (to simulate a partition).
     pub skip_nodes: Vec<usize>,
 }
 
+/// Additional options you can pass to the builder when generating a single block.
+/// Note: As of now, all certificates for this block will have the given timestamp and contain listed transmissions.
+#[derive(Clone)]
+pub struct GenerateBlockOptions {
+    /// Do not include votes to the previous leader certificate
+    pub skip_votes: bool,
+    /// Do not generate certificates for the specific node indices (to simulate a partition).
+    pub skip_nodes: Vec<usize>,
+    /// The timestamp for this block.
+    pub timestamp: i64,
+    /// The transmissions to be included in the block.
+    pub solutions: Vec<Solution<CurrentNetwork>>,
+    pub transactions: Vec<Transaction<CurrentNetwork>>,
+}
+
+impl Default for GenerateBlockOptions {
+    fn default() -> Self {
+        Self {
+            skip_votes: false,
+            skip_nodes: Default::default(),
+            transactions: Default::default(),
+            solutions: Default::default(),
+            timestamp: OffsetDateTime::now_utc().unix_timestamp(),
+        }
+    }
+}
+
 impl TestChainBuilder {
-    pub fn new(committee_size: usize, rng: &mut TestRng) -> Self {
+    /// Generate a new committee and genesis block.
+    pub fn initialize_components(
+        committee_size: usize,
+        rng: &mut TestRng,
+    ) -> Result<(Vec<PrivateKey<CurrentNetwork>>, Block<CurrentNetwork>)> {
         // Sample the genesis private key.
-        let private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
+        let private_key = PrivateKey::<CurrentNetwork>::new(rng)?;
         // Initialize the store.
-        let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None)).unwrap();
+        let store = ConsensusStore::<_, LedgerType<_>>::open(StorageMode::new_test(None))
+            .with_context(|| "Failed to initialize consensus store")?;
         // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
         let seed: u64 = rng.r#gen();
         let genesis_rng = &mut TestRng::from_seed(seed);
-        let genesis_block = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng).unwrap();
+        let genesis_block = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng)?;
 
         // Extract the private keys from the genesis committee by using the same RNG to sample private keys.
         let genesis_rng = &mut TestRng::from_seed(seed);
         let private_keys = (0..committee_size).map(|_| PrivateKey::new(genesis_rng).unwrap()).collect();
 
-        Self::from_genesis(private_keys, genesis_block)
+        Ok((private_keys, genesis_block))
     }
 
-    /// Initialize the builder with the specified committee and gensis block
-    pub fn from_genesis(private_keys: Vec<PrivateKey<CurrentNetwork>>, genesis_block: Block<CurrentNetwork>) -> Self {
+    /// Initialize the builder with the default quorum size.
+    pub fn new(rng: &mut TestRng) -> Result<Self> {
+        Self::new_with_quorum_size(4, rng)
+    }
+
+    /// Initialize the builder with the specified quorum size.
+    pub fn new_with_quorum_size(num_validators: usize, rng: &mut TestRng) -> Result<Self> {
+        let (private_keys, genesis) = Self::initialize_components(num_validators, rng)?;
+        Self::from_components(private_keys, genesis)
+    }
+
+    /// Initialize the builder with the specified committee and genesis block
+    pub fn from_components(
+        private_keys: Vec<PrivateKey<CurrentNetwork>>,
+        genesis_block: Block<CurrentNetwork>,
+    ) -> Result<Self> {
         // Initialize the ledger with the genesis block.
         let ledger = Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(
             genesis_block.clone(),
             StorageMode::new_test(None),
         )
-        .unwrap();
+        .with_context(|| "Failed to set up ledger for test chain")?;
 
-        Self {
+        ensure!(ledger.genesis_block == genesis_block);
+
+        Self::from_genesis(private_keys, genesis_block)
+    }
+
+    /// Initialize the builder with the specified committee and gensis block
+    pub fn from_genesis(
+        private_keys: Vec<PrivateKey<CurrentNetwork>>,
+        genesis_block: Block<CurrentNetwork>,
+    ) -> Result<Self> {
+        // Initialize the ledger with the genesis block.
+        let ledger = Ledger::<CurrentNetwork, LedgerType<CurrentNetwork>>::load(
+            genesis_block.clone(),
+            StorageMode::new_test(None),
+        )
+        .with_context(|| "Failed to set up ledger for test chain")?;
+
+        Ok(Self {
             private_keys,
             ledger,
 
@@ -102,36 +174,51 @@ impl TestChainBuilder {
             last_block_round: 0,
             round_to_certificates: Default::default(),
             previous_leader_certificate: Default::default(),
-        }
+        })
     }
 
     /// Create multiple blocks, with fully-connected DAGs.
-    #[allow(dead_code)]
-    pub fn generate_blocks(&mut self, num_blocks: usize, rng: &mut TestRng) -> Vec<Block<CurrentNetwork>> {
-        self.generate_blocks_with_opts(num_blocks, &BlockOptions::default(), rng)
+    pub fn generate_blocks(&mut self, num_blocks: usize, rng: &mut TestRng) -> Result<Vec<Block<CurrentNetwork>>> {
+        self.generate_blocks_with_opts(num_blocks, GenerateBlocksOptions::default(), rng)
     }
 
     /// Create multiple blocks, with additional parameters.
     pub fn generate_blocks_with_opts(
         &mut self,
         num_blocks: usize,
-        options: &BlockOptions,
+        options: GenerateBlocksOptions,
         rng: &mut TestRng,
-    ) -> Vec<Block<CurrentNetwork>> {
+    ) -> Result<Vec<Block<CurrentNetwork>>> {
         assert!(num_blocks > 0, "Need to build at least one block");
 
-        (0..num_blocks).map(|_| self.generate_block_with_opts(options, rng)).collect()
+        let options = GenerateBlockOptions {
+            skip_votes: options.skip_votes,
+            skip_nodes: options.skip_nodes,
+            ..Default::default()
+        };
+
+        let mut result = vec![];
+        for _ in 0..num_blocks {
+            let block = self.generate_block_with_opts(options.clone(), rng)?;
+            result.push(block);
+        }
+
+        Ok(result)
     }
 
     /// Create a new block, with a fully-connected DAG.
     ///
     /// This will "fill in" any gaps left in earlier rounds from non participating nodes.
-    pub fn generate_block(&mut self, rng: &mut TestRng) -> Block<CurrentNetwork> {
-        self.generate_block_with_opts(&BlockOptions::default(), rng)
+    pub fn generate_block(&mut self, rng: &mut TestRng) -> Result<Block<CurrentNetwork>> {
+        self.generate_block_with_opts(GenerateBlockOptions::default(), rng)
     }
 
     /// Same as `generate_block` but with additional options/parameters.
-    pub fn generate_block_with_opts(&mut self, options: &BlockOptions, rng: &mut TestRng) -> Block<CurrentNetwork> {
+    pub fn generate_block_with_opts(
+        &mut self,
+        options: GenerateBlockOptions,
+        rng: &mut TestRng,
+    ) -> Result<Block<CurrentNetwork>> {
         assert!(
             options.skip_nodes.len() * 3 < self.private_keys.len(),
             "Cannot mark more than f nodes as unavailable/skipped"
@@ -140,12 +227,28 @@ impl TestChainBuilder {
         let next_block_round = self.last_block_round + 2;
 
         // SubDAGs can be at most GC rounds long.
-        let mut round = if next_block_round < BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64 {
-            // Batches from genesis round cannot be included in any block that isn't genesis
-            1
-        } else {
-            next_block_round - BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64
-        };
+        // Batches from genesis round cannot be included in any block that isn't genesis
+        let mut round =
+            next_block_round.checked_sub(BatchHeader::<CurrentNetwork>::MAX_GC_ROUNDS as u64).unwrap_or(1).max(1);
+
+        let mut transmissions = IndexMap::default();
+
+        for txn in options.transactions {
+            let txn_id = txn.id();
+            let transmission = Transmission::from(txn);
+            let transmission_id = TransmissionID::Transaction(txn_id, transmission.to_checksum().unwrap().unwrap());
+
+            transmissions.insert(transmission_id, transmission);
+        }
+
+        for solution in options.solutions {
+            let transmission = Transmission::from(solution);
+            let transmission_id = TransmissionID::Solution(solution.id(), transmission.to_checksum().unwrap().unwrap());
+
+            transmissions.insert(transmission_id, transmission);
+        }
+
+        let transmission_ids: IndexSet<_> = transmissions.keys().copied().collect();
 
         // =======================================
         // Create certificates for the new block.
@@ -189,9 +292,9 @@ impl TestChainBuilder {
                 let batch_header = BatchHeader::new(
                     private_key_1,
                     round,
-                    OffsetDateTime::now_utc().unix_timestamp(),
+                    options.timestamp,
                     committee.id(),
-                    Default::default(),
+                    transmission_ids.clone(),
                     previous_certificate_ids.clone(),
                     rng,
                 )
@@ -283,18 +386,40 @@ impl TestChainBuilder {
 
         // Construct the block.
         let subdag = Subdag::from(subdag_map).unwrap();
-        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, Default::default(), rng).unwrap();
-        self.ledger.check_next_block(&block, rng).unwrap();
+        let block = self.ledger.prepare_advance_to_next_quorum_block(subdag, transmissions, rng)?;
+        self.ledger.check_next_block(&block, rng).with_context(|| "Failed to (internally) check generated block")?;
 
-        // Update th ledger state.
-        self.ledger.advance_to_next_block(&block).unwrap();
+        // Update the ledger state.
+        self.ledger
+            .advance_to_next_block(&block)
+            .with_context(|| "Failed to (internally) advance to generated block")?;
         self.previous_leader_certificate = Some(leader_certificate.clone());
 
-        block
+        Ok(block)
     }
 
     /// Return the genesis block associated with the test chain
     pub fn genesis_block(&self) -> &Block<CurrentNetwork> {
         &self.genesis_block
+    }
+
+    /// Returns the private keys of the genesis committee of this test chain
+    pub fn private_keys(&self) -> &[PrivateKey<CurrentNetwork>] {
+        &self.private_keys
+    }
+
+    /// Returns the private keys of the genesis committee of this test chain
+    pub fn validator_key(&self, index: usize) -> &PrivateKey<CurrentNetwork> {
+        &self.private_keys[index]
+    }
+
+    /// Returns the address of the specified validator.
+    pub fn validator_address(&self, index: usize) -> Address<CurrentNetwork> {
+        Address::try_from(*self.validator_key(index)).unwrap()
+    }
+
+    /// Create a test ledger with this builder's genesis block.
+    pub fn instantiate_ledger(&self) -> Ledger<CurrentNetwork, LedgerType<CurrentNetwork>> {
+        Ledger::load(self.genesis_block().clone(), StorageMode::new_test(None)).unwrap()
     }
 }
