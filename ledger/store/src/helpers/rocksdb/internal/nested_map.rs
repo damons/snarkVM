@@ -205,14 +205,14 @@ impl<
         // Ensure that the atomic batch is empty.
         assert!(
             self.atomic_batch.lock().is_empty(),
-            "Cannot start an atomic operation when the atomic batch is not empty"
+            "Cannot start an atomic batch operation while another one is already in progress"
         );
         // Ensure that the database atomic batch is empty; skip this check if the atomic
         // writes are paused, as there may be pending operations.
         if !self.database.are_atomic_writes_paused() {
             assert!(
                 self.database.atomic_batch.lock().is_empty(),
-                "Cannot start an atomic operation when the database atomic batch is not empty"
+                "Cannot start a database atomic batch operation while another one is already in progress"
             );
         }
     }
@@ -348,7 +348,7 @@ impl<
             // Ensure that the database atomic batch is empty.
             assert!(
                 self.database.atomic_batch.lock().is_empty(),
-                "Database atomic batch should be empty after write operation"
+                "The database atomic batch must be empty when finishing a write batch operation"
             );
         }
 

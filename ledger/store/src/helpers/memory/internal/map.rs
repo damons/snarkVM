@@ -139,7 +139,7 @@ impl<
         // Ensure that the atomic batch is empty.
         assert!(
             self.atomic_batch.lock().is_empty(),
-            "Cannot start an atomic operation when the atomic batch is not empty"
+            "Cannot start an atomic batch operation while another one is already in progress"
         );
     }
 
