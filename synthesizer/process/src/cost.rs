@@ -22,12 +22,21 @@ use console::{
 use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
 
+pub type MinimumCost = u64;
+pub type StorageCost = u64;
+pub type SynthesisCost = u64;
+pub type ConstructorCost = u64;
+pub type NamespaceCost = u64;
+pub type FinalizeCost = u64;
+pub type DeployCostDetails = (StorageCost, SynthesisCost, ConstructorCost, NamespaceCost);
+pub type ExecuteCostDetails = (StorageCost, FinalizeCost);
+
 /// Returns the deployment cost in microcredits for a given deployment.
 pub fn deployment_cost<N: Network>(
     process: &Process<N>,
     deployment: &Deployment<N>,
     consensus_version: ConsensusVersion,
-) -> Result<(u64, (u64, u64, u64, u64))> {
+) -> Result<(MinimumCost, DeployCostDetails)> {
     if consensus_version >= ConsensusVersion::V10 {
         deployment_cost_v2(process, deployment)
     } else {
@@ -40,7 +49,7 @@ pub fn execution_cost<N: Network>(
     process: &Process<N>,
     execution: &Execution<N>,
     consensus_version: ConsensusVersion,
-) -> Result<(u64, (u64, u64))> {
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
     if consensus_version >= ConsensusVersion::V10 {
         execution_cost_v3(process, execution)
     } else if consensus_version >= ConsensusVersion::V2 {
@@ -50,11 +59,56 @@ pub fn execution_cost<N: Network>(
     }
 }
 
-/// Returns the *minimum* cost in microcredits to publish the given deployment using the reduced synthesis cost (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
+/// Returns the compute cost for a deployment in microcredits.
+/// This is used to limit the amount of single-threaded compute in the block generation hot
+/// path. This does NOT represent the full costs which a user has to pay.
+pub fn deploy_compute_cost_in_microcredits(
+    cost_details: DeployCostDetails,
+    consensus_version: ConsensusVersion,
+) -> Result<u64> {
+    let (storage_cost, synthesis_cost, constructor_cost, _) = cost_details;
+    let cost_to_check = if consensus_version >= ConsensusVersion::V10 {
+        // From V10, only include the constructor compute cost for
+        // deployments.
+        //
+        // The limits of individual function's finalize compute costs are
+        // checked in calls to `deployment_cost`.
+        constructor_cost
+    } else {
+        // Include the storage, synthesis, and constructor cost for deployments.
+        storage_cost
+            .checked_add(synthesis_cost)
+            .and_then(|synthesis_cost| synthesis_cost.checked_add(constructor_cost))
+            .ok_or(anyhow!("The storage, synthesis, and constructor cost computation overflowed for a deployment"))?
+    };
+    Ok(cost_to_check)
+}
+
+/// Returns the compute cost for an execution in microcredits.
+/// This is used to limit the amount of single-threaded compute in the block generation hot
+/// path. This does NOT represent the full costs which a user has to pay.
+pub fn execute_compute_cost_in_microcredits(
+    cost_details: ExecuteCostDetails,
+    consensus_version: ConsensusVersion,
+) -> Result<u64> {
+    let (storage_cost, finalize_cost) = cost_details;
+    let cost_to_check = if consensus_version >= ConsensusVersion::V10 {
+        // From V10, only include the finalize compute cost for executions.
+        finalize_cost
+    } else {
+        // Include the finalize cost and storage cost for executions.
+        storage_cost
+            .checked_add(finalize_cost)
+            .ok_or(anyhow!("The storage and finalize cost computation overflowed for an execution"))?
+    };
+    Ok(cost_to_check)
+}
+
+/// Returns the *minimum* cost in microcredits to publish the given deployment using the ARC_0005_COMPUTE_DISCOUNT.
 pub fn deployment_cost_v2<N: Network>(
     process: &Process<N>,
     deployment: &Deployment<N>,
-) -> Result<(u64, (u64, u64, u64, u64))> {
+) -> Result<(MinimumCost, DeployCostDetails)> {
     // Determine the number of bytes in the deployment.
     let size_in_bytes = deployment.size_in_bytes()?;
     // Retrieve the program ID.
@@ -75,8 +129,24 @@ pub fn deployment_cost_v2<N: Network>(
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER
         / N::ARC_0005_COMPUTE_DISCOUNT;
 
+    // Compute a Stack for the deployment.
+    let stack = Stack::new(process, deployment.program())?;
+
     // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits_v2(&Stack::new(process, deployment.program())?)?;
+    let constructor_cost = constructor_cost_in_microcredits_v2(&stack)?;
+
+    // Check that the functions are valid.
+    for function in deployment.program().functions().values() {
+        // Get the finalize cost.
+        let finalize_cost = cost_in_microcredits_v3(&stack, function.name())?;
+        // Check that the finalize cost does not exceed the maximum.
+        ensure!(
+            finalize_cost <= N::TRANSACTION_SPEND_LIMIT[1].1,
+            "Finalize block '{}' has a cost '{finalize_cost}' which exceeds the transaction spend limit '{}'",
+            function.name(),
+            N::TRANSACTION_SPEND_LIMIT[1].1
+        );
+    }
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -84,21 +154,21 @@ pub fn deployment_cost_v2<N: Network>(
         .ok_or(anyhow!("The namespace cost computation overflowed for a deployment"))?
         .saturating_mul(1_000_000); // 1 microcredit = 1e-6 credits.
 
-    // Compute the total cost in microcredits.
-    let total_cost = storage_cost
+    // Compute the minimum cost in microcredits.
+    let minimum_cost = storage_cost
         .checked_add(synthesis_cost)
         .and_then(|x| x.checked_add(constructor_cost))
         .and_then(|x| x.checked_add(namespace_cost))
         .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
 
-    Ok((total_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
+    Ok((minimum_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
 }
 
-/// Returns the *minimum* cost in microcredits to publish the given deployment (total cost, (storage cost, synthesis cost, constructor cost, namespace cost)).
+/// Returns the *minimum* cost in microcredits to publish the given deployment.
 pub fn deployment_cost_v1<N: Network>(
     process: &Process<N>,
     deployment: &Deployment<N>,
-) -> Result<(u64, (u64, u64, u64, u64))> {
+) -> Result<(MinimumCost, DeployCostDetails)> {
     // Determine the number of bytes in the deployment.
     let size_in_bytes = deployment.size_in_bytes()?;
     // Retrieve the program ID.
@@ -118,8 +188,24 @@ pub fn deployment_cost_v1<N: Network>(
     // Compute the synthesis cost in microcredits.
     let synthesis_cost = num_combined_variables.saturating_add(num_combined_constraints) * N::SYNTHESIS_FEE_MULTIPLIER;
 
+    // Compute a Stack for the deployment.
+    let stack = Stack::new(process, deployment.program())?;
+
     // Compute the constructor cost in microcredits.
-    let constructor_cost = constructor_cost_in_microcredits_v1(&Stack::new(process, deployment.program())?)?;
+    let constructor_cost = constructor_cost_in_microcredits_v1(&stack)?;
+
+    // Check that the functions are valid.
+    for function in deployment.program().functions().values() {
+        // Get the finalize cost.
+        let finalize_cost = cost_in_microcredits_v2(&stack, function.name())?;
+        // Check that the finalize cost does not exceed the maximum.
+        ensure!(
+            finalize_cost <= N::TRANSACTION_SPEND_LIMIT[0].1,
+            "Finalize block '{}' has a cost '{finalize_cost}' which exceeds the transaction spend limit '{}'",
+            function.name(),
+            N::TRANSACTION_SPEND_LIMIT[0].1
+        );
+    }
 
     // Compute the namespace cost in microcredits: 10^(10 - num_characters) * 1e6
     let namespace_cost = 10u64
@@ -127,19 +213,21 @@ pub fn deployment_cost_v1<N: Network>(
         .ok_or(anyhow!("The namespace cost computation overflowed for a deployment"))?
         .saturating_mul(1_000_000); // 1 microcredit = 1e-6 credits.
 
-    // Compute the total cost in microcredits.
-    let total_cost = storage_cost
+    // Compute the minimum cost in microcredits.
+    let minimum_cost = storage_cost
         .checked_add(synthesis_cost)
         .and_then(|x| x.checked_add(constructor_cost))
         .and_then(|x| x.checked_add(namespace_cost))
         .ok_or(anyhow!("The total cost computation overflowed for a deployment"))?;
 
-    Ok((total_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
+    Ok((minimum_cost, (storage_cost, synthesis_cost, constructor_cost, namespace_cost)))
 }
 
-/// Returns the *minimum* cost in microcredits to publish the given execution using the reduced finalize cost(total cost, (storage cost, finalize cost)).
-/// The latest execution cost version is imported into /stack/mod.rs.
-pub fn execution_cost_v3<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
+/// Returns the *minimum* cost in microcredits to publish the given execution using the ARC_0005_COMPUTE_DISCOUNT.
+pub fn execution_cost_v3<N: Network>(
+    process: &Process<N>,
+    execution: &Execution<N>,
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
     // Compute the storage cost in microcredits.
     let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
 
@@ -150,16 +238,19 @@ pub fn execution_cost_v3<N: Network>(process: &Process<N>, execution: &Execution
     let stack = process.get_stack(transition.program_id())?;
     let finalize_cost = cost_in_microcredits_v3(&stack, transition.function_name())?;
 
-    // Compute the total cost in microcredits.
-    let total_cost = storage_cost
+    // Compute the minimum cost in microcredits.
+    let minimum_cost = storage_cost
         .checked_add(finalize_cost)
         .ok_or(anyhow!("The total cost computation overflowed for an execution"))?;
 
-    Ok((total_cost, (storage_cost, finalize_cost)))
+    Ok((minimum_cost, (storage_cost, finalize_cost)))
 }
 
-/// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
-pub fn execution_cost_v2<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
+/// Returns the *minimum* cost in microcredits to publish the given execution.
+pub fn execution_cost_v2<N: Network>(
+    process: &Process<N>,
+    execution: &Execution<N>,
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
     // Compute the storage cost in microcredits.
     let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
 
@@ -178,8 +269,11 @@ pub fn execution_cost_v2<N: Network>(process: &Process<N>, execution: &Execution
     Ok((total_cost, (storage_cost, finalize_cost)))
 }
 
-/// Returns the *minimum* cost in microcredits to publish the given execution (total cost, (storage cost, finalize cost)).
-pub fn execution_cost_v1<N: Network>(process: &Process<N>, execution: &Execution<N>) -> Result<(u64, (u64, u64))> {
+/// Returns the *minimum* cost in microcredits to publish the given execution.
+pub fn execution_cost_v1<N: Network>(
+    process: &Process<N>,
+    execution: &Execution<N>,
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
     // Compute the storage cost in microcredits.
     let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
 
