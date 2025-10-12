@@ -15,53 +15,103 @@
 
 use super::*;
 
+use snarkvm_utilities::ensure_equals;
+
 use crate::narwhal::BatchHeader;
 
+use anyhow::bail;
+
+/// Wrapper for a block that has a valid subDAG, but where the block header,
+/// solutions, and transmissions have not been verified yet.
+///
+/// This type is created by `Ledger::check_block_subdag` and consumed by `Ledger::check_block_content`.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct PendingBlock<N: Network>(Block<N>);
+
+impl<N: Network> Deref for PendingBlock<N> {
+    type Target = Block<N>;
+
+    fn deref(&self) -> &Block<N> {
+        &self.0
+    }
+}
+
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
-    /// Checks the given block is valid next block.
-    pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
-        let height = block.height();
-        let latest_block = self.latest_block();
+    /// Checks that the subDAG in a given block is valid, but does not fully verify the block.
+    ///
+    /// # Arguments
+    /// * `block` - The block to check.
+    /// * `pending_block` - A sequence of blocks between the block to check and the current height of the ledger.
+    ///
+    /// # Notes
+    /// * This does *not* check that the header of the block is correct or execute/verify any of the transmissions contained within it.
+    ///
+    /// * In most cases, you want to use [`Self::check_next_block`] instead to perform a full verification.
+    ///
+    /// * This will reject any blocks with a height <= the current height and any blocks with a height >= the current height + GC.
+    ///   For the former, a valid block already exists and,
+    ///   for the latter, the comittte is still unknown.
+    pub fn check_block_subdag(&self, block: Block<N>, pending_blocks: &[PendingBlock<N>]) -> Result<PendingBlock<N>> {
+        self.check_block_subdag_inner(&block, pending_blocks)?;
+        Ok(PendingBlock(block))
+    }
 
-        // Check that this is actually the next block.
-        if height != latest_block.height() + 1 {
-            bail!("Block height is {height}, but expected {}", latest_block.height() + 1);
-        }
+    fn check_block_subdag_inner(&self, block: &Block<N>, pending_blocks: &[PendingBlock<N>]) -> Result<()> {
+        // First check that the heights and hashes of the pending block sequence and of the new block are correct.
+        // The hash checks should be redundant, but we perform them out of extra caution.
+        let mut expected_height = self.latest_height() + 1;
 
-        // Ensure the block hash does not already exist.
-        if self.contains_block_hash(&block.hash())? {
-            bail!("Block hash '{}' already exists in the ledger", block.hash())
-        }
+        for block in pending_blocks.iter().map(|b| b.deref()).chain([block]) {
+            ensure_equals!(block.height(), expected_height, "Block has invalid height");
 
-        // Ensure the solutions do not already exist.
-        for solution_id in block.solutions().solution_ids() {
-            if self.contains_solution_id(solution_id)? {
-                bail!("Solution ID {solution_id} already exists in the ledger");
+            if self.contains_block_hash(&block.hash())? {
+                bail!("Hash '{}' for block at height {} already exists in the ledger", block.height(), block.hash())
             }
+
+            expected_height += 1;
         }
 
-        // TODO (howardwu): Remove this after moving the total supply into credits.aleo.
-        {
-            // // Retrieve the latest total supply.
-            // let latest_total_supply = self.latest_total_supply_in_microcredits();
-            // // Retrieve the block reward from the first block ratification.
-            // let block_reward = match block.ratifications()[0] {
-            //     Ratify::BlockReward(block_reward) => block_reward,
-            //     _ => bail!("Block {height} is invalid - the first ratification must be a block reward"),
-            // };
-            // // Retrieve the puzzle reward from the second block ratification.
-            // let puzzle_reward = match block.ratifications()[1] {
-            //     Ratify::PuzzleReward(puzzle_reward) => puzzle_reward,
-            //     _ => bail!("Block {height} is invalid - the second ratification must be a puzzle reward"),
-            // };
-            // // Compute the next total supply in microcredits.
-            // let next_total_supply_in_microcredits =
-            //     update_total_supply(latest_total_supply, block_reward, puzzle_reward, block.transactions())?;
-            // // Ensure the total supply in microcredits is correct.
-            // if next_total_supply_in_microcredits != block.total_supply_in_microcredits() {
-            //     bail!("Invalid total supply in microcredits")
-            // }
-        }
+        // Ensure solution IDs are unique
+        self.check_block_solution_ids(block, pending_blocks)?;
+
+        // Ensure the certificates in the block subdag have met quorum requirements.
+        self.check_block_subdag_quorum(block)?;
+
+        // Determine if the block subdag is correctly constructed and is not a combination of multiple subdags.
+        self.check_block_subdag_atomicity(block)?;
+
+        // Ensure that all leaves of the subdag point to valid batches in other subdags/blocks.
+        self.check_block_subdag_leaves(block, pending_blocks)?;
+
+        Ok(())
+    }
+
+    /// Checks the given block is a valid next block with regard to the current state/height of the Ledger.
+    pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
+        self.check_block_subdag_inner(block, &[])?;
+        self.check_block_content_inner(block, rng)?;
+
+        Ok(())
+    }
+
+    /// Takes a pending block and performs the remaining checks to full verify it.
+    ///
+    /// # Arguments
+    /// This takes a [`PendingBlock`] as input, which is the output of a successful call to [`Self::check_block_subdag`].
+    /// The latter already verified the block's DAG and certificate signatures.
+    ///
+    /// # Return Value
+    /// This returns a [`Block`] on success representing the fully verified block.
+    pub fn check_block_content<R: CryptoRng + Rng>(&self, block: PendingBlock<N>, rng: &mut R) -> Result<Block<N>> {
+        self.check_block_content_inner(&block.0, rng)?;
+        Ok(block.0)
+    }
+
+    fn check_block_content_inner<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
+        // Ensure only one task performs block advacement or speculation.
+        let _lock = self.block_advancement_lock.lock();
+
+        let latest_block = self.latest_block();
 
         // Construct the finalize state.
         let state = FinalizeGlobalState::new::<N>(
@@ -124,15 +174,6 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             }
         }
 
-        // Ensure the certificates in the block subdag have met quorum requirements.
-        self.check_block_subdag_quorum(block)?;
-
-        // Determine if the block subdag is correctly constructed and is not a combination of multiple subdags.
-        self.check_block_subdag_atomicity(block)?;
-
-        // Ensure that all leafs of the subdag point to valid batches in other subdags/blocks.
-        self.check_block_subdag_leaves(block)?;
-
         // Ensure that each existing solution ID from the block exists in the ledger.
         for existing_solution_id in expected_existing_solution_ids {
             if !self.contains_solution_id(&existing_solution_id)? {
@@ -154,11 +195,20 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     ///
     /// This does not verify that the batches are signed correctly or that the edges are valid
     /// (only point to the previous round), as those checks already happened when the node received the batch.
-    fn check_block_subdag_leaves(&self, block: &Block<N>) -> Result<()> {
+    fn check_block_subdag_leaves(&self, block: &Block<N>, previous_blocks: &[PendingBlock<N>]) -> Result<()> {
         // Check if the block has a subdag.
         let Authority::Quorum(subdag) = block.authority() else {
             return Ok(());
         };
+
+        let previous_certs: HashSet<_> = previous_blocks
+            .iter()
+            .filter_map(|block| match block.authority() {
+                Authority::Quorum(subdag) => Some(subdag.certificate_ids()),
+                Authority::Beacon(_) => None,
+            })
+            .flatten()
+            .collect();
 
         // Store the IDs of all certificates in this subDAG.
         // This allows determining which edges point to other subDAGs/blocks.
@@ -182,7 +232,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             }
 
             // Ensure that the certificate is associated with a previous block.
-            if !self.vm.block_store().contains_block_for_certificate(prev_id)? {
+            if !previous_certs.contains(prev_id) && !self.vm.block_store().contains_block_for_certificate(prev_id)? {
                 bail!(
                     "Batch(es) in the block point(s) to a certificate {prev_id} in round {prev_round} that is not associated with a previous block"
                 )
@@ -192,7 +242,25 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         })
     }
 
+    /// Ensure solutions IDs are unique and did not already appear in previous blocks.
+    /// Called by [`Self::check_block_subdag_inner`]
+    fn check_block_solution_ids(&self, block: &Block<N>, pending_blocks: &[PendingBlock<N>]) -> Result<()> {
+        let mut pending_ids = HashSet::new();
+
+        for block in pending_blocks.iter().map(|b| b.deref()).chain([block]) {
+            for solution_id in block.solutions().solution_ids() {
+                if !pending_ids.insert(solution_id) || self.contains_solution_id(solution_id)? {
+                    bail!("Solution ID {solution_id} already exists in the ledger");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Check that the certificates in the block subdag have met quorum requirements.
+    ///
+    /// Called by [`Self::check_block_subdag_inner`]
     fn check_block_subdag_quorum(&self, block: &Block<N>) -> Result<()> {
         // Check if the block has a subdag.
         let subdag = match block.authority() {
@@ -234,6 +302,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Checks that the block subdag can not be split into multiple valid subdags.
+    ///
+    /// Called by [`Self::check_block_subdag_inner`]
     fn check_block_subdag_atomicity(&self, block: &Block<N>) -> Result<()> {
         // Returns `true` if there is a path from the previous certificate to the current certificate.
         fn is_linked<N: Network>(
@@ -293,5 +363,80 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        check_next_block::PendingBlock,
+        test_helpers::{sample_genesis_block, sample_test_env},
+    };
+
+    use console::prelude::*;
+
+    #[test]
+    fn test_check_block_subdag_inner_duplicate_hash() {
+        let mut rng = TestRng::default();
+        let test_env = sample_test_env(&mut rng);
+        let ledger = test_env.ledger;
+
+        // Get the existing genesis block
+        let genesis_block = ledger.latest_block().clone();
+
+        // Try to check a block with the same hash as genesis (already exists)
+        let result = ledger.check_block_subdag_inner(&genesis_block, &[]);
+        assert!(result.is_err(), "check_block_subdag_inner should fail for duplicate block hash");
+
+        // The error could be either about duplicate hash or invalid height
+        let error_message = result.unwrap_err().to_string();
+        assert!(
+            error_message.contains("already exists in the ledger")
+                || error_message.contains("Block has invalid height"),
+        );
+    }
+
+    #[test]
+    fn test_check_block_subdag_with_empty_pending_blocks() {
+        let mut rng = TestRng::default();
+        let test_env = sample_test_env(&mut rng);
+        let ledger = test_env.ledger;
+
+        let genesis_block = ledger.latest_block().clone();
+
+        // Test all individual functions with empty pending blocks.
+        //TODO(kaimast): test with blocks other than the genesis.
+
+        let result1 = ledger.check_block_solution_ids(&genesis_block, &[]);
+        assert!(result1.is_ok(), "check_block_solution_ids should succeed with empty pending blocks");
+
+        let result2 = ledger.check_block_subdag_quorum(&genesis_block);
+        assert!(result2.is_ok(), "check_block_subdag_quorum should succeed");
+
+        let result3 = ledger.check_block_subdag_atomicity(&genesis_block);
+        assert!(result3.is_ok(), "check_block_subdag_atomicity should succeed");
+
+        let result4 = ledger.check_block_subdag_leaves(&genesis_block, &[]);
+        assert!(result4.is_ok(), "check_block_subdag_leaves should succeed with empty pending blocks");
+    }
+
+    #[test]
+    fn test_pending_block_properties() {
+        let mut rng = TestRng::default();
+
+        //TODO(kaimast): test with blocks other than the genesis.
+        let genesis_block = sample_genesis_block(&mut rng);
+        let pending_block = PendingBlock(genesis_block.clone());
+
+        // Test all properties accessible through Deref
+        assert_eq!(pending_block.height(), genesis_block.height());
+        assert_eq!(pending_block.hash(), genesis_block.hash());
+        assert_eq!(pending_block.round(), genesis_block.round());
+        assert_eq!(pending_block.timestamp(), genesis_block.timestamp());
+        assert_eq!(pending_block.previous_hash(), genesis_block.previous_hash());
+
+        // Test Clone and PartialEq
+        let pending_block2 = pending_block.clone();
+        assert_eq!(pending_block, pending_block2, "PendingBlock should be cloneable and equal");
     }
 }

@@ -37,8 +37,10 @@ pub use helpers::*;
 
 pub use crate::block::*;
 
-mod advance;
 mod check_next_block;
+pub use check_next_block::PendingBlock;
+
+mod advance;
 mod check_transaction_basic;
 mod contains;
 mod find;
@@ -147,6 +149,10 @@ pub struct Ledger<N: Network, C: ConsensusStorage<N>> {
     committee_cache: Arc<Mutex<LruCache<u64, Committee<N>>>>,
     /// The cache that holds the provers and the number of solutions they have submitted for the current epoch.
     epoch_provers_cache: Arc<RwLock<IndexMap<Address<N>, u32>>>,
+    /// This lock ensures only one task modifies the ledger at a time.
+    ///
+    /// Note: this also applies to speculation, as that mechanism uses atomic batches.
+    block_advancement_lock: Arc<Mutex<()>>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
@@ -213,6 +219,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             current_block: Arc::new(RwLock::new(genesis_block.clone())),
             committee_cache,
             epoch_provers_cache: Default::default(),
+            block_advancement_lock: Default::default(),
         };
 
         // If the block store is empty, add the genesis block.
