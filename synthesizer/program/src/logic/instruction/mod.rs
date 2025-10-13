@@ -282,8 +282,6 @@ pub enum Instruction<N: Network> {
     ShrWrapped(ShrWrapped<N>),
     /// Computes whether `signature` is valid for the given `address` and `message`.
     SignVerify(SignVerify<N>),
-    /// Computes whether `signature` is valid for the given `address` and raw `message`.
-    SignVerifyRaw(SignVerifyRaw<N>),
     /// Squares 'first', storing the outcome in `destination`.
     Square(Square<N>),
     /// Compute the square root of 'first', storing the outcome in `destination`.
@@ -448,7 +446,6 @@ macro_rules! instruction {
             HashSha3_512NativeRaw,
             SerializeBits,
             SerializeBitsRaw,
-            SignVerifyRaw,
 
             // New opcodes should be added here, with a comment on which consensus version they were added in.
         }}

@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
-use circuit::prelude::{ToFields as CircuitToFields, ToFieldsRaw as CircuitToFieldsRaw};
+use circuit::prelude::ToFields as CircuitToFields;
 use console::{
     network::prelude::*,
     program::{
@@ -32,20 +32,18 @@ use console::{
 };
 
 /// Computes whether `signature` is valid for the given `address` and `message`.
-pub type SignVerify<N> = SignatureVerification<N, false>;
-/// Computes whether `signature` is valid for the given `address` and raw `message`.
-pub type SignVerifyRaw<N> = SignatureVerification<N, true>;
+pub type SignVerify<N> = SignatureVerification<N>;
 
 /// Computes whether `signature` is valid for the given `address` and `message`.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct SignatureVerification<N: Network, const RAW: bool> {
+pub struct SignatureVerification<N: Network> {
     /// The operands.
     operands: Vec<Operand<N>>,
     /// The destination register.
     destination: Register<N>,
 }
 
-impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
+impl<N: Network> SignatureVerification<N> {
     /// Initializes a new `sign.verify` instruction.
     #[inline]
     pub fn new(operands: Vec<Operand<N>>, destination: Register<N>) -> Result<Self> {
@@ -58,10 +56,7 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
     /// Returns the opcode.
     #[inline]
     pub const fn opcode() -> Opcode {
-        match RAW {
-            false => Opcode::Sign("sign.verify"),
-            true => Opcode::Sign("sign.verify.raw"),
-        }
+        Opcode::Sign("sign.verify")
     }
 
     /// Returns the operands in the operation.
@@ -85,21 +80,15 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
 /// This allows running the verification without the machinery of stacks and registers.
 /// This is necessary for the Leo interpreter.
 pub fn evaluate_schnorr_verification<N: Network>(
-    is_raw: bool,
     signature: &Signature<N>,
     address: &Address<N>,
     message: &Value<N>,
 ) -> Result<bool> {
-    // Convert the message to fields.
-    let message_fields = match is_raw {
-        true => message.to_fields_raw()?,
-        false => message.to_fields()?,
-    };
     // Verify the signature.
-    Ok(signature.verify(address, &message_fields))
+    Ok(signature.verify(address, &message.to_fields()?))
 }
 
-impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
+impl<N: Network> SignatureVerification<N> {
     /// Evaluates the instruction.
     #[inline]
     pub fn evaluate(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersTrait<N>) -> Result<()> {
@@ -120,7 +109,7 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
         let message = registers.load(stack, &self.operands[2])?;
 
         // Verify the signature.
-        let output = evaluate_schnorr_verification(RAW, &signature, &address, &message)?;
+        let output = evaluate_schnorr_verification(&signature, &address, &message)?;
         let output = Literal::Boolean(Boolean::new(output));
 
         // Store the output.
@@ -151,11 +140,7 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
         let message = registers.load_circuit(stack, &self.operands[2])?;
 
         // Verify the signature.
-        let message_fields = match RAW {
-            false => message.to_fields(),
-            true => message.to_fields_raw(),
-        };
-        let output = circuit::Literal::Boolean(signature.verify(&address, &message_fields));
+        let output = circuit::Literal::Boolean(signature.verify(&address, &message.to_fields()));
 
         // Store the output.
         registers.store_literal_circuit(stack, &self.destination, output)
@@ -201,7 +186,7 @@ impl<N: Network, const RAW: bool> SignatureVerification<N, RAW> {
     }
 }
 
-impl<N: Network, const RAW: bool> Parser for SignatureVerification<N, RAW> {
+impl<N: Network> Parser for SignatureVerification<N> {
     /// Parses a string into an operation.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
@@ -232,7 +217,7 @@ impl<N: Network, const RAW: bool> Parser for SignatureVerification<N, RAW> {
     }
 }
 
-impl<N: Network, const RAW: bool> FromStr for SignatureVerification<N, RAW> {
+impl<N: Network> FromStr for SignatureVerification<N> {
     type Err = Error;
 
     /// Parses a string into an operation.
@@ -250,14 +235,14 @@ impl<N: Network, const RAW: bool> FromStr for SignatureVerification<N, RAW> {
     }
 }
 
-impl<N: Network, const RAW: bool> Debug for SignatureVerification<N, RAW> {
+impl<N: Network> Debug for SignatureVerification<N> {
     /// Prints the operation as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network, const RAW: bool> Display for SignatureVerification<N, RAW> {
+impl<N: Network> Display for SignatureVerification<N> {
     /// Prints the operation to a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Ensure the number of operands is 3.
@@ -271,7 +256,7 @@ impl<N: Network, const RAW: bool> Display for SignatureVerification<N, RAW> {
     }
 }
 
-impl<N: Network, const RAW: bool> FromBytes for SignatureVerification<N, RAW> {
+impl<N: Network> FromBytes for SignatureVerification<N> {
     /// Reads the operation from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Initialize the vector for the operands.
@@ -288,7 +273,7 @@ impl<N: Network, const RAW: bool> FromBytes for SignatureVerification<N, RAW> {
     }
 }
 
-impl<N: Network, const RAW: bool> ToBytes for SignatureVerification<N, RAW> {
+impl<N: Network> ToBytes for SignatureVerification<N> {
     /// Writes the operation to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Ensure the number of operands is 3.
@@ -312,14 +297,6 @@ mod tests {
     #[test]
     fn test_parse() {
         let (string, is) = SignVerify::<CurrentNetwork>::parse("sign.verify r0 r1 r2 into r3").unwrap();
-        assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
-        assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
-        assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
-        assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
-        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
-
-        let (string, is) = SignVerifyRaw::<CurrentNetwork>::parse("sign.verify.raw r0 r1 r2 into r3").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
         assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");

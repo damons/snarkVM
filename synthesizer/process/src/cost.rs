@@ -626,9 +626,6 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::SignVerify(sign)) => {
             cost_in_size(stack, finalize_types, sign.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
-        Command::Instruction(Instruction::SignVerifyRaw(sign)) => {
-            cost_in_size(stack, finalize_types, sign.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
-        }
         Command::Instruction(Instruction::Shl(_)) => Ok(500),
         Command::Instruction(Instruction::ShlWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::Shr(_)) => Ok(500),
