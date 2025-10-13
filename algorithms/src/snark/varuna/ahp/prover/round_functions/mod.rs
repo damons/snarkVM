@@ -64,7 +64,6 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
             randomizing_assignments.push(circuit_assignments);
         }
 
-        #[allow(clippy::unused_enumerate_index)]
         let indices_and_assignments = circuits_to_constraints
             .iter()
             .zip_eq(randomizing_assignments.into_iter())

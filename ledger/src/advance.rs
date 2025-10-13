@@ -92,12 +92,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Adds the given block as the next block in the ledger.
-    ///
-    /// Note: This may block if another thread is concurrently calling `check_block`, `check_block_content`,or `advance_to_next_block`.
     pub fn advance_to_next_block(&self, block: &Block<N>) -> Result<()> {
-        // Ensure only one task performs block advacement or speculation.
-        let _lock = self.block_advancement_lock.lock();
-
         // Acquire the write lock on the current block.
         let mut current_block = self.current_block.write();
         // Check again for any possible race conditions.

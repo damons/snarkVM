@@ -152,10 +152,7 @@ impl<
         // Set the atomic batch flag to `true`.
         self.batch_in_progress.store(true, Ordering::SeqCst);
         // Ensure that the atomic batch is empty.
-        assert!(
-            self.atomic_batch.lock().is_empty(),
-            "Cannot start an atomic operation when the atomic batch is not empty"
-        );
+        assert!(self.atomic_batch.lock().is_empty());
     }
 
     ///
