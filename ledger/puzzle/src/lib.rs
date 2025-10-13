@@ -361,7 +361,6 @@ impl<N: Network> Puzzle<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use console::{
         account::{Address, PrivateKey},
         network::Network,
@@ -374,7 +373,7 @@ mod tests {
     use rand::{CryptoRng, Rng, RngCore, SeedableRng};
     use rand_chacha::ChaChaRng;
 
-    pub type CurrentNetwork = console::network::MainnetV0;
+    type CurrentNetwork = console::network::MainnetV0;
 
     const ITERATIONS: u64 = 100;
 
