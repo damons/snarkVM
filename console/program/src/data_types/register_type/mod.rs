@@ -70,7 +70,7 @@ impl<N: Network> RegisterType<N> {
     /// Returns `true` if the register type is an array and the size exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         match self {
-            Self::Plaintext(PlaintextType::Array(array_type)) => **array_type.length() > max_array_size,
+            Self::Plaintext(PlaintextType::Array(array_type)) => array_type.exceeds_max_array_size(max_array_size),
             _ => false,
         }
     }
