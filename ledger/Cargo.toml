@@ -44,11 +44,6 @@ name = "transaction"
 path = "benches/transaction.rs"
 harness = false
 
-[[bin]]
-name = "snarkvm-testchain-generator"
-path = "bins/testchain_generator.rs"
-required-features = [ "test-helpers", "rocks" ]
-
 [features]
 default = [ "async", "indexmap/rayon", ]
 async = [

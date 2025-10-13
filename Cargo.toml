@@ -83,6 +83,7 @@ members = [
   "ledger/query",
   "ledger/store",
   "ledger/test-helpers",
+  "ledger/testchain-generator",
   "metrics",
   "parameters",
   "synthesizer",

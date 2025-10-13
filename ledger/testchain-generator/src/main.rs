@@ -18,24 +18,17 @@ use snarkvm_ledger::{Ledger, store::helpers::rocksdb::ConsensusDB, test_helpers:
 
 use aleo_std::StorageMode;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
+use clap::Parser;
 
 type Network = snarkvm_console::prelude::TestnetV0;
 
-/// Simple argument parsing to avoid pulling in all of `clap`.
-fn parse_args() -> Result<(usize, usize, Option<String>)> {
-    let mut args = std::env::args().skip(1);
-    ensure!(args.len() >= 2 && args.len() <= 3, "Need exactly two or three arguments");
-
-    let num_validators: usize =
-        args.next().unwrap().parse().with_context(|| "Failed to parse `num_validators` argument")?;
-    let num_blocks: usize = args.next().unwrap().parse().with_context(|| "Failed to parse `num_blocks` argument")?;
-    let genesis_path: Option<String> = args.next();
-
-    ensure!(num_validators >= 4, "Need at least four validators");
-    ensure!(num_blocks > 0, "Need to generate at least one block");
-
-    Ok((num_validators, num_blocks, genesis_path))
+#[derive(Parser)]
+struct Args {
+    num_validators: usize,
+    num_blocks: usize,
+    #[clap(long)]
+    genesis_path: Option<String>,
 }
 
 /// Removes an existing ledger (if any) from the filesystem.
@@ -52,25 +45,20 @@ fn remove_ledger(network: u16) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    // Uncomment this to enable logging.
-    // tracing_subscriber::fmt::init();
+    // Enable logging.
+    tracing_subscriber::fmt::init();
 
-    let (num_validators, num_blocks, genesis_path) = match parse_args() {
-        Ok(args) => args,
-        Err(err) => {
-            eprintln!("{err:?}");
-            eprintln!();
-            eprintln!("Usage: `snarkvm-testchain-generator <NUM_VALIDATORS> <NUM_BLOCKS> [<GENESIS_PATH>]`");
-            std::process::exit(1);
-        }
-    };
+    let args = Args::parse();
 
     let mut rng = TestRng::default();
 
     remove_ledger(Network::ID)?;
 
+    let num_validators = args.num_validators;
+    let num_blocks = args.num_blocks;
+
     println!("Initializing test chain builder with {num_validators} validators");
-    let mut builder = match genesis_path {
+    let mut builder = match args.genesis_path {
         Some(genesis_path) => {
             TestChainBuilder::<Network>::new_with_quorum_size_and_genesis_block(num_validators, genesis_path)
                 .with_context(|| "Failed to set up test chain builder")?
