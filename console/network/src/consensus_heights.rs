@@ -13,11 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{FromBytes, ToBytes, io_error};
+
 use enum_iterator::{Sequence, last};
+use std::io;
 
 /// The different consensus versions.
 /// If you need the version active for a specific height, see: `N::CONSENSUS_VERSION`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Sequence)]
+#[repr(u16)]
 pub enum ConsensusVersion {
     /// V1: The initial genesis consensus version.
     V1 = 1,
@@ -43,9 +47,42 @@ pub enum ConsensusVersion {
     V11 = 11,
 }
 
+impl ToBytes for ConsensusVersion {
+    fn write_le<W: io::Write>(&self, writer: W) -> io::Result<()> {
+        (*self as u16).write_le(writer)
+    }
+}
+
+impl FromBytes for ConsensusVersion {
+    fn read_le<R: io::Read>(reader: R) -> io::Result<Self> {
+        match u16::read_le(reader)? {
+            0 => Err(io_error("Zero is not a valid consensus version")),
+            1 => Ok(Self::V1),
+            2 => Ok(Self::V2),
+            3 => Ok(Self::V3),
+            4 => Ok(Self::V4),
+            5 => Ok(Self::V5),
+            6 => Ok(Self::V6),
+            7 => Ok(Self::V7),
+            8 => Ok(Self::V8),
+            9 => Ok(Self::V9),
+            10 => Ok(Self::V10),
+            11 => Ok(Self::V11),
+            _ => Err(io_error("Invalid consensus version")),
+        }
+    }
+}
+
 impl ConsensusVersion {
     pub fn latest() -> Self {
         last::<ConsensusVersion>().expect("At least one ConsensusVersion should be defined.")
+    }
+}
+
+impl std::fmt::Display for ConsensusVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Use Debug formatting for Display.
+        write!(f, "{self:?}")
     }
 }
 
@@ -344,5 +381,18 @@ mod tests {
         max_certificates_increasing::<CanaryV0>();
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
+    }
+
+    /// Ensure (de-)serialization works correctly.
+    #[test]
+    fn test_to_bytes() {
+        let version = ConsensusVersion::V8;
+        let bytes = version.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
+        assert_eq!(result, version);
+
+        let invalid_bytes = u16::MAX.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&invalid_bytes);
+        assert!(result.is_err());
     }
 }
