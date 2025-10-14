@@ -105,7 +105,7 @@ fn check_destination_type_is_valid(variant: u8, destination_type: &PlaintextType
             | LiteralType::U64
             | LiteralType::U128
             | LiteralType::Scalar => Ok(()),
-            _ => bail!("Invalid literal type '{literal_type}' for 'serialize' instruction"),
+            _ => bail!("Invalid literal type '{literal_type}' for 'deserialize' instruction"),
         }
     }
 

@@ -102,7 +102,7 @@ fn check_deserialize<const VARIANT: u8>(
     let size_in_bits = match VARIANT {
         0 => type_.size_in_bits(&fail_get_struct).unwrap(),
         1 => type_.size_in_bits_raw(&fail_get_struct).unwrap(),
-        _ => panic!("Invalid 'deserialize' veriant"),
+        _ => panic!("Invalid 'deserialize' variant"),
     };
     let size_in_bits = u32::try_from(size_in_bits).unwrap();
 
@@ -130,7 +130,7 @@ fn check_deserialize<const VARIANT: u8>(
         let bits = match VARIANT {
             0 => plaintext.to_bits_le(),
             1 => plaintext.to_bits_raw_le(),
-            _ => panic!("Invalid 'deserialize' veriant"),
+            _ => panic!("Invalid 'deserialize' variant"),
         };
 
         // Check that the number of bits matches.

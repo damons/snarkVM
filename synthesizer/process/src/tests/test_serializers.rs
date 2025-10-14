@@ -93,7 +93,7 @@ function test_serde_equivalence:
 
     // A helper function to run tests for a given variant (either raw or not).
     fn run_test(type_: PlaintextType<CurrentNetwork>, is_raw: bool, iterations: usize) {
-        // Initailize an RNG.
+        // Initialize an RNG.
         let rng = &mut TestRng::default();
 
         // Load the process.
@@ -143,7 +143,7 @@ function test_serde_equivalence:
             // Construct the inputs.
             let inputs = vec![Value::Plaintext(plaintext.clone())];
 
-            // Generate an authorixation.
+            // Generate an authorization.
             let authorization =
                 stack.authorize::<CurrentAleo, _>(&private_key, function_name, inputs.iter(), rng).unwrap();
 
