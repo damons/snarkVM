@@ -39,7 +39,7 @@ version = "0.2"
 version = "0.2"
 
 [dependencies.enum-iterator]
-version = "2.1"
+workspace = true
 
 [dependencies.indexmap]
 workspace = true
@@ -53,6 +53,9 @@ workspace = true
 [dependencies.serde_json]
 workspace = true
 features = [ "preserve_order" ]
+
+[dependencies.seq-macro]
+version = "0.3"
 
 [dev-dependencies.bincode]
 workspace = true
