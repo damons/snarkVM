@@ -47,13 +47,9 @@ impl<A: Aleo> ToBitsRaw for Plaintext<A> {
             }
             Self::Struct(members, _) => {
                 // Compute the bits of the struct.
-                let mut bits_be = Vec::new();
                 for (_, value) in members {
                     vec.extend(value.to_bits_raw_be());
                 }
-                bits_be.shrink_to_fit();
-                // Extend the vector with the bits of the struct.
-                vec.extend_from_slice(&bits_be);
             }
             Self::Array(elements, _) => {
                 // Compute the bits of the array.
