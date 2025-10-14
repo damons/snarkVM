@@ -39,7 +39,7 @@ pub enum ConsensusVersion {
     V9 = 9,
     /// V10: Lower fees, appropriate record output type checking.
     V10 = 10,
-    /// V11: Support for external structs, expand array size limit to 256, and introduce ECDSA signature verification opcodes.
+    /// V11: Expand array size limit to 512 and introduce ECDSA signature verification opcodes.
     V11 = 11,
 }
 
