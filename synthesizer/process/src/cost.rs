@@ -316,6 +316,9 @@ const HASH_BHP_PER_BYTE_COST: u64 = 300;
 const HASH_PSD_BASE_COST: u64 = 40_000;
 const HASH_PSD_PER_BYTE_COST: u64 = 75;
 
+const ECDSA_VERIFY_BASE_COST: u64 = 60_000;
+const ECDSA_VERIFY_ETH_BASE_COST: u64 = 75_000;
+
 #[derive(Copy, Clone)]
 pub enum ConsensusFeeVersion {
     V1,
@@ -447,6 +450,16 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::CommitPED128(commit)) => {
             cost_in_size(stack, finalize_types, commit.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
+        Command::Instruction(Instruction::DeserializeBits(deserialize)) => {
+            Ok(plaintext_size_in_bytes(stack, &PlaintextType::Array(deserialize.operand_type().clone()))?
+                .saturating_mul(CAST_PER_BYTE_COST)
+                .saturating_add(CAST_BASE_COST))
+        }
+        Command::Instruction(Instruction::DeserializeBitsRaw(deserialize)) => {
+            Ok(plaintext_size_in_bytes(stack, &PlaintextType::Array(deserialize.operand_type().clone()))?
+                .saturating_mul(CAST_PER_BYTE_COST)
+                .saturating_add(CAST_BASE_COST))
+        }
         Command::Instruction(Instruction::Div(div)) => {
             // Ensure `div` has exactly two operands.
             ensure!(div.operands().len() == 2, "'div' must contain exactly 2 operands");
@@ -461,51 +474,188 @@ pub fn cost_per_command<N: Network>(
         }
         Command::Instruction(Instruction::DivWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::Double(_)) => Ok(500),
+        Command::Instruction(Instruction::ECDSAVerifyDigest(_)) => Ok(ECDSA_VERIFY_BASE_COST),
+        Command::Instruction(Instruction::ECDSAVerifyDigestEth(_)) => Ok(ECDSA_VERIFY_ETH_BASE_COST),
+        Command::Instruction(Instruction::ECDSAVerifyKeccak256(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak256Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak256Eth(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_ETH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak384(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak384Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak384Eth(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_ETH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak512(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak512Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifyKeccak512Eth(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_ETH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_256(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_256Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_256Eth(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_ETH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_384(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_384Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_384Eth(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_ETH_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_512(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_512Raw(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::ECDSAVerifySha3_512Eth(ecdsa)) => {
+            cost_in_size(stack, finalize_types, ecdsa.operands(), HASH_PER_BYTE_COST, ECDSA_VERIFY_ETH_BASE_COST)
+        }
         Command::Instruction(Instruction::GreaterThan(_)) => Ok(500),
         Command::Instruction(Instruction::GreaterThanOrEqual(_)) => Ok(500),
         Command::Instruction(Instruction::HashBHP256(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
+        Command::Instruction(Instruction::HashBHP256Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+        }
         Command::Instruction(Instruction::HashBHP512(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashBHP512Raw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::HashBHP768(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
+        Command::Instruction(Instruction::HashBHP768Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+        }
         Command::Instruction(Instruction::HashBHP1024(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashBHP1024Raw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_BHP_PER_BYTE_COST, HASH_BHP_BASE_COST)
         }
         Command::Instruction(Instruction::HashKeccak256(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
+        Command::Instruction(Instruction::HashKeccak256Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak256Native(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak256NativeRaw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
         Command::Instruction(Instruction::HashKeccak384(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak384Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak384Native(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak384NativeRaw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashKeccak512(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
+        Command::Instruction(Instruction::HashKeccak512Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak512Native(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashKeccak512NativeRaw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
         Command::Instruction(Instruction::HashPED64(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashPED64Raw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashPED128(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
+        Command::Instruction(Instruction::HashPED128Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
         Command::Instruction(Instruction::HashPSD2(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashPSD2Raw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
         Command::Instruction(Instruction::HashPSD4(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
+        Command::Instruction(Instruction::HashPSD4Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+        }
         Command::Instruction(Instruction::HashPSD8(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashPSD8Raw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }
         Command::Instruction(Instruction::HashSha3_256(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
+        Command::Instruction(Instruction::HashSha3_256Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_256Native(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_256NativeRaw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
         Command::Instruction(Instruction::HashSha3_384(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
+        Command::Instruction(Instruction::HashSha3_384Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_384Native(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_384NativeRaw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
         Command::Instruction(Instruction::HashSha3_512(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_512Raw(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_512Native(hash)) => {
+            cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
+        }
+        Command::Instruction(Instruction::HashSha3_512NativeRaw(hash)) => {
             cost_in_size(stack, finalize_types, hash.operands(), HASH_PER_BYTE_COST, HASH_BASE_COST)
         }
         Command::Instruction(Instruction::HashManyPSD2(_)) => {
@@ -557,6 +707,16 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::PowWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::Rem(_)) => Ok(500),
         Command::Instruction(Instruction::RemWrapped(_)) => Ok(500),
+        Command::Instruction(Instruction::SerializeBits(serialize)) => {
+            Ok(plaintext_size_in_bytes(stack, &PlaintextType::Array(serialize.destination_type().clone()))?
+                .saturating_mul(CAST_PER_BYTE_COST)
+                .saturating_add(CAST_BASE_COST))
+        }
+        Command::Instruction(Instruction::SerializeBitsRaw(serialize)) => {
+            Ok(plaintext_size_in_bytes(stack, &PlaintextType::Array(serialize.destination_type().clone()))?
+                .saturating_mul(CAST_PER_BYTE_COST)
+                .saturating_add(CAST_BASE_COST))
+        }
         Command::Instruction(Instruction::SignVerify(sign)) => {
             cost_in_size(stack, finalize_types, sign.operands(), HASH_PSD_PER_BYTE_COST, HASH_PSD_BASE_COST)
         }

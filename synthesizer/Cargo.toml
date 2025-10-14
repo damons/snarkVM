@@ -159,6 +159,14 @@ workspace = true
 [dev-dependencies.criterion]
 workspace = true
 
+[dev-dependencies.hex]
+workspace = true
+
+[dev-dependencies.k256]
+version = "0.13"
+features = [ "digest", "ecdsa" ]
+default-features = false
+
 [dev-dependencies.snarkvm-console]
 workspace = true
 features = [ "filesystem" ]
