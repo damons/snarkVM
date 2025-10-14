@@ -54,7 +54,7 @@ program uses_serialize.aleo;
 
 function dummy:
     input r0 as u32.public;
-    serialize.bits r0 (u32) into r1 ([boolean; 32u32]);
+    serialize.bits.raw r0 (u32) into r1 ([boolean; 32u32]);
 
 constructor:
     assert.eq true true;
