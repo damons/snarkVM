@@ -456,7 +456,7 @@ pub fn proof_size<E: PairingEngine>(
                     + size_pc_proof,
             )
 
-            // NB: "n_usize * size_usize" must be computed as
+            // Note. "n_usize * size_usize" must be computed as
             // size_of_val(batch_sizes) due to linting restrictions
         }
     }
