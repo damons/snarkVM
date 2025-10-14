@@ -234,7 +234,7 @@ where
     let bits = bits.to_vec();
     ensure!(
         bits.len() == size_in_bits,
-        "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+        "The number of bits of the operand '{}' does not match the destination '{size_in_bits}'",
         bits.len()
     );
 
@@ -429,7 +429,7 @@ where
     let bits = bits.to_vec();
     ensure!(
         bits.len() == size_in_bits,
-        "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+        "The number of bits of the operand '{}' does not match the destination '{size_in_bits}'",
         bits.len()
     );
 
@@ -613,7 +613,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // Check that the number of bits matches the desired length.
         ensure!(
             bits.len() == size_in_bits as usize,
-            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}'",
             bits.len()
         );
 
@@ -659,7 +659,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // Check that the number of bits matches the desired length.
         ensure!(
             bits.len() == size_in_bits as usize,
-            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}'",
             bits.len()
         );
 
@@ -709,7 +709,7 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
         // Check that the number of bits of the operand matches the destination.
         ensure!(
             **self.operand_type.length() as usize == size_in_bits,
-            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}",
+            "The number of bits of the operand '{}' does not match the destination '{size_in_bits}'",
             **self.operand_type.length()
         );
 

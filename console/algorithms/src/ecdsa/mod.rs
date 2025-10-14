@@ -37,12 +37,12 @@ use k256::{
 #[derive(Clone, PartialEq, Eq)]
 pub struct RecoveryID {
     /// The recovery ID.
-    recovery_id: ECDSARecoveryId,
+    pub recovery_id: ECDSARecoveryId,
     /// The Ethereum chain ID (if applicable).
     /// None = non-Ethereum canonical
     /// Some(0) = ETH legacy (v = 27 or 28)
     /// Some(id>=1) = EIP-155(id).
-    chain_id: Option<u64>,
+    pub chain_id: Option<u64>,
 }
 
 impl RecoveryID {

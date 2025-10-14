@@ -309,7 +309,7 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
         // Check that the number of bits of the operand matches the destination.
         ensure!(
             size_in_bits == **self.destination_type.length() as usize,
-            "The number of bits of the operand '{size_in_bits}' does not match the destination '{}",
+            "The number of bits of the operand '{size_in_bits}' does not match the destination '{}'",
             **self.destination_type.length()
         );
 
