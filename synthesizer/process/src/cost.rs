@@ -65,7 +65,7 @@ fn execution_cost_given_size<N: Network>(
     execution: &Execution<N>,
     execution_size: u64,
     consensus_version: ConsensusVersion,
-) -> Result<(u64, (u64, u64))> {
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
     if consensus_version >= ConsensusVersion::V10 {
         execution_cost_v3(process, execution, execution_size)
     } else if consensus_version >= ConsensusVersion::V2 {
