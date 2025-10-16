@@ -18,7 +18,6 @@ mod serialize;
 mod string;
 
 use console::{network::prelude::*, program::Request, types::Field};
-use snarkvm_algorithms::snark::varuna::{VarunaVersion, proof_size};
 use snarkvm_ledger_block::{Input, Transaction, Transition};
 use snarkvm_synthesizer_program::StackTrait;
 
@@ -287,54 +286,6 @@ impl<N: Network> PartialEq for Authorization<N> {
 impl<N: Network> Eq for Authorization<N> {}
 
 impl<N: Network> Authorization<N> {
-    /// Returns the (exact) predicted size of the Varuna proof of an Authorization
-    ///
-    /// *Arguments*:
-    ///  - `varuna_version`: the version of Varuna to use. Only `VarunaVersion::V2` is supported.
-    ///
-    /// *Returns*:
-    ///  - `Some(size)` for `VarunaVersion::V2`, where `size` is the size of the proof in bytes.
-    ///  - `None` for `VarunaVersion::V1`.
-    ///
-    // The value returned coincides with `Proof<N: Network>::write_le()`, which
-    // includes 1 byte for the version number. The result is one more than that
-    // returned by `compressed_size()`
-    pub fn proof_size(&self, varuna_version: VarunaVersion) -> Option<usize> {
-        match varuna_version {
-            VarunaVersion::V1 => None,
-            VarunaVersion::V2 => {
-                // The Varuna circuits that must be proved as part of an Authorization are:
-                // - the circuits of each function in the authorization
-                // - one the inclusion circuit for input records to *all* of those functions
-                // TODO: Dynamic dispatch, once implemented, will cause a third type
-                // of circuit to appear which needs to be accounted for here.
-
-                let mut circuit_frequencies = HashMap::new();
-
-                // In order to compute the frequencies of function circuits, we mimic the
-                // operation of Process::verify_execution:
-                for transition in self.transitions().values() {
-                    let entry = circuit_frequencies
-                        .entry((*transition.program_id(), *transition.function_name()))
-                        .or_insert(0usize);
-                    *entry += 1;
-                }
-
-                let mut batch_sizes: Vec<usize> = circuit_frequencies.values().cloned().collect();
-
-                // We now add the single inclusion circuit for input records, if any:
-                let n_input_records = Self::number_of_input_records(self.transitions().values());
-                if n_input_records > 0 {
-                    batch_sizes.push(n_input_records);
-                }
-
-                // Varuna is always ran in hiding (i. e. ZK) mode when proving
-                // Executions. The added 1 corresponds to the version number written in Proof::to_bytes_le.
-                proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true).map(|size| 1 + size)
-            }
-        }
-    }
-
     /// Total number of inputs to the passed `Transition`s that are of type
     /// `Input::Record`.
     // This method is used to ensure consistency between
@@ -344,7 +295,7 @@ impl<N: Network> Authorization<N> {
     // `Authorization` itself. Notably, the `transitions` argument can be
     // `authorization.transitions().values()`.
     #[inline]
-    pub(crate) fn number_of_input_records<'a>(transitions: impl ExactSizeIterator<Item = &'a Transition<N>>) -> usize {
+    pub fn number_of_input_records<'a>(transitions: impl ExactSizeIterator<Item = &'a Transition<N>>) -> usize {
         transitions
             .map(|transition| transition.inputs().iter().filter(|input| matches!(input, Input::Record(_, _))).count())
             .sum()
@@ -400,6 +351,20 @@ fn ensure_request_and_transition_matches<N: Network>(
         transition.scm(),
     );
     Ok(())
+}
+
+#[cfg(feature = "test")]
+impl<N: Network> Authorization<N> {
+    /// Initialize an `Authorization` instance with the given requests and
+    /// transitions without performing any consistency checks between them.
+    pub fn from_unchecked((requests, transitions): (Vec<Request<N>>, Vec<Transition<N>>)) -> Self {
+        Authorization {
+            requests: Arc::new(RwLock::new(VecDeque::from(requests))),
+            transitions: Arc::new(RwLock::new(IndexMap::from_iter(
+                transitions.into_iter().map(|transition| (*transition.id(), transition)),
+            ))),
+        }
+    }
 }
 
 #[cfg(test)]

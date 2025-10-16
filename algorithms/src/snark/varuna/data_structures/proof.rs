@@ -24,6 +24,7 @@ use snarkvm_curves::PairingEngine;
 use snarkvm_fields::{One, PrimeField};
 use snarkvm_utilities::{FromBytes, ToBytes, into_io_error, serialize::*};
 
+use anyhow::{Result, anyhow};
 use std::{
     collections::BTreeMap,
     io::{self, Read, Write},
@@ -386,30 +387,31 @@ impl<E: PairingEngine> FromBytes for Proof<E> {
 /// *Arguments*:
 ///  - `batch_sizes`: the batch sizes of the circuits and instances being
 ///    proved.
-///  - `hiding`: indicates whether the proof system is run in ZK mode
 ///  - `varuna_version`: the version of Varuna being used
+///  - `hiding`: indicates whether the proof system is run in ZK mode
 ///
 /// *Returns*:
-///  - `Some(size)` for `VarunaVersion::V2`, where `size` is the size of the
-///    proof in bytes.
-///  - `None` for `VarunaVersion::V1`.
+///  - `Ok(size)` for `VarunaVersion::V2`, where `size` is the size of the proof
+///    in bytes.
+///  - `Err` for `VarunaVersion::V1`.
 pub fn proof_size<E: PairingEngine>(
     batch_sizes: &[usize],
     varuna_version: VarunaVersion,
     hiding: bool,
-) -> Option<usize> {
+) -> Result<usize> {
     let n_circuits: usize = batch_sizes.len();
     let n_instances: usize = batch_sizes.iter().sum();
 
     match varuna_version {
-        VarunaVersion::V1 => None,
+        VarunaVersion::V1 => Err(anyhow!("Proof-size calculation not implemented for Varuna version V1")),
         VarunaVersion::V2 => {
             // All fields are serialised in Compressed mode The breakdown is as
             // follows:
-            // - batch sizes: (boils down to CanonicalSerialize for [usize])
-            //   + one u64 for the length (the number of circuits) followed that many usize
-            //     This contains the size information for the vectors in all other fields,
-            //     which are therefore serialised without their length
+            // - batch sizes (boils down to CanonicalSerialize for [usize]):
+            //   + one u64 for the length (the number of circuits) followed that many u64,
+            //     which is how usizes are serialized. This contains the size information
+            //     for the vectors in all other fields, which are therefore serialised
+            //     without their length
             // - commitments:
             //   + witness_commitments: n_instances commitments
             //   + mask_poly: 1 byte to encode the enum tag (a bool) plus one commitment if
@@ -437,6 +439,7 @@ pub fn proof_size<E: PairingEngine>(
             // The next three sizes are const functions
             let size_bool = size_of::<bool>();
             let size_u64 = size_of::<u64>();
+
             // The next two can be hard-coded if performance becomes critical
             // and they are considered fully stable. They are 32 and 48 bytes at
             // the time of writing, respectively (commitments are affine points
@@ -444,20 +447,13 @@ pub fn proof_size<E: PairingEngine>(
             let size_field_element = E::Fr::one().compressed_size();
             let size_commitment = KZGCommitment::<E>::empty().compressed_size();
 
-            let size_pc_proof =
-                size_of::<usize>() + 3 * (size_commitment + 1) + if hiding { size_field_element } else { 0 };
+            let size_pc_proof = size_u64 + 3 * (size_commitment + 1) + if hiding { size_field_element } else { 0 };
 
-            Some(
-                n_bool * size_bool
-                    + n_u64 * size_u64
-                    + size_of_val(batch_sizes)
-                    + n_field_elements * size_field_element
-                    + n_commitments * size_commitment
-                    + size_pc_proof,
-            )
-
-            // Note. "n_usize * size_usize" must be computed as
-            // size_of_val(batch_sizes) due to linting restrictions
+            Ok(n_bool * size_bool
+                + (n_u64 + batch_sizes.len()) * size_u64
+                + n_field_elements * size_field_element
+                + n_commitments * size_commitment
+                + size_pc_proof)
         }
     }
 }

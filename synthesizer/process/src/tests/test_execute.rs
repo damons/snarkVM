@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, InclusionVersion, Process, Stack, Trace};
+use crate::{CallStack, InclusionVersion, Process, Stack, Trace, execution_cost, execution_cost_for_authorization};
 use circuit::{Aleo, network::AleoV0};
 use console::{
     account::{Address, PrivateKey, ViewKey},
@@ -548,7 +548,8 @@ fn test_process_execute_transfer_public_to_private() {
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -567,11 +568,10 @@ fn test_process_execute_transfer_public_to_private() {
         // Prove the execution.
         let execution = trace.prove_execution::<CurrentAleo, _>("credits.aleo", VarunaVersion::V2, rng).unwrap();
         // Verify the execution.
-        process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+        process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-        // Check the proof size
-        let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-        assert_eq!(actual_size, expected_proof_size);
+        // Check the execution cost
+        assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
         // Ensure there is only one transition.
         assert_eq!(1, execution.transitions().len());
@@ -1316,7 +1316,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1340,7 +1340,8 @@ finalize compute:
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Compute the output value.
     let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
@@ -1360,11 +1361,10 @@ finalize compute:
     // Prove the execution.
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V2, rng).unwrap();
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1434,7 +1434,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1458,7 +1458,8 @@ finalize compute:
         .unwrap();
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Compute the output value.
     let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
@@ -1479,11 +1480,10 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1567,7 +1567,7 @@ finalize mint_public:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1603,7 +1603,8 @@ finalize mint_public:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -1616,11 +1617,10 @@ finalize mint_public:
     let execution = trace.prove_execution::<CurrentAleo, _>("token", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1702,7 +1702,7 @@ finalize mint_public:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program0, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1742,7 +1742,7 @@ finalize init:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program1, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1769,7 +1769,8 @@ finalize init:
         .unwrap();
     assert_eq!(authorization.len(), 2);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Compute the output value.
     let response = process.evaluate::<CurrentAleo>(authorization.replicate()).unwrap();
@@ -1790,11 +1791,10 @@ finalize init:
     let execution = trace.prove_execution::<CurrentAleo, _>("public_wallet", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -1866,7 +1866,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -1898,7 +1898,8 @@ finalize compute:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -1911,11 +1912,10 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2016,7 +2016,8 @@ function a:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 3);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -2047,11 +2048,10 @@ function a:
     let execution = trace.prove_execution::<CurrentAleo, _>("two", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 }
 
 #[test]
@@ -2193,7 +2193,8 @@ fn test_complex_execution_order() {
     assert_eq!(authorization.len(), 10);
     println!("\nAuthorize\n{:#?}\n\n", authorization.to_vec_deque());
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     let output = Value::<CurrentNetwork>::from_str("17u8").unwrap();
 
@@ -2240,11 +2241,10 @@ fn test_complex_execution_order() {
     let execution = trace.prove_execution::<CurrentAleo, _>("four", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 }
 
 #[test]
@@ -2313,7 +2313,7 @@ finalize compute:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
@@ -2344,7 +2344,8 @@ finalize compute:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -2357,11 +2358,10 @@ finalize compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 
     // Now, finalize the execution.
     process.finalize_execution(sample_finalize_state(1), &finalize_store, &execution, None).unwrap();
@@ -2454,7 +2454,8 @@ function compute:
     // Check again to make sure we didn't modify the authorization after calling `evaluate`.
     assert_eq!(authorization.len(), 1);
 
-    let expected_proof_size = authorization.proof_size(VarunaVersion::V2).unwrap();
+    let expected_execution_cost =
+        execution_cost_for_authorization(&process, &authorization, ConsensusVersion::V10).unwrap();
 
     // Execute the request.
     let (response, mut trace) = process.execute::<CurrentAleo, _>(authorization, rng).unwrap();
@@ -2472,11 +2473,10 @@ function compute:
     let execution = trace.prove_execution::<CurrentAleo, _>("testing", VarunaVersion::V2, rng).unwrap();
 
     // Verify the execution.
-    process.verify_execution(ConsensusVersion::V8, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
+    process.verify_execution(ConsensusVersion::V10, VarunaVersion::V2, InclusionVersion::V1, &execution).unwrap();
 
-    // Check the proof size
-    let actual_size = execution.proof().unwrap().to_bytes_le().unwrap().len();
-    assert_eq!(actual_size, expected_proof_size);
+    // Check the execution cost
+    assert_eq!(execution_cost(&process, &execution, ConsensusVersion::V10).unwrap(), expected_execution_cost);
 }
 
 #[test]
@@ -2500,9 +2500,9 @@ fn test_process_deploy_credits_program() {
     let deployment = empty_process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 
     // Ensure the deployment is valid on the empty process.
-    empty_process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    empty_process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Ensure the deployment is not valid on the standard process.
-    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).is_err());
+    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).is_err());
 
     // Create a new `credits.aleo` program.
     let program = Program::from_str(
@@ -2524,9 +2524,9 @@ function compute:
     let deployment = empty_process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
 
     // Ensure the deployment is valid on the empty process.
-    empty_process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    empty_process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Ensure the deployment is not valid on the standard process.
-    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).is_err());
+    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).is_err());
 }
 
 #[test]
@@ -2555,7 +2555,7 @@ function {function_name}:
     // Add the program to the process.
     let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
     // Check that the deployment verifies.
-    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).unwrap();
+    process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V10, &deployment, rng).unwrap();
     // Compute the fee.
     let fee = sample_fee::<_, CurrentAleo, _, _>(&process, &block_store, &finalize_store, rng);
     // Finalize the deployment.
