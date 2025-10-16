@@ -912,6 +912,60 @@ impl<N: Network> ProgramCore<N> {
         // Return `false` since no V9 syntax was found.
         false
     }
+
+    /// Returns `true` if the program contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.mappings.values().any(|mapping| mapping.exceeds_max_array_size(max_array_size))
+            || self.structs.values().any(|struct_type| struct_type.exceeds_max_array_size(max_array_size))
+            || self.records.values().any(|record_type| record_type.exceeds_max_array_size(max_array_size))
+            || self.closures.values().any(|closure| closure.exceeds_max_array_size(max_array_size))
+            || self.functions.values().any(|function| function.exceeds_max_array_size(max_array_size))
+            || self.constructor.iter().any(|constructor| constructor.exceeds_max_array_size(max_array_size))
+    }
+
+    /// Returns `true` if a program contains any V11 syntax.
+    /// This includes:
+    /// 1. `.raw` hash or signature verification variants
+    /// 2. `ecdsa.verify.*` opcodes
+    /// 3. arrays that exceed the previous maximum length of 32.
+    #[inline]
+    pub fn contains_v11_syntax(&self) -> bool {
+        // The previous maximum array size before V11.
+        const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
+
+        // Helper to check if any of the opcodes:
+        // - start with `ecdsa.verify`, `serialize`, or `deserialize`
+        // - end with `.raw` or `.native`
+        let has_op = |opcode: &str| {
+            opcode.starts_with("ecdsa.verify")
+                || opcode.starts_with("serialize")
+                || opcode.starts_with("deserialize")
+                || opcode.ends_with(".raw")
+                || opcode.ends_with(".native")
+        };
+
+        // Determine if any function instructions contain the new syntax.
+        let function_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.instructions())
+            .any(|instruction| has_op(*instruction.opcode()));
+
+        // Determine if any closure instructions contain the new syntax.
+        let closure_contains = cfg_iter!(self.closures())
+            .flat_map(|(_, closure)| closure.instructions())
+            .any(|instruction| has_op(*instruction.opcode()));
+
+        // Determine if any finalize commands or constructor commands contain the new syntax.
+        let command_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
+            .flatten()
+            .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
+            .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
+
+        // Determine if any of the array types exceed the previous maximum length of 32.
+        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
+
+        function_contains || closure_contains || command_contains || array_size_exceeds
+    }
 }
 
 impl<N: Network> TypeName for ProgramCore<N> {
