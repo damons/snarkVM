@@ -42,8 +42,8 @@ impl<N: Network> Deref for Proof<N> {
     }
 }
 
-/// Predicts the size in bytes of the proof as produced by
-/// `Proof::serialize_compressed` without needing to receive the proof itself.
+/// Computes the size in bytes of the proof as produced by
+/// `Proof::write_le` without needing to receive the proof itself.
 ///
 /// *Arguments*:
 ///  - `batch_sizes`: the batch sizes of the circuits and instances being
