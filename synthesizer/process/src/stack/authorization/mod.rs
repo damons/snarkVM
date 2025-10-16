@@ -286,14 +286,10 @@ impl<N: Network> PartialEq for Authorization<N> {
 impl<N: Network> Eq for Authorization<N> {}
 
 impl<N: Network> Authorization<N> {
-    /// Total number of inputs to the passed `Transition`s that are of type
-    /// `Input::Record`.
-    // This method is used to ensure consistency between
-    // `prepare_verifier_inputs` and the batch-size calculation used in
-    // `Authorization::proof_size` above. The specifics of the former mean this
-    // method must receive an iterator of `Transition`s instead of the
-    // `Authorization` itself. Notably, the `transitions` argument can be
-    // `authorization.transitions().values()`.
+    /// Returns the total number of inputs to the passed `Transition`s that are of
+    /// type `Input::Record`.
+    // This method is used to ensure consistency between `prepare_verifier_inputs`
+    // and the batch-size calculation used in `execution_cost_for_authorization`.
     #[inline]
     pub fn number_of_input_records<'a>(transitions: impl ExactSizeIterator<Item = &'a Transition<N>>) -> usize {
         transitions

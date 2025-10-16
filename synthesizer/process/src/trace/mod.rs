@@ -383,7 +383,7 @@ impl<N: Network> Trace<N> {
         let batch_inclusion_inputs =
             Inclusion::prepare_verifier_inputs(global_state_root, inclusion_version, transitions.clone())?;
 
-        let expected_n_inclusions = Authorization::number_of_input_records(transitions.clone());
+        let expected_n_inclusions = Authorization::number_of_input_records(transitions);
         ensure!(
             batch_inclusion_inputs.len() == expected_n_inclusions,
             "Unexpected number of inclusion inputs: {} instead of {}",

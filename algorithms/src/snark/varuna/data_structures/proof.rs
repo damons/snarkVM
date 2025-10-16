@@ -407,11 +407,10 @@ pub fn proof_size<E: PairingEngine>(
         VarunaVersion::V2 => {
             // All fields are serialised in Compressed mode The breakdown is as
             // follows:
-            // - batch sizes (boils down to CanonicalSerialize for [usize]):
-            //   + one u64 for the length (the number of circuits) followed that many u64,
-            //     which is how usizes are serialized. This contains the size information
-            //     for the vectors in all other fields, which are therefore serialised
-            //     without their length
+            // - batch sizes: one `usize` (which is serialised as a `u64`) for each batch
+            //   size, plus one `u64` for the number of batches. This contains the size
+            //   information for the vectors in all other fields, which are therefore
+            //   serialised without their length prefix.
             // - commitments:
             //   + witness_commitments: n_instances commitments
             //   + mask_poly: 1 byte to encode the enum tag (a bool) plus one commitment if

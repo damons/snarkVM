@@ -21,9 +21,10 @@ use console::{
     prelude::*,
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
-use snarkvm_algorithms::snark::varuna::{VarunaVersion, proof_size};
+use snarkvm_algorithms::snark::varuna::VarunaVersion;
 use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
+use snarkvm_synthesizer_snark::proof_size;
 
 /// Returns the deployment cost in microcredits for a given deployment.
 pub fn deployment_cost<N: Network>(
@@ -110,12 +111,14 @@ pub fn execution_cost_for_authorization<N: Network>(
     }
 
     // Varuna is always ran in hiding (i. e. ZK) mode when proving Executions.
-    // If future versions of Varuna are introduced, the correct version should
-    // be deduced from the consensus version. The extra 1 byte comes from the
-    // version number.
-    let expected_proof_size = u64::try_from(1 + proof_size::<N::PairingCurve>(&batch_sizes, VarunaVersion::V2, true)?)?;
+    let hiding_mode = true;
 
-    // We cannot directly add the proof size to the storage cost due to execution_storage_cost()
+    // If future versions of Varuna are introduced, the correct one should be
+    // deduced here from the consensus version. Currently only the latest Varuna
+    // version V2 is supported.
+    let varuna_version = VarunaVersion::V2;
+
+    let expected_proof_size = u64::try_from(proof_size::<N>(&batch_sizes, varuna_version, hiding_mode)?)?;
     let unproved_execution_size = reconstructed_execution.size_in_bytes()?;
     let execution_size = unproved_execution_size.checked_add(expected_proof_size).ok_or(anyhow!(
         "The execution size computation overflowed for an authorization when the proof was taken into account"
