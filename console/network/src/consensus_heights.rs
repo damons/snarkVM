@@ -177,6 +177,7 @@ macro_rules! consensus_config_value {
         // Search the consensus version enacted at the specified height.
         $network::CONSENSUS_VERSION($seek_height).map_or(None, |seek_version| {
             // Search the consensus value for the specified version.
+            // NOTE: calling `consensus_config_value_by_version!` here would require callers to import both macros.
             match $network::$constant.binary_search_by(|(version, _)| version.cmp(&seek_version)) {
                 // If a value was found for this consensus version, return it.
                 Ok(index) => Some($network::$constant[index].1),
@@ -192,6 +193,33 @@ macro_rules! consensus_config_value {
                 }
             }
         })
+    };
+}
+
+/// Returns the consensus configuration value for the specified ConsensusVersion.
+///
+/// Arguments:
+/// - `$network`: The network to use the constant of.
+/// - `$constant`: The constant to search a value of.
+/// - `$seek_version`: The ConsensusVersion to search the value for.
+#[macro_export]
+macro_rules! consensus_config_value_by_version {
+    ($network:ident, $constant:ident, $seek_version:expr) => {
+        // Search the consensus value for the specified version.
+        match $network::$constant.binary_search_by(|(version, _)| version.cmp(&$seek_version)) {
+            // If a value was found for this consensus version, return it.
+            Ok(index) => Some($network::$constant[index].1),
+            // If the specified version was not found exactly, determine whether to return an appropriate value anyway.
+            Err(index) => {
+                // This constant is not yet in effect at this consensus version.
+                if index == 0 {
+                    None
+                // Return the appropriate value belonging to the consensus version *lower* than the sought version.
+                } else {
+                    Some($network::$constant[index - 1].1)
+                }
+            }
+        }
     };
 }
 
