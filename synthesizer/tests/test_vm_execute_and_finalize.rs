@@ -240,20 +240,22 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
 
             // Test cost computation for Authorization
             if transaction.is_execute() {
-                let consensus_version = {
-                    let latest_block_height = vm.block_store().current_block_height();
-                    CurrentNetwork::CONSENSUS_VERSION(latest_block_height).unwrap()
-                };
+                let consensus_version =
+                    CurrentNetwork::CONSENSUS_VERSION(vm.block_store().current_block_height()).unwrap();
 
-                let execution = transaction.execution().unwrap();
+                if consensus_version >= ConsensusVersion::V4 {
+                    let execution = transaction.execution().unwrap();
 
-                let actual_cost = execution_cost(&vm.process().read(), execution, consensus_version).unwrap();
+                    let actual_cost = execution_cost(&vm.process().read(), execution, consensus_version).unwrap();
 
-                let authorization = Authorization::from_unchecked((vec![], execution.transitions().cloned().collect()));
-                let expected_cost =
-                    execution_cost_for_authorization(&vm.process().read(), &authorization, consensus_version).unwrap();
+                    let authorization =
+                        Authorization::from_unchecked((vec![], execution.transitions().cloned().collect()));
+                    let expected_cost =
+                        execution_cost_for_authorization(&vm.process().read(), &authorization, consensus_version)
+                            .unwrap();
 
-                assert_eq!(actual_cost, expected_cost);
+                    assert_eq!(actual_cost, expected_cost);
+                }
             }
 
             // Attempt to verify the transaction.
