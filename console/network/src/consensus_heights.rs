@@ -90,7 +90,7 @@ impl std::fmt::Display for ConsensusVersion {
 }
 
 /// The number of consensus versions.
-pub(crate) const NUM_CONSENSUS_VERSIONS: usize = 12;
+pub(crate) const NUM_CONSENSUS_VERSIONS: usize = enum_iterator::cardinality::<ConsensusVersion>();
 
 /// The consensus version height for `CanaryV0`.
 pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
