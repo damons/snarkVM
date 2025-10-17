@@ -398,6 +398,11 @@ mod tests {
         let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
         assert_eq!(result, version);
 
+        let version = ConsensusVersion::latest();
+        let bytes = version.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
+        assert_eq!(result, version);
+
         let invalid_bytes = u16::MAX.to_bytes_le().unwrap();
         let result = ConsensusVersion::from_bytes_le(&invalid_bytes);
         assert!(result.is_err());
