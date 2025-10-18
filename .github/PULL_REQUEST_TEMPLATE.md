@@ -10,8 +10,8 @@ If you changed any code, please provide us with clear instructions on how you ve
 
 ## Documentation
 
-If this PR adds or changes functionality, please take some time to update any docs, e.g. on github.com/AleoNet/welcome.
+If this PR adds or changes functionality, consider clarifying which docs need to be updated, e.g. on [AleoNet/welcome](https://github.com/AleoNet/welcome).
 
 ## Backwards compatibility
 
-Please review backwards compatibility. Does any functionality need to be guarded by an existing or new ConsensusVersion?
+Please review backwards compatibility. Does any functionality need to be guarded by an existing or new `ConsensusVersion`?
