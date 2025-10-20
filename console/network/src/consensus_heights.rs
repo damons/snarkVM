@@ -116,7 +116,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_430_000),
     (ConsensusVersion::V9, 10_272_000),
     (ConsensusVersion::V10, 11_205_000),
-    (ConsensusVersion::V11, 12_155_500),
+    (ConsensusVersion::V11, 12_867_225),
 ];
 
 /// The consensus version heights for `TestnetV0`.
@@ -131,7 +131,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_173_000),
     (ConsensusVersion::V9, 9_800_000),
     (ConsensusVersion::V10, 10_525_000),
-    (ConsensusVersion::V11, 11_680_720),
+    (ConsensusVersion::V11, 11_952_000),
 ];
 
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
