@@ -254,7 +254,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Returns the program for the given `program ID` and `edition`.
     pub fn get_program_for_edition(&self, program_id: ProgramID<N>, edition: u16) -> Result<Program<N>> {
-        match self.vm.block_store().get_program_for_edition(&program_id, edition)? {
+        match self.try_get_program_for_edition(&program_id, edition)? {
             Some(program) => Ok(program),
             None => bail!("Missing program for ID {program_id} and edition {edition}"),
         }
@@ -262,8 +262,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Returns the program for the given `program ID` and `edition`,
     /// or `None` if no program of this ID and edition exists.
-    pub fn try_get_program_for_edition(&self, program_id: ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
-        self.vm.block_store().get_program_for_edition(&program_id, edition)
+    pub fn try_get_program_for_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
+        self.vm.block_store().get_program_for_edition(program_id, edition)
     }
 
     /// Returns the block solutions for the given block height.
