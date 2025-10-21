@@ -97,7 +97,7 @@ pub struct State<'a, F: PrimeField, SM: SNARKMode> {
 type PaddedPubInputs<F> = Vec<F>;
 /// The private inputs for a single instance.
 type PrivateInputs<F> = Vec<F>;
-/// The vector `z_i_j * A_i` vector for a single instance.
+/// The vector `z_i_j * A_i` for a single instance.
 type Za<F> = Vec<F>;
 /// The vector `z_i_j * B_i` for a single instance.
 type Zb<F> = Vec<F>;
