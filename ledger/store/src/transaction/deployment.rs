@@ -428,11 +428,7 @@ pub trait DeploymentStorage<N: Network>: Clone + Send + Sync {
 
     /// Returns the program for the given `program ID` and `edition`.
     fn get_program_for_edition(&self, program_id: &ProgramID<N>, edition: u16) -> Result<Option<Program<N>>> {
-        // Retrieve the program.
-        match self.program_map().get_confirmed(&(*program_id, edition))? {
-            Some(program) => Ok(Some(program.into_owned())),
-            None => bail!("Failed to get program '{program_id}' (edition {edition})"),
-        }
+        self.program_map().get_confirmed(&(*program_id, edition)).map(|p| p.map(|p| p.into_owned()))
     }
 
     /// Returns the latest verifying key for the given `program ID` and `function name`.
