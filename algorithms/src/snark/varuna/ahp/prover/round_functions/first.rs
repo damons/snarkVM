@@ -157,7 +157,7 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
             .collect();
 
         // Interpolating \widetilde{z} - \widetilde{x} and dividing by the
-        // vainishing polynomial over variable_domain.
+        // vanishing polynomial over variable_domain.
         let w_poly = EvaluationsOnDomain::from_vec_and_domain(w_poly_evals, variable_domain)
             .interpolate_with_pc(&circuit.ifft_precomputation);
         let (w_poly, remainder) = w_poly.divide_by_vanishing_poly(input_domain).unwrap();
