@@ -114,6 +114,7 @@ impl<N: Network> TestChainBuilder<N> {
             .with_context(|| "Failed to initialize consensus store")?;
         // Create a genesis block with a seeded RNG to reproduce the same genesis private keys.
         let seed: u64 = rng.r#gen();
+        trace!("Using seed {seed} and key {} for genesis RNG", private_key);
         let genesis_rng = &mut TestRng::from_seed(seed);
         let genesis_block = VM::from(store).unwrap().genesis_beacon(&private_key, genesis_rng)?;
 
@@ -121,7 +122,10 @@ impl<N: Network> TestChainBuilder<N> {
         let genesis_rng = &mut TestRng::from_seed(seed);
         let private_keys = (0..committee_size).map(|_| PrivateKey::new(genesis_rng).unwrap()).collect();
 
-        trace!("Generated private keys for all {committee_size} committee members");
+        trace!(
+            "Generated genesis block ({}) and private keys for all {committee_size} committee members",
+            genesis_block.hash()
+        );
 
         Ok((private_keys, genesis_block))
     }

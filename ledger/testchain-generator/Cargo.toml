@@ -17,6 +17,11 @@ license = "Apache-2.0"
 edition = "2024"
 include = ["../../LICENSE.md"]
 
+[features]
+default = [ ]
+test_targets = [ "snarkvm-ledger/test_targets"]
+test = [ "snarkvm-ledger/test" ]
+
 [dependencies.aleo-std]
 workspace = true
 
