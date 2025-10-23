@@ -3701,6 +3701,7 @@ dependencies = [
  "snarkvm-synthesizer-snark",
  "snarkvm-utilities",
  "tempfile",
+ "tokio",
  "tracing",
  "walkdir",
 ]
