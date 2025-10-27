@@ -13,17 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[derive(Debug, Error)]
-pub enum UpdaterError {
-    #[error("{}: {}", _0, _1)]
-    Crate(&'static str, String),
+use super::*;
 
-    #[error("The current version {} is more recent than the release version {}", _0, _1)]
-    OldReleaseVersion(String, String),
-}
-
-impl From<self_update::errors::Error> for UpdaterError {
-    fn from(error: self_update::errors::Error) -> Self {
-        UpdaterError::Crate("self_update", error.to_string())
+impl<A: Aleo> ToFieldsRaw for Value<A> {
+    /// Returns the circuit value as a list of fields using the raw bits.
+    #[inline]
+    fn to_fields_raw(&self) -> Vec<Field<A>> {
+        match self {
+            Self::Plaintext(plaintext) => plaintext.to_fields_raw(),
+            // Note: We use the standard `to_fields` for records and futures because they are Aleo-specific types.
+            Self::Record(record) => record.to_fields(),
+            Self::Future(future) => future.to_fields(),
+        }
     }
 }

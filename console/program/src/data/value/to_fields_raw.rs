@@ -13,14 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod cli;
-pub use cli::*;
+use super::*;
 
-mod commands;
-pub use commands::*;
-
-mod errors;
-pub use errors::*;
-
-pub mod helpers;
-pub use helpers::*;
+impl<N: Network> ToFieldsRaw for Value<N> {
+    /// Returns the object as a list of base field elements using the raw bits.
+    #[inline]
+    fn to_fields_raw(&self) -> Result<Vec<Self::Field>> {
+        match self {
+            Self::Plaintext(plaintext) => plaintext.to_fields_raw(),
+            // Note: We use the standard `to_fields` for records and futures because they are Aleo-specific types.
+            Self::Record(record) => record.to_fields(),
+            Self::Future(future) => future.to_fields(),
+        }
+    }
+}

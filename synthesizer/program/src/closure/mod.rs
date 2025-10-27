@@ -25,7 +25,7 @@ mod bytes;
 mod parse;
 
 use console::{
-    network::prelude::*,
+    network::{error, prelude::*},
     program::{Identifier, Register, RegisterType},
 };
 
@@ -68,6 +68,13 @@ impl<N: Network> ClosureCore<N> {
     /// Returns the closure outputs.
     pub const fn outputs(&self) -> &IndexSet<Output<N>> {
         &self.outputs
+    }
+
+    /// Returns `true` if the closure contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.inputs.iter().any(|input| input.register_type().exceeds_max_array_size(max_array_size))
+            || self.outputs.iter().any(|output| output.register_type().exceeds_max_array_size(max_array_size))
+            || self.instructions.iter().any(|instruction| instruction.exceeds_max_array_size(max_array_size))
     }
 }
 

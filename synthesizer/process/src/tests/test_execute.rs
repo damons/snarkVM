@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, InclusionVersion, Process, Stack, Trace};
+use crate::{CallStack, InclusionVersion, Process, Trace};
 use circuit::{Aleo, network::AleoV0};
 use console::{
     account::{Address, PrivateKey, ViewKey},
@@ -2702,13 +2702,11 @@ fn test_program_exceeding_transaction_spend_limit() {
     .unwrap();
 
     // Initialize a `Process`.
-    let mut process = Process::<CurrentNetwork>::load().unwrap();
+    let process = Process::<CurrentNetwork>::load().unwrap();
 
-    // Attempt to add the program to the process, which should fail.
-    let result = process.add_program(&program);
-    assert!(result.is_err());
-
-    // Attempt to initialize a `Stack` directly with the program, which should fail.
-    let result = Stack::initialize(&process, &program);
-    assert!(result.is_err());
+    // Attempt to deploy the program, which should succeed.
+    let rng = &mut TestRng::default();
+    let deployment = process.deploy::<CurrentAleo, _>(&program, rng).unwrap();
+    // Attempt to verify the deployment, which should fail.
+    assert!(process.verify_deployment::<CurrentAleo, _>(ConsensusVersion::V8, &deployment, rng).is_ok());
 }

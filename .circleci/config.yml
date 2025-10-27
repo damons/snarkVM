@@ -37,14 +37,18 @@ commands:
       - restore_cache:
           key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
-          name: "Install Rust and run cargo check"
+          name: "Install Rust"
           command: |
             $ProgressPreference = "SilentlyContinue"
-            # Remove the circleci installed rustc.
-            choco uninstall -y rust
+            # Remove the version of rustc that (might be) installed already..
+            # Use non-interactive mode and force uninstall to prevent the job from getting stuck.
+            choco uninstall rust -y --force
+
             # Install rust with rustup.
             Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "C:\rustup-init.exe"
             & C:\rustup-init.exe -y --default-toolchain "1.88.0-x86_64-pc-windows-msvc" --no-modify-path --profile minimal # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+
+            # Add cargo to PATH
             $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
             # Verify the installation.
             cargo --version --verbose
@@ -52,6 +56,12 @@ commands:
             if (!(Test-Path "Cargo.lock" -PathType Leaf)) {
                 cargo generate-lockfile
             }
+      - run:
+          name: "Run cargo check"
+          command: |
+            # Add cargo to PATH
+            $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
+            # Check that the given package compiles
             cd << parameters.workspace_member >>
             cargo check --examples --benches --tests
       - save_cache:
@@ -66,14 +76,14 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v4.0.0-rust-1.88.0-snarkvm-stable-cache
+        default: v4.2.0-rust-1.88.0-snarkvm-stable-cache
     steps:
       - run: set -e
       - run:
           name: Prepare environment variables and install dependencies
           command: |
             echo 'export "RUSTC_WRAPPER"="$CIRCLE_WORKING_DIRECTORY/.bin/sccache"' >> $BASH_ENV
-            echo 'export "SCCACHE_CACHE_SIZE"="200M"' >> $BASH_ENV
+            echo 'export "SCCACHE_CACHE_SIZE"="20000M"' >> $BASH_ENV
 
             # Disable incremental builds so that sccache works as expected
             echo 'export CARGO_INCREMENTAL=0' >> "$BASH_ENV"
@@ -106,13 +116,14 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v4.0.0-rust-1.88.0-snarkvm-stable-cache
+        default: v4.2.0-rust-1.88.0-snarkvm-stable-cache
     steps:
       - run: (sccache -s || true)
       - run: set +e
       - save_cache:
           key: << parameters.cache_key >>
           paths:
+            - /home/circleci/project/target
             - /home/circleci/.cache/sccache
             - /home/circleci/.cargo
             - /home/circleci/.aleo/resources
@@ -129,18 +140,22 @@ commands:
         type: string
         default: ""
       timeout:
-        type: integer
-        default: 10
+        type: string
+        default: 10m
+      no_output_timeout:
+        type: string
+        default: 10m
     steps:
       - checkout
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+          cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
       - run:
           name: "Run Tests"
           timeout: << parameters.timeout >>
+          no_output_timeout: << parameters.no_output_timeout >>
           command: RUST_MIN_STACK=67108864 cargo test --package=<< parameters.workspace_member >> << parameters.flags >>
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+          cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
 
   install_rust_nightly:
     description: "Install Rust nightly toolchain"
@@ -431,7 +446,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-ledger
           flags: --release --features=rocks -- --test-threads=2
-          timeout: 20
+          timeout: 20m
 
   ledger-with-valid-solutions:
     executor: rust-docker
@@ -554,6 +569,7 @@ jobs:
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
+          timeout: 20m
           workspace_member: snarkvm-parameters
           flags: -- --test-threads=2
 
@@ -565,6 +581,9 @@ jobs:
           workspace_member: snarkvm-parameters
           flags: --no-run --features large_params
           cache_key_suffix: -large
+          # Compilation can take very long and produce no output for a while.
+          no_output_timeout: 20m
+          timeout: 30m
 
   parameters-uncached:
     executor: rust-docker
@@ -582,7 +601,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer
           flags: --lib --bins
-          timeout: 20
+          timeout: 20m
 
   synthesizer-test:
     executor: rust-docker
@@ -592,7 +611,7 @@ jobs:
           workspace_member: snarkvm-synthesizer
           flags: --lib --bins --features test
           cache_key_suffix: -test
-          timeout: 25
+          timeout: 25m
 
 #  synthesizer-mem-heavy:
 #    executor: rust-docker
@@ -608,8 +627,11 @@ jobs:
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
+          timeout: 30m
+          # test_vm_execute_and_finalize can take over 10 minutes in the current setup
+          no_output_timeout: 20m
           workspace_member: snarkvm-synthesizer
-          flags: --test '*' --features test -- --test-threads=4
+          flags: --test '*' --features test -- --test-threads=4 
           cache_key_suffix: -integration
 
   synthesizer-process:
@@ -653,6 +675,8 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer-program
           flags: keccak
+          timeout: 30m
+          no_output_timeout: 20m
           cache_key_suffix: -integration-keccak
 
   synthesizer-program-integration-psd:
@@ -671,6 +695,8 @@ jobs:
       - run_test:
           workspace_member: snarkvm-synthesizer-program
           flags: sha
+          timeout: 30m
+          no_output_timeout: 20m
           cache_key_suffix: -integration-sha
 
   synthesizer-program-integration-instruction-is:
@@ -727,7 +753,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-wasm-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-wasm-cache
       - run:
           no_output_timeout: 30m
           command: |
@@ -744,7 +770,7 @@ jobs:
             # Run the tests
             cd wasm && wasm-pack test --node
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-wasm-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-wasm-cache
 
   check-fmt:
     executor: rust-docker
@@ -753,13 +779,13 @@ jobs:
       - checkout
       - install_rust_nightly
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-fmt-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-fmt-cache
       - run:
           name: Check style
           no_output_timeout: 35m
           command: cargo +nightly fmt --all -- --check
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-fmt-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-fmt-cache
 
   check-unused-dependencies:
     executor: rust-docker
@@ -767,7 +793,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-machete-cache
+          cache_key: v4.2.0-rust-1.88.0-machete-cache
       - run:
           name: Check for unused dependencies
           no_output_timeout: 10m
@@ -775,7 +801,7 @@ jobs:
             cargo install cargo-machete@0.7.0
             cargo machete
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-machete-cache
+          cache_key: v4.2.0-rust-1.88.0-machete-cache
 
   check-cargo-audit:
     executor: rust-docker
@@ -783,7 +809,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-cargo-audit-cache
+          cache_key: v4.2.0-rust-1.88.0-cargo-audit-cache
       - run:
           name:  Check for security vulnerabilities
           no_output_timeout: 10m
@@ -791,7 +817,23 @@ jobs:
             cargo install cargo-audit@0.21.2 --locked
             cargo audit -D warnings
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-cargo-audit-cache
+          cache_key: v4.2.0-rust-1.88.0-cargo-audit-cache
+
+  check-cargo-semver-checks:
+    executor: rust-docker
+    resource_class: << pipeline.parameters.twoxlarge >>
+    steps:
+      - checkout
+      - setup_environment:
+          cache_key: v4.2.0-rust-1.88.0-cargo-semver-checks-cache
+      - run:
+          name: Check for semver violations
+          no_output_timeout: 15m
+          command: |
+            bash ./.circleci/semver-checks.sh
+
+      - clear_environment:
+          cache_key: v4.2.0-rust-1.88.0-cargo-semver-checks-cache
 
   check-clippy:
     executor: rust-docker
@@ -799,7 +841,7 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-clippy-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-clippy-cache
       - run:
           name: Check Clippy (default features)
           timeout: 20m
@@ -811,7 +853,7 @@ jobs:
           command: |
             cargo clippy --workspace --all-targets --all-features -- -D warnings
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-clippy-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-clippy-cache
 
   check-all-targets:
     executor: rust-docker
@@ -819,13 +861,13 @@ jobs:
     steps:
       - checkout
       - setup_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-all-targets-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-all-targets-cache
       - run:
           name: Check all targets
           no_output_timeout: 35m
           command: cargo check --release --workspace --all-targets
       - clear_environment:
-          cache_key: v4.0.0-rust-1.88.0-snarkvm-all-targets-cache
+          cache_key: v4.2.0-rust-1.88.0-snarkvm-all-targets-cache
 
   verify-windows:
     executor:
@@ -843,11 +885,17 @@ jobs:
 workflows:
   version: 2
 
-  main-workflow:
+  cargo-workflow:
     jobs:
-      - snarkvm
-      - algorithms
-      - algorithms-profiler
+      - check-fmt
+      - check-clippy
+      - check-unused-dependencies
+      - check-cargo-audit
+      - check-cargo-semver-checks
+      - check-all-targets
+
+  circuit-workflow:
+    jobs:
       - circuit
       - circuit-account
       - circuit-account-noconsole
@@ -865,6 +913,9 @@ workflows:
       - circuit-types-integers
       - circuit-types-scalar
       - circuit-types-string
+
+  console-workflow:
+    jobs:
       - console
       - console-account
       - console-algorithms
@@ -880,8 +931,9 @@ workflows:
       - console-types-integers
       - console-types-scalar
       - console-types-string
-      - curves
-      - fields
+
+  ledger-workflow:
+    jobs:
       - ledger
       - ledger-with-rocksdb
       - ledger-with-valid-solutions
@@ -900,9 +952,9 @@ workflows:
       - ledger-query
       - ledger-store
       - ledger-test-helpers
-      - parameters
-      - parameters-large
-      - parameters-uncached
+
+  synthesizer-workflow:
+    jobs:
       - synthesizer
       - synthesizer-test
       # - synthesizer-mem-heavy
@@ -918,14 +970,20 @@ workflows:
       - synthesizer-program-integration-instruction-equal
       - synthesizer-program-integration-instruction-commit
       - synthesizer-snark
+
+  snarkvm-workflow:
+    jobs:
+      - snarkvm
+      - algorithms
+      - algorithms-profiler
+      - curves
+      - fields
+      - parameters
+      - parameters-large
+      - parameters-uncached
       - utilities
       - utilities-derives
       - wasm
-      - check-fmt
-      - check-clippy
-      - check-unused-dependencies
-      - check-cargo-audit
-      - check-all-targets
 
   windows-workflow:
     jobs:

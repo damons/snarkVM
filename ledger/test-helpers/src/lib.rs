@@ -42,8 +42,10 @@ use snarkvm_ledger_query::Query;
 use snarkvm_ledger_store::{BlockStore, helpers::memory::BlockMemory};
 use snarkvm_synthesizer_process::Process;
 use snarkvm_synthesizer_program::Program;
+use snarkvm_utilities::PrettyUnwrap;
 
 use aleo_std::StorageMode;
+use anyhow::Context;
 use std::sync::OnceLock;
 
 type CurrentNetwork = console::network::MainnetV0;
@@ -589,12 +591,13 @@ pub fn sample_genesis_block_and_transactions(
 }
 
 /// Samples a random genesis block, the transactions from the genesis block, and the genesis private key.
+/// If this function was called before, this returns a cached version.
 pub fn sample_genesis_block_and_components(
     rng: &mut TestRng,
 ) -> (Block<CurrentNetwork>, Transactions<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
     static INSTANCE: OnceLock<(Block<CurrentNetwork>, Transactions<CurrentNetwork>, PrivateKey<CurrentNetwork>)> =
         OnceLock::new();
-    INSTANCE.get_or_init(|| crate::sample_genesis_block_and_components_raw(rng)).clone()
+    INSTANCE.get_or_init(|| crate::sample_genesis_block_and_components_uncached(rng)).clone()
 }
 
 pub fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwork> {
@@ -606,7 +609,7 @@ pub fn sample_genesis_private_key(rng: &mut TestRng) -> PrivateKey<CurrentNetwor
 }
 
 /// Samples a random genesis block, the transactions from the genesis block, and the genesis private key.
-fn sample_genesis_block_and_components_raw(
+pub fn sample_genesis_block_and_components_uncached(
     rng: &mut TestRng,
 ) -> (Block<CurrentNetwork>, Transactions<CurrentNetwork>, PrivateKey<CurrentNetwork>) {
     // Sample the genesis private key.
@@ -653,7 +656,9 @@ fn sample_genesis_block_and_components_raw(
     let ratifications = Ratifications::try_from(vec![]).unwrap();
 
     // Prepare the block header.
-    let header = Header::genesis(&ratifications, &transactions, vec![]).unwrap();
+    let header = Header::genesis(&ratifications, &transactions, vec![])
+        .with_context(|| "Failed to generate genesis sample header")
+        .pretty_unwrap();
     // Prepare the previous block hash.
     let previous_hash = <CurrentNetwork as Network>::BlockHash::default();
 
@@ -670,7 +675,7 @@ fn sample_genesis_block_and_components_raw(
         rng,
     )
     .unwrap();
-    assert!(block.header().is_genesis(), "Failed to initialize a genesis block");
+    assert!(block.header().is_genesis().unwrap(), "Failed to initialize a genesis block");
     // Return the block, transaction, and private key.
     (block, transactions, private_key)
 }

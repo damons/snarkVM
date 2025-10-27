@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger"
-version = "4.2.1"
+version = "4.3.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A node ledger for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -20,11 +20,24 @@ edition = "2024"
 name = "block"
 path = "benches/block.rs"
 harness = false
+required-features = [ "test-helpers", "rocks" ]
 
 [[bench]]
 name = "bonded_mapping"
 path = "benches/bonded_mapping.rs"
 harness = false
+
+[[bench]]
+name = "store"
+path = "benches/store.rs"
+harness = false
+required-features = [ "test-helpers", "rocks" ]
+
+[[bench]]
+name = "dag"
+path = "benches/dag.rs"
+harness = false
+required-features = ["test-helpers"]
 
 [[bench]]
 name = "transaction"
@@ -57,11 +70,20 @@ serial = [
   "snarkvm-ledger-store/serial",
   "snarkvm-synthesizer/serial"
 ]
-test = [ "snarkvm-console/test", "snarkvm-ledger-block/test", "snarkvm-ledger-store/test", "snarkvm-synthesizer/test" ]
+test = [
+  "snarkvm-console/test",
+  "snarkvm-ledger-block/test",
+  "snarkvm-ledger-store/test",
+  "snarkvm-synthesizer/test"
+]
 test-helpers = [
   "snarkvm-ledger-test-helpers",
   "snarkvm-ledger-committee/test-helpers",
-  "snarkvm-ledger-narwhal/test-helpers"
+  "snarkvm-ledger-narwhal/test-helpers",
+  "dep:snarkvm-circuit"
+]
+test_targets = [
+  "snarkvm-console/test_targets",
 ]
 timer = [ "aleo-std/timer" ]
 
@@ -76,6 +98,10 @@ workspace = true
 
 [dependencies.snarkvm-ledger-committee]
 workspace = true
+
+[dependencies.snarkvm-circuit]
+workspace = true
+optional = true
 
 [dependencies.snarkvm-ledger-narwhal]
 workspace = true
@@ -141,11 +167,18 @@ workspace = true
 workspace = true
 features = [ "filesystem" ]
 
+[dev-dependencies.snarkvm-ledger]
+path = "."
+features = [ "test-helpers" ]
+
 [dev-dependencies.snarkvm-ledger-block]
 workspace = true
 features = [ "test" ]
 
 [dev-dependencies.snarkvm-ledger-test-helpers]
+workspace = true
+
+[dev-dependencies.aleo-std-storage]
 workspace = true
 
 [dev-dependencies.serde_json]

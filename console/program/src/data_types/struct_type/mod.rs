@@ -42,6 +42,11 @@ impl<N: Network> StructType<N> {
     pub const fn members(&self) -> &IndexMap<Identifier<N>, PlaintextType<N>> {
         &self.members
     }
+
+    /// Returns `true` if the struct contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.members.values().any(|plaintext_type| plaintext_type.exceeds_max_array_size(max_array_size))
+    }
 }
 
 impl<N: Network> TypeName for StructType<N> {

@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger-store"
-version = "4.2.1"
+version = "4.3.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A data store for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -64,6 +64,9 @@ workspace = true
 [dependencies.snarkvm-synthesizer-snark]
 workspace = true
 
+[dependencies.snarkvm-utilities]
+workspace = true
+
 [dependencies.aleo-std-storage]
 workspace = true
 
@@ -113,6 +116,9 @@ optional = true
 [dev-dependencies.aleo-std]
 workspace = true
 
+[dev-dependencies.snarkvm-ledger-block]
+workspace = true
+
 [dev-dependencies.snarkvm-ledger-committee]
 workspace = true
 features = [ "test-helpers" ]
@@ -124,4 +130,4 @@ path = "../../ledger/test-helpers"
 workspace = true
 
 [dev-dependencies.tracing-test]
-version = "0.2"
+version = "0.2.5"
