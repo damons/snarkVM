@@ -168,7 +168,7 @@ workspace = true
 features = [ "filesystem" ]
 
 [dev-dependencies.snarkvm-ledger]
-workspace = true
+path = "."
 features = [ "test-helpers" ]
 
 [dev-dependencies.snarkvm-ledger-block]
