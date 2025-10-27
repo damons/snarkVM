@@ -123,6 +123,9 @@ optional = true
 [dependencies.snarkvm-synthesizer]
 workspace = true
 
+[dependencies.snarkvm-utilities]
+workspace = true
+
 [dependencies.aleo-std]
 workspace = true
 features = [ "storage" ]
@@ -146,6 +149,9 @@ workspace = true
 workspace = true
 
 [dependencies.rand]
+workspace = true
+
+[dependencies.rand_chacha]
 workspace = true
 
 [dependencies.rayon]
@@ -186,9 +192,6 @@ workspace = true
 features = [ "preserve_order" ]
 
 [dev-dependencies.snarkvm-circuit]
-workspace = true
-
-[dev-dependencies.snarkvm-utilities]
 workspace = true
 
 [dev-dependencies.snarkvm-synthesizer]

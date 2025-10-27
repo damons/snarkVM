@@ -77,6 +77,7 @@ members = [
   "ledger/query",
   "ledger/store",
   "ledger/test-helpers",
+  "ledger/testchain-generator",
   "metrics",
   "parameters",
   "synthesizer",
@@ -467,7 +468,7 @@ version = "0.14"
 version = "1.4"
 
 [workspace.dependencies.locktick]
-version = "0.3"
+version = "0.4"
 
 [workspace.dependencies.lru]
 version = "0.16"
