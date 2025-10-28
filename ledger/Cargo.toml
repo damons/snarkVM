@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger"
-version = "4.2.1"
+version = "4.3.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A node ledger for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -174,7 +174,7 @@ workspace = true
 features = [ "filesystem" ]
 
 [dev-dependencies.snarkvm-ledger]
-workspace = true
+path = "."
 features = [ "test-helpers" ]
 
 [dev-dependencies.snarkvm-ledger-block]
