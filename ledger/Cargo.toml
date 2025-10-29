@@ -34,6 +34,12 @@ harness = false
 required-features = [ "test-helpers", "rocks" ]
 
 [[bench]]
+name = "advance"
+path = "benches/advance.rs"
+harness = false
+required-features = [ "test-helpers", "rocks" ]
+
+[[bench]]
 name = "dag"
 path = "benches/dag.rs"
 harness = false
@@ -197,3 +203,7 @@ workspace = true
 [dev-dependencies.snarkvm-synthesizer]
 workspace = true
 features = [ "test" ]
+
+[dev-dependencies.tracing-subscriber]
+version = "0.3"
+features = [ "env-filter", "std" ]

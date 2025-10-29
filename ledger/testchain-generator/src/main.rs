@@ -13,13 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use snarkvm_console::prelude::{CanaryV0, MainnetV0, Network, TestRng, TestnetV0};
+use snarkvm_console::prelude::{CanaryV0, MainnetV0, Network, TestRng, TestnetV0, ToBytes};
 use snarkvm_ledger::{Ledger, store::helpers::rocksdb::ConsensusDB, test_helpers::TestChainBuilder};
 
 use aleo_std::StorageMode;
-
 use anyhow::{Context, Result, bail};
 use clap::{Parser, builder::PossibleValuesParser};
+use std::fs;
 
 #[derive(Parser)]
 struct Args {
@@ -41,6 +41,12 @@ struct Args {
     /// The name of the network to generate the chain for.
     #[clap(long, value_parser=PossibleValuesParser::new(vec![CanaryV0::SHORT_NAME, TestnetV0::SHORT_NAME, MainnetV0::SHORT_NAME]), default_value=TestnetV0::SHORT_NAME)]
     network: String,
+    /// Set the seed to used to generate the chain.
+    #[clap(long)]
+    seed: Option<u64>,
+    /// Store serialized blocks directly on disk instead of going through ledger storage.
+    #[clap(long, requires = "storage_path")]
+    no_ledger: bool,
 }
 
 /// Removes an existing ledger (if any) from the filesystem.
@@ -74,16 +80,25 @@ fn main() -> Result<()> {
 }
 
 fn generate_testchain<N: Network>(args: Args) -> Result<()> {
-    let mut rng = TestRng::default();
-    let storage_mode =
-        if let Some(path) = args.storage_path { StorageMode::Custom(path.into()) } else { StorageMode::Development(0) };
+    let mut rng = if let Some(seed) = args.seed {
+        println!("Using seed of {seed}");
+        TestRng::from_seed(seed)
+    } else {
+        TestRng::default()
+    };
+
+    let storage_mode = if let Some(path) = args.storage_path.clone() {
+        StorageMode::Custom(path.into())
+    } else {
+        StorageMode::Development(0)
+    };
 
     remove_ledger(N::ID, &storage_mode, args.force)?;
 
     let num_validators = args.num_validators;
     let num_blocks = args.num_blocks;
 
-    println!("Initializing test chain builder with {num_validators} validators");
+    println!("Initializing test chain builder for {} with {num_validators} validators", N::SHORT_NAME);
     let mut builder: TestChainBuilder<N> = match args.genesis_path {
         Some(genesis_path) => TestChainBuilder::new_with_quorum_size_and_genesis_block(num_validators, genesis_path),
         None => TestChainBuilder::new_with_quorum_size(num_validators, &mut rng),
@@ -99,20 +114,46 @@ fn generate_testchain<N: Network>(args: Args) -> Result<()> {
         let batch_size = (num_blocks - blocks.len()).min(100);
         let mut batch = builder.generate_blocks(batch_size, &mut rng).with_context(|| "Failed to generate blocks")?;
 
-        println!("Generated {pos} of {num_blocks} blocks");
         pos += batch_size;
+        println!("Generated {pos} of {num_blocks} blocks");
         blocks.append(&mut batch);
     }
 
-    println!("Done. Storing blocks to disk.");
-    let ledger = Ledger::<N, ConsensusDB<N>>::load(builder.genesis_block().clone(), storage_mode)
-        .with_context(|| "Failed to initialize ledger")?;
+    if args.no_ledger {
+        let base_path = args.storage_path.unwrap();
+        fs::create_dir(base_path.clone())?;
 
-    // Ensure there is only one active ledger at a time.
-    drop(builder);
+        println!("Storing blocks as {base_path}/block{{height}}.data");
 
-    for block in &blocks {
-        ledger.advance_to_next_block(block)?;
+        // Store genesis block.
+        {
+            let path = format!("{base_path}/genesis.data");
+            let data = builder.genesis_block().to_bytes_le()?;
+            fs::write(path, data)?;
+        }
+
+        // Store remaining blocks.
+        for block in blocks.into_iter() {
+            let path = format!("{base_path}/block{}.data", block.height());
+            let data = block.to_bytes_le()?;
+            fs::write(path, data)?;
+        }
+    } else {
+        println!("Done. Storing blocks to on-disk ledger.");
+
+        let ledger = Ledger::<N, ConsensusDB<N>>::load_unchecked(builder.genesis_block().clone(), storage_mode)
+            .with_context(|| "Failed to initialize ledger")?;
+
+        // Ensure there is only one active ledger at a time.
+        drop(builder);
+
+        for block in blocks.into_iter() {
+            ledger.advance_to_next_block(&block)?;
+
+            if block.height().is_multiple_of(100) {
+                println!("Stored {} blocks out of {num_blocks} to disk", block.height());
+            }
+        }
     }
 
     Ok(())

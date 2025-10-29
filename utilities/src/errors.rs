@@ -143,6 +143,9 @@ pub trait PrettyUnwrap {
 
     /// Behaves like [`std::result::Result::unwrap`] but will print the entire anyhow chain to stderr.
     fn pretty_unwrap(self) -> Self::Inner;
+
+    /// Behaves like [`std::result::Result::expect`] but will print the entire anyhow chain to stderr.
+    fn pretty_expect<S: ToString>(self, context: S) -> Self::Inner;
 }
 
 /// Helper for `PrettyUnwrap`, which creates a panic with the `anyhow::Error` nicely formatted and also logs the panic.
@@ -167,6 +170,16 @@ impl<T> PrettyUnwrap for anyhow::Result<T> {
             Ok(result) => result,
             Err(error) => {
                 pretty_panic(&error);
+            }
+        }
+    }
+
+    #[track_caller]
+    fn pretty_expect<S: ToString>(self, context: S) -> Self::Inner {
+        match self {
+            Ok(result) => result,
+            Err(error) => {
+                pretty_panic(&error.context(context.to_string()));
             }
         }
     }
