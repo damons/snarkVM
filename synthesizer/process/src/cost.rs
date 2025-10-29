@@ -13,14 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{FinalizeTypes, Process, Stack, StackRef, StackTrait};
+use std::collections::HashMap;
+
+use crate::{Authorization, FinalizeTypes, Process, Stack, StackRef, StackTrait};
 
 use console::{
     prelude::*,
     program::{FinalizeType, Identifier, LiteralType, PlaintextType},
 };
+use snarkvm_algorithms::snark::varuna::VarunaVersion;
 use snarkvm_ledger_block::{Deployment, Execution, Transaction};
 use snarkvm_synthesizer_program::{CastType, Command, Instruction, Operand};
+use snarkvm_synthesizer_snark::proof_size;
 
 pub type MinimumCost = u64;
 pub type StorageCost = u64;
@@ -50,13 +54,86 @@ pub fn execution_cost<N: Network>(
     execution: &Execution<N>,
     consensus_version: ConsensusVersion,
 ) -> Result<(MinimumCost, ExecuteCostDetails)> {
+    let execution_size = execution.size_in_bytes()?;
+
+    execution_cost_given_size(process, execution, execution_size, consensus_version)
+}
+
+// Returns the execution cost in microcredits for a given execution whose size is provided as an argument.
+fn execution_cost_given_size<N: Network>(
+    process: &Process<N>,
+    execution: &Execution<N>,
+    execution_size: u64,
+    consensus_version: ConsensusVersion,
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
     if consensus_version >= ConsensusVersion::V10 {
-        execution_cost_v3(process, execution)
+        execution_cost_v3(process, execution, execution_size)
     } else if consensus_version >= ConsensusVersion::V2 {
-        execution_cost_v2(process, execution)
+        execution_cost_v2(process, execution, execution_size)
     } else {
-        execution_cost_v1(process, execution)
+        execution_cost_v1(process, execution, execution_size)
     }
+}
+
+/// Returns the execution cost in microcredits for a given `Authorization.
+pub fn execution_cost_for_authorization<N: Network>(
+    process: &Process<N>,
+    authorization: &Authorization<N>,
+    consensus_version: ConsensusVersion,
+) -> Result<(MinimumCost, ExecuteCostDetails)> {
+    ensure!(
+        consensus_version >= ConsensusVersion::V4,
+        "Execution-cost computation for authorization relies on proof-size estimation, which is only implemented for Varuna version >= V2 (consensus version >= V4)"
+    );
+
+    // Reconstruct an Execution from the Authorization. Note that the StateRoot
+    // does not affect the fee (it has constant size).
+    let reconstructed_execution =
+        Execution::from(authorization.transitions().values().cloned(), N::StateRoot::default(), None)?;
+
+    // Compute the size of the proof that will result from proving the
+    // Authorization. The first step is to compute the Varuna batch sizes. The
+    // Varuna circuits that must be proved as part of an Execution are:
+    // - the circuits of each Transition
+    // - one inclusion circuit for input records to *all* of those Transitions
+
+    // TODO: Dynamic dispatch, once implemented, will cause a third type of
+    // circuit to appear which needs to be accounted for here.
+
+    let mut circuit_frequencies = HashMap::new();
+
+    // In order to compute the frequencies of function circuits, we mimic the
+    // operation of Process::verify_execution:
+    for transition in authorization.transitions().values() {
+        let entry =
+            circuit_frequencies.entry((*transition.program_id(), *transition.function_name())).or_insert(0usize);
+        *entry += 1;
+    }
+
+    let mut batch_sizes: Vec<usize> = circuit_frequencies.values().cloned().collect();
+
+    // We now add the single batch of inclusion circuits for input records, if
+    // any:
+    let n_input_records = Authorization::number_of_input_records(authorization.transitions().values());
+    if n_input_records > 0 {
+        batch_sizes.push(n_input_records);
+    }
+
+    // Varuna is always run in hiding (i. e. ZK) mode when proving Executions.
+    let hiding_mode = true;
+
+    // If future versions of Varuna are introduced, the correct one should be
+    // deduced here from the consensus version. Currently only the latest Varuna
+    // version V2 is supported.
+    let varuna_version = VarunaVersion::V2;
+
+    let expected_proof_size = u64::try_from(proof_size::<N>(&batch_sizes, varuna_version, hiding_mode)?)?;
+    let unproved_execution_size = reconstructed_execution.size_in_bytes()?;
+    let execution_size = unproved_execution_size.checked_add(expected_proof_size).ok_or(anyhow!(
+        "The execution size computation overflowed for an authorization when the proof was taken into account"
+    ))?;
+
+    execution_cost_given_size(process, &reconstructed_execution, execution_size, consensus_version)
 }
 
 /// Returns the compute cost for a deployment in microcredits.
@@ -224,12 +301,13 @@ pub fn deployment_cost_v1<N: Network>(
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution using the ARC_0005_COMPUTE_DISCOUNT.
-pub fn execution_cost_v3<N: Network>(
+fn execution_cost_v3<N: Network>(
     process: &Process<N>,
     execution: &Execution<N>,
+    execution_size: u64,
 ) -> Result<(MinimumCost, ExecuteCostDetails)> {
     // Compute the storage cost in microcredits.
-    let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
+    let storage_cost = execution_storage_cost::<N>(execution_size);
 
     // Get the root transition.
     let transition = execution.peek()?;
@@ -247,12 +325,13 @@ pub fn execution_cost_v3<N: Network>(
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution.
-pub fn execution_cost_v2<N: Network>(
+fn execution_cost_v2<N: Network>(
     process: &Process<N>,
     execution: &Execution<N>,
+    execution_size: u64,
 ) -> Result<(MinimumCost, ExecuteCostDetails)> {
     // Compute the storage cost in microcredits.
-    let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
+    let storage_cost = execution_storage_cost::<N>(execution_size);
 
     // Get the root transition.
     let transition = execution.peek()?;
@@ -270,12 +349,13 @@ pub fn execution_cost_v2<N: Network>(
 }
 
 /// Returns the *minimum* cost in microcredits to publish the given execution.
-pub fn execution_cost_v1<N: Network>(
+fn execution_cost_v1<N: Network>(
     process: &Process<N>,
     execution: &Execution<N>,
+    execution_size: u64,
 ) -> Result<(MinimumCost, ExecuteCostDetails)> {
     // Compute the storage cost in microcredits.
-    let storage_cost = execution_storage_cost::<N>(execution.size_in_bytes()?);
+    let storage_cost = execution_storage_cost::<N>(execution_size);
 
     // Get the root transition.
     let transition = execution.peek()?;
@@ -948,10 +1028,12 @@ function over_five_thousand:
         // Get execution and cost data.
         let execution_under_5000 = get_execution(&mut process, &program, &under_5000, ["2group"].into_iter());
         let execution_size_under_5000 = execution_under_5000.size_in_bytes().unwrap();
-        let (_, (storage_cost_under_5000, _)) = execution_cost_v3(&process, &execution_under_5000).unwrap();
+        let (_, (storage_cost_under_5000, _)) =
+            execution_cost_v3(&process, &execution_under_5000, execution_size_under_5000).unwrap();
         let execution_over_5000 = get_execution(&mut process, &program, &over_5000, ["2group"].into_iter());
         let execution_size_over_5000 = execution_over_5000.size_in_bytes().unwrap();
-        let (_, (storage_cost_over_5000, _)) = execution_cost_v3(&process, &execution_over_5000).unwrap();
+        let (_, (storage_cost_over_5000, _)) =
+            execution_cost_v3(&process, &execution_over_5000, execution_size_over_5000).unwrap();
 
         // Ensure the sizes are below and above the threshold respectively.
         assert!(execution_size_under_5000 < threshold);
