@@ -616,10 +616,17 @@ fn construct_finalize_global_state<C: ConsensusStorage<CurrentNetwork>>(
     // Compute the next height.
     let next_height = latest_height.saturating_add(1);
 
+    // Determine the block timestamp based on the consensus version.
+    let block_timestamp =
+        match latest_height >= CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default() {
+            true => Some(latest_block.timestamp()),
+            false => None,
+        };
     // Construct the finalize state.
     FinalizeGlobalState::new::<CurrentNetwork>(
         next_round,
         next_height,
+        block_timestamp,
         latest_cumulative_weight,
         0u128,
         latest_block.hash(),

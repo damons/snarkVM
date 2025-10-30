@@ -21,6 +21,8 @@ pub struct FinalizeGlobalState {
     block_round: u64,
     /// The block height.
     block_height: u32,
+    /// The block timestamp.
+    block_timestamp: Option<i64>, // TODO (raychu86): Consider adding the entire Metadata here instead.
     /// The block-specific random seed.
     random_seed: [u8; 32],
 }
@@ -39,6 +41,7 @@ impl FinalizeGlobalState {
         Self::new::<N>(
             block_round,
             block_height,
+            None,
             block_cumulative_weight,
             block_cumulative_proof_target,
             previous_block_hash,
@@ -50,18 +53,24 @@ impl FinalizeGlobalState {
     pub fn new<N: Network>(
         block_round: u64,
         block_height: u32,
+        block_timestamp: Option<i64>,
         block_cumulative_weight: u128,
         block_cumulative_proof_target: u128,
         previous_block_hash: N::BlockHash,
     ) -> Result<Self> {
         // Initialize the preimage.
-        let preimage = to_bits_le![
+        let mut preimage = to_bits_le![
             block_round,
             block_height,
             block_cumulative_weight,
             block_cumulative_proof_target,
             (*previous_block_hash); 605
         ];
+
+        // If a block timestamp is provided, include it in the preimage.
+        if let Some(timestamp) = block_timestamp {
+            preimage.extend_from_slice(&to_bits_le![timestamp]);
+        }
 
         // Hash the preimage to get the random seed.
         let seed = N::hash_bhp768(&preimage)?.to_bytes_le()?;
@@ -72,13 +81,18 @@ impl FinalizeGlobalState {
         let mut random_seed = [0u8; 32];
         random_seed.copy_from_slice(&seed[..32]);
 
-        Ok(Self { block_round, block_height, random_seed })
+        Ok(Self { block_round, block_height, block_timestamp, random_seed })
     }
 
     /// Initializes a new global state.
     #[inline]
-    pub const fn from(block_round: u64, block_height: u32, random_seed: [u8; 32]) -> Self {
-        Self { block_round, block_height, random_seed }
+    pub const fn from(
+        block_round: u64,
+        block_height: u32,
+        block_timestamp: Option<i64>,
+        random_seed: [u8; 32],
+    ) -> Self {
+        Self { block_round, block_height, block_timestamp, random_seed }
     }
 
     /// Returns the block round.
@@ -97,5 +111,11 @@ impl FinalizeGlobalState {
     #[inline]
     pub const fn random_seed(&self) -> &[u8; 32] {
         &self.random_seed
+    }
+
+    /// Returns the block timestamp.
+    #[inline]
+    pub const fn block_timestamp(&self) -> Option<i64> {
+        self.block_timestamp
     }
 }

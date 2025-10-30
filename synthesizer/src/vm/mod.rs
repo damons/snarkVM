@@ -451,10 +451,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Note: This lock must be held for the entire scope of this function.
         let _block_lock = self.block_lock.lock();
 
+        // Determine if the block timestamp should be included.
+        let block_timestamp = (block.height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default())
+            .then_some(block.timestamp());
         // Construct the finalize state.
         let state = FinalizeGlobalState::new::<N>(
             block.round(),
             block.height(),
+            block_timestamp,
             block.cumulative_weight(),
             block.cumulative_proof_target(),
             block.previous_hash(),
@@ -589,7 +593,7 @@ pub(crate) mod test_helpers {
 
     /// Samples a new finalize state.
     pub(crate) fn sample_finalize_state(block_height: u32) -> FinalizeGlobalState {
-        FinalizeGlobalState::from(block_height as u64, block_height, [0u8; 32])
+        FinalizeGlobalState::from(block_height as u64, block_height, None, [0u8; 32])
     }
 
     pub(crate) fn sample_vm() -> VM<CurrentNetwork, LedgerType> {
