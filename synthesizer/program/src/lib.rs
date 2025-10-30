@@ -914,8 +914,8 @@ impl<N: Network> ProgramCore<N> {
     }
 
     /// Returns `true` if a program contains any V12 syntax.
-    /// This includes `Operand::BlockTimestamp`
-    /// This is enforced to be `false` for programs before `ConsensusVersion::V9`.
+    /// This includes `Operand::BlockTimestamp`.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V12`.
     #[inline]
     pub fn contains_v12_syntax(&self) -> bool {
         // Check each instruction and output in each function's finalize scope for the use of
