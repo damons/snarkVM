@@ -913,6 +913,22 @@ impl<N: Network> ProgramCore<N> {
         false
     }
 
+    /// Returns `true` if a program contains any V12 syntax.
+    /// This includes `Operand::BlockTimestamp`
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V9`.
+    #[inline]
+    pub fn contains_v12_syntax(&self) -> bool {
+        // Check each instruction and output in each function's finalize scope for the use of
+        // `Operand::BlockTimestamp`.
+        cfg_iter!(self.functions()).any(|(_, function)| {
+            function.finalize_logic().is_some_and(|finalize_logic| {
+                cfg_iter!(finalize_logic.commands()).any(|command| {
+                    cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::BlockTimestamp))
+                })
+            })
+        })
+    }
+
     /// Returns `true` if the program contains an array type with a size that exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         self.mappings.values().any(|mapping| mapping.exceeds_max_array_size(max_array_size))

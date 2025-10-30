@@ -198,6 +198,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // If the `CONSENSUS_VERSION` is greater than or equal to `V9`, then verify that:
                 //   - the program checksum is present in the deployment
                 //   - the program owner is present in the deployment
+                // If the `CONSENSUS_VERSION` is less than `V11`, ensure that
+                //   - the program does not include V11 syntax
+                // If the `CONSENSUS_VERSION` is less than `V12`, ensure that
+                //   - the program does not include V12 syntax
                 if consensus_version < ConsensusVersion::V8 {
                     ensure!(
                         deployment.edition().is_zero(),
@@ -236,6 +240,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     ensure!(
                         !deployment.program().contains_v11_syntax(),
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V11`"
+                    );
+                }
+                if consensus_version < ConsensusVersion::V12 {
+                    ensure!(
+                        !deployment.program().contains_v12_syntax(),
+                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V12`"
                     );
                 }
 
@@ -1521,6 +1531,108 @@ function compute:
 
         // Ensure that the deployment is valid after ConsensusVersion::V11.
         assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+    }
+
+    #[cfg(feature = "test")]
+    #[test]
+    fn test_block_timestamp_migration() {
+        let rng = &mut TestRng::default();
+
+        // Initialize the VM.
+        let vm = crate::vm::test_helpers::sample_vm();
+        // Initialize the genesis block.
+        let genesis = crate::vm::test_helpers::sample_genesis_block(rng);
+        // Update the VM.
+        vm.add_next_block(&genesis).unwrap();
+
+        // Fetch the private key.
+        let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+        // Deploy a test program to the ledger.
+        let program_id = ProgramID::<CurrentNetwork>::from_str("dummy_program.aleo").unwrap();
+        let program = Program::<CurrentNetwork>::from_str(&format!(
+            r"
+    program {program_id};
+    function foo:
+        input r0 as i64.public;
+        async foo r0 into r1;
+        output r1 as {program_id}/foo.future;
+    finalize foo:
+        input r0 as i64.public;
+        gte r0 block.timestamp into r1;
+        assert.eq r1 true;
+
+    constructor:
+        assert.eq edition 0u16;",
+        ))
+        .unwrap();
+
+        // Advance the ledger past ConsensusV9 where the new varuna version and deployment version starts to take place.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap()
+        {
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // Construct the deployment transaction.
+        let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+
+        // Advance the ledger past ConsensusV11 where the new varuna version starts to take place.
+        let transactions: [Transaction<CurrentNetwork>; 0] = [];
+        while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap()
+        {
+            // Ensure that the deployment is invalid.
+            assert!(vm.check_transaction(&deployment, None, rng).is_err());
+
+            // Call the function
+            let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+            vm.add_next_block(&next_block).unwrap();
+        }
+
+        // Ensure that the deployment is valid after ConsensusVersion::V11.
+        assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+
+        // Deploy the program.
+        let next_block = crate::vm::test_helpers::sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+
+        // Construct the input with the valid timestamp.
+        let future_timestamp = next_block.timestamp() + 100;
+        let inputs = [Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::I64(console::types::I64::new(
+            future_timestamp,
+        ))))];
+        // Create the execution transaction.
+        let valid_transaction =
+            vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
+        let valid_tx_id = valid_transaction.id();
+
+        // Construct the input with an invalid timestamp.
+        let past_timestamp = next_block.timestamp() - 100;
+        let inputs = [Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::I64(console::types::I64::new(
+            past_timestamp,
+        ))))];
+        // Create the execution transaction.
+        let invalid_transaction =
+            vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
+        let invalid_tx_id = invalid_transaction.id();
+
+        // Construct a block with both transactions.
+        let next_block = crate::vm::test_helpers::sample_next_block(
+            &vm,
+            &private_key,
+            &[valid_transaction, invalid_transaction],
+            rng,
+        )
+        .unwrap();
+        vm.add_next_block(&next_block).unwrap();
+
+        // Ensure that the valid transaction was accepted and the invalid one was rejected.
+        assert_eq!(next_block.transactions().num_accepted(), 1);
+        assert_eq!(next_block.transactions().num_rejected(), 1);
+        assert!(vm.block_store().get_confirmed_transaction(&valid_tx_id).unwrap().unwrap().is_accepted());
+        assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_id).unwrap().unwrap().is_rejected());
     }
 }
 
