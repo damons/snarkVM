@@ -94,19 +94,24 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Returns the block for the given block height.
     pub fn get_block(&self, height: u32) -> Result<Block<N>> {
-        // If the height is 0, return the genesis block.
-        if height == 0 {
-            return Ok(self.genesis_block.clone());
-        }
-        // Retrieve the block hash.
-        let block_hash = match self.vm.block_store().get_block_hash(height)? {
-            Some(block_hash) => block_hash,
-            None => bail!("Block {height} does not exist in storage"),
-        };
-        // Retrieve the block.
-        match self.vm.block_store().get_block(&block_hash)? {
+        match self.try_get_block(height)? {
             Some(block) => Ok(block),
-            None => bail!("Block {height} ('{block_hash}') does not exist in storage"),
+            None => bail!("Block {height} does not exist in storage"),
+        }
+    }
+
+    /// Returns the block for the given block height.
+    ///
+    /// This behaves the same as [`Self::get_block`], except that a missing block will cause the function to
+    /// return `Ok(None)` instead of an error.
+    pub fn try_get_block(&self, height: u32) -> Result<Option<Block<N>>> {
+        if height == 0 {
+            return Ok(Some(self.genesis_block.clone()));
+        }
+
+        match self.vm.block_store().get_block_hash(height)? {
+            Some(hash) => self.vm.block_store().get_block(&hash),
+            None => Ok(None),
         }
     }
 
@@ -118,11 +123,18 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Returns the block for the given block hash.
     pub fn get_block_by_hash(&self, block_hash: &N::BlockHash) -> Result<Block<N>> {
-        // Retrieve the block.
-        match self.vm.block_store().get_block(block_hash)? {
+        match self.try_get_block_by_hash(block_hash)? {
             Some(block) => Ok(block),
             None => bail!("Block '{block_hash}' does not exist in storage"),
         }
+    }
+
+    /// Returns the block for the given block hash.
+    ///
+    /// This behaves the same as [`Self::get_block_by_hash`], except that a missing block will cause the function to
+    /// return `Ok(None)` instead of an error.
+    pub fn try_get_block_by_hash(&self, block_hash: &N::BlockHash) -> Result<Option<Block<N>>> {
+        self.vm.block_store().get_block(block_hash)
     }
 
     /// Returns the block height for the given block hash.
