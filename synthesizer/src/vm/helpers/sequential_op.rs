@@ -45,8 +45,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         SequentialOperationResult::AtomicSpeculate(ret)
                     }
                     SequentialOperation::Shutdown => {
-                        // Send a reply in order to resume the caller's workflow.
-                        let _ = response_tx.send(SequentialOperationResult::Shutdown);
                         // The thread may be closed.
                         break;
                     }
@@ -62,6 +60,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     pub fn run_sequential_operation(&self, op: SequentialOperation<N>) -> Option<SequentialOperationResult<N>> {
         debug!("Queuing operation '{op}' for sequential processing");
 
+        // Remember if this is a shutdown.
+        let is_shutdown = matches!(op, SequentialOperation::Shutdown);
+
         // Prepare a oneshot channel to obtain the result of the queued operation.
         let (response_tx, response_rx) = oneshot::channel();
         let request = SequentialOperationRequest { op, response_tx };
@@ -71,7 +72,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             // Send the operation to be processed sequentially.
             let _ = tx.send(request);
 
-            // Wait for the result of the queued operation.
+            // If it's a shutdown, just return None.
+            if is_shutdown {
+                return None;
+            }
+
+            // Wait for the result of the queued operation. This is a blocking method,
+            // and will panic in async contexts (which doesn't happen in production, as
+            // we already perform all these operations within blocking tasks).
             let Ok(response) = response_rx.blocking_recv() else {
                 return None;
             };
@@ -129,5 +137,4 @@ pub enum SequentialOperationResult<N: Network> {
             Vec<FinalizeOperation<N>>,
         )>,
     ),
-    Shutdown,
 }
