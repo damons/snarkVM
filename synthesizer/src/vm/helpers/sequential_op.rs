@@ -58,6 +58,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
     /// Sends the given operation to the thread used for sequential processing.
     pub fn run_sequential_operation(&self, op: SequentialOperation<N>) -> Option<SequentialOperationResult<N>> {
+        // Ensure that this method isn't being called from an async context.
+        if tokio::runtime::Handle::try_current().is_ok() {
+            panic!(
+                "Logic bug: a sequential VM operation was attempted in an async \
+                 context; it needs to be wrapped in a blocking task instead."
+            );
+        }
+
         debug!("Queuing operation '{op}' for sequential processing");
 
         // Remember if this is a shutdown.
@@ -77,9 +85,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 return None;
             }
 
-            // Wait for the result of the queued operation. This is a blocking method,
-            // and will panic in async contexts (which doesn't happen in production, as
-            // we already perform all these operations within blocking tasks).
+            // Wait for the result of the queued operation. This is a blocking
+            // operation, and would panic in async contexts.
             let Ok(response) = response_rx.blocking_recv() else {
                 return None;
             };
