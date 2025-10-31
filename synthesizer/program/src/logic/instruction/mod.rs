@@ -589,22 +589,9 @@ impl<N: Network> Instruction<N> {
         instruction!(self, |instruction| instruction.output_types(stack, input_types))
     }
 
-    /// Returns `true` if the instruction contains a string type.
+    /// Returns `true` if the instruction contains a literal string type.
     pub fn contains_string_type(&self) -> bool {
-        // Many instructions may contain an explicit reference to a string type.
-        match self {
-            Self::SerializeBits(instruction) => instruction.destination_type().contains_string_type(),
-            Self::SerializeBitsRaw(instruction) => instruction.destination_type().contains_string_type(),
-            Self::DeserializeBits(instruction) => instruction.operand_type().contains_string_type(),
-            Self::DeserializeBitsRaw(instruction) => instruction.operand_type().contains_string_type(),
-            Self::AssertEq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
-            Self::AssertNeq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
-            Self::IsEq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
-            Self::IsNeq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
-            Self::Call(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
-            Self::Async(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
-            _ => false,
-        }
+        self.operands().iter().any(|operand| operand.contains_string_type())
     }
 
     /// Returns `true` if the instruction contains an array type with a size that exceeds the given maximum.
