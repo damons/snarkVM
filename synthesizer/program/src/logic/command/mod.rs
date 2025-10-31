@@ -194,6 +194,24 @@ impl<N: Network> Command<N> {
             Command::Position(position) => position.finalize().map(|_| None),
         }
     }
+
+    /// Returns `true` if the command contains a string type.
+    pub fn contains_string_type(&self) -> bool {
+        match self {
+            Command::Instruction(instruction) => instruction.contains_string_type(),
+            Command::GetOrUse(get_or_use) => get_or_use.operands().iter().any(|operand| operand.contains_string_type()),
+            Command::Set(set) => set.operands().iter().any(|operand| operand.contains_string_type()),
+            _ => false,
+        }
+    }
+
+    /// Returns `true` if the command contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        match self {
+            Command::Instruction(instruction) => instruction.exceeds_max_array_size(max_array_size),
+            _ => false,
+        }
+    }
 }
 
 impl<N: Network> FromBytes for Command<N> {

@@ -589,11 +589,28 @@ impl<N: Network> Instruction<N> {
         instruction!(self, |instruction| instruction.output_types(stack, input_types))
     }
 
+    /// Returns `true` if the instruction contains a string type.
+    pub fn contains_string_type(&self) -> bool {
+        // Many instructions may contain an explicit reference to a string type.
+        match self {
+            Self::SerializeBits(instruction) => instruction.destination_type().contains_string_type(),
+            Self::SerializeBitsRaw(instruction) => instruction.destination_type().contains_string_type(),
+            Self::DeserializeBits(instruction) => instruction.operand_type().contains_string_type(),
+            Self::DeserializeBitsRaw(instruction) => instruction.operand_type().contains_string_type(),
+            Self::AssertEq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
+            Self::AssertNeq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
+            Self::IsEq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
+            Self::IsNeq(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
+            Self::Call(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
+            Self::Async(instruction) => instruction.operands().iter().any(|operand| operand.contains_string_type()),
+            _ => false,
+        }
+    }
+
     /// Returns `true` if the instruction contains an array type with a size that exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
-        // Only cast instructions may contain an explicit reference to an array.
-        // Calls may produce them, but they don't explicitly reference the type, and that's
-        // always been allowed.
+        // Only cast and serialize instructions may contain an explicit reference to an array.
+        // Calls may produce them, but they don't explicitly reference the type.
         match self {
             Self::Cast(instruction) => instruction.cast_type().exceeds_max_array_size(max_array_size),
             Self::SerializeBits(instruction) => instruction.destination_type().exceeds_max_array_size(max_array_size),
