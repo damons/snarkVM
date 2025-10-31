@@ -27,7 +27,7 @@ outputs:
       outputs:
       - '{"type":"future","id":"892614972800960795570418664663732095814901536157182856491855556648676441607field","value":"{\n  program_id: test_rand.aleo,\n  function_name: rand_chacha_check,\n  arguments: [\n    2field,\n    true\n  ]\n}"}'
   speculate: the execution was accepted
-  add_next_block: succeeded.
+  add_next_block: 'Failed to finalize transactions - Failed to finalize an accepted execute transaction - ''constructor'' failed to evaluate command (assert.eq r1 r2;): ''assert.eq'' failed: ''true'' is not equal to ''false'' (should be equal)'
 additional:
 - child_outputs:
     credits.aleo/fee_public:
