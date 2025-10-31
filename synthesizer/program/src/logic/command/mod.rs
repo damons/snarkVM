@@ -197,12 +197,7 @@ impl<N: Network> Command<N> {
 
     /// Returns `true` if the command contains a string type.
     pub fn contains_string_type(&self) -> bool {
-        match self {
-            Command::Instruction(instruction) => instruction.contains_string_type(),
-            Command::GetOrUse(get_or_use) => get_or_use.operands().iter().any(|operand| operand.contains_string_type()),
-            Command::Set(set) => set.operands().iter().any(|operand| operand.contains_string_type()),
-            _ => false,
-        }
+        self.operands().iter().any(|operand| operand.contains_string_type())
     }
 
     /// Returns `true` if the command contains an array type with a size that exceeds the given maximum.
