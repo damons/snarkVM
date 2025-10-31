@@ -149,7 +149,7 @@ features = [ "preserve_order" ]
 
 [dependencies.tokio]
 version = "1"
-features = [ "rt", "sync" ]
+features = [ "sync" ]
 
 [dependencies.tracing]
 workspace = true
