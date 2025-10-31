@@ -45,7 +45,7 @@ pub enum ConsensusVersion {
     V10 = 10,
     /// V11: Expand array size limit to 512 and introduce ECDSA signature verification opcodes.
     V11 = 11,
-    /// V12: Prevent connection to forked nodes.
+    /// V12: Prevent connection to forked nodes, disable StringType.
     V12 = 12,
 }
 

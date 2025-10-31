@@ -99,7 +99,17 @@ use console::{
             take,
         },
     },
-    program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
+    program::{
+        FinalizeType,
+        Identifier,
+        Literal,
+        LiteralType,
+        PlaintextType,
+        ProgramID,
+        RecordType,
+        StructType,
+        ValueType,
+    },
     types::U8,
 };
 use snarkvm_utilities::cfg_iter;
@@ -965,6 +975,69 @@ impl<N: Network> ProgramCore<N> {
         let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
 
         function_contains || closure_contains || command_contains || array_size_exceeds
+    }
+
+    /// Returns `true` if a program contains any string type.
+    /// Before ConsensusVersion::V12, variable-length string sampling when using them as inputs caused deployment synthesis to be inconsistent and abort with probability 63/64.
+    /// After ConsensusVersion::V12, string types are disallowed.
+    #[inline]
+    pub fn contains_string_type(&self) -> bool {
+        // Helper to check if any of the operands are a string type.
+        let operand_is_string_type = |operand: &Operand<N>| matches!(operand, Operand::Literal(Literal::String(_)));
+        // Helper to check if any input or output is a string type.
+        let input_output_is_string_type = |input_output: ValueType<N>| {
+            matches!(
+                input_output,
+                ValueType::Public(PlaintextType::Literal(LiteralType::String))
+                    | ValueType::Private(PlaintextType::Literal(LiteralType::String))
+            )
+        };
+        // Helper to check if any finalize type is a string type.
+        let finalize_type_is_string_type = |finalize_type: FinalizeType<N>| {
+            matches!(finalize_type, FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::String)))
+        };
+
+        // Determine if any function instruction operands are a string type.
+        let function_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.instructions())
+            .flat_map(|instruction| instruction.operands())
+            .any(operand_is_string_type);
+        // Determine if any function inputs are a string type.
+        let function_inputs_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.input_types())
+            .any(input_output_is_string_type);
+        // Determine if any function outputs are a string type.
+        let function_outputs_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.output_types())
+            .any(input_output_is_string_type);
+
+        // Determine if any closure instruction operands are a string type.
+        let closure_contains = cfg_iter!(self.closures())
+            .flat_map(|(_, closure)| closure.instructions())
+            .flat_map(|instruction| instruction.operands())
+            .any(operand_is_string_type);
+        // Note that a Closure does not currently expose input_types and output_types
+        // Fortunately, we are guaranteed they do not contain string types if the function and operands don't contain string types.
+
+        // Determine if any finalize commands or constructor commands contain a string type operand.
+        let finalize_commands_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
+            .flatten()
+            .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
+            .flat_map(|command| command.operands())
+            .any(operand_is_string_type);
+        // Determine if any finalize inputs are a string type.
+        let finalize_inputs_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.input_types()))
+            .flatten()
+            .any(finalize_type_is_string_type);
+
+        function_contains
+            || function_inputs_contains
+            || function_outputs_contains
+            || closure_contains
+            || finalize_commands_contains
+            || finalize_inputs_contains
     }
 }
 

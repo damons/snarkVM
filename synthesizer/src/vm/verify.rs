@@ -238,6 +238,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V11`"
                     );
                 }
+                if consensus_version >= ConsensusVersion::V12 {
+                    ensure!(
+                        !deployment.program().contains_string_type(),
+                        "Invalid deployment transaction '{id}' - program uses string type after `ConsensusVersion::V12`"
+                    );
+                }
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {
