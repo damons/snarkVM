@@ -982,6 +982,19 @@ impl<N: Network> ProgramCore<N> {
             })
         })
     }
+
+    /// Returns `true` if a program contains any string type.
+    /// Before ConsensusVersion::V12, variable-length string sampling when using them as inputs caused deployment synthesis to be inconsistent and abort with probability 63/64.
+    /// After ConsensusVersion::V12, string types are disallowed.
+    #[inline]
+    pub fn contains_string_type(&self) -> bool {
+        self.mappings.values().any(|mapping| mapping.contains_string_type())
+            || self.structs.values().any(|struct_type| struct_type.contains_string_type())
+            || self.records.values().any(|record_type| record_type.contains_string_type())
+            || self.closures.values().any(|closure| closure.contains_string_type())
+            || self.functions.values().any(|function| function.contains_string_type())
+            || self.constructor.iter().any(|constructor| constructor.contains_string_type())
+    }
 }
 
 impl<N: Network> TypeName for ProgramCore<N> {
