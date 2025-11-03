@@ -223,11 +223,13 @@ impl<N: Network> RestQuery<N> {
             .with_context(|| format!("Failed to fetch from {endpoint}"))?;
 
         if response.status().is_success() {
-            response.body_mut().read_json().with_context(|| "Failed to parse JSON response")
+            response.body_mut().read_json().with_context(|| "Failed to parse JSON response from {endpoint}")
         } else {
             // Convert returned error into an `anyhow::Error`.
-            let error: RestError =
-                response.body_mut().read_json().with_context(|| "Failed to parse JSON error response")?;
+            let error: RestError = response
+                .body_mut()
+                .read_json()
+                .with_context(|| "Failed to parse JSON error response from {endpoint}")?;
             Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
         }
     }
@@ -242,10 +244,11 @@ impl<N: Network> RestQuery<N> {
         let response = reqwest::get(&endpoint).await.with_context(|| format!("Failed to fetch from {endpoint}"))?;
 
         if response.status().is_success() {
-            response.json().await.with_context(|| "Failed to parse JSON response")
+            response.json().await.with_context(|| "Failed to parse JSON response from {endpoint}")
         } else {
             // Convert returned error into an `anyhow::Error`.
-            let error: RestError = response.json().await.with_context(|| "Failed to parse JSON error response")?;
+            let error: RestError =
+                response.json().await.with_context(|| "Failed to parse JSON error response from {endpoint}")?;
             Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
         }
     }
