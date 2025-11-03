@@ -169,6 +169,7 @@ dev-print = [
   "snarkvm-synthesizer/dev-print",
 ]
 dev_skip_checks = [
+  "snarkvm-console/dev_skip_checks",
   "snarkvm-synthesizer/dev_skip_checks"
 ]
 save_r1cs_hashes = [ "snarkvm-circuit/save_r1cs_hashes" ]
