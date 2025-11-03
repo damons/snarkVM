@@ -58,19 +58,17 @@ impl FinalizeGlobalState {
         block_cumulative_proof_target: u128,
         previous_block_hash: N::BlockHash,
     ) -> Result<Self> {
-        // Initialize the preimage.
-        let mut preimage = to_bits_le![
+        // Initialize the preimage, optionally including the block timestamp.
+        let preimage = to_bits_le![
             block_round,
             block_height,
             block_cumulative_weight,
             block_cumulative_proof_target,
             (*previous_block_hash); 605
-        ];
-
-        // If a block timestamp is provided, include it in the preimage.
-        if let Some(timestamp) = block_timestamp {
-            preimage.extend_from_slice(&to_bits_le![timestamp]);
-        }
+        ]
+        .into_iter()
+        .chain(block_timestamp.into_iter().flat_map(|ts| to_bits_le![ts]))
+        .collect::<Vec<_>>();
 
         // Hash the preimage to get the random seed.
         let seed = N::hash_bhp768(&preimage)?.to_bytes_le()?;

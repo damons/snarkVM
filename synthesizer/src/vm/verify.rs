@@ -1579,7 +1579,7 @@ function compute:
         // Construct the deployment transaction.
         let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
-        // Advance the ledger past ConsensusV11 where the new varuna version starts to take place.
+        // Advance the ledger past ConsensusV12 where the new varuna version starts to take place.
         let transactions: [Transaction<CurrentNetwork>; 0] = [];
         while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap()
         {
@@ -1591,7 +1591,7 @@ function compute:
             vm.add_next_block(&next_block).unwrap();
         }
 
-        // Ensure that the deployment is valid after ConsensusVersion::V11.
+        // Ensure that the deployment is valid after ConsensusVersion::V12.
         assert!(vm.check_transaction(&deployment, None, rng).is_ok());
 
         // Deploy the program.
