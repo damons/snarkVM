@@ -100,7 +100,7 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
         let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
         let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm
             .speculate(
-                construct_finalize_global_state(&vm),
+                construct_finalize_global_state(&vm, time_since_last_block),
                 time_since_last_block,
                 Some(0u64),
                 vec![],
@@ -147,7 +147,7 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
         let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
         let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm
             .speculate(
-                construct_finalize_global_state(&vm),
+                construct_finalize_global_state(&vm, time_since_last_block),
                 time_since_last_block,
                 Some(0u64),
                 vec![],
@@ -316,7 +316,7 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
             let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
             let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = match vm
                 .speculate(
-                    construct_finalize_global_state(&vm),
+                    construct_finalize_global_state(&vm, time_since_last_block),
                     time_since_last_block,
                     Some(0u64),
                     vec![],
@@ -414,7 +414,7 @@ fn initialize_vm<R: Rng + CryptoRng>(
         let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
         let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm
             .speculate(
-                construct_finalize_global_state(&vm),
+                construct_finalize_global_state(&vm, time_since_last_block),
                 time_since_last_block,
                 Some(0u64),
                 vec![],
@@ -492,7 +492,7 @@ fn construct_fee_records<C: ConsensusStorage<CurrentNetwork>, R: Rng + CryptoRng
         let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
         let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm
             .speculate(
-                construct_finalize_global_state(vm),
+                construct_finalize_global_state(vm, time_since_last_block),
                 time_since_last_block,
                 Some(0u64),
                 vec![],
@@ -599,6 +599,7 @@ fn split<C: ConsensusStorage<CurrentNetwork>, R: Rng + CryptoRng>(
 // Construct `FinalizeGlobalState` from the current `VM` state.
 fn construct_finalize_global_state<C: ConsensusStorage<CurrentNetwork>>(
     vm: &VM<CurrentNetwork, C>,
+    time_since_last_block: i64,
 ) -> FinalizeGlobalState {
     // Retrieve the latest block.
     let block_height = vm.block_store().max_height().unwrap();
@@ -618,8 +619,8 @@ fn construct_finalize_global_state<C: ConsensusStorage<CurrentNetwork>>(
 
     // Determine the block timestamp based on the consensus version.
     let block_timestamp =
-        match latest_height >= CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default() {
-            true => Some(latest_block.timestamp()),
+        match next_height >= CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default() {
+            true => Some(latest_block.timestamp().saturating_add(time_since_last_block)),
             false => None,
         };
     // Construct the finalize state.
