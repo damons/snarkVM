@@ -41,6 +41,9 @@ pub enum Operand<N: Network> {
     /// The operand is the block height.
     /// Note: This variant is only accessible in the `finalize` scope.
     BlockHeight,
+    /// The operand is the block timestamp.
+    /// Note: This variant is only accessible in the `finalize` scope.
+    BlockTimestamp,
     /// The operand is the network ID.
     /// Note: This variant is only accessible in the `finalize` scope.
     NetworkID,
