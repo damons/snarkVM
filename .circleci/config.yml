@@ -782,7 +782,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --lib --bins --features test -- --test-threads 32
+          flags: --lib --bins --features test -- --test-threads 8
           cache_key_suffix: -test
           timeout: 25m
 
