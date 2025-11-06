@@ -248,7 +248,7 @@ commands:
               fi
             fi
 
-            DEFAULT_JOBS=16
+            DEFAULT_JOBS=12
 
             # Default JOBS, overridden by TEST_THREADS if set
             JOBS="${NEXTEST_JOBS:-$DEFAULT_JOBS}"
