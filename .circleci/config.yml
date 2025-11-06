@@ -786,7 +786,7 @@ jobs:
           flags: >
             --lib --bins --features test
             --partition count:1/2
-            -- --test-threads 8
+            -- --test-threads 16
           cache_key_suffix: -test1
           timeout: 25m
 
@@ -799,7 +799,7 @@ jobs:
           flags: >
             --lib --bins --features test
             --partition count:2/2
-            -- --test-threads 8
+            -- --test-threads 16
           cache_key_suffix: -test2
           timeout: 25m
 
