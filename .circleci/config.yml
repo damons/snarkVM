@@ -776,15 +776,32 @@ jobs:
           no_output_timeout: 20m
           timeout: 30m
 
-  synthesizer-test:
-    executor: rust-docker
-    resource_class: << pipeline.parameters.twoxlarge >>
-    steps:
-      - run_test:
-          workspace_member: snarkvm-synthesizer
-          flags: --lib --bins --features test -- --test-threads 8
-          cache_key_suffix: -test
-          timeout: 25m
+synthesizer-test-partition1:
+  executor: rust-docker
+  resource_class: << pipeline.parameters.twoxlarge >>
+  steps:
+    - run_test:
+        workspace_member: snarkvm-synthesizer
+        # nextest args before `--`, libtest args after `--`
+        flags: >
+          --lib --bins --features test
+          --partition count:2:1
+          -- --test-threads 4
+        cache_key_suffix: -test1
+        timeout: 25m
+
+synthesizer-test-partition2:
+  executor: rust-docker
+  resource_class: << pipeline.parameters.twoxlarge >>
+  steps:
+    - run_test:
+        workspace_member: snarkvm-synthesizer
+        flags: >
+          --lib --bins --features test
+          --partition count:2:2
+          -- --test-threads 4
+        cache_key_suffix: -test2
+        timeout: 25m
 
 #  synthesizer-mem-heavy:
 #    executor: rust-docker
