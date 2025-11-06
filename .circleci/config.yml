@@ -237,6 +237,17 @@ commands:
               fi
             fi
 
+            # Detect special "cargo-style" nextest mode: run like cargo test, but via nextest.
+            # This is a pseudo-flag for the CI script and must NOT be passed to cargo/nextest.
+            NEXTEST_CARGO_STYLE=0
+            if printf '%s\n' "$BUILD_FLAGS" | grep -q -- '--nextest-cargo-style'; then
+              NEXTEST_CARGO_STYLE=1
+              # Strip the pseudo-flag from BUILD_FLAGS so cargo/nextest never see it.
+              BUILD_FLAGS="$(printf '%s\n' "$BUILD_FLAGS" \
+                | sed -E 's/(^|[[:space:]])--nextest-cargo-style([[:space:]]|$)/ /g' \
+                | tr -s ' ' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+            fi
+
             # Detect and extract --test-threads value (used to set JOBS)
             TEST_THREADS=""
             if [ -n "$RIGHT_OF_SEP" ]; then
@@ -258,6 +269,22 @@ commands:
               JOBS="$TEST_THREADS"
             elif [ -n "${NEXTEST_JOBS:-}" ]; then
               JOBS="$NEXTEST_JOBS"
+            fi
+
+            # If --nextest-cargo-style was requested, force nextest to a single job.
+            # This mimics cargo test in terms of "only one big test binary active at a time".
+            if [ "$NEXTEST_CARGO_STYLE" -eq 1 ]; then
+              JOBS=1
+
+              # Auto-detect cores for --test-threads, fall back to 1.
+              if command -v nproc >/dev/null 2>&1; then
+                CORES="$(nproc)"
+              else
+                CORES=1
+              fi
+
+              TEST_THREADS="$CORES"       # for logging
+              LIBTEST_ARGS+=(--test-threads "$CORES")
             fi
 
             # Create nextest config (disable fail-fast, add slow-timeout + JUnit output)
@@ -296,13 +323,24 @@ commands:
               cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
               : > "$CSV"; : > "$TOP"
             else
-              cargo nextest run \
-                -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
-                --profile ci "${NEXT_JOBS_ARGS[@]}" "${CFG_ARGS[@]}" \
-                --status-level fail --hide-progress-bar \
-                --no-tests=pass \
-                ${FILTER_EXPR:+--filter-expr "$FILTER_EXPR"} \
-                2>&1 | tee "$OUT"
+              if [ "${#LIBTEST_ARGS[@]}" -gt 0 ]; then
+                cargo nextest run \
+                  -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
+                  --profile ci "${NEXT_JOBS_ARGS[@]}" "${CFG_ARGS[@]}" \
+                  --status-level fail --hide-progress-bar \
+                  --no-tests=pass \
+                  ${FILTER_EXPR:+--filter-expr "$FILTER_EXPR"} \
+                  -- "${LIBTEST_ARGS[@]}" \
+                  2>&1 | tee "$OUT"
+              else
+                cargo nextest run \
+                  -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
+                  --profile ci "${NEXT_JOBS_ARGS[@]}" "${CFG_ARGS[@]}" \
+                  --status-level fail --hide-progress-bar \
+                  --no-tests=pass \
+                  ${FILTER_EXPR:+--filter-expr "$FILTER_EXPR"} \
+                  2>&1 | tee "$OUT"
+              fi
 
               # Parse junit.xml to extract test timings
               if [ -f "$JUNIT" ]; then
@@ -792,7 +830,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --lib --bins --features test
+          flags: --lib --bins --features test --nextest-cargo-style
           cache_key_suffix: -test
           timeout: 25m
 
