@@ -1145,7 +1145,8 @@ workflows:
   synthesizer-workflow:
     jobs:
       - synthesizer
-      - synthesizer-test
+      - synthesizer-test-partition1
+      - synthesizer-test-partition2
       # - synthesizer-mem-heavy
       - synthesizer-integration
       - synthesizer-process
