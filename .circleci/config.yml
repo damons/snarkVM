@@ -1121,26 +1121,26 @@ workflows:
   #    - console-types-scalar
   #    - console-types-string
 
-  #ledger-workflow:
-  #  jobs:
-  #    - ledger
-  #    - ledger-with-rocksdb
-  #    - ledger-with-valid-solutions
-  #    - ledger-authority
-  #    - ledger-block
-  #    - ledger-committee
-  #    - ledger-narwhal
-  #    - ledger-narwhal-batch-certificate
-  #    - ledger-narwhal-batch-header
-  #    - ledger-narwhal-data
-  #    - ledger-narwhal-subdag
-  #    - ledger-narwhal-transmission
-  #    - ledger-narwhal-transmission-id
-  #    - ledger-puzzle
-  #    - ledger-puzzle-epoch
-  #    - ledger-query
-  #    - ledger-store
-  #    - ledger-test-helpers
+  ledger-workflow:
+    jobs:
+      - ledger
+      - ledger-with-rocksdb
+      - ledger-with-valid-solutions
+      - ledger-authority
+      - ledger-block
+      - ledger-committee
+      - ledger-narwhal
+      - ledger-narwhal-batch-certificate
+      - ledger-narwhal-batch-header
+      - ledger-narwhal-data
+      - ledger-narwhal-subdag
+      - ledger-narwhal-transmission
+      - ledger-narwhal-transmission-id
+      - ledger-puzzle
+      - ledger-puzzle-epoch
+      - ledger-query
+      - ledger-store
+      - ledger-test-helpers
 
   synthesizer-workflow:
     jobs:
@@ -1161,33 +1161,33 @@ workflows:
       - synthesizer-program-integration-instruction-commit
       - synthesizer-snark
 
-  #snarkvm-workflow:
-  #  jobs:
-  #    - snarkvm
-  #    - algorithms
-  #    - algorithms-profiler
-  #    - curves
-  #    - fields
-  #    - parameters
-  #    - parameters-large
-  #    - parameters-uncached
-  #    - utilities
-  #    - utilities-derives
-  #    - wasm
+  snarkvm-workflow:
+    jobs:
+      - snarkvm
+      - algorithms
+      - algorithms-profiler
+      - curves
+      - fields
+      - parameters
+      - parameters-large
+      - parameters-uncached
+      - utilities
+      - utilities-derives
+      - wasm
 
-  #windows-workflow:
-  #  jobs:
-  #    - verify-windows:
-  #        matrix:
-  #          parameters:
-  #            workspace_member: [
-  #              algorithms,
-  #              circuit,
-  #              console,
-  #              curves,
-  #              fields,
-  #              ledger,
-  #              parameters,
-  #              synthesizer,
-  #              utilities,
-  #            ]
+  windows-workflow:
+    jobs:
+      - verify-windows:
+          matrix:
+            parameters:
+              workspace_member: [
+                algorithms,
+                circuit,
+                console,
+                curves,
+                fields,
+                ledger,
+                parameters,
+                synthesizer,
+                utilities,
+              ]
