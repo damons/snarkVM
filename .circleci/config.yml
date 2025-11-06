@@ -283,10 +283,10 @@ commands:
             # Use plain cargo test if --no-run was requested
             # Otherwise, run tests with cargo nextest
             if printf '%s' " $BUILD_FLAGS_SANITIZED " | grep -q ' --no-run '; then
-              cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
+              RUST_MIN_STACK=67108864 cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
               : > "$CSV"; : > "$TOP"
             else
-              cargo nextest run \
+              RUST_MIN_STACK=67108864 cargo nextest run \
                 -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
                 --profile ci -j "${JOBS}" "${CFG_ARGS[@]}" \
                 --status-level fail --hide-progress-bar \
@@ -782,7 +782,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --lib --bins --features test -- --test-threads 10
+          flags: --lib --bins --features test -- --test-threads 16
           cache_key_suffix: -test
           timeout: 25m
 
