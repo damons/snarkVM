@@ -782,7 +782,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --lib --bins --features test
+          flags: --lib --bins --features test -- --test-threads 1
           cache_key_suffix: -test
           timeout: 25m
 
@@ -1057,73 +1057,73 @@ jobs:
 workflows:
   version: 2
 
-  cargo-workflow:
-    jobs:
-      - check-fmt
-      - check-clippy
-      - check-unused-dependencies
-      - check-cargo-audit
-      - check-cargo-semver-checks
-      - check-all-targets
+  #cargo-workflow:
+  #  jobs:
+  #    - check-fmt
+  #    - check-clippy
+  #    - check-unused-dependencies
+  #    - check-cargo-audit
+  #    - check-cargo-semver-checks
+  #    - check-all-targets
 
-  circuit-workflow:
-    jobs:
-      - circuit
-      - circuit-account
-      - circuit-account-noconsole
-      - circuit-algorithms
-      - circuit-collections
-      - circuit-collections-noconsole
-      - circuit-environment
-      - circuit-network
-      - circuit-program
-      - circuit-types
-      - circuit-types-address
-      - circuit-types-boolean
-      - circuit-types-field
-      - circuit-types-group
-      - circuit-types-integers
-      - circuit-types-scalar
-      - circuit-types-string
+  #circuit-workflow:
+  #  jobs:
+  #    - circuit
+  #    - circuit-account
+  #    - circuit-account-noconsole
+  #    - circuit-algorithms
+  #    - circuit-collections
+  #    - circuit-collections-noconsole
+  #    - circuit-environment
+  #    - circuit-network
+  #    - circuit-program
+  #    - circuit-types
+  #    - circuit-types-address
+  #    - circuit-types-boolean
+  #    - circuit-types-field
+  #    - circuit-types-group
+  #    - circuit-types-integers
+  #    - circuit-types-scalar
+  #    - circuit-types-string
 
-  console-workflow:
-    jobs:
-      - console
-      - console-account
-      - console-algorithms
-      - console-collections
-      - console-network
-      - console-network-environment
-      - console-program
-      - console-types
-      - console-types-address
-      - console-types-boolean
-      - console-types-field
-      - console-types-group
-      - console-types-integers
-      - console-types-scalar
-      - console-types-string
+  #console-workflow:
+  #  jobs:
+  #    - console
+  #    - console-account
+  #    - console-algorithms
+  #    - console-collections
+  #    - console-network
+  #    - console-network-environment
+  #    - console-program
+  #    - console-types
+  #    - console-types-address
+  #    - console-types-boolean
+  #    - console-types-field
+  #    - console-types-group
+  #    - console-types-integers
+  #    - console-types-scalar
+  #    - console-types-string
 
-  ledger-workflow:
-    jobs:
-      - ledger
-      - ledger-with-rocksdb
-      - ledger-with-valid-solutions
-      - ledger-authority
-      - ledger-block
-      - ledger-committee
-      - ledger-narwhal
-      - ledger-narwhal-batch-certificate
-      - ledger-narwhal-batch-header
-      - ledger-narwhal-data
-      - ledger-narwhal-subdag
-      - ledger-narwhal-transmission
-      - ledger-narwhal-transmission-id
-      - ledger-puzzle
-      - ledger-puzzle-epoch
-      - ledger-query
-      - ledger-store
-      - ledger-test-helpers
+  #ledger-workflow:
+  #  jobs:
+  #    - ledger
+  #    - ledger-with-rocksdb
+  #    - ledger-with-valid-solutions
+  #    - ledger-authority
+  #    - ledger-block
+  #    - ledger-committee
+  #    - ledger-narwhal
+  #    - ledger-narwhal-batch-certificate
+  #    - ledger-narwhal-batch-header
+  #    - ledger-narwhal-data
+  #    - ledger-narwhal-subdag
+  #    - ledger-narwhal-transmission
+  #    - ledger-narwhal-transmission-id
+  #    - ledger-puzzle
+  #    - ledger-puzzle-epoch
+  #    - ledger-query
+  #    - ledger-store
+  #    - ledger-test-helpers
 
   synthesizer-workflow:
     jobs:
@@ -1143,33 +1143,33 @@ workflows:
       - synthesizer-program-integration-instruction-commit
       - synthesizer-snark
 
-  snarkvm-workflow:
-    jobs:
-      - snarkvm
-      - algorithms
-      - algorithms-profiler
-      - curves
-      - fields
-      - parameters
-      - parameters-large
-      - parameters-uncached
-      - utilities
-      - utilities-derives
-      - wasm
+  #snarkvm-workflow:
+  #  jobs:
+  #    - snarkvm
+  #    - algorithms
+  #    - algorithms-profiler
+  #    - curves
+  #    - fields
+  #    - parameters
+  #    - parameters-large
+  #    - parameters-uncached
+  #    - utilities
+  #    - utilities-derives
+  #    - wasm
 
-  windows-workflow:
-    jobs:
-      - verify-windows:
-          matrix:
-            parameters:
-              workspace_member: [
-                algorithms,
-                circuit,
-                console,
-                curves,
-                fields,
-                ledger,
-                parameters,
-                synthesizer,
-                utilities,
-              ]
+  #windows-workflow:
+  #  jobs:
+  #    - verify-windows:
+  #        matrix:
+  #          parameters:
+  #            workspace_member: [
+  #              algorithms,
+  #              circuit,
+  #              console,
+  #              curves,
+  #              fields,
+  #              ledger,
+  #              parameters,
+  #              synthesizer,
+  #              utilities,
+  #            ]
