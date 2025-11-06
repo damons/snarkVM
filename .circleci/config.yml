@@ -273,6 +273,7 @@ commands:
 
             # If --nextest-cargo-style was requested, force nextest to a single job.
             # This mimics cargo test in terms of "only one big test binary active at a time".
+            LIBTEST_ARGS=()
             if [ "$NEXTEST_CARGO_STYLE" -eq 1 ]; then
               JOBS=1
 
