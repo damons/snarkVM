@@ -248,12 +248,16 @@ commands:
               fi
             fi
 
-            DEFAULT_JOBS=8
-
-            # Default JOBS, overridden by TEST_THREADS if set
-            JOBS="${NEXTEST_JOBS:-$DEFAULT_JOBS}"
+            # Decide whether to pass an explicit -j to nextest.
+            # Priority:
+            #   1) --test-threads N  → JOBS=N
+            #   2) NEXTEST_JOBS      → JOBS=$NEXTEST_JOBS
+            #   3) otherwise         → JOBS empty, let nextest choose default
+            JOBS=""
             if [ -n "$TEST_THREADS" ]; then
               JOBS="$TEST_THREADS"
+            elif [ -n "${NEXTEST_JOBS:-}" ]; then
+              JOBS="$NEXTEST_JOBS"
             fi
 
             # Create nextest config (disable fail-fast, add slow-timeout + JUnit output)
@@ -273,12 +277,18 @@ commands:
             } > "$TMPD/nextest-override.toml"
             CFG_ARGS+=(--config-file "$TMPD/nextest-override.toml")
 
+            # Build -j argument array for nextest (only if JOBS is set)
+            NEXT_JOBS_ARGS=()
+            if [ -n "$JOBS" ]; then
+              NEXT_JOBS_ARGS=(-j "$JOBS")
+            fi
+
             # Print configuration summary for debugging
             echo "==> nextest package: << parameters.workspace_member >>"
             echo "==> build flags (sanitized): '${BUILD_FLAGS_SANITIZED}'"
             echo "==> filter-expr: ${FILTER_EXPR:-<none>}  (right-of-sep: ${RIGHT_OF_SEP:-<none>})"
             echo "==> test-threads override: ${TEST_THREADS:-<none>}"
-            echo "==> jobs: ${JOBS}"
+            echo "==> jobs: ${JOBS:-<auto>}"
 
             # Use plain cargo test if --no-run was requested
             # Otherwise, run tests with cargo nextest
@@ -288,7 +298,7 @@ commands:
             else
               cargo nextest run \
                 -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
-                --profile ci -j "${JOBS}" "${CFG_ARGS[@]}" \
+                --profile ci "${NEXT_JOBS_ARGS[@]}" "${CFG_ARGS[@]}" \
                 --status-level fail --hide-progress-bar \
                 --no-tests=pass \
                 ${FILTER_EXPR:+--filter-expr "$FILTER_EXPR"} \
