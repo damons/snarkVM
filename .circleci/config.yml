@@ -188,7 +188,18 @@ commands:
               BUILD_FLAGS="$FLAGS_TRIM"
             fi
 
-            # Remove any --test target flags,they cause nextest build errors
+            # Detect special "cargo-style" nextest mode: run like cargo test, but via nextest.
+            # This is a pseudo-flag for the CI script and must NOT be passed to cargo/nextest.
+            NEXTEST_CARGO_STYLE=0
+            if printf '%s\n' "$BUILD_FLAGS" | grep -q -- '--nextest-cargo-style'; then
+              NEXTEST_CARGO_STYLE=1
+              # Strip the pseudo-flag from BUILD_FLAGS so cargo/nextest never see it.
+              BUILD_FLAGS="$(printf '%s\n' "$BUILD_FLAGS" \
+                | sed -E 's/(^|[[:space:]])--nextest-cargo-style([[:space:]]|$)/ /g' \
+                | tr -s ' ' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+            fi
+
+            # Remove any --test target flags, they cause nextest build errors
             BUILD_FLAGS_SANITIZED="$(printf '%s' "$BUILD_FLAGS" \
               | sed -E "s/(^|[[:space:]])--test[[:space:]]+'[^']*'([[:space:]]|$)/ /g" \
               | sed -E 's/(^|[[:space:]])--test[[:space:]]+\"[^\"]*\"([[:space:]]|$)/ /g' \
@@ -235,17 +246,6 @@ commands:
                   FILTER_EXPR="not ($EXPRS)"
                 fi
               fi
-            fi
-
-            # Detect special "cargo-style" nextest mode: run like cargo test, but via nextest.
-            # This is a pseudo-flag for the CI script and must NOT be passed to cargo/nextest.
-            NEXTEST_CARGO_STYLE=0
-            if printf '%s\n' "$BUILD_FLAGS" | grep -q -- '--nextest-cargo-style'; then
-              NEXTEST_CARGO_STYLE=1
-              # Strip the pseudo-flag from BUILD_FLAGS so cargo/nextest never see it.
-              BUILD_FLAGS="$(printf '%s\n' "$BUILD_FLAGS" \
-                | sed -E 's/(^|[[:space:]])--nextest-cargo-style([[:space:]]|$)/ /g' \
-                | tr -s ' ' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
             fi
 
             # Detect and extract --test-threads value (used to set JOBS)
