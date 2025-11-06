@@ -785,7 +785,7 @@ jobs:
           # nextest args before `--`, libtest args after `--`
           flags: >
             --lib --bins --features test
-            --partition count:2/1
+            --partition count:1/2
             -- --test-threads 4
           cache_key_suffix: -test1
           timeout: 25m
