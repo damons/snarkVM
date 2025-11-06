@@ -612,7 +612,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-ledger
-          flags: --release --features=rocks -- --test-threads=2
+          flags: --release --features=rocks -- --test-threads=4
           no_output_timeout: 20m
           timeout: 30m
 
