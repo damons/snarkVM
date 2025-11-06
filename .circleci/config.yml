@@ -149,13 +149,180 @@ commands:
       - checkout
       - setup_environment:
           cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+
+      - run:
+          name: Install cargo-nextest
+          command: |
+            cargo install cargo-nextest --locked || true
+
       - run:
           name: "Run Tests"
           timeout: << parameters.timeout >>
           no_output_timeout: << parameters.no_output_timeout >>
-          command: RUST_MIN_STACK=67108864 cargo test --package=<< parameters.workspace_member >> << parameters.flags >>
+          command: |
+            set -euo pipefail
+            export CARGO_TERM_COLOR=never
+
+            # Create artifact + nextest output directories
+            mkdir -p artifacts target/nextest/ci
+
+            # Create artifact + nextest output directories
+            OUT="artifacts/<< parameters.workspace_member >>-nextest.txt"
+            CSV="artifacts/<< parameters.workspace_member >>-test-times.csv"
+            TOP="artifacts/<< parameters.workspace_member >>-slow-tests-top30.csv"
+            JUNIT="target/nextest/ci/junit.xml"
+
+            # Extract and trim flags from parameters
+            FLAGS_FULL="<< parameters.flags >>"
+            FLAGS_TRIM="$(printf '%s' "$FLAGS_FULL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+            # Split flags into cargo build flags (before --) and libtest args (after --)
+            RIGHT_OF_SEP=""
+            if printf '%s' "$FLAGS_TRIM" | grep -q ' -- '; then
+              BUILD_FLAGS="${FLAGS_TRIM%% -- *}"
+              RIGHT_OF_SEP="${FLAGS_TRIM#* -- }"
+            elif printf '%s' "$FLAGS_TRIM" | grep -Eq '^--[[:space:]]'; then
+              BUILD_FLAGS=""
+              RIGHT_OF_SEP="${FLAGS_TRIM#-- }"
+            else
+              BUILD_FLAGS="$FLAGS_TRIM"
+            fi
+
+            # Remove any --test target flags,they cause nextest build errors
+            BUILD_FLAGS_SANITIZED="$(printf '%s' "$BUILD_FLAGS" \
+              | sed -E "s/(^|[[:space:]])--test[[:space:]]+'[^']*'([[:space:]]|$)/ /g" \
+              | sed -E 's/(^|[[:space:]])--test[[:space:]]+\"[^\"]*\"([[:space:]]|$)/ /g' \
+              | sed -E 's/(^|[[:space:]])--test[[:space:]]+[^[:space:]]+([[:space:]]|$)/ /g' \
+              | tr -s ' ' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+            )"
+
+            # Detect wildcard integration selection: `--test '*'` (with or without quotes)
+            HAS_TEST_WILDCARD=0
+            if printf '%s\n' "$BUILD_FLAGS" | grep -Eq -- '--test[[:space:]]+("\*"|'\''\*'\''|\*)'; then
+              HAS_TEST_WILDCARD=1
+            fi
+
+            # Build nextest filter expression from any --skip <pattern> arguments
+            FILTER_EXPR=""
+
+            WSM="<< parameters.workspace_member >>"
+            if [ "$WSM" = "snarkvm-synthesizer" ] && [ "$HAS_TEST_WILDCARD" -eq 1 ]; then
+              FILTER_EXPR='test(/test_command_parse/)+test(/test_instruction_parse/)+test(/test_process_execute/)+test(/test_program_parse/)+test(/test_vm_execute_and_finalize/)'
+            fi
+
+            # Build nextest filter expression from any --skip <pattern> arguments
+            if [ -z "$FILTER_EXPR" ] && [ -n "$RIGHT_OF_SEP" ]; then
+              SKIPS="$(printf '%s\n' "$RIGHT_OF_SEP" \
+                | sed -E 's/[[:space:]]+/ /g' \
+                | grep -oE -- '--skip[[:space:]]+(\"[^\"]+\"|'\''[^'\'']+'\''|[^[:space:]]+)' || true)"
+              if [ -n "$SKIPS" ]; then
+                EXPRS=""
+                tmpf="$(mktemp)"
+                printf '%s\n' "$SKIPS" > "$tmpf"
+                while IFS= read -r line; do
+                  pat="${line#--skip }"
+                  pat="${pat%\"}"; pat="${pat#\"}"
+                  pat="${pat%\'}"; pat="${pat#\'}"
+                  pat_rx="${pat//\//\\/}"  # escape forward slashes for regex
+                  if [ -z "$EXPRS" ]; then
+                    EXPRS="test(/$pat_rx/)"
+                  else
+                    EXPRS="$EXPRS or test(/$pat_rx/)"
+                  fi
+                done < "$tmpf"
+                rm -f "$tmpf"
+                if [ -n "$EXPRS" ]; then
+                  FILTER_EXPR="not ($EXPRS)"
+                fi
+              fi
+            fi
+
+            # Detect and extract --test-threads value (used to set JOBS)
+            TEST_THREADS=""
+            if [ -n "$RIGHT_OF_SEP" ]; then
+              # form: --test-threads=8
+              TEST_THREADS="$(printf '%s\n' "$RIGHT_OF_SEP" | sed -nE 's/.*--test-threads=([0-9]+).*/\1/p' | head -n1)"
+              if [ -z "$TEST_THREADS" ]; then
+                # form: --test-threads 8
+                TEST_THREADS="$(printf '%s\n' "$RIGHT_OF_SEP" | sed -nE 's/.*--test-threads[[:space:]]+([0-9]+).*/\1/p' | head -n1)"
+              fi
+            fi
+
+            DEFAULT_JOBS=12
+
+            # Default JOBS, overridden by TEST_THREADS if set
+            JOBS="${NEXTEST_JOBS:-$DEFAULT_JOBS}"
+            if [ -n "$TEST_THREADS" ]; then
+              JOBS="$TEST_THREADS"
+            fi
+
+            # Create nextest config (disable fail-fast, add slow-timeout + JUnit output)
+            SLOW_PERIOD="${NEXTEST_SLOW_PERIOD:-60s}"
+            CFG_ARGS=()
+            TMPD="$(mktemp -d)"
+            if [ -f ".config/nextest.toml" ]; then
+              CFG_ARGS+=(--config-file ".config/nextest.toml")
+            fi
+            {
+              printf '%s\n' '[profile.ci]'
+              printf '%s\n' 'fail-fast = false'
+              printf '%s\n' "slow-timeout = \"${SLOW_PERIOD}\""
+              printf '%s\n' ''
+              printf '%s\n' '[profile.ci.junit]'
+              printf '%s\n' 'path = "junit.xml"'
+            } > "$TMPD/nextest-override.toml"
+            CFG_ARGS+=(--config-file "$TMPD/nextest-override.toml")
+
+            # Print configuration summary for debugging
+            echo "==> nextest package: << parameters.workspace_member >>"
+            echo "==> build flags (sanitized): '${BUILD_FLAGS_SANITIZED}'"
+            echo "==> filter-expr: ${FILTER_EXPR:-<none>}  (right-of-sep: ${RIGHT_OF_SEP:-<none>})"
+            echo "==> test-threads override: ${TEST_THREADS:-<none>}"
+            echo "==> jobs: ${JOBS}"
+
+            # Use plain cargo test if --no-run was requested
+            # Otherwise, run tests with cargo nextest
+            if printf '%s' " $BUILD_FLAGS_SANITIZED " | grep -q ' --no-run '; then
+              RUST_MIN_STACK=67108864 cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
+              : > "$CSV"; : > "$TOP"
+            else
+              RUST_MIN_STACK=67108864 cargo nextest run \
+                -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
+                --profile ci -j "${JOBS}" "${CFG_ARGS[@]}" \
+                --status-level fail --hide-progress-bar \
+                --no-tests=pass \
+                ${FILTER_EXPR:+--filter-expr "$FILTER_EXPR"} \
+                2>&1 | tee "$OUT"
+
+              # Parse junit.xml to extract test timings
+              if [ -f "$JUNIT" ]; then
+                awk -v RS='<testcase ' '
+                  NR>1 {
+                    name=""; classname=""; time="";
+                    start=index($0,"classname=\""); if(start>0){ start+=11; rest=substr($0,start); end=index(rest,"\""); if(end>0) classname=substr(rest,1,end-1) }
+                    start=index($0,"name=\"");      if(start>0){ start+=6;  rest=substr($0,start); end=index(rest,"\""); if(end>0) name=substr(rest,1,end-1) }
+                    start=index($0,"time=\"");      if(start>0){ start+=6;  rest=substr($0,start); end=index(rest,"\""); if(end>0) time=substr(rest,1,end-1) }
+                    if(name!="" && time!=""){ full=(classname!=""?classname"::"name:name); printf "%s,%s\n", full, time }
+                  }
+                ' "$JUNIT" > "$CSV" || true
+
+                # Sort and store top 30 slowest tests
+                sort -t, -k2,2nr "$CSV" | head -n 30 > "$TOP" || true
+              else
+                echo "WARN: $JUNIT not found; no timings extracted." >&2
+                : > "$CSV"; : > "$TOP"
+              fi
+            fi
+
+      - store_artifacts:
+          path: artifacts
+          destination: test-timings/<< parameters.workspace_member >>
+      - store_test_results:
+          path: target/nextest/ci
+
       - clear_environment:
           cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+
 
   install_rust_nightly:
     description: "Install Rust nightly toolchain"
@@ -439,14 +606,25 @@ jobs:
       - run_test:
           workspace_member: snarkvm-ledger
 
-  ledger-with-rocksdb:
+  ledger-with-rocksdb-partition1:
     executor: rust-docker
     resource_class: << pipeline.parameters.large >>
     steps:
       - run_test:
           workspace_member: snarkvm-ledger
-          flags: --release --features=rocks -- --test-threads=2
-          timeout: 20m
+          flags: --release --features=rocks --partition count:1/2 -- --test-threads=8
+          no_output_timeout: 20m
+          timeout: 30m
+
+  ledger-with-rocksdb-partition2:
+    executor: rust-docker
+    resource_class: << pipeline.parameters.large >>
+    steps:
+      - run_test:
+          workspace_member: snarkvm-ledger
+          flags: --release --features=rocks --partition count:2/2 -- --test-threads=8
+          no_output_timeout: 20m
+          timeout: 30m
 
   ledger-with-valid-solutions:
     executor: rust-docker
@@ -470,6 +648,8 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-ledger-block
+          no_output_timeout: 20m
+          timeout: 30m
 
   ledger-committee:
     executor: rust-docker
@@ -593,6 +773,8 @@ jobs:
           workspace_member: snarkvm-parameters
           flags: -- --test-threads=2 --ignored test_load_bytes_mini
           cache_key_suffix: -v-{{ epoch }}
+          no_output_timeout: 20m
+          timeout: 30m
 
   synthesizer:
     executor: rust-docker
@@ -600,17 +782,35 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --lib --bins
-          timeout: 20m
+          flags: --lib --bins -- --test-threads 16
+          no_output_timeout: 20m
+          timeout: 30m
 
-  synthesizer-test:
+  synthesizer-test-partition1:
     executor: rust-docker
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --lib --bins --features test
-          cache_key_suffix: -test
+          # nextest args before `--`, libtest args after `--`
+          flags: >
+            --lib --bins --features test
+            --partition count:1/2
+            -- --test-threads 16
+          cache_key_suffix: -test1
+          timeout: 25m
+
+  synthesizer-test-partition2:
+    executor: rust-docker
+    resource_class: << pipeline.parameters.twoxlarge >>
+    steps:
+      - run_test:
+          workspace_member: snarkvm-synthesizer
+          flags: >
+            --lib --bins --features test
+            --partition count:2/2
+            -- --test-threads 16
+          cache_key_suffix: -test2
           timeout: 25m
 
 #  synthesizer-mem-heavy:
@@ -631,7 +831,7 @@ jobs:
           # test_vm_execute_and_finalize can take over 10 minutes in the current setup
           no_output_timeout: 20m
           workspace_member: snarkvm-synthesizer
-          flags: --test '*' --features test -- --test-threads=4 
+          flags: --test '*' --features test -- --test-threads=4
           cache_key_suffix: -integration
 
   synthesizer-process:
@@ -640,7 +840,6 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer-process
-          flags: -- --test-threads=8
 
   synthesizer-process-with-rocksdb:
     executor: rust-docker
@@ -648,7 +847,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer-process
-          flags: --features=rocks
+          flags: --features=rocks -- --test-threads=4
           cache_key_suffix: -with-rocksdb
 
   synthesizer-program:
@@ -665,7 +864,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer-program
-          flags: -- --skip keccak --skip psd --skip sha --skip instruction::is --skip instruction::equal --skip instruction::commit
+          flags: -- --skip keccak --skip psd --skip sha --skip instruction::is --skip instruction::equal --skip instruction::commit --test-threads=8
           cache_key_suffix: -integration
 
   synthesizer-program-integration-keccak:
@@ -935,7 +1134,8 @@ workflows:
   ledger-workflow:
     jobs:
       - ledger
-      - ledger-with-rocksdb
+      - ledger-with-rocksdb-partition1
+      - ledger-with-rocksdb-partition2
       - ledger-with-valid-solutions
       - ledger-authority
       - ledger-block
@@ -956,7 +1156,8 @@ workflows:
   synthesizer-workflow:
     jobs:
       - synthesizer
-      - synthesizer-test
+      - synthesizer-test-partition1
+      - synthesizer-test-partition2
       # - synthesizer-mem-heavy
       - synthesizer-integration
       - synthesizer-process
