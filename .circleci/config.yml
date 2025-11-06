@@ -785,7 +785,7 @@ jobs:
           # nextest args before `--`, libtest args after `--`
           flags: >
             --lib --bins --features test
-            --partition count:2:1
+            --partition count:2/1
             -- --test-threads 4
           cache_key_suffix: -test1
           timeout: 25m
@@ -798,7 +798,7 @@ jobs:
           workspace_member: snarkvm-synthesizer
           flags: >
             --lib --bins --features test
-            --partition count:2:2
+            --partition count:2/2
             -- --test-threads 4
           cache_key_suffix: -test2
           timeout: 25m
