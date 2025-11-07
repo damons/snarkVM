@@ -16,25 +16,53 @@
 use crate::{Opcode, Operand, RegistersCircuit, RegistersTrait, StackTrait};
 use console::{
     network::prelude::*,
-    program::{Literal, LiteralType, PlaintextType, Register, RegisterType, Value},
+    program::{Literal, LiteralType, Plaintext, PlaintextType, Register, RegisterType, Value},
     types::Boolean,
 };
 use snarkvm_algorithms::snark::varuna::VarunaVersion;
 use snarkvm_synthesizer_snark::{Proof, VerifyingKey};
 
 /// Computes whether `proof` is valid for the given `verifying_key` and `public inputs`.
-pub type SnarkVerify<N> = SnarkVerification<N>;
+pub type SnarkVerify<N> = SnarkVerification<N, { SnarkVerifyVariant::Varuna as u8 }>;
+/// Computes whether a `batch_proof` is valid for the given `verifying_keys` and `public inputs`.
+pub type SnarkVerifyBatch<N> = SnarkVerification<N, { SnarkVerifyVariant::VarunaBatch as u8 }>;
+
+/// Which hash function to use.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SnarkVerifyVariant {
+    Varuna,
+    VarunaBatch,
+}
+
+impl SnarkVerifyVariant {
+    // Initializes a new `SnarkVerifyVariant`.
+    pub const fn new(variant: u8) -> Self {
+        match variant {
+            0 => Self::Varuna,
+            1 => Self::VarunaBatch,
+            _ => panic!("Invalid 'snark.verify' instruction opcode"),
+        }
+    }
+
+    // Returns the opcode associated with the variant.
+    pub const fn opcode(&self) -> &'static str {
+        match self {
+            Self::Varuna => "snark.verify",
+            Self::VarunaBatch => "snark.verify.batch",
+        }
+    }
+}
 
 /// Computes whether `proof` is valid for the given `verifying_key` and `public inputs`.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct SnarkVerification<N: Network> {
+pub struct SnarkVerification<N: Network, const VARIANT: u8> {
     /// The operands.
     operands: Vec<Operand<N>>,
     /// The destination register.
     destination: Register<N>,
 }
 
-impl<N: Network> SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
     /// Initializes a new `snark.verify` instruction.
     #[inline]
     pub fn new(operands: Vec<Operand<N>>, destination: Register<N>) -> Result<Self> {
@@ -47,7 +75,7 @@ impl<N: Network> SnarkVerification<N> {
     /// Returns the opcode.
     #[inline]
     pub const fn opcode() -> Opcode {
-        Opcode::Snark("snark.verify")
+        Opcode::Snark(SnarkVerifyVariant::new(VARIANT).opcode())
     }
 
     /// Returns the operands in the operation.
@@ -66,22 +94,130 @@ impl<N: Network> SnarkVerification<N> {
     }
 }
 
-/// Evaluate a snark verification operation.
-///
-/// This allows running the verification without the machinery of stacks and registers.
-/// This is necessary for the Leo interpreter.
-pub fn evaluate_varuna_proof<N: Network>(
-    verifying_key: &VerifyingKey<N>,
-    _function_name: &str,
-    varuna_version: VarunaVersion,
-    inputs: &[N::Field],
-    proof: &Proof<N>,
-) -> Result<bool> {
-    // Verify the proof.
-    Ok(verifying_key.verify(_function_name, varuna_version, inputs, proof))
+// Perform the snark verification based on the variant.
+#[rustfmt::skip]
+macro_rules! do_snark_verification {
+    ($variant: expr, $function_name: expr, $varuna_version: expr, $verifying_key: expr, $inputs: expr, $proof: expr) => {{
+        let verifying_key = || match $verifying_key {
+            Value::Plaintext(plaintext) => VerifyingKey::<N>::from_bytes_le(&plaintext.as_byte_array()?),
+            _ => bail!("Expected the first operand to be a byte array."),
+        };
+        let verifying_keys = || match $verifying_key {
+            Value::Plaintext(Plaintext::Array(array, _)) => {
+                array
+                    .into_iter()
+                    .map(|plaintext| {
+                        VerifyingKey::<N>::from_bytes_le(&plaintext.as_byte_array()?)
+                    })
+                    .collect::<Result<Vec<VerifyingKey<N>>, _>>()
+            }
+            _ => bail!("Expected the first operand to be a two-dimensional byte array."),
+        };
+
+        let inputs = || match $inputs {
+            Value::Plaintext(plaintext) => Ok(plaintext.as_field_array()?.into_iter().map(|f| *f).collect::<Vec<_>>()),
+            _ => bail!("Expected the second operand to be an array of fields."),
+        };
+        let batch_inputs = || match $inputs {
+            Value::Plaintext(Plaintext::Array(outer, _)) => {
+                outer
+                    .into_iter()
+                    .map(|mid| {
+                        match mid {
+                            Plaintext::Array(inner, _) => {
+                                inner
+                                    .into_iter()
+                                    .map(|row| {
+                                        let fs = row.as_field_array()?; // &[Field]
+                                        Ok(fs.into_iter().map(|f| *f).collect::<Vec<N::Field>>())
+                                    })
+                                    .collect::<Result<Vec<Vec<N::Field>>>>()
+                            }
+                            _ => bail!("Expected an inner array (second dimension) of fields."),
+                        }
+                    })
+                    .collect::<Result<Vec<Vec<Vec<N::Field>>>>>()
+            }
+            _ => bail!("Expected the second operand to be a three-dimensional array of fields."),
+        };
+
+        let varuna_proof = || match $proof {
+            Value::Plaintext(plaintext) => {
+                // Get the plaintext as a byte array.
+                let bytes = plaintext.as_byte_array()?;
+                // Deserialize the proof.
+                Proof::<N>::from_bytes_le(&bytes)
+            }
+            _ => bail!("Expected the third operand to be a byte array."),
+        };
+
+        match $variant {
+            SnarkVerifyVariant::Varuna      => verifying_key()?.verify($function_name, $varuna_version, &inputs()?, &varuna_proof()?),
+            SnarkVerifyVariant::VarunaBatch => VerifyingKey::verify_batch(
+                $function_name,
+                $varuna_version,
+                verifying_keys()?.into_iter().zip(batch_inputs()?).collect(),
+                &varuna_proof()?
+            ).is_ok(),
+        }
+    }};
 }
 
-impl<N: Network> SnarkVerification<N> {
+/// Evaluate a snark verification operation.
+///
+/// This is necessary for the Leo interpreter.
+pub fn evaluate_varuna_proof<N: Network>(
+    variant: SnarkVerifyVariant,
+    _function_name: &str,
+    varuna_version: VarunaVersion,
+    verifying_key: &Value<N>,
+    inputs: &Value<N>,
+    proof: &Value<N>,
+) -> Result<bool> {
+    evaluate_varuna_proof_internal(variant, _function_name, varuna_version, verifying_key, inputs, proof)
+}
+
+fn evaluate_varuna_proof_internal<N: Network>(
+    variant: SnarkVerifyVariant,
+    _function_name: &str,
+    varuna_version: VarunaVersion,
+    verifying_key: &Value<N>,
+    inputs: &Value<N>,
+    proof: &Value<N>,
+) -> Result<bool> {
+    Ok(do_snark_verification!(variant, _function_name, varuna_version, verifying_key, inputs, proof))
+}
+
+// Helper function to check if a type is a N-dimensional array of a given base literal type.
+fn check_nd_array_type<N: Network>(
+    register_type: &RegisterType<N>,
+    base_literal_type: LiteralType,
+    dimensions: usize,
+) -> bool {
+    // Special-case 0D: the type itself must be the literal.
+    if dimensions == 0 {
+        return matches!(register_type, RegisterType::Plaintext(PlaintextType::Literal(lit)) if *lit == base_literal_type);
+    }
+
+    // First dimension must be an array.
+    let mut arr = match register_type {
+        RegisterType::Plaintext(PlaintextType::Array(a)) => a,
+        _ => return false,
+    };
+
+    // Walk through (dimensions - 1) inner array levels.
+    for _ in 1..dimensions {
+        match arr.base_element_type() {
+            PlaintextType::Array(next) => arr = next,
+            _ => return false,
+        }
+    }
+
+    // Final base element must be the requested literal type.
+    matches!(arr.base_element_type(), PlaintextType::Literal(lit) if *lit == base_literal_type)
+}
+
+impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
     /// Evaluates the instruction.
     #[inline]
     pub fn evaluate(&self, _stack: &impl StackTrait<N>, _registers: &mut impl RegistersTrait<N>) -> Result<()> {
@@ -107,33 +243,21 @@ impl<N: Network> SnarkVerification<N> {
         }
 
         // Retrieve the inputs.
-        let verifying_key = match registers.load(stack, &self.operands[0])? {
-            Value::Plaintext(plaintext) => {
-                // Get the plaintext as a byte array.
-                let bytes = plaintext.as_byte_array()?;
-                // Deserialize the verifying key.
-                VerifyingKey::<N>::from_bytes_le(&bytes)?
-            }
-            _ => bail!("Expected the first operand to be a byte array."),
-        };
-        let inputs = match registers.load(stack, &self.operands[1])? {
-            Value::Plaintext(plaintext) => plaintext.as_field_array()?.into_iter().map(|f| *f).collect::<Vec<_>>(),
-            _ => bail!("Expected the second operand to be an array of fields."),
-        };
-        let proof = match registers.load(stack, &self.operands[2])? {
-            Value::Plaintext(plaintext) => {
-                // Get the plaintext as a byte array.
-                let bytes = plaintext.as_byte_array()?;
-                // Deserialize the proof.
-                Proof::<N>::from_bytes_le(&bytes)?
-            }
-            _ => bail!("Expected the third operand to be a byte array."),
-        };
+        let verifying_key = registers.load(stack, &self.operands[0])?;
+        let inputs = registers.load(stack, &self.operands[1])?;
+        let proof = registers.load(stack, &self.operands[2])?;
 
         // Verify the signature.
         let _function_name = "snark.verify";
         let varuna_version = VarunaVersion::V2;
-        let output = evaluate_varuna_proof(&verifying_key, _function_name, varuna_version, &inputs, &proof)?;
+        let output = evaluate_varuna_proof_internal(
+            SnarkVerifyVariant::new(VARIANT),
+            _function_name,
+            varuna_version,
+            &verifying_key,
+            &inputs,
+            &proof,
+        )?;
         let output = Literal::Boolean(Boolean::new(output));
 
         // Store the output.
@@ -152,32 +276,41 @@ impl<N: Network> SnarkVerification<N> {
             bail!("Instruction '{}' expects 3 inputs, found {} inputs", Self::opcode(), input_types.len())
         }
 
-        // Enforce that the verifying key is an array of bytes.
-        match &input_types[0] {
-            RegisterType::Plaintext(PlaintextType::Array(array_type))
-                if array_type.base_element_type() == &PlaintextType::Literal(LiteralType::U8) =>
-            {
-                // valid byte array
+        // Enforce that the verifying key input matches the expected type based on the variant.
+        let variant = SnarkVerifyVariant::new(VARIANT);
+
+        // Ensure the array type for the first operand is correct.
+        let (result, expected_type) = match variant {
+            SnarkVerifyVariant::Varuna => (check_nd_array_type(&input_types[0], LiteralType::U8, 1), "a byte array"),
+            SnarkVerifyVariant::VarunaBatch => {
+                (check_nd_array_type(&input_types[0], LiteralType::U8, 2), "a 2-dimensional byte array")
             }
-            _ => bail!(
-                "Instruction '{}' expects the first input to be a byte array. Found input of type '{}'",
+        };
+        if !result {
+            bail!(
+                "Instruction '{}' expects the first input to be {}. Found input of type '{}'",
                 Self::opcode(),
-                input_types[0]
-            ),
+                expected_type,
+                &input_types[0]
+            );
         }
 
-        // Ensure the second operand is an array of fields.
-        match &input_types[1] {
-            RegisterType::Plaintext(PlaintextType::Array(array_type))
-                if array_type.base_element_type() == &PlaintextType::Literal(LiteralType::Field) =>
-            {
-                // valid byte array
+        // Ensure the array type for the second operand is correct.
+        let (result, expected_type) = match variant {
+            SnarkVerifyVariant::Varuna => {
+                (check_nd_array_type(&input_types[1], LiteralType::Field, 1), "an array of fields")
             }
-            _ => bail!(
-                "Instruction '{}' expects the second input to be an array of fields. Found input of type '{}'",
+            SnarkVerifyVariant::VarunaBatch => {
+                (check_nd_array_type(&input_types[1], LiteralType::Field, 3), "a 3-dimensional array of fields")
+            }
+        };
+        if !result {
+            bail!(
+                "Instruction '{}' expects the first input to be {}. Found input of type '{}'",
                 Self::opcode(),
-                input_types[1]
-            ),
+                expected_type,
+                &input_types[0]
+            );
         }
 
         // Ensure the third operand is an array of bytes.
@@ -198,7 +331,7 @@ impl<N: Network> SnarkVerification<N> {
     }
 }
 
-impl<N: Network> Parser for SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> Parser for SnarkVerification<N, VARIANT> {
     /// Parses a string into an operation.
     #[inline]
     fn parse(string: &str) -> ParserResult<Self> {
@@ -229,7 +362,7 @@ impl<N: Network> Parser for SnarkVerification<N> {
     }
 }
 
-impl<N: Network> FromStr for SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> FromStr for SnarkVerification<N, VARIANT> {
     type Err = Error;
 
     /// Parses a string into an operation.
@@ -247,14 +380,14 @@ impl<N: Network> FromStr for SnarkVerification<N> {
     }
 }
 
-impl<N: Network> Debug for SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> Debug for SnarkVerification<N, VARIANT> {
     /// Prints the operation as a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<N: Network> Display for SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> Display for SnarkVerification<N, VARIANT> {
     /// Prints the operation to a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Ensure the number of operands is 3.
@@ -268,7 +401,7 @@ impl<N: Network> Display for SnarkVerification<N> {
     }
 }
 
-impl<N: Network> FromBytes for SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> FromBytes for SnarkVerification<N, VARIANT> {
     /// Reads the operation from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Initialize the vector for the operands.
@@ -285,7 +418,7 @@ impl<N: Network> FromBytes for SnarkVerification<N> {
     }
 }
 
-impl<N: Network> ToBytes for SnarkVerification<N> {
+impl<N: Network, const VARIANT: u8> ToBytes for SnarkVerification<N, VARIANT> {
     /// Writes the operation to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Ensure the number of operands is 3.
@@ -309,6 +442,14 @@ mod tests {
     #[test]
     fn test_parse() {
         let (string, is) = SnarkVerify::<CurrentNetwork>::parse("snark.verify r0 r1 r2 into r3").unwrap();
+        assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
+        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
+        assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
+        assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
+        assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
+        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
+
+        let (string, is) = SnarkVerifyBatch::<CurrentNetwork>::parse("snark.verify.batch r0 r1 r2 into r3").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
         assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
