@@ -594,6 +594,9 @@ impl<N: Network> RegisterTypes<N> {
             }
             Opcode::Serialize(opcode) => Self::check_serialize_opcode(opcode, instruction)?,
             Opcode::Deserialize(opcode) => Self::check_deserialize_opcode(opcode, instruction)?,
+            Opcode::Snark(opcode) => {
+                bail!("Forbidden operation: Instruction '{instruction}' cannot invoke command '{opcode}'.")
+            }
         }
         Ok(())
     }

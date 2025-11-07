@@ -71,6 +71,40 @@ impl<N: Network> Plaintext<N> {
             _ => bail!("Expected a bit array, found a non-array plaintext."),
         }
     }
+
+    /// Returns the `Plaintext` as a `Vec<u8>`, if it is a u8 array.
+    pub fn as_byte_array(&self) -> Result<Vec<u8>> {
+        match self {
+            Self::Array(elements, _) => {
+                let mut bytes = Vec::with_capacity(elements.len());
+                for element in elements {
+                    match element {
+                        Self::Literal(Literal::U8(byte), _) => bytes.push(**byte),
+                        _ => bail!("Expected a u8 array, found a non-u8 element."),
+                    }
+                }
+                Ok(bytes)
+            }
+            _ => bail!("Expected a u8 array, found a non-array plaintext."),
+        }
+    }
+
+    /// Returns the `Plaintext` as a `Vec<N::Field>`, if it is a u8 array.
+    pub fn as_field_array(&self) -> Result<Vec<Field<N>>> {
+        match self {
+            Self::Array(elements, _) => {
+                let mut fields = Vec::with_capacity(elements.len());
+                for element in elements {
+                    match element {
+                        Self::Literal(Literal::Field(field), _) => fields.push(*field),
+                        _ => bail!("Expected an array of fields, found a non-field element."),
+                    }
+                }
+                Ok(fields)
+            }
+            _ => bail!("Expected an array of fields, found a non-array plaintext."),
+        }
+    }
 }
 
 impl<N: Network> From<Literal<N>> for Plaintext<N> {
