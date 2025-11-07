@@ -284,6 +284,8 @@ pub enum Instruction<N: Network> {
     SignVerify(SignVerify<N>),
     /// Computes whether `proof` is valid for the given `verifying_key` and `public inputs`.
     SnarkVerify(SnarkVerify<N>),
+    /// Computes whether a `batch_proof` is valid for the given `verifying_keys` and `public inputs`.
+    SnarkVerifyBatch(SnarkVerifyBatch<N>),
     /// Squares 'first', storing the outcome in `destination`.
     Square(Square<N>),
     /// Compute the square root of 'first', storing the outcome in `destination`.
@@ -449,8 +451,9 @@ macro_rules! instruction {
             SerializeBits,
             SerializeBitsRaw,
 
-            // New opcode added in `ConsensusVersion::V13`
+            // New opcodes added in `ConsensusVersion::V13`
             SnarkVerify,
+            SnarkVerifyBatch,
 
             // New opcodes should be added here, with a comment on which consensus version they were added in.
         }}
@@ -642,7 +645,7 @@ mod tests {
         // Sanity check the number of instructions is unchanged.
         // Note that the number of opcodes **MUST NOT** exceed u16::MAX.
         assert_eq!(
-            120,
+            121,
             Instruction::<CurrentNetwork>::OPCODES.len(),
             "Update me if the number of instructions changes."
         );

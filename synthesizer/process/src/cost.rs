@@ -809,6 +809,9 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::SnarkVerify(snark)) => {
             cost_in_size(stack, finalize_types, snark.operands(), MAPPING_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
         }
+        Command::Instruction(Instruction::SnarkVerifyBatch(snark)) => {
+            cost_in_size(stack, finalize_types, snark.operands(), MAPPING_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
+        }
         Command::Instruction(Instruction::Square(_)) => Ok(500),
         Command::Instruction(Instruction::SquareRoot(_)) => Ok(2_500),
         Command::Instruction(Instruction::Sub(_)) => Ok(500),

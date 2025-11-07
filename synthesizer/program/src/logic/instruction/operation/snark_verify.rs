@@ -128,7 +128,7 @@ macro_rules! do_snark_verification {
                                 inner
                                     .into_iter()
                                     .map(|row| {
-                                        let fs = row.as_field_array()?; // &[Field]
+                                        let fs = row.as_field_array()?;
                                         Ok(fs.into_iter().map(|f| *f).collect::<Vec<N::Field>>())
                                     })
                                     .collect::<Result<Vec<Vec<N::Field>>>>()
@@ -207,14 +207,15 @@ fn check_nd_array_type<N: Network>(
 
     // Walk through (dimensions - 1) inner array levels.
     for _ in 1..dimensions {
-        match arr.base_element_type() {
+        match arr.next_element_type() {
             PlaintextType::Array(next) => arr = next,
             _ => return false,
         }
     }
 
     // Final base element must be the requested literal type.
-    matches!(arr.base_element_type(), PlaintextType::Literal(lit) if *lit == base_literal_type)
+    matches!(arr.next_element_type(), PlaintextType::Literal(lit) if *lit == base_literal_type)
+        && matches!(arr.base_element_type(), PlaintextType::Literal(lit) if *lit == base_literal_type)
 }
 
 impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
@@ -306,10 +307,10 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
         };
         if !result {
             bail!(
-                "Instruction '{}' expects the first input to be {}. Found input of type '{}'",
+                "Instruction '{}' expects the second input to be {}. Found input of type '{}'",
                 Self::opcode(),
                 expected_type,
-                &input_types[0]
+                &input_types[1]
             );
         }
 
