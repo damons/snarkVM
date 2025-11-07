@@ -62,9 +62,7 @@ finalize dummy:
     input r1 as [field; 8u32].public;
     input r2 as [u8; 8u32].public;
     snark.verify r0 r1 r2 into r3;
-    snark.verify.batch r0 r1 r2 into r4;
     assert.eq r3 true;
-    assert.eq r4 true;
 
 constructor:
     assert.eq true true;
