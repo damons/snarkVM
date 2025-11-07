@@ -184,6 +184,10 @@ features = [ "test-helpers" ]
 workspace = true
 features = [ "test" ]
 
+[dev-dependencies.snarkvm-synthesizer-snark]
+workspace = true
+features = [ "test-helpers" ]
+
 [dev-dependencies.snarkvm-ledger-test-helpers]
 path = "../ledger/test-helpers"
 
