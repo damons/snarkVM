@@ -376,6 +376,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Returns a new genesis block for a quorum chain.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn genesis_quorum<R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
@@ -460,6 +463,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         }
     }
 
+    /// Adds the given block into the VM.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[inline]
     pub fn add_next_block(&self, block: &Block<N>) -> Result<()> {
         let sequential_op = SequentialOperation::AddNextBlock(block.clone());
@@ -471,6 +478,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Adds the given block into the VM.
+    ///
+    /// # Note
+    /// This must only be called from the sequential operation thread.
+    ///
+    /// # Panics
+    /// This function panics if not called from the sequential operation thread.
     #[inline]
     pub(crate) fn add_next_block_inner(&self, block: Block<N>) -> Result<()> {
         self.ensure_sequential_processing();

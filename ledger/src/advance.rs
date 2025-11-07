@@ -19,6 +19,9 @@ use anyhow::Context;
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Returns a candidate for the next block in the ledger, using a committed subdag and its transmissions.
+    ///    
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn prepare_advance_to_next_quorum_block<R: Rng + CryptoRng>(
         &self,
         subdag: Subdag<N>,
@@ -51,6 +54,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Returns a candidate for the next block in the ledger.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn prepare_advance_to_next_beacon_block<R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
@@ -92,6 +98,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Adds the given block as the next block in the ledger.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn advance_to_next_block(&self, block: &Block<N>) -> Result<()> {
         // Acquire the write lock on the current block.
         let mut current_block = self.current_block.write();
@@ -212,6 +221,9 @@ where
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Constructs a block template for the next block in the ledger.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[allow(clippy::type_complexity)]
     fn construct_block_template<R: Rng + CryptoRng>(
         &self,

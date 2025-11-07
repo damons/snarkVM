@@ -26,11 +26,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Returns the confirmed transactions, aborted transaction IDs,
     /// and finalize operations from pre-ratify and post-ratify.
     ///
-    /// Note: This method is used to create a new block (including the genesis block).
+    /// # Note
+    /// This method is used to create a new block (including the genesis block).
     ///   - If `coinbase_reward = None`, then the `ratifications` will not be modified.
     ///   - If `coinbase_reward = Some(coinbase_reward)`, then the method will append a
     ///     `Ratify::BlockReward(block_reward)` and `Ratify::PuzzleReward(puzzle_reward)`
     ///     to the front of the `ratifications` list.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[inline]
     #[allow(clippy::too_many_arguments)]
     pub fn speculate<'a, R: Rng + CryptoRng>(
@@ -103,6 +107,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// This function also ensure that the given transactions are well-formed and unique.
     ///
     /// Returns the finalize operations from pre-ratify and post-ratify.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[inline]
     pub fn check_speculate<R: Rng + CryptoRng>(
         &self,
@@ -191,6 +198,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     #[cfg(any(test, feature = "test"))]
     pub const MAXIMUM_CONFIRMED_TRANSACTIONS: usize = 8;
 
+    /// Performs atomic speculation over a list of transactions.
+    ///
+    /// Returns the ratifications, confirmed transactions, aborted transactions,
+    /// and finalize operations from pre-ratify and post-ratify.
+    ///
+    /// # Note
+    /// This method is used by `VM::speculate` and `VM::check_speculate`.
+    ///   - If `coinbase_reward = None`, then the `ratifications` will not be modified.
+    ///   - If `coinbase_reward = Some(coinbase_reward)`, then the method will append a
+    ///     `Ratify::BlockReward(block_reward)` and `Ratify::PuzzleReward(puzzle_reward)`
+    ///     to the front of the `ratifications` list.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     fn atomic_speculate(
         &self,
         state: FinalizeGlobalState,
@@ -220,16 +241,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         ret
     }
 
-    /// Performs atomic speculation over a list of transactions.
+    /// Internal function called when invoking [`Self::atomic_speculate`].
     ///
-    /// Returns the ratifications, confirmed transactions, aborted transactions,
-    /// and finalize operations from pre-ratify and post-ratify.
+    /// # Note
+    /// This function must only be called from the sequential operation thread.
     ///
-    /// Note: This method is used by `VM::speculate` and `VM::check_speculate`.
-    ///   - If `coinbase_reward = None`, then the `ratifications` will not be modified.
-    ///   - If `coinbase_reward = Some(coinbase_reward)`, then the method will append a
-    ///     `Ratify::BlockReward(block_reward)` and `Ratify::PuzzleReward(puzzle_reward)`
-    ///     to the front of the `ratifications` list.
+    /// # Panics
+    /// This function panics if not called from the sequential operation thread.
     pub(crate) fn atomic_speculate_inner(
         &self,
         state: FinalizeGlobalState,

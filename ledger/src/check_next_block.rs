@@ -21,6 +21,9 @@ use anyhow::{Context, bail};
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Checks the given block is valid next block.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
         let height = block.height();
         let latest_block = self.latest_block();
