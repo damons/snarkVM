@@ -194,6 +194,9 @@ impl<N: Network> TestChainBuilder<N> {
     }
 
     /// Create multiple blocks, with additional parameters.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn generate_blocks_with_opts(
         &mut self,
         num_blocks: usize,

@@ -37,6 +37,9 @@ workspace = true
 [dependencies.bincode]
 workspace = true
 
+[dependencies.colored]
+workspace = true
+
 [dependencies.num_cpus]
 version = "1"
 
@@ -74,6 +77,9 @@ default-features = false
 [dependencies.zeroize]
 workspace = true
 features = [ "derive" ]
+
+[dev-dependencies.tracing-test]
+workspace = true
 
 [features]
 default = [ "derive" ]
