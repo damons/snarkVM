@@ -54,7 +54,7 @@ fn batch_prove(c: &mut Criterion) {
     let mut rng = TestRng::default();
 
     // Start the timer.
-    let mut timer = std::time::Instant::now();
+    let timer = std::time::Instant::now();
 
     // Initialize the hashers.
     let native_path_hasher = NativePathHasher::setup("test").unwrap();
@@ -72,7 +72,7 @@ fn batch_prove(c: &mut Criterion) {
 
     // Log the current time elapsed.
     println!(" • Synthesized the Merkle tree in: {} ms", timer.elapsed().as_millis());
-    timer = std::time::Instant::now();
+    let timer = std::time::Instant::now();
 
     // Construct the assignment closure.
     let generate_assignment = |rng: &mut TestRng| {
@@ -114,7 +114,7 @@ fn batch_prove(c: &mut Criterion) {
 
     // Log the current time elapsed.
     println!(" • Synthesized the circuit in: {} ms", timer.elapsed().as_millis());
-    timer = std::time::Instant::now();
+    let timer = std::time::Instant::now();
 
     // Load the universal srs.
     let universal_srs = UniversalSRS::<CurrentNetwork>::load().unwrap();
@@ -123,17 +123,18 @@ fn batch_prove(c: &mut Criterion) {
 
     // Log the current time elapsed.
     println!(" • Generated the proving key in: {} ms", timer.elapsed().as_millis());
-    timer = std::time::Instant::now();
 
     // Bench the proof construction.
     for num_assignments in &[1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024] {
+        // Reset the timer.
+        let timer = std::time::Instant::now();
+
         // Construct the assignments.
         let assignments =
             [(proving_key.clone(), (0..*num_assignments).map(|_| generate_assignment(&mut rng)).collect::<Vec<_>>())];
 
         // Log the current time elapsed.
         println!(" • Generated {num_assignments} assignments in: {} ms", timer.elapsed().as_millis());
-        timer = std::time::Instant::now();
 
         let varuna_version = VarunaVersion::V2;
         c.bench_function(&format!("KaryMerkleTree batch prove {num_assignments} assignments"), |b| {
