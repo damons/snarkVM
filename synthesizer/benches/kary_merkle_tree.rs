@@ -18,8 +18,6 @@ extern crate criterion;
 
 use snarkvm_algorithms::snark::varuna::VarunaVersion;
 use snarkvm_circuit::{AleoV0, Eject, Environment, Inject, Mode, collections::kary_merkle_tree::*};
-#[allow(unused_imports)]
-use snarkvm_console::network::prelude::ToBits;
 use snarkvm_console::{
     algorithms::Poseidon8,
     collections::kary_merkle_tree::KaryMerkleTree,
@@ -41,13 +39,27 @@ type NativeLeafHasher = Poseidon8<CurrentNetwork>;
 type CircuitPathHasher = snarkvm_circuit::Poseidon8<AleoV0>;
 type CircuitLeafHasher = snarkvm_circuit::Poseidon8<AleoV0>;
 
-const DEPTH: u8 = 20;
-const ARITY: u8 = 2;
+const DEPTH: u8 = 7;
+const ARITY: u8 = 8;
 
 /// Generates the specified number of random Merkle tree leaves.
 macro_rules! generate_leaves {
-    ("bits", $num_leaves:expr, $rng:expr) => {{ (0..$num_leaves).map(|_| Field::<MainnetV0>::rand($rng).to_bits_le()).collect::<Vec<_>>() }};
-    ("fields", $num_leaves:expr, $rng:expr) => {{ (0..$num_leaves).map(|_| vec![Field::<MainnetV0>::rand($rng)]).collect::<Vec<_>>() }};
+    ("bits", $num_leaves:expr, $rng:expr) => {{
+        use snarkvm_console::network::prelude::ToBits;
+        // Generate leaf bits.
+        (0..$num_leaves).map(|_| Field::<CurrentNetwork>::rand($rng).to_bits_le()).collect::<Vec<_>>()
+    }};
+    ("fields", $num_leaves:expr, $rng:expr) => {{
+        use rand::SeedableRng;
+        use rayon::prelude::*;
+        // Generate leaf fields in parallel.
+        (0..$num_leaves)
+            .map(|_| u64::rand($rng))
+            .collect::<Vec<u64>>()
+            .into_par_iter()
+            .map(|seed| vec![Field::<CurrentNetwork>::rand(&mut rand::rngs::StdRng::seed_from_u64(seed))])
+            .collect::<Vec<_>>()
+    }};
 }
 
 fn batch_prove(c: &mut Criterion) {
@@ -63,7 +75,7 @@ fn batch_prove(c: &mut Criterion) {
     let circuit_leaf_hasher = CircuitLeafHasher::new(Mode::Private, native_leaf_hasher.clone());
 
     // Determine the maximum number of leaves.
-    let max_num_leaves = (ARITY as u32).pow(DEPTH as u32);
+    let max_num_leaves = (ARITY as u64).pow(DEPTH as u32);
     // Initialize the leaves.
     let leaves = generate_leaves!("fields", max_num_leaves, &mut rng);
     // Initialize the tree.
@@ -71,7 +83,7 @@ fn batch_prove(c: &mut Criterion) {
         KaryMerkleTree::<_, _, DEPTH, ARITY>::new(&native_leaf_hasher, &native_path_hasher, &leaves).unwrap();
 
     // Log the current time elapsed.
-    println!(" • Synthesized the Merkle tree in: {} ms", timer.elapsed().as_millis());
+    println!(" • Synthesized the Merkle tree in: {} secs", timer.elapsed().as_secs());
     let timer = std::time::Instant::now();
 
     // Construct the assignment closure.
@@ -100,11 +112,6 @@ fn batch_prove(c: &mut Criterion) {
         let candidate = path.verify(&circuit_leaf_hasher, &circuit_path_hasher, &root, &leaf);
         assert!(candidate.eject_value());
 
-        // Uncomment me to enable logging.
-        // println!("\t• Number of public & private variables: {:?}", (CurrentAleo::num_public(), CurrentAleo::num_private()));
-        // println!("\t• Number of constraints: {}", CurrentAleo::num_constraints());
-        // println!("\t• Number of nonzeros: {:?}", CurrentAleo::num_nonzeros());
-
         // Eject the assignment.
         CurrentAleo::eject_assignment_and_reset()
     };
@@ -123,6 +130,9 @@ fn batch_prove(c: &mut Criterion) {
 
     // Log the current time elapsed.
     println!(" • Generated the proving key in: {} ms", timer.elapsed().as_millis());
+    println!("\t• Number of public & private variables: {:?}", (assignment.num_public(), assignment.num_private()));
+    println!("\t• Number of constraints: {}", assignment.num_constraints());
+    println!("\t• Number of nonzeros: {:?}", assignment.num_nonzeros());
 
     // Bench the proof construction.
     for num_assignments in &[1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024] {
