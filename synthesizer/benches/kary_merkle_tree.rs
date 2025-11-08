@@ -47,11 +47,7 @@ const ARITY: u8 = 2;
 /// Generates the specified number of random Merkle tree leaves.
 macro_rules! generate_leaves {
     ("bits", $num_leaves:expr, $rng:expr) => {{ (0..$num_leaves).map(|_| Field::<MainnetV0>::rand($rng).to_bits_le()).collect::<Vec<_>>() }};
-    ("fields", $num_leaves:expr, $rng:expr) => {{
-        (0..$num_leaves)
-            .map(|_| (0..$rng.gen_range::<u8, _>(0..5)).map(|_| Field::<MainnetV0>::rand($rng)).collect::<Vec<_>>())
-            .collect::<Vec<_>>()
-    }};
+    ("fields", $num_leaves:expr, $rng:expr) => {{ (0..$num_leaves).map(|_| vec![Field::<MainnetV0>::rand($rng)]).collect::<Vec<_>>() }};
 }
 
 fn batch_prove(c: &mut Criterion) {
@@ -90,7 +86,8 @@ fn batch_prove(c: &mut Criterion) {
         // Initialize the Merkle path.
         let merkle_path = merkle_tree.prove(leaf_index, &merkle_leaf).unwrap();
 
-        println!("\t• Proving leaf index: {leaf_index}");
+        // Uncomment me to enable logging.
+        // println!("\t• Proving leaf index: {leaf_index}");
 
         // Initialize the Merkle path circuit.
         let path = KaryMerklePath::<CurrentAleo, CircuitPathHasher, DEPTH, ARITY>::new(Mode::Private, merkle_path);
@@ -98,17 +95,15 @@ fn batch_prove(c: &mut Criterion) {
         let leaf: Vec<_> = Inject::new(Mode::Private, merkle_leaf);
         // Initialize the Merkle root circuit.
         let root = <CircuitPathHasher as PathHash<CurrentAleo>>::Hash::new(Mode::Private, *merkle_tree.root());
-        println!("{:?}", (CurrentAleo::num_public(), CurrentAleo::num_private(), CurrentAleo::num_constraints()));
 
         // Verify the Merkle path circuit.
         let candidate = path.verify(&circuit_leaf_hasher, &circuit_path_hasher, &root, &leaf);
-        println!("{:?}", (CurrentAleo::num_public(), CurrentAleo::num_private(), CurrentAleo::num_constraints()));
         assert!(candidate.eject_value());
 
-        println!("\t• Number of Public Variables: {}", CurrentAleo::num_public());
-        println!("\t• Number of Private Variables: {}", CurrentAleo::num_private());
-        println!("\t• Number of Constraints: {}", CurrentAleo::num_constraints());
-        println!("\t• Number of Nonzeros: {:?}", CurrentAleo::num_nonzeros());
+        // Uncomment me to enable logging.
+        // println!("\t• Number of public & private variables: {:?}", (CurrentAleo::num_public(), CurrentAleo::num_private()));
+        // println!("\t• Number of constraints: {}", CurrentAleo::num_constraints());
+        // println!("\t• Number of nonzeros: {:?}", CurrentAleo::num_nonzeros());
 
         // Eject the assignment.
         CurrentAleo::eject_assignment_and_reset()
