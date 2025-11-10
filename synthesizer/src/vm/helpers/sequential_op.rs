@@ -44,10 +44,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         let ret = vm.atomic_speculate_inner(a, b, c, d, e, f);
                         SequentialOperationResult::AtomicSpeculate(ret)
                     }
-                    SequentialOperation::Shutdown => {
-                        // The thread may be closed.
-                        break;
-                    }
                 };
 
                 // Relay the results of the operation to the caller.
@@ -60,9 +56,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     pub fn run_sequential_operation(&self, op: SequentialOperation<N>) -> Option<SequentialOperationResult<N>> {
         debug!("Queuing operation '{op}' for sequential processing");
 
-        // Remember if this is a shutdown.
-        let is_shutdown = matches!(op, SequentialOperation::Shutdown);
-
         // Prepare a oneshot channel to obtain the result of the queued operation.
         let (response_tx, response_rx) = oneshot::channel();
         let request = SequentialOperationRequest { op, response_tx };
@@ -71,11 +64,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         if let Some(tx) = &*self.sequential_ops_tx.read() {
             // Send the operation to be processed sequentially.
             let _ = tx.send(request);
-
-            // If it's a shutdown, just return None.
-            if is_shutdown {
-                return None;
-            }
 
             // Wait for the result of the queued operation. This is a blocking method,
             // and will panic in async contexts (which doesn't happen in production, as
@@ -101,7 +89,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 pub enum SequentialOperation<N: Network> {
     AddNextBlock(Block<N>),
     AtomicSpeculate(FinalizeGlobalState, i64, Option<u64>, Vec<Ratify<N>>, Solutions<N>, Vec<Transaction<N>>),
-    Shutdown,
 }
 
 impl<N: Network> fmt::Display for SequentialOperation<N> {
@@ -112,9 +99,6 @@ impl<N: Network> fmt::Display for SequentialOperation<N> {
             }
             SequentialOperation::AtomicSpeculate(state, ..) => {
                 write!(f, "atomic speculate (height {}, round {})", state.block_height(), state.block_round())
-            }
-            SequentialOperation::Shutdown => {
-                write!(f, "shutdown")
             }
         }
     }
