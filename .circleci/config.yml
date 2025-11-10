@@ -885,20 +885,7 @@ jobs:
             --lib --bins --features test
             --partition count:2/2
             -- --test-threads 8
-          cache_key_suffix: -test2-sccache-debug
-          timeout: 25m
-
-  synthesizer-test-partition2:
-    executor: rust-docker
-    resource_class: << pipeline.parameters.twoxlarge >>
-    steps:
-      - run_test:
-          workspace_member: snarkvm-synthesizer
-          flags: >
-            --lib --bins --features test
-            --partition count:2/2
-            -- --test-threads 8
-          cache_key_suffix: -test2-sccache-debug
+          cache_key_suffix: -test2
           timeout: 25m
 
   synthesizer-integration:
