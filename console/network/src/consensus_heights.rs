@@ -105,7 +105,7 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CON
     (ConsensusVersion::V9, 8_028_000),
     (ConsensusVersion::V10, 8_600_000),
     (ConsensusVersion::V11, 9_510_000),
-    (ConsensusVersion::V12, 10_537_000),
+    (ConsensusVersion::V12, 10_030_000),
 ];
 
 /// The consensus version height for `MainnetV0`.
@@ -121,7 +121,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V9, 10_272_000),
     (ConsensusVersion::V10, 11_205_000),
     (ConsensusVersion::V11, 12_870_000),
-    (ConsensusVersion::V12, 14_728_809),
+    (ConsensusVersion::V12, 13_814_000),
 ];
 
 /// The consensus version heights for `TestnetV0`.
@@ -137,7 +137,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V9, 9_800_000),
     (ConsensusVersion::V10, 10_525_000),
     (ConsensusVersion::V11, 11_952_000),
-    (ConsensusVersion::V12, 13_490_934),
+    (ConsensusVersion::V12, 12_757_000),
 ];
 
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
