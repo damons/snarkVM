@@ -23,7 +23,7 @@ orbs:
 executors:
   # The default docker image used in the main-workflow
   rust-docker:
-     docker:
+    docker:
       - image: cimg/rust:1.88.0 # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
 
 commands:
@@ -35,32 +35,46 @@ commands:
     steps:
       - checkout
       - restore_cache:
-          key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          keys:
+            - cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-{{ arch }}-
       - run:
           name: "Install Rust"
+          no_output_timeout: 15m
           command: |
+            $ErrorActionPreference = "Stop"
             $ProgressPreference = "SilentlyContinue"
-            # Remove the version of rustc that (might be) installed already..
-            # Use non-interactive mode and force uninstall to prevent the job from getting stuck.
-            choco uninstall rust -y --force
 
-            # Install rust with rustup.
-            Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "C:\rustup-init.exe"
-            & C:\rustup-init.exe -y --default-toolchain "1.88.0-x86_64-pc-windows-msvc" --no-modify-path --profile minimal # Attention - Change the MSRV in Cargo.toml and rust-toolchain as well
+            # Ensure rustup is installed
+            if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+                Write-Host "rustup not found, installing..."
+                $rustupPath = "$env:TEMP\rustup-init.exe"
+                Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile $rustupPath
+                & $rustupPath -y --default-toolchain "1.88.0-x86_64-pc-windows-msvc" --no-modify-path --profile minimal
+            } else {
+                Write-Host "rustup already installed, ensuring toolchain 1.88.0-x86_64-pc-windows-msvc is present..."
+                rustup toolchain install 1.88.0-x86_64-pc-windows-msvc
+            }
 
-            # Add cargo to PATH
-            $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
+            # Put cargo/rustup first in PATH for this step and subsequent steps
+            $Env:Path = "$Env:USERPROFILE\.cargo\bin;$Env:Path"
+
+            # Select the toolchain
+            rustup default 1.88.0-x86_64-pc-windows-msvc
+
             # Verify the installation.
             cargo --version --verbose
             rustc --version | Out-File -FilePath "rust-version"
+
             if (!(Test-Path "Cargo.lock" -PathType Leaf)) {
                 cargo generate-lockfile
             }
       - run:
           name: "Run cargo check"
           command: |
-            # Add cargo to PATH
-            $Env:Path += ";$Env:USERPROFILE\.cargo\bin"
+            # Add cargo to PATH (for safety in case env is not carried perfectly)
+            $Env:Path = "$Env:USERPROFILE\.cargo\bin;$Env:Path"
+
             # Check that the given package compiles
             cd << parameters.workspace_member >>
             cargo check --examples --benches --tests
@@ -69,44 +83,69 @@ commands:
             - C:\Users\circleci\.cargo\registry
             - C:\Users\circleci\.cargo\git
             - target
-          key: cargo-cache-{{ arch }}-{{ checksum "rust-version" }}-{{ checksum "Cargo.lock" }}
+          key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   setup_environment:
     description: "Setup testing environment"
     parameters:
       cache_key:
         type: string
-        default: v4.2.0-rust-1.88.0-snarkvm-stable-cache
+        default: v4.2.0-rust-1.88.0-snarkvm-cache
+
     steps:
-      - run: set -e
       - run:
           name: Prepare environment variables and install dependencies
           command: |
-            echo 'export "RUSTC_WRAPPER"="$CIRCLE_WORKING_DIRECTORY/.bin/sccache"' >> $BASH_ENV
-            echo 'export "SCCACHE_CACHE_SIZE"="20000M"' >> $BASH_ENV
+            # Make sure our local bin and cargo bin are on PATH
+            echo 'export PATH="$HOME/.cargo/bin:$CIRCLE_WORKING_DIRECTORY/.bin:$PATH"' >> "$BASH_ENV"
 
-            # Disable incremental builds so that sccache works as expected
+            # sccache settings
+            echo 'export SCCACHE_DIR="$HOME/.cache/sccache"' >> "$BASH_ENV"
+            echo 'export SCCACHE_CACHE_SIZE="20000M"' >> "$BASH_ENV"
+            echo 'export SCCACHE_IDLE_TIMEOUT=0' >> "$BASH_ENV"   # keep server alive
+            echo 'export SCCACHE_LOG=info' >> "$BASH_ENV"
+
+            # Disable incremental builds so sccache behaves nicely
             echo 'export CARGO_INCREMENTAL=0' >> "$BASH_ENV"
+
+            # Use sccache for *all* Rust compile commands
+            echo 'export RUSTC_WRAPPER="sccache"' >> "$BASH_ENV"
+
+            #mkdir -p .cargo
+            #printf '%s\n' \
+            #  '[build]' \
+            #  'rustc-wrapper = "/home/circleci/project/.bin/sccache"' \
+            #  > .cargo/config.toml
+
       - run:
           name: Install sccache
           command: |
-            export WORK_DIR="$CIRCLE_WORKING_DIRECTORY/.cache/sccache"
-            export SCCACHE_DIR="$CIRCLE_WORKING_DIRECTORY/.cache/sccache"
+            export WORK_DIR="$HOME/.cache/sccache"
+            export SCCACHE_DIR="$HOME/.cache/sccache"
             export SCCACHE_VERSION=v0.10.0
             export SCCACHE_PKG="sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl"
-                 
+
             mkdir -p "$CIRCLE_WORKING_DIRECTORY/.bin"
-            wget "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/$SCCACHE_PKG.tar.gz"
-            tar -C "$CIRCLE_WORKING_DIRECTORY/.bin" -xvf "$SCCACHE_PKG.tar.gz"
-            chmod +x "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache"
-            mv "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache" "$CIRCLE_WORKING_DIRECTORY/.bin/sccache"
-            rm -rf "$CIRCLE_WORKING_DIRECTORY/.cargo/registry"
+            mkdir -p "$HOME/.cache/sccache"
+            if [ ! -x "$CIRCLE_WORKING_DIRECTORY/.bin/sccache" ]; then
+              wget "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/$SCCACHE_PKG.tar.gz"
+              tar -C "$CIRCLE_WORKING_DIRECTORY/.bin" -xvf "$SCCACHE_PKG.tar.gz"
+              chmod +x "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache"
+              mv "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache" "$CIRCLE_WORKING_DIRECTORY/.bin/sccache"
+              rm -rf "$CIRCLE_WORKING_DIRECTORY/.cargo/registry"
+            fi
 
       - run:
           name: Install debian packages
           command: |
             DEBIAN_FRONTEND=noninteractive sudo apt-get update
             DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends clang llvm-dev llvm lld pkg-config xz-utils make libssl-dev libssl-dev
+
+      - restore_cache:
+          keys:
+            - v4.2.0-rust-1.88.0-deps-{{ checksum "Cargo.lock" }}-
+            - v4.2.0-rust-1.88.0-deps-
+
       - restore_cache:
           keys:
             - << parameters.cache_key >>
@@ -116,16 +155,22 @@ commands:
     parameters:
       cache_key:
         type: string
-        default: v4.2.0-rust-1.88.0-snarkvm-stable-cache
+        default: v4.2.0-rust-1.88.0-snarkvm-cache
     steps:
-      - run: (sccache -s || true)
       - run: set +e
+      - save_cache:
+          key: v4.2.0-rust-1.88.0-deps-{{ checksum "Cargo.lock" }}-{{ epoch }}
+          paths:
+            - /home/circleci/.cache/sccache
+            - /home/circleci/.cargo/registry
+            - /home/circleci/.cargo/git
+            - /home/circleci/.rustup
+            - /home/circleci/.cargo/bin
+            - /home/circleci/project/.bin
       - save_cache:
           key: << parameters.cache_key >>
           paths:
             - /home/circleci/project/target
-            - /home/circleci/.cache/sccache
-            - /home/circleci/.cargo
             - /home/circleci/.aleo/resources
 
   run_test:
@@ -150,10 +195,26 @@ commands:
       - setup_environment:
           cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
 
+
       - run:
           name: Install cargo-nextest
           command: |
-            cargo install cargo-nextest --locked || true
+            set -euo pipefail
+
+            BIN_ROOT="$CIRCLE_WORKING_DIRECTORY/.bin"
+            mkdir -p "$BIN_ROOT"
+
+            export PATH="$HOME/.cargo/bin:$PATH"
+            if ! command -v cargo-nextest >/dev/null 2>&1; then
+              cargo install cargo-nextest --locked
+            fi
+
+      - run:
+          name: Debug rustc wrapper
+          command: |
+            echo "RUSTC_WRAPPER=${RUSTC_WRAPPER:-<unset>}"
+            which sccache || echo "sccache not found on PATH"
+            which rustc || echo "rustc not found on PATH"
 
       - run:
           name: "Run Tests"
@@ -162,6 +223,18 @@ commands:
           command: |
             set -euo pipefail
             export CARGO_TERM_COLOR=never
+
+            echo "[debug] PATH=$PATH"
+            echo "[debug] RUSTC_WRAPPER=${RUSTC_WRAPPER:-<unset>}"
+            which sccache || echo "[debug] sccache not found on PATH"
+            which rustc || echo "[debug] rustc not found on PATH"
+            echo "[debug] SCCACHE_DIR=${SCCACHE_DIR:-<unset>}"
+            echo "[debug] SCCACHE_LOG=${SCCACHE_LOG:-<unset>}"
+            echo "[debug] SCCACHE_IDLE_TIMEOUT=${SCCACHE_IDLE_TIMEOUT:-<unset>}"
+
+            "$CIRCLE_WORKING_DIRECTORY/.bin/sccache" --zero-stats || true
+            echo "[sccache stats BEFORE nextest]"
+            "$CIRCLE_WORKING_DIRECTORY/.bin/sccache" -s || true
 
             # Create artifact + nextest output directories
             mkdir -p artifacts target/nextest/ci
@@ -248,9 +321,8 @@ commands:
               fi
             fi
 
-            DEFAULT_JOBS=12
+            DEFAULT_JOBS=8
 
-            # Default JOBS, overridden by TEST_THREADS if set
             JOBS="${NEXTEST_JOBS:-$DEFAULT_JOBS}"
             if [ -n "$TEST_THREADS" ]; then
               JOBS="$TEST_THREADS"
@@ -286,7 +358,8 @@ commands:
               RUST_MIN_STACK=67108864 cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
               : > "$CSV"; : > "$TOP"
             else
-              RUST_MIN_STACK=67108864 cargo nextest run \
+              RUST_MIN_STACK=67108864 \
+              cargo nextest run \
                 -p "<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
                 --profile ci -j "${JOBS}" "${CFG_ARGS[@]}" \
                 --status-level fail --hide-progress-bar \
@@ -314,6 +387,9 @@ commands:
               fi
             fi
 
+            echo "[sccache stats AFTER nextest]"
+            "$CIRCLE_WORKING_DIRECTORY/.bin/sccache" -s || true
+
       - store_artifacts:
           path: artifacts
           destination: test-timings/<< parameters.workspace_member >>
@@ -339,7 +415,7 @@ jobs:
           workspace_member: snarkvm
 
   algorithms:
-    executor: rust-docker 
+    executor: rust-docker
     resource_class: << pipeline.parameters.large >>
     steps:
       - run_test:
@@ -349,11 +425,11 @@ jobs:
     executor: rust-docker
     resource_class: << pipeline.parameters.medium >>
     steps:
-      - run_test: # This runs a single test with profiler enabled
+      - run_test:
           workspace_member: snarkvm-algorithms
           flags: varuna::prove_and_verify_with_square_matrix --features profiler
           cache_key_suffix: -profiler-test
-  
+
   circuit:
     executor: rust-docker
     resource_class: << pipeline.parameters.small >>
@@ -732,7 +808,6 @@ jobs:
     executor: rust-docker
     resource_class: << pipeline.parameters.twoxlarge >>
     steps:
-
       - run_test:
           workspace_member: snarkvm-ledger-store
           flags: --features=rocks
@@ -796,7 +871,7 @@ jobs:
           flags: >
             --lib --bins --features test
             --partition count:1/2
-            -- --test-threads 16
+            -- --test-threads 8
           cache_key_suffix: -test1
           timeout: 25m
 
@@ -809,18 +884,9 @@ jobs:
           flags: >
             --lib --bins --features test
             --partition count:2/2
-            -- --test-threads 16
+            -- --test-threads 8
           cache_key_suffix: -test2
           timeout: 25m
-
-#  synthesizer-mem-heavy:
-#    executor: rust-docker
-#    resource_class: << pipeline.parameters.twoxlarge >>
-#    steps:
-#      - run_test:
-#          workspace_member: snarkvm-synthesizer
-#          flags: -- --ignored test_deployment_synthesis_overload test_deep_nested_execution_cost
-#          cache_key_suffix: -mem-heavy
 
   synthesizer-integration:
     executor: rust-docker
@@ -1158,7 +1224,6 @@ workflows:
       - synthesizer
       - synthesizer-test-partition1
       - synthesizer-test-partition2
-      # - synthesizer-mem-heavy
       - synthesizer-integration
       - synthesizer-process
       - synthesizer-process-with-rocksdb
