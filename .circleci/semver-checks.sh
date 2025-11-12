@@ -3,7 +3,7 @@
 # Ensure that the command is installed.
 cargo install cargo-semver-checks@0.43.0 --locked
 
-BASELINE_REV=13cf4d7 # UPDATE ME ON NECESSARY BREAKING CHANGES
+BASELINE_REV=7a6475c36 # UPDATE ME ON NECESSARY BREAKING CHANGES
 
 # Exclude CLI as it has been removed
 cargo semver-checks --workspace --default-features \
