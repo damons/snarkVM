@@ -27,4 +27,4 @@ mod rewards;
 pub use rewards::*;
 
 mod sequential_op;
-pub use sequential_op::*;
+pub(crate) use sequential_op::*;
