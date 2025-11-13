@@ -36,11 +36,10 @@ fn bench_block_store<S: BlockStorage<CurrentNetwork>>(
     group: &mut BenchmarkGroup<WallTime>,
     genesis_block: &Block<CurrentNetwork>,
     blocks: &[Block<CurrentNetwork>],
-    num_validators: usize,
 ) {
     let rng = &mut TestRng::default();
 
-    group.bench_function(format!("{name}::insert/{num_validators}validators"), |b| {
+    group.bench_function(format!("{name}::insert"), |b| {
         b.iter_custom(|num_inserts| {
             let num_inserts = num_inserts as usize;
             let store = create_storage::<S>(genesis_block);
@@ -59,7 +58,7 @@ fn bench_block_store<S: BlockStorage<CurrentNetwork>>(
         })
     });
 
-    group.bench_function(format!("{name}::get_block/{num_validators}validators"), |b| {
+    group.bench_function(format!("{name}::get_block"), |b| {
         let hashes: Vec<_> = blocks.iter().map(|b| b.hash()).collect();
 
         b.iter_custom(|num_gets| {
@@ -82,7 +81,7 @@ fn bench_block_store<S: BlockStorage<CurrentNetwork>>(
         })
     });
 
-    group.bench_function(format!("{name}::get_block_height/{num_validators}validators"), |b| {
+    group.bench_function(format!("{name}::get_block_height"), |b| {
         let hashes: Vec<_> = blocks.iter().map(|b| b.hash()).collect();
 
         b.iter_custom(|num_gets| {
@@ -108,21 +107,13 @@ fn bench_block_store<S: BlockStorage<CurrentNetwork>>(
 fn block_store(c: &mut Criterion) {
     initialize_logging();
 
-    const NUM_VALIDATORS: usize = 4;
-
     let (genesis_block, blocks) = load_blocks("test-ledger").pretty_expect("Failed to load blocks from disk");
 
     let mut group = c.benchmark_group("block_store");
     group.sample_size(10);
 
-    bench_block_store::<BlockMemory<CurrentNetwork>>(
-        "BlockMemory",
-        &mut group,
-        &genesis_block,
-        &blocks,
-        NUM_VALIDATORS,
-    );
-    bench_block_store::<BlockDB<CurrentNetwork>>("BlockDB", &mut group, &genesis_block, &blocks, NUM_VALIDATORS);
+    bench_block_store::<BlockMemory<CurrentNetwork>>("BlockMemory", &mut group, &genesis_block, &blocks);
+    bench_block_store::<BlockDB<CurrentNetwork>>("BlockDB", &mut group, &genesis_block, &blocks);
 
     group.finish();
 }
