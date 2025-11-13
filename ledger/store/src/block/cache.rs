@@ -36,6 +36,8 @@ impl<N: Network> BlockCache<N> {
 
     /// Initialize the cache with the given blocks.
     pub fn new(blocks: Vec<Block<N>>) -> Result<Self> {
+        ensure!(blocks.len() <= Self::BLOCK_CACHE_SIZE as usize, "Too many blocks to fit in the cache");
+
         if let Some(block) = blocks.first() {
             ensure!(block.height() != 0, "Cannot cache the genesis block");
         }
