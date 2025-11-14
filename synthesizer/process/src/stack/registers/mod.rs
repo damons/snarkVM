@@ -25,6 +25,7 @@ use console::{
 use snarkvm_synthesizer_program::{Operand, RegistersCircuit, RegistersSigner, RegistersTrait, StackTrait};
 
 use indexmap::IndexMap;
+use std::{cell::OnceCell, sync::OnceLock};
 
 #[derive(Clone)]
 pub struct Registers<N: Network, A: circuit::Aleo<Network = N>> {

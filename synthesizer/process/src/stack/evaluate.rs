@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use super::*;
+use std::sync::OnceLock;
 
 impl<N: Network> Stack<N> {
     /// Evaluates a program closure on the given inputs.
@@ -81,6 +82,11 @@ impl<N: Network> Stack<N> {
                     Operand::Signer => Ok(Value::Plaintext(Plaintext::from(Literal::Address(registers.signer()?)))),
                     // If the operand is the caller, retrieve the caller from the registers.
                     Operand::Caller => Ok(Value::Plaintext(Plaintext::from(Literal::Address(registers.caller()?)))),
+                    // If the operand is the generator, retrieve the generator powers.
+                    Operand::Generator => Ok(Value::Plaintext(Plaintext::Array(
+                        N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
+                        OnceLock::new(),
+                    ))),
                     // If the operand is the block height, throw an error.
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a closure scope."),
                     // If the operand is the block timestamp, throw an error.
@@ -237,6 +243,11 @@ impl<N: Network> Stack<N> {
                     Operand::Signer => Ok(Value::Plaintext(Plaintext::from(Literal::Address(registers.signer()?)))),
                     // If the operand is the caller, retrieve the caller from the registers.
                     Operand::Caller => Ok(Value::Plaintext(Plaintext::from(Literal::Address(registers.caller()?)))),
+                    // If the operand is the generator, retrieve the generator powers.
+                    Operand::Generator => Ok(Value::Plaintext(Plaintext::Array(
+                        N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
+                        OnceLock::new(),
+                    ))),
                     // If the operand is the block height, throw an error.
                     Operand::BlockHeight => bail!("Cannot retrieve the block height from a function scope."),
                     // If the operand is the block timestamp, throw an error.

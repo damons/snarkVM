@@ -47,6 +47,8 @@ pub enum Operand<N: Network> {
     /// The operand is the network ID.
     /// Note: This variant is only accessible in the `finalize` scope.
     NetworkID,
+    /// The operand is the group bases for the Aleo signature and encryption schemes.
+    Generator,
     /// The operand is the program checksum.
     /// If no program ID is specified, the checksum is for the current program.
     /// If a program ID is specified, the checksum is for an external program.

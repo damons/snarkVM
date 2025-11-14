@@ -64,11 +64,12 @@ impl<N: Network> FinalizeTypes<N> {
                         "Struct member '{struct_name}.{member_name}' expects {member_type}, but found '{plaintext_type}' in the operand '{operand}'.",
                     )
                 }
-                // Ensure the program ID, block height, block timestamp, network ID, checksum, edition, and program owner types matches the member type.
+                // Ensure the program ID, block height, block timestamp, network ID, generator, checksum, edition, and program owner types matches the member type.
                 Operand::ProgramID(..)
                 | Operand::BlockHeight
                 | Operand::BlockTimestamp
                 | Operand::NetworkID
+                | Operand::Generator
                 | Operand::Checksum(_)
                 | Operand::Edition(_)
                 | Operand::ProgramOwner(_) => {
@@ -142,11 +143,12 @@ impl<N: Network> FinalizeTypes<N> {
                         array_type.next_element_type()
                     )
                 }
-                // Ensure the program ID, block height, network ID, checksum, edition, and program owner types matches the element type.
+                // Ensure the program ID, block height, network ID, generator, checksum, edition, and program owner types matches the element type.
                 Operand::ProgramID(..)
                 | Operand::BlockHeight
                 | Operand::BlockTimestamp
                 | Operand::NetworkID
+                | Operand::Generator
                 | Operand::Checksum(_)
                 | Operand::Edition(_)
                 | Operand::ProgramOwner(_) => {

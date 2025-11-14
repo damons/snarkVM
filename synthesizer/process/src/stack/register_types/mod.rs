@@ -49,6 +49,7 @@ use snarkvm_synthesizer_program::{
 };
 use snarkvm_utilities::dev_eprintln;
 
+use console::algorithms::U32;
 use indexmap::{IndexMap, IndexSet};
 
 #[derive(Clone, Default, PartialEq, Eq)]
@@ -96,6 +97,10 @@ impl<N: Network> RegisterTypes<N> {
             Operand::ProgramID(_) | Operand::Signer | Operand::Caller => {
                 RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Address))
             }
+            Operand::Generator => RegisterType::Plaintext(PlaintextType::Array(ArrayType::new(
+                PlaintextType::Literal(LiteralType::Group),
+                vec![U32::new(N::Scalar::SIZE_IN_BITS as u32)],
+            )?)),
             Operand::BlockHeight => bail!("'block.height' is not a valid operand in a non-finalize context."),
             Operand::BlockTimestamp => {
                 bail!("'block.timestamp' is not a valid operand in a non-finalize context.")

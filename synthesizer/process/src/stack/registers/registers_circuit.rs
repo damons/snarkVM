@@ -100,6 +100,16 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersCircuit<N, A> for Regis
                     self.caller_circuit()?,
                 ))));
             }
+            // If the operand is the generator, load the generator powers.
+            Operand::Generator => {
+                return Ok(circuit::Value::Plaintext(circuit::Plaintext::Array(
+                    A::g_powers()
+                        .into_iter()
+                        .map(|element| circuit::Plaintext::from(circuit::Literal::Group(element)))
+                        .collect(),
+                    OnceCell::new(),
+                )));
+            }
             // If the operand is the block height, throw an error.
             Operand::BlockHeight => bail!("Cannot load the block height in a non-finalize context"),
             // If the operand is the block timestamp, throw an error.

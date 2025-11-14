@@ -15,6 +15,7 @@
 
 use super::*;
 use console::program::FinalizeType;
+use std::sync::OnceLock;
 
 impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
     /// Loads the value of a given operand from the registers.
@@ -51,6 +52,13 @@ impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
             // If the operand is the network ID, load the network ID.
             Operand::NetworkID => {
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(U16::new(N::ID)))));
+            }
+            // If the operand is the generator, load the group bases.
+            Operand::Generator => {
+                return Ok(Value::Plaintext(Plaintext::Array(
+                    N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
+                    OnceLock::new(),
+                )));
             }
             // If the operand is the checksum, load the checksum.
             Operand::Checksum(program_id) => {
