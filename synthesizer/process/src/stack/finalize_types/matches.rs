@@ -69,7 +69,7 @@ impl<N: Network> FinalizeTypes<N> {
                 | Operand::BlockHeight
                 | Operand::BlockTimestamp
                 | Operand::NetworkID
-                | Operand::Generator
+                | Operand::Generator(_)
                 | Operand::Checksum(_)
                 | Operand::Edition(_)
                 | Operand::ProgramOwner(_) => {
@@ -148,7 +148,7 @@ impl<N: Network> FinalizeTypes<N> {
                 | Operand::BlockHeight
                 | Operand::BlockTimestamp
                 | Operand::NetworkID
-                | Operand::Generator
+                | Operand::Generator(_)
                 | Operand::Checksum(_)
                 | Operand::Edition(_)
                 | Operand::ProgramOwner(_) => {

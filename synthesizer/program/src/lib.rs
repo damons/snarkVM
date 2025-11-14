@@ -992,8 +992,9 @@ impl<N: Network> ProgramCore<N> {
         // `Operand::Generator`.
         cfg_iter!(self.functions()).any(|(_, function)| {
             function.finalize_logic().is_some_and(|finalize_logic| {
-                cfg_iter!(finalize_logic.commands())
-                    .any(|command| cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::Generator)))
+                cfg_iter!(finalize_logic.commands()).any(|command| {
+                    cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::Generator(_)))
+                })
             })
         })
     }

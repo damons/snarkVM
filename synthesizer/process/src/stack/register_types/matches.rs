@@ -97,7 +97,7 @@ impl<N: Network> RegisterTypes<N> {
                     "Struct member '{struct_name}.{member_name}' cannot be from a network ID in a non-finalize scope"
                 ),
                 // If the operand is a generator, throw an error.
-                Operand::Generator => {
+                Operand::Generator(_) => {
                     bail!(
                         "Struct member '{struct_name}.{member_name}' cannot be from a generator in a non-finalize scope"
                     )
@@ -198,7 +198,7 @@ impl<N: Network> RegisterTypes<N> {
                 // If the operand is a network ID type, throw an error.
                 Operand::NetworkID => bail!("Array element cannot be from a network ID in a non-finalize scope"),
                 // If the operand is a generator, throw an error.
-                Operand::Generator => {
+                Operand::Generator(_) => {
                     bail!("Array element cannot be from a generator in a non-finalize scope")
                 }
                 // If the operand is a checksum type, throw an error.
@@ -276,7 +276,7 @@ impl<N: Network> RegisterTypes<N> {
             Operand::NetworkID => {
                 bail!("Forbidden operation: Cannot cast a network ID as a record owner")
             }
-            Operand::Generator => {
+            Operand::Generator(_) => {
                 bail!("Forbidden operation: Cannot cast a generator as a record owner")
             }
             Operand::Checksum(_) => {
@@ -361,7 +361,7 @@ impl<N: Network> RegisterTypes<N> {
                             )
                         }
                         // Fail if the operand is a generator
-                        Operand::Generator => {
+                        Operand::Generator(_) => {
                             bail!(
                                 "Record entry '{record_name}.{entry_name}' expects a '{plaintext_type}', but found a generator in the operand '{operand}'."
                             )

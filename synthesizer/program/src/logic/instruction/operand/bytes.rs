@@ -53,7 +53,16 @@ impl<N: Network> FromBytes for Operand<N> {
                 Ok(Self::ProgramOwner(program_id))
             }
             10 => Ok(Self::BlockTimestamp),
-            11 => Ok(Self::Generator),
+            11 => {
+                let index_exists: bool = FromBytes::read_le(&mut reader)?;
+                match index_exists {
+                    true => {
+                        let index: U32<N> = FromBytes::read_le(&mut reader)?;
+                        Ok(Self::Generator(Some(index)))
+                    }
+                    false => Ok(Self::Generator(None)),
+                }
+            }
             variant => Err(error(format!("Failed to deserialize operand variant {variant}"))),
         }
     }
@@ -112,7 +121,17 @@ impl<N: Network> ToBytes for Operand<N> {
                 }
             }
             Self::BlockTimestamp => 10u8.write_le(&mut writer),
-            Self::Generator => 11u8.write_le(&mut writer),
+            Self::Generator(index) => {
+                11u8.write_le(&mut writer)?;
+                // Write the index if it is present.
+                match index {
+                    Some(index) => {
+                        true.write_le(&mut writer)?;
+                        index.write_le(&mut writer)
+                    }
+                    None => false.write_le(&mut writer),
+                }
+            }
         }
     }
 }

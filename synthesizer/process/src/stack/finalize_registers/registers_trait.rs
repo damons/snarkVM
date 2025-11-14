@@ -54,12 +54,20 @@ impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(U16::new(N::ID)))));
             }
             // If the operand is the generator, load the group bases.
-            Operand::Generator => {
-                return Ok(Value::Plaintext(Plaintext::Array(
-                    N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
-                    OnceLock::new(),
-                )));
-            }
+            Operand::Generator(index) => match index {
+                None => {
+                    return Ok(Value::Plaintext(Plaintext::Array(
+                        N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
+                        OnceLock::new(),
+                    )));
+                }
+                Some(index) => {
+                    return N::g_powers()
+                        .get(**index as usize)
+                        .map(|element| Value::Plaintext(Plaintext::from(Literal::Group(*element))))
+                        .ok_or_else(|| anyhow!("Generator index {index} out of bounds"));
+                }
+            },
             // If the operand is the checksum, load the checksum.
             Operand::Checksum(program_id) => {
                 let checksum = match program_id {

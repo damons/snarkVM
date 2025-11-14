@@ -87,12 +87,20 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersTrait<N> for Registers<
             // If the operand is the caller, load the value of the caller.
             Operand::Caller => return Ok(Value::Plaintext(Plaintext::from(Literal::Address(self.caller()?)))),
             // If the operand is the generator, load the generator powers.
-            Operand::Generator => {
-                return Ok(Value::Plaintext(Plaintext::Array(
-                    N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
-                    OnceLock::new(),
-                )));
-            }
+            Operand::Generator(index) => match index {
+                None => {
+                    return Ok(Value::Plaintext(Plaintext::Array(
+                        N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
+                        OnceLock::new(),
+                    )));
+                }
+                Some(index) => {
+                    return N::g_powers()
+                        .get(**index as usize)
+                        .map(|element| Value::Plaintext(Plaintext::from(Literal::Group(*element))))
+                        .ok_or_else(|| anyhow!("Generator index {index} out of bounds"));
+                }
+            },
             // If the operand is the block height, throw an error.
             Operand::BlockHeight => bail!("Cannot load the block height in a non-finalize context"),
             // If the operand is the block timestamp, throw an error.

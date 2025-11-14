@@ -29,7 +29,9 @@ impl<N: Network> Parser for Operand<N> {
             map(tag("block.height"), |_| Self::BlockHeight),
             map(tag("block.timestamp"), |_| Self::BlockTimestamp),
             map(tag("network.id"), |_| Self::NetworkID),
-            map(tag("aleo::GENERATOR"), |_| Self::Generator),
+            map(pair(tag("aleo::GENERATOR"), opt(delimited(tag("["), U32::<N>::parse, tag("]")))), |(_, index)| {
+                Self::Generator(index)
+            }),
             // Note that `Operand::Checksum` and `Operand::Edition` must be parsed before `Operand::ProgramID`s, since an edition or checksum may be prefixed with a program ID.
             map(pair(opt(terminated(ProgramID::parse, tag("/"))), tag("checksum")), |(program_id, _)| {
                 Self::Checksum(program_id)
@@ -96,7 +98,10 @@ impl<N: Network> Display for Operand<N> {
             // Prints the identifier for the network ID, i.e. network.id
             Self::NetworkID => write!(f, "network.id"),
             // Prints the identifier for the generator, i.e. aleo::GENERATOR
-            Self::Generator => write!(f, "aleo::GENERATOR"),
+            Self::Generator(index) => match index {
+                None => write!(f, "aleo::GENERATOR"),
+                Some(index) => write!(f, "aleo::GENERATOR[{index}]"),
+            },
             // Prints the optional program ID with the checksum keyword, i.e. `checksum` or `token.aleo/checksum`
             Self::Checksum(program_id) => match program_id {
                 Some(program_id) => write!(f, "{program_id}/checksum"),
@@ -153,7 +158,10 @@ mod tests {
         assert_eq!(Operand::NetworkID, operand);
 
         let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR").unwrap().1;
-        assert_eq!(Operand::Generator, operand);
+        assert_eq!(Operand::Generator(None), operand);
+
+        let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR[5u32]").unwrap().1;
+        assert_eq!(Operand::Generator(Some(U32::new(5u32))), operand);
 
         let operand = Operand::<CurrentNetwork>::parse("group::GEN").unwrap().1;
         assert_eq!(Operand::Literal(Literal::Group(Group::generator())), operand);
@@ -206,6 +214,12 @@ mod tests {
 
         let operand = Operand::<CurrentNetwork>::parse("checksum").unwrap().1;
         assert_eq!(format!("{operand}"), "checksum");
+
+        let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR").unwrap().1;
+        assert_eq!(format!("{operand}"), "aleo::GENERATOR");
+
+        let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR[5u32]").unwrap().1;
+        assert_eq!(format!("{operand}"), "aleo::GENERATOR[5u32]");
 
         let operand = Operand::<CurrentNetwork>::parse("foo.aleo/checksum").unwrap().1;
         assert_eq!(format!("{operand}"), "foo.aleo/checksum");

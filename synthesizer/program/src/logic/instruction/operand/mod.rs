@@ -19,7 +19,7 @@ mod parse;
 use console::{
     network::prelude::*,
     program::{Literal, ProgramID, Register},
-    types::Group,
+    types::{Group, U32},
 };
 
 /// The `Operand` enum represents the options for an operand in an instruction.
@@ -48,7 +48,7 @@ pub enum Operand<N: Network> {
     /// Note: This variant is only accessible in the `finalize` scope.
     NetworkID,
     /// The operand is the group bases for the Aleo signature and encryption schemes.
-    Generator,
+    Generator(Option<U32<N>>),
     /// The operand is the program checksum.
     /// If no program ID is specified, the checksum is for the current program.
     /// If a program ID is specified, the checksum is for an external program.
