@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-synthesizer"
-version = "4.2.1"
+version = "4.3.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "Synthesizer for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -59,6 +59,7 @@ wasm = [
   "snarkvm-synthesizer-snark/wasm"
 ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
+dev_skip_checks = [ "snarkvm-synthesizer-process/dev_skip_checks" ]
 
 [[bench]]
 name = "kary_merkle_tree"

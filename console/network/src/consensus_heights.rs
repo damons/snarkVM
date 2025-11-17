@@ -45,6 +45,8 @@ pub enum ConsensusVersion {
     V10 = 10,
     /// V11: Expand array size limit to 512 and introduce ECDSA signature verification opcodes.
     V11 = 11,
+    /// V12: Prevent connection to forked nodes, disable StringType, enable block timestamp.
+    V12 = 12,
 }
 
 impl ToBytes for ConsensusVersion {
@@ -68,6 +70,7 @@ impl FromBytes for ConsensusVersion {
             9 => Ok(Self::V9),
             10 => Ok(Self::V10),
             11 => Ok(Self::V11),
+            12 => Ok(Self::V12),
             _ => Err(io_error("Invalid consensus version")),
         }
     }
@@ -87,7 +90,7 @@ impl std::fmt::Display for ConsensusVersion {
 }
 
 /// The number of consensus versions.
-pub(crate) const NUM_CONSENSUS_VERSIONS: usize = 11;
+pub(crate) const NUM_CONSENSUS_VERSIONS: usize = enum_iterator::cardinality::<ConsensusVersion>();
 
 /// The consensus version height for `CanaryV0`.
 pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
@@ -102,6 +105,7 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CON
     (ConsensusVersion::V9, 8_028_000),
     (ConsensusVersion::V10, 8_600_000),
     (ConsensusVersion::V11, 9_510_000),
+    (ConsensusVersion::V12, 10_030_000),
 ];
 
 /// The consensus version height for `MainnetV0`.
@@ -116,7 +120,8 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_430_000),
     (ConsensusVersion::V9, 10_272_000),
     (ConsensusVersion::V10, 11_205_000),
-    (ConsensusVersion::V11, 12_867_225),
+    (ConsensusVersion::V11, 12_870_000),
+    (ConsensusVersion::V12, 13_814_000),
 ];
 
 /// The consensus version heights for `TestnetV0`.
@@ -132,6 +137,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V9, 9_800_000),
     (ConsensusVersion::V10, 10_525_000),
     (ConsensusVersion::V11, 11_952_000),
+    (ConsensusVersion::V12, 12_757_000),
 ];
 
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
@@ -147,6 +153,7 @@ pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSU
     (ConsensusVersion::V9, 12),
     (ConsensusVersion::V10, 13),
     (ConsensusVersion::V11, 14),
+    (ConsensusVersion::V12, 15),
 ];
 
 #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
@@ -387,6 +394,11 @@ mod tests {
     #[test]
     fn test_to_bytes() {
         let version = ConsensusVersion::V8;
+        let bytes = version.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
+        assert_eq!(result, version);
+
+        let version = ConsensusVersion::latest();
         let bytes = version.to_bytes_le().unwrap();
         let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
         assert_eq!(result, version);
