@@ -988,15 +988,26 @@ impl<N: Network> ProgramCore<N> {
     /// This is enforced to be `false` for programs before `ConsensusVersion::V13`.
     #[inline]
     pub fn contains_v13_syntax(&self) -> bool {
-        // Check each instruction and output in each function's finalize scope for the use of
-        // `Operand::Generator`.
-        cfg_iter!(self.functions()).any(|(_, function)| {
-            function.finalize_logic().is_some_and(|finalize_logic| {
-                cfg_iter!(finalize_logic.commands()).any(|command| {
-                    cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::Generator(_)))
-                })
-            })
-        })
+        // Determine if any function instructions contain the new syntax.
+        let function_contains =
+            cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(|instruction| {
+                cfg_iter!(instruction.operands()).any(|operand| matches!(operand, Operand::Generator(_)))
+            });
+
+        // Determine if any closure instructions contain the new syntax.
+        let closure_contains =
+            cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(|instruction| {
+                cfg_iter!(instruction.operands()).any(|operand| matches!(operand, Operand::Generator(_)))
+            });
+
+        // Determine if any finalize commands or constructor commands contain the new syntax.
+        let command_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
+            .flatten()
+            .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
+            .any(|command| cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::Generator(_))));
+
+        function_contains || closure_contains || command_contains
     }
 
     /// Returns `true` if a program contains any string type.
