@@ -48,13 +48,16 @@ use snarkvm_ledger_puzzle::{Solution, SolutionID};
 use snarkvm_synthesizer_program::{FinalizeOperation, Program};
 
 use aleo_std_storage::StorageMode;
+#[cfg(feature = "rocks")]
+use aleo_std_storage::aleo_ledger_dir;
 use anyhow::{Context, Result};
 #[cfg(feature = "locktick")]
 use locktick::{LockGuard, parking_lot::RwLock};
 #[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
+#[cfg(feature = "rocks")]
+use std::fs;
 use std::{borrow::Cow, sync::Arc};
-use tracing::debug;
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
@@ -991,6 +994,8 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
 
     #[cfg(feature = "rocks")]
     fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String>;
+
+    fn create_block_tree(&self) -> Result<BlockTree<N>>;
 }
 
 /// The `BlockStore` is the user facing API that either uses `BlockMemory` or `BlockDB` as its storae backend.
@@ -1009,17 +1014,7 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     pub fn open<S: Into<StorageMode>>(storage: S) -> Result<Self> {
         let storage = B::open(storage)?;
 
-        // Prepare an iterator over the block heights and prepare the leaves of the block tree.
-        let hashes = storage
-            .id_map()
-            .iter_confirmed()
-            .sorted_unstable_by(|(h1, _), (h2, _)| h1.cmp(h2))
-            .map(|(_, hash)| hash.to_bits_le())
-            .collect::<Vec<Vec<bool>>>();
-
-        // Construct the block tree.
-        debug!("Found {} blocks on disk", hashes.len());
-        let tree = N::merkle_tree_bhp(&hashes)?;
+        let tree = storage.create_block_tree()?;
 
         let mut initial_cache = Vec::new();
         let cache_end_height = u32::try_from(tree.number_of_leaves())?;
@@ -1200,9 +1195,22 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
         self.storage.unpause_atomic_writes::<DISCARD_BATCH>()
     }
 
+    /// Stores a database backup at the given location.
     #[cfg(feature = "rocks")]
     pub fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String> {
         self.storage.backup_database(path)
+    }
+
+    /// Serializes and persists the current block tree.
+    #[cfg(feature = "rocks")]
+    pub fn cache_block_tree(&self) -> Result<()> {
+        let mut path = aleo_ledger_dir(N::ID, self.storage.storage_mode());
+        path.push("block_tree");
+
+        let serialized_tree = bincode::serialize(&&*self.tree.read())?;
+        fs::write(path, &serialized_tree)?;
+
+        Ok(())
     }
 }
 

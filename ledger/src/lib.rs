@@ -252,6 +252,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         self.vm.block_store().backup_database(path).map_err(|err| anyhow!(err))
     }
 
+    #[cfg(feature = "rocks")]
+    pub fn cache_block_tree(&self) -> Result<()> {
+        self.vm.block_store().cache_block_tree()
+    }
+
     /// Loads the provers and the number of solutions they have submitted for the current epoch.
     pub fn load_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
         // Fetch the block heights that belong to the current epoch.
