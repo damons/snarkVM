@@ -236,11 +236,16 @@ impl<N: Network> RestQuery<N> {
             // Convert returned error into an `anyhow::Error`.
             // Depending on the API version, the error is either encoded as a string or as a JSON.
             if content_type.contains("json") {
-                let error: RestError =
-                    response.body_mut().read_json().with_context(|| format!("Failed to parse JSON error response from {endpoint}"))?;
+                let error: RestError = response
+                    .body_mut()
+                    .read_json()
+                    .with_context(|| format!("Failed to parse JSON error response from {endpoint}"))?;
                 Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
             } else {
-                let error = response.body_mut().read_to_string().with_context(|| format!("Failed to read error message {endpoint}"))?;
+                let error = response
+                    .body_mut()
+                    .read_to_string()
+                    .with_context(|| format!("Failed to read error message {endpoint}"))?;
                 Err(anyhow!(error).context(format!("Failed to fetch from {endpoint}")))
             }
         }
