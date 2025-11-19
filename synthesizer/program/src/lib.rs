@@ -967,6 +967,22 @@ impl<N: Network> ProgramCore<N> {
         function_contains || closure_contains || command_contains || array_size_exceeds
     }
 
+    /// Returns `true` if a program contains any V12 syntax.
+    /// This includes `Operand::BlockTimestamp`.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V12`.
+    #[inline]
+    pub fn contains_v12_syntax(&self) -> bool {
+        // Check each instruction and output in each function's finalize scope for the use of
+        // `Operand::BlockTimestamp`.
+        cfg_iter!(self.functions()).any(|(_, function)| {
+            function.finalize_logic().is_some_and(|finalize_logic| {
+                cfg_iter!(finalize_logic.commands()).any(|command| {
+                    cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::BlockTimestamp))
+                })
+            })
+        })
+    }
+
     /// Returns `true` if a program contains any string type.
     /// Before ConsensusVersion::V12, variable-length string sampling when using them as inputs caused deployment synthesis to be inconsistent and abort with probability 63/64.
     /// After ConsensusVersion::V12, string types are disallowed.

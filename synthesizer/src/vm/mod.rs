@@ -104,7 +104,12 @@ use lru::LruCache;
 #[cfg(not(feature = "locktick"))]
 use parking_lot::{Mutex, RwLock};
 use rand::{SeedableRng, rngs::StdRng};
-use std::{collections::HashSet, num::NonZeroUsize, sync::Arc};
+use std::{
+    collections::HashSet,
+    num::NonZeroUsize,
+    sync::{Arc, mpsc},
+    thread,
+};
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
@@ -126,10 +131,10 @@ pub struct VM<N: Network, C: ConsensusStorage<N>> {
     partially_verified_transactions: Arc<RwLock<LruCache<TransactionCacheKey<N>, N::TransmissionChecksum>>>,
     /// The restrictions list.
     restrictions: Restrictions<N>,
-    /// The lock to guarantee atomicity over calls to speculate and finalize.
-    atomic_lock: Arc<Mutex<()>>,
-    /// The lock for ensuring there is no concurrency when advancing blocks.
-    block_lock: Arc<Mutex<()>>,
+    /// A sender to the channel for operations that must be performed sequentially.
+    sequential_ops_tx: Arc<RwLock<Option<mpsc::Sender<SequentialOperationRequest<N>>>>>,
+    /// The handle to the thread which processes operations sequentially.
+    sequential_ops_thread: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
@@ -218,8 +223,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             deployments.iter().try_for_each(|deployment| process.load_deployment(deployment))?;
         }
 
-        // Return the new VM.
-        Ok(Self {
+        // Construct the VM object.
+        let vm = Self {
             process: Arc::new(RwLock::new(process)),
             puzzle: Self::new_puzzle()?,
             store,
@@ -227,9 +232,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 NonZeroUsize::new(Transactions::<N>::MAX_TRANSACTIONS).unwrap(),
             ))),
             restrictions: Restrictions::load()?,
-            atomic_lock: Arc::new(Mutex::new(())),
-            block_lock: Arc::new(Mutex::new(())),
-        })
+            sequential_ops_tx: Default::default(),
+            sequential_ops_thread: Default::default(),
+        };
+
+        // Spawn a thread for sequential operations.
+        let (sequential_ops_tx, sequential_ops_rx) = mpsc::channel();
+        let sequential_ops_thread = vm.start_sequential_queue(sequential_ops_rx);
+
+        // Populate the fields related to the sequential operations.
+        *vm.sequential_ops_tx.write() = Some(sequential_ops_tx);
+        *vm.sequential_ops_thread.lock() = Some(sequential_ops_thread);
+
+        // Return the new VM.
+        Ok(vm)
     }
 
     /// Returns `true` if a program with the given program ID exists.
@@ -360,6 +376,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Returns a new genesis block for a quorum chain.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     pub fn genesis_quorum<R: Rng + CryptoRng>(
         &self,
         private_key: &PrivateKey<N>,
@@ -445,16 +464,38 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 
     /// Adds the given block into the VM.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[inline]
     pub fn add_next_block(&self, block: &Block<N>) -> Result<()> {
-        // Acquire the block lock, which is needed to ensure this function is not called concurrently.
-        // Note: This lock must be held for the entire scope of this function.
-        let _block_lock = self.block_lock.lock();
+        let sequential_op = SequentialOperation::AddNextBlock(block.clone());
+        let Some(SequentialOperationResult::AddNextBlock(ret)) = self.run_sequential_operation(sequential_op) else {
+            bail!("Already shutting down");
+        };
 
+        ret
+    }
+
+    /// Adds the given block into the VM.
+    ///
+    /// # Note
+    /// This must only be called from the sequential operation thread.
+    ///
+    /// # Panics
+    /// This function panics if not called from the sequential operation thread.
+    #[inline]
+    pub(crate) fn add_next_block_inner(&self, block: Block<N>) -> Result<()> {
+        self.ensure_sequential_processing();
+
+        // Determine if the block timestamp should be included.
+        let block_timestamp = (block.height() >= N::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default())
+            .then_some(block.timestamp());
         // Construct the finalize state.
         let state = FinalizeGlobalState::new::<N>(
             block.round(),
             block.height(),
+            block_timestamp,
             block.cumulative_weight(),
             block.cumulative_proof_target(),
             block.previous_hash(),
@@ -465,7 +506,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         self.block_store().pause_atomic_writes()?;
 
         // First, insert the block.
-        if let Err(insert_error) = self.block_store().insert(block) {
+        if let Err(insert_error) = self.block_store().insert(&block) {
             if cfg!(feature = "rocks") {
                 // Clear all pending atomic operations so that unpausing the atomic writes
                 // doesn't execute any of the queued storage operations.
@@ -559,6 +600,24 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     }
 }
 
+impl<N: Network, C: ConsensusStorage<N>> Drop for VM<N, C> {
+    fn drop(&mut self) {
+        // Check if this the final external reference to `VM`.
+        if Arc::strong_count(&self.sequential_ops_tx) == 1 {
+            // If the background thread exists, shut it down.
+            if let Some(thread) = self.sequential_ops_thread.lock().take() {
+                // First, close the channel.
+                self.sequential_ops_tx.write().take();
+                // Wait for the thread to terminate.
+                trace!("Waiting for sequential ops thread to terminate");
+                thread.join().expect("Sequential ops thread had an error");
+            } else {
+                debug!("No sequential ops background thread existed durign shutdown");
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use super::*;
@@ -589,7 +648,7 @@ pub(crate) mod test_helpers {
 
     /// Samples a new finalize state.
     pub(crate) fn sample_finalize_state(block_height: u32) -> FinalizeGlobalState {
-        FinalizeGlobalState::from(block_height as u64, block_height, [0u8; 32])
+        FinalizeGlobalState::from(block_height as u64, block_height, None, [0u8; 32])
     }
 
     pub(crate) fn sample_vm() -> VM<CurrentNetwork, LedgerType> {
@@ -883,17 +942,19 @@ function compute:
         let block_hash = vm.block_store().get_block_hash(vm.block_store().max_height().unwrap()).unwrap().unwrap();
         let previous_block = vm.block_store().get_block(&block_hash).unwrap().unwrap();
 
-        // Construct the new block header.
+        // Create the finalize state for the next block height.
+        let next_block_height = previous_block.height() + 1;
         let time_since_last_block = MainnetV0::BLOCK_TIME as i64;
-        let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm.speculate(
-            sample_finalize_state(vm.block_store().current_block_height() + 1),
-            time_since_last_block,
-            None,
-            vec![],
-            &None.into(),
-            transactions.iter(),
-            rng,
-        )?;
+        let next_block_timestamp = previous_block.timestamp().saturating_add(time_since_last_block);
+        let next_timestamp = (next_block_height
+            >= MainnetV0::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default())
+        .then_some(next_block_timestamp);
+        let finalize_state =
+            FinalizeGlobalState::from(next_block_height as u64, next_block_height, next_timestamp, [0u8; 32]);
+
+        // Speculate on the ratifications, solutions, and transactions.
+        let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) =
+            vm.speculate(finalize_state, time_since_last_block, None, vec![], &None.into(), transactions.iter(), rng)?;
 
         // Construct the metadata associated with the block.
         let metadata = Metadata::new(
@@ -909,6 +970,7 @@ function compute:
             previous_block.timestamp().saturating_add(time_since_last_block),
         )?;
 
+        // Construct the new block header.
         let header = Header::from(
             vm.block_store().current_state_root(),
             transactions.to_transactions_root().unwrap(),
