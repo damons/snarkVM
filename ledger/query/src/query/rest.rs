@@ -224,7 +224,7 @@ impl<N: Network> RestQuery<N> {
             .with_context(|| format!("Failed to fetch from {endpoint}"))?;
 
         if response.status().is_success() {
-            response.body_mut().read_json().with_context(|| "Failed to parse JSON response")
+            response.body_mut().read_json().with_context(|| format!("Failed to parse JSON response from {endpoint}"))
         } else {
             let content_type = response
                 .headers()
@@ -236,11 +236,16 @@ impl<N: Network> RestQuery<N> {
             // Convert returned error into an `anyhow::Error`.
             // Depending on the API version, the error is either encoded as a string or as a JSON.
             if content_type.contains("json") {
-                let error: RestError =
-                    response.body_mut().read_json().with_context(|| "Failed to parse JSON error response")?;
+                let error: RestError = response
+                    .body_mut()
+                    .read_json()
+                    .with_context(|| format!("Failed to parse JSON error response from {endpoint}"))?;
                 Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
             } else {
-                let error = response.body_mut().read_to_string().with_context(|| "Failed to read error message")?;
+                let error = response
+                    .body_mut()
+                    .read_to_string()
+                    .with_context(|| format!("Failed to read error message {endpoint}"))?;
                 Err(anyhow!(error).context(format!("Failed to fetch from {endpoint}")))
             }
         }
@@ -256,10 +261,13 @@ impl<N: Network> RestQuery<N> {
         let response = reqwest::get(&endpoint).await.with_context(|| format!("Failed to fetch from {endpoint}"))?;
 
         if response.status().is_success() {
-            response.json().await.with_context(|| "Failed to parse JSON response")
+            response.json().await.with_context(|| format!("Failed to parse JSON response from {endpoint}"))
         } else {
             // Convert returned error into an `anyhow::Error`.
-            let error: RestError = response.json().await.with_context(|| "Failed to parse JSON error response")?;
+            let error: RestError = response
+                .json()
+                .await
+                .with_context(|| format!("Failed to parse JSON error response from {endpoint}"))?;
             Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
         }
     }
