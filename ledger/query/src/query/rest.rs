@@ -226,16 +226,17 @@ impl<N: Network> RestQuery<N> {
         if response.status().is_success() {
             response.body_mut().read_json().with_context(|| format!("Failed to parse JSON response from {endpoint}"))
         } else {
-            let content_type = response
+            // v2 will return the error in JSON format.
+            let is_v2 = response
                 .headers()
-                .get("Content-Type")
-                .ok_or_else(|| anyhow!("Endpoint return error without ContentType"))?
-                .to_str()
-                .with_context(|| "Endpoint returned invalid ContentType")?;
+                .get(http::header::CONTENT_TYPE)
+                .and_then(|ct| ct.to_str().ok())
+                .map(|ct| ct.contains("json"))
+                .unwrap_or(false);
 
             // Convert returned error into an `anyhow::Error`.
             // Depending on the API version, the error is either encoded as a string or as a JSON.
-            if content_type.contains("json") {
+            if is_v2 {
                 let error: RestError = response
                     .body_mut()
                     .read_json()
@@ -263,12 +264,26 @@ impl<N: Network> RestQuery<N> {
         if response.status().is_success() {
             response.json().await.with_context(|| format!("Failed to parse JSON response from {endpoint}"))
         } else {
-            // Convert returned error into an `anyhow::Error`.
-            let error: RestError = response
-                .json()
-                .await
-                .with_context(|| format!("Failed to parse JSON error response from {endpoint}"))?;
-            Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
+            // v2 will return the error in JSON format.
+            let is_v2 = response
+                .headers()
+                .get(http::header::CONTENT_TYPE)
+                .and_then(|ct| ct.to_str().ok())
+                .map(|ct| ct.contains("json"))
+                .unwrap_or(false);
+
+            if is_v2 {
+                // Convert returned error into an `anyhow::Error`.
+                let error: RestError = response
+                    .json()
+                    .await
+                    .with_context(|| format!("Failed to parse JSON error response from {endpoint}"))?;
+                Err(error.parse().context(format!("Failed to fetch from {endpoint}")))
+            } else {
+                let error =
+                    response.text().await.with_context(|| format!("Failed to read error message {endpoint}"))?;
+                Err(anyhow!(error).context(format!("Failed to fetch from {endpoint}")))
+            }
         }
     }
 }
