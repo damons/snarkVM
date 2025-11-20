@@ -154,6 +154,7 @@ impl<N: Network> QueryTrait<N> for RestQuery<N> {
 }
 
 impl<N: Network> RestQuery<N> {
+    /// Returns the transaction for the given transaction ID.
     pub fn get_transaction(&self, transaction_id: &N::TransactionID) -> Result<Transaction<N>> {
         self.get_request(&format!("transaction/{transaction_id}"))
     }
