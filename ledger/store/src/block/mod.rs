@@ -46,6 +46,7 @@ use snarkvm_ledger_block::{
 use snarkvm_ledger_narwhal_batch_certificate::BatchCertificate;
 use snarkvm_ledger_puzzle::{Solution, SolutionID};
 use snarkvm_synthesizer_program::{FinalizeOperation, Program};
+use std::io::BufWriter;
 
 use aleo_std_storage::StorageMode;
 #[cfg(feature = "rocks")]
@@ -1204,11 +1205,23 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
     /// Serializes and persists the current block tree.
     #[cfg(feature = "rocks")]
     pub fn cache_block_tree(&self) -> Result<()> {
+        // Prepare the path for the target file.
         let mut path = aleo_ledger_dir(N::ID, self.storage.storage_mode());
         path.push("block_tree");
 
-        let serialized_tree = bincode::serialize(&&*self.tree.read())?;
-        fs::write(path, &serialized_tree)?;
+        // Create the target file.
+        let file = fs::File::create(path)?;
+        // The block tree can become quite large, so use a BufWriter in order to
+        // not have to keep the entire serialized tree in memory, and to reduce
+        // the number of syscalls involved with disk writes. 1MiB should provide
+        // a good balance between the CPU cache and maximum disk throughput.
+        let mut writer = BufWriter::with_capacity(1024 * 1024, file);
+        bincode::serialize_into(&mut writer, &&*self.tree.read())?;
+        writer.flush()?;
+        // TODO(ljedrz): this operation can already take ~2.5s, so we may want
+        // to perform chunking and parallel serialization. This may be useful
+        // for other applications, so it should be implemented as a common
+        // utility.
 
         Ok(())
     }
