@@ -67,7 +67,7 @@ impl<N: Network> Stack<N> {
         // NOTE: As developer, you will likely still want to confirm that your
         // deployment is within R1CS constraint and variable limits using
         // targeted and parallelized synthesis.
-        if cfg!(feature = "dev_skip_checks") {
+        if cfg!(all(feature = "dev_skip_checks", feature = "test_consensus_heights")) {
             return Ok(());
         }
 

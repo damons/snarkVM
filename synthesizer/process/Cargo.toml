@@ -47,6 +47,7 @@ test = [ "snarkvm-console/test" ]
 timer = [ "aleo-std/timer" ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
 dev_skip_checks = [ ]
+test_consensus_heights = [ ]
 
 [[bench]]
 name = "stack_operations"
