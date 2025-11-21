@@ -477,6 +477,16 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 }
 
+#[cfg(feature = "rocks")]
+impl<N: Network, C: ConsensusStorage<N>> Drop for Ledger<N, C> {
+    fn drop(&mut self) {
+        // Cache the block tree on shutdown.
+        if let Err(e) = self.cache_block_tree() {
+            error!("Couldn't cache the block tree: {e}");
+        }
+    }
+}
+
 pub mod prelude {
     pub use crate::{Ledger, authority, block, block::*, committee, helpers::*, narwhal, puzzle, query, store};
 }
