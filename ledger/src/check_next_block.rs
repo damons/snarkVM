@@ -72,6 +72,18 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             )
             .with_context(|| "Failed to speculate over unconfirmed transactions")?;
 
+        // Ensure that a block at or beyond the max supply limit height does not contain `BlockReward` or `PuzzleReward` ratifications.
+        if block.height() >= N::MAX_SUPPLY_LIMIT_HEIGHT {
+            ensure!(
+                !block
+                    .ratifications()
+                    .iter()
+                    .any(|ratification| matches!(ratification, Ratify::BlockReward(..) | Ratify::PuzzleReward(..))),
+                "Blocks at or beyond height {} cannot contain `BlockReward` or `CoinbaseReward` ratifications",
+                N::MAX_SUPPLY_LIMIT_HEIGHT
+            );
+        }
+
         // Retrieve the committee lookback.
         let committee_lookback = self
             .get_committee_lookback_for_round(block.round())?
