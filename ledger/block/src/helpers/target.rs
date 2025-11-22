@@ -1505,6 +1505,67 @@ mod tests {
         }
     }
 
+    fn check_total_supply_cap<N: Network>() {
+        const AVG_BLOCK_TIME: i64 = 3;
+
+        let blocks_per_year = block_height_at_year(AVG_BLOCK_TIME as u16, 1);
+
+        // The tracking state for the simluation
+        let mut total_supply = N::STARTING_SUPPLY;
+        let mut total_block_rewards = 0u64;
+        let mut total_coinbase_rewards = 0u64;
+        let mut block_height = 1u32;
+        let mut latest_timetamp = 0;
+
+        // Iterate until we reach 5 billion credits
+        while total_supply < N::MAX_SUPPLY {
+            // Calculate the block reward.
+            let block_reward =
+                block_reward::<N>(block_height, N::STARTING_SUPPLY, N::BLOCK_TIME, AVG_BLOCK_TIME, 0, 0).unwrap();
+
+            // Calculate the coinbase reward.
+            let timestamp = N::GENESIS_TIMESTAMP + (block_height as i64 * AVG_BLOCK_TIME);
+            let coinbase_reward = coinbase_reward::<N>(
+                block_height,
+                timestamp,
+                N::GENESIS_TIMESTAMP,
+                N::STARTING_SUPPLY,
+                N::ANCHOR_TIME,
+                N::ANCHOR_HEIGHT,
+                N::BLOCK_TIME,
+                1,
+                0,
+                1,
+            )
+            .unwrap();
+
+            // Calculate the average expected coinbase reward per block based on the retargeting interval.
+            // This is the upper bound, because we consider hitting 50% of the coinbase target eligible for retargeting.
+            let avg_coinbase_reward_per_block = coinbase_reward * AVG_BLOCK_TIME as u64 / N::ANCHOR_TIME as u64;
+
+            // Update the trackers.
+            block_height += 1;
+            total_block_rewards += block_reward;
+            total_coinbase_rewards += avg_coinbase_reward_per_block;
+            total_supply += block_reward + avg_coinbase_reward_per_block;
+            latest_timetamp = timestamp;
+        }
+
+        println!(
+            "At block height {block_height} (year {}, timestamp: {latest_timetamp}), total block rewards is {total_block_rewards}, total coinbase rewards is {total_coinbase_rewards}, total supply is {total_supply} credits",
+            block_height / blocks_per_year
+        );
+
+        assert_eq!(block_height, N::MAX_SUPPLY_LIMIT_HEIGHT);
+    }
+
+    #[test]
+    fn test_total_supply_cap() {
+        check_total_supply_cap::<CanaryV0>();
+        check_total_supply_cap::<TestnetV0>();
+        check_total_supply_cap::<MainnetV0>();
+    }
+
     #[test]
     fn test_targets() {
         let mut rng = TestRng::default();
