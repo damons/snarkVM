@@ -2515,6 +2515,67 @@ function foo:
     }
 }
 
+// #[cfg(feature = "test")]
+#[test]
+fn test_no_rewards_after_limit_height() {
+    let rng = &mut TestRng::default();
+
+    // Initialize the test environment.
+    let crate::test_helpers::TestEnv { ledger, private_key, address, .. } = crate::test_helpers::sample_test_env(rng);
+
+    // Advance the ledger to the reward limit height.
+    let supply_limit_height = CurrentNetwork::MAX_SUPPLY_LIMIT_HEIGHT;
+
+    // Advance until before the supply limit height.
+    while ledger.latest_height() + 1 < supply_limit_height {
+        let block = ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![], rng).unwrap();
+        ledger.advance_to_next_block(&block).unwrap();
+
+        // Check that there exists rewards in the block.
+        assert!(!block.ratifications().is_empty());
+        let ratifications: Vec<_> = block.ratifications().iter().collect();
+        match ratifications[0] {
+            Ratify::BlockReward(block_reward) => {
+                assert!(*block_reward > 0);
+            }
+            _ => panic!("Expected a block reward ratification"),
+        }
+    }
+
+    // Create one additional block at the supply limit height.
+    let next_block = ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![], rng).unwrap();
+    ledger.advance_to_next_block(&next_block).unwrap();
+
+    // Check that there are no rewards in the block.
+    assert!(next_block.ratifications().is_empty());
+
+    // Create another block with a valid solution that does not give any rewards.
+
+    // Retrieve the puzzle parameters.
+    let puzzle = ledger.puzzle();
+    let latest_epoch_hash = ledger.latest_epoch_hash().unwrap();
+    let minimum_proof_target = ledger.latest_proof_target();
+
+    // Create solutions that are greater than the minimum proof target.
+    let valid_solution = loop {
+        let solution = puzzle.prove(latest_epoch_hash, address, rng.r#gen(), None).unwrap();
+        if puzzle.get_proof_target(&solution).unwrap() >= minimum_proof_target {
+            break solution;
+        }
+    };
+
+    // Create a block with the valid solution.
+    let next_block_with_solution =
+        ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![valid_solution], vec![], rng).unwrap();
+    ledger.advance_to_next_block(&next_block_with_solution).unwrap();
+
+    // Check that there are no rewards in the block.
+    assert!(next_block.ratifications().is_empty());
+
+    // Check that the solution was accepted.
+    assert_eq!(next_block_with_solution.solutions().len(), 1);
+}
+
 // These tests require the proof targets to be low enough to be able to generate **valid** solutions.
 // This requires the 'test' feature to be enabled for the `console` dependency.
 #[cfg(feature = "test")]
