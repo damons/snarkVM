@@ -34,6 +34,12 @@ harness = false
 required-features = [ "test-helpers", "rocks" ]
 
 [[bench]]
+name = "advance"
+path = "benches/advance.rs"
+harness = false
+required-features = [ "test-helpers", "rocks" ]
+
+[[bench]]
 name = "dag"
 path = "benches/dag.rs"
 harness = false
@@ -123,6 +129,9 @@ optional = true
 [dependencies.snarkvm-synthesizer]
 workspace = true
 
+[dependencies.snarkvm-utilities]
+workspace = true
+
 [dependencies.aleo-std]
 workspace = true
 features = [ "storage" ]
@@ -146,6 +155,9 @@ workspace = true
 workspace = true
 
 [dependencies.rand]
+workspace = true
+
+[dependencies.rand_chacha]
 workspace = true
 
 [dependencies.rayon]
@@ -188,9 +200,10 @@ features = [ "preserve_order" ]
 [dev-dependencies.snarkvm-circuit]
 workspace = true
 
-[dev-dependencies.snarkvm-utilities]
-workspace = true
-
 [dev-dependencies.snarkvm-synthesizer]
 workspace = true
 features = [ "test" ]
+
+[dev-dependencies.tracing-subscriber]
+version = "0.3"
+features = [ "env-filter", "std" ]
