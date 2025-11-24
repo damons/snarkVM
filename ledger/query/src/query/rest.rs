@@ -214,7 +214,7 @@ impl<N: Network> RestQuery<N> {
             response.body_mut().read_json().with_context(|| format!("Failed to parse JSON response from {endpoint}"))
         } else {
             // v2 will return the error in JSON format.
-            let is_v2 = response
+            let is_json = response
                 .headers()
                 .get(http::header::CONTENT_TYPE)
                 .and_then(|ct| ct.to_str().ok())
@@ -223,7 +223,7 @@ impl<N: Network> RestQuery<N> {
 
             // Convert returned error into an `anyhow::Error`.
             // Depending on the API version, the error is either encoded as a string or as a JSON.
-            if is_v2 {
+            if is_json {
                 let error: RestError = response
                     .body_mut()
                     .read_json()
@@ -252,14 +252,14 @@ impl<N: Network> RestQuery<N> {
             response.json().await.with_context(|| format!("Failed to parse JSON response from {endpoint}"))
         } else {
             // v2 will return the error in JSON format.
-            let is_v2 = response
+            let is_json = response
                 .headers()
                 .get(http::header::CONTENT_TYPE)
                 .and_then(|ct| ct.to_str().ok())
                 .map(|ct| ct.contains("json"))
                 .unwrap_or(false);
 
-            if is_v2 {
+            if is_json {
                 // Convert returned error into an `anyhow::Error`.
                 let error: RestError = response
                     .json()
