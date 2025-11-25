@@ -226,16 +226,25 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             epoch_provers_cache: Default::default(),
         }));
 
+        // Attempt to obtain the maximum height from the storage.
+        let max_stored_height = ledger.vm.block_store().max_height();
+
         // If the block store is empty, add the genesis block.
-        if ledger.vm.block_store().max_height().is_none() {
-            // Add the genesis block.
+        let latest_height = if let Some(max_height) = max_stored_height {
+            max_height
+        } else {
             ledger.advance_to_next_block(&genesis_block)?;
-        }
+            0
+        };
         lap!(timer, "Initialize genesis");
 
-        // Retrieve the latest height.
-        let latest_height =
-            ledger.vm.block_store().max_height().with_context(|| "Failed to load blocks from the ledger")?;
+        // Ensure that the greatest stored height matches that of the block tree.
+        ensure!(
+            latest_height == ledger.vm().block_store().current_block_height(),
+            "The stored height is different than the one in the block tree; \
+            please ensure that the cached block tree is valid or delete it"
+        );
+
         // Fetch the latest block.
         let block = ledger
             .get_block(latest_height)
