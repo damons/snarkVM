@@ -345,10 +345,14 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             latest_coinbase_target,
         )?;
 
+        // Determine if the block timestamp should be included.
+        let next_block_timestamp =
+            (next_height >= N::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default()).then_some(next_timestamp);
         // Construct the finalize state.
         let state = FinalizeGlobalState::new::<N>(
             next_round,
             next_height,
+            next_block_timestamp,
             next_cumulative_weight,
             next_cumulative_proof_target,
             previous_block.hash(),

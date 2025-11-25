@@ -828,7 +828,7 @@ fn test_aborted_transaction_indexing() {
 #[test]
 fn test_aborted_solution_ids() -> Result<()> {
     let rng = &mut TestRng::default();
-    let mut builder = TestChainBuilder::new(rng)?;
+    let mut builder = TestChainBuilder::<CurrentNetwork>::new(rng)?;
     let ledger = builder.instantiate_ledger();
     let private_key = builder.validator_key(0);
     let address = builder.validator_address(0);
