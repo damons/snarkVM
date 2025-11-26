@@ -1028,10 +1028,12 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
             }
 
             // Get the hash for the next block to add to the cache.
-            let hash = storage
-                .id_map()
-                .get_confirmed(&height)?
-                .with_context(|| format!("Block {height} exists in tree but not in storage"))?;
+            let hash = storage.id_map().get_confirmed(&height)?.with_context(|| {
+                format!(
+                    "Block {height} exists in tree but not in storage;\
+                    perhaps you used a wrong block tree cache file?"
+                )
+            })?;
 
             initial_cache.push(
                 storage.get_block(&hash)?.with_context(|| format!("Block {hash} exists in tree but not in storage"))?,
