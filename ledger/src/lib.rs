@@ -245,6 +245,19 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             please ensure that the cached block tree is valid or delete it"
         );
 
+        // Verify that the root of the cached block tree matches the one in the storage.
+        let tree_root = <N::StateRoot>::from(ledger.vm().block_store().get_block_tree_root());
+        let state_root = ledger
+            .vm()
+            .block_store()
+            .get_state_root(latest_height)?
+            .ok_or_else(|| anyhow!("Missing state root in the storage"))?;
+        ensure!(
+            tree_root == state_root,
+            "The stored state root is different than the one in the block tree;
+            please ensure that the cached block tree is valid or delete it"
+        );
+
         // Fetch the latest block.
         let block = ledger
             .get_block(latest_height)

@@ -1227,6 +1227,11 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
 
         Ok(())
     }
+
+    /// Returns the root of the block tree.
+    pub fn get_block_tree_root(&self) -> Field<N> {
+        *self.tree.read().root()
+    }
 }
 
 impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
