@@ -37,6 +37,7 @@ use snarkvm_synthesizer_program::FinalizeOperation;
 
 use aleo_std_storage::{StorageMode, aleo_ledger_dir};
 use std::fs;
+use tracing::debug;
 
 /// A RocksDB block storage.
 #[derive(Clone)]
@@ -249,6 +250,8 @@ impl<N: Network> BlockStorage<N> for BlockDB<N> {
         path.push("block_tree");
 
         if let Ok(serialized_tree) = fs::read(&path) {
+            debug!("Loading the cached block tree from {}", path.display());
+
             // Deserialize a ready block tree.
             let ret = bincode::deserialize(&serialized_tree).or_else(|e| {
                 tracing::error!("Failed to deserialize the block tree ({e}), constructing from scratch");
@@ -260,6 +263,7 @@ impl<N: Network> BlockStorage<N> for BlockDB<N> {
 
             ret
         } else {
+            debug!("Creating the block tree from scratch");
             construct_from_scratch(self)
         }
     }
