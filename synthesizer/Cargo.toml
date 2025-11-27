@@ -60,6 +60,7 @@ wasm = [
 ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
 dev_skip_checks = [ "snarkvm-synthesizer-process/dev_skip_checks" ]
+test_consensus_heights = [ "snarkvm-synthesizer-process/test_consensus_heights" ]
 
 [[bench]]
 name = "kary_merkle_tree"
@@ -147,6 +148,10 @@ optional = true
 [dependencies.serde_json]
 workspace = true
 features = [ "preserve_order" ]
+
+[dependencies.tokio]
+version = "1"
+features = [ "sync" ]
 
 [dependencies.tracing]
 workspace = true
