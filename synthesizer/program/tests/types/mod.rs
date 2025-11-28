@@ -13,20 +13,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "test")]
-mod test_v8;
-
-#[cfg(feature = "test")]
-mod test_v9;
-
-#[cfg(feature = "test")]
-mod test_v10;
-
-#[cfg(feature = "test")]
-mod test_v11;
-
-#[cfg(feature = "test")]
-mod test_v13;
-
-#[cfg(feature = "test")]
-use super::*;
+mod equivalence;

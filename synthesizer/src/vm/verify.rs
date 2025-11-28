@@ -256,18 +256,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     );
                 }
 
-                // If the `CONSENSUS_VERSION` is less than `V12`, then verify that:
+                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
                 //   - the program does not use the external struct syntax `some_program.aleo/StructT`
-                // If the `CONSENSUS_VERSION` is greater than or equal to `V12`, then verify that:
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
                 //   - the program's mappings do not use non-existent structs.
-                if consensus_version < ConsensusVersion::V12 {
+                if consensus_version < ConsensusVersion::V13 {
                     ensure!(
                         !deployment.program().contains_external_struct(),
                         "Invalid deployment transaction '{id}' - external structs may only be used beginning with Consensus version 10"
                     );
                 }
 
-                if consensus_version >= ConsensusVersion::V12 {
+                if consensus_version >= ConsensusVersion::V13 {
                     self.process.read().mapping_types_exist(deployment.program())?;
                 }
 

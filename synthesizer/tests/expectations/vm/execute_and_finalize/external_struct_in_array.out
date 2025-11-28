@@ -1,0 +1,13 @@
+errors: []
+outputs:
+- verified: true
+  execute:
+    committee_array_test.aleo/main:
+      outputs: []
+  speculate: the execution was accepted
+  add_next_block: succeeded.
+additional:
+- child_outputs:
+    credits.aleo/fee_public:
+      outputs:
+      - '{"type":"future","id":"4217238272995135610737415165368736931078444858571711422898870491529866562856field","value":"{\n  program_id: credits.aleo,\n  function_name: fee_public,\n  arguments: [\n    aleo186yu9rn7k3da66rhmwj3mpkh4aqs2wsu52nfdy6xg2wh7l69xvrqlled0e,\n    1290u64\n  ]\n}"}'

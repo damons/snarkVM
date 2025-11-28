@@ -23,12 +23,12 @@ use console::network::ConsensusVersion;
 use snarkvm_utilities::TestRng;
 
 // This test verifies that a program with external structs cannot be deployed on
-// consensus version 9.
+// consensus version 11.
 #[test]
 fn test_deploy_external_structs_v10() {
-    // Use V10 rather than V11 to make sure we still won't be on V12
+    // Use V11 rather than V12 to make sure we still won't be on V13
     // when deploying the second program.
-    let block = deploy_programs(ConsensusVersion::V10);
+    let block = deploy_programs(ConsensusVersion::V11);
 
     assert_eq!(block.transactions().num_accepted(), 0);
     assert_eq!(block.transactions().num_rejected(), 0);
@@ -38,8 +38,8 @@ fn test_deploy_external_structs_v10() {
 // This test verifies that a program with external structs can be deployed on
 // consensus version 12.
 #[test]
-fn test_deploy_external_structs_v12() {
-    let block = deploy_programs(ConsensusVersion::V12);
+fn test_deploy_external_structs_v13() {
+    let block = deploy_programs(ConsensusVersion::V13);
 
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);

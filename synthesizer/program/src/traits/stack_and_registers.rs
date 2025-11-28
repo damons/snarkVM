@@ -242,11 +242,16 @@ pub fn types_equivalent<N: Network>(
             struct_compare(&*external_stack, struct_type0, stack1, struct_type1)
         }
         (Struct(id), ExternalStruct(loc)) => {
+            dbg!("HERE!");
             if id != loc.resource() {
                 return Ok(false);
             }
-            let struct_type0 = stack0.program().get_struct(id)?;
-            let external_stack = stack1.get_external_stack(loc.program_id())?;
+            dbg!("HERE2!");
+            dbg!(&stack0.program());
+            dbg!(&stack1.program());
+            let struct_type0 = dbg!(stack0.program().get_struct(id)?);
+            let external_stack = stack1.get_external_stack(dbg!(loc.program_id()))?;
+            dbg!("found the external stack");
             let struct_type1 = external_stack.program().get_struct(loc.resource())?;
             struct_compare(stack0, struct_type0, &*external_stack, struct_type1)
         }
