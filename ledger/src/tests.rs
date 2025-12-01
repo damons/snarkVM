@@ -2515,7 +2515,6 @@ function foo:
     }
 }
 
-// #[cfg(feature = "test")]
 #[test]
 fn test_no_rewards_after_limit_height() {
     let rng = &mut TestRng::default();
@@ -2546,8 +2545,21 @@ fn test_no_rewards_after_limit_height() {
     let next_block = ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![], vec![], rng).unwrap();
     ledger.advance_to_next_block(&next_block).unwrap();
 
-    // Check that there are no rewards in the block.
-    assert!(next_block.ratifications().is_empty());
+    // Check that the block and puzzle rewards are 0.
+    assert!(!next_block.ratifications().is_empty());
+    let ratifications: Vec<_> = next_block.ratifications().iter().collect();
+    match ratifications[0] {
+        Ratify::BlockReward(block_reward) => {
+            assert_eq!(*block_reward, 0);
+        }
+        _ => panic!("Expected a block reward ratification"),
+    }
+    match ratifications[1] {
+        Ratify::PuzzleReward(puzzle_reward) => {
+            assert_eq!(*puzzle_reward, 0);
+        }
+        _ => panic!("Expected a puzzle reward ratification"),
+    }
 
     // Create another block with a valid solution that does not give any rewards.
 
@@ -2569,8 +2581,21 @@ fn test_no_rewards_after_limit_height() {
         ledger.prepare_advance_to_next_beacon_block(&private_key, vec![], vec![valid_solution], vec![], rng).unwrap();
     ledger.advance_to_next_block(&next_block_with_solution).unwrap();
 
-    // Check that there are no rewards in the block.
-    assert!(next_block.ratifications().is_empty());
+    // Check that the block and puzzle rewards are 0.
+    assert!(!next_block.ratifications().is_empty());
+    let ratifications: Vec<_> = next_block.ratifications().iter().collect();
+    match ratifications[0] {
+        Ratify::BlockReward(block_reward) => {
+            assert_eq!(*block_reward, 0);
+        }
+        _ => panic!("Expected a block reward ratification"),
+    }
+    match ratifications[1] {
+        Ratify::PuzzleReward(puzzle_reward) => {
+            assert_eq!(*puzzle_reward, 0);
+        }
+        _ => panic!("Expected a puzzle reward ratification"),
+    }
 
     // Check that the solution was accepted.
     assert_eq!(next_block_with_solution.solutions().len(), 1);

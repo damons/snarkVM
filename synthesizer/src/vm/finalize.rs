@@ -580,7 +580,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     let puzzle_reward = snarkvm_ledger_block::puzzle_reward(coinbase_reward);
 
                     // Output the reward ratifications.
-                    vec![Ratify::BlockReward(block_reward), Ratify::PuzzleReward(puzzle_reward)]
+                    match state.block_height() >= N::MAX_SUPPLY_LIMIT_HEIGHT {
+                        // If the maximum supply limit height has been reached, then no rewards are given.
+                        true => vec![Ratify::BlockReward(0), Ratify::PuzzleReward(0)],
+                        // Otherwise, provide the computed rewards.
+                        false => vec![Ratify::BlockReward(block_reward), Ratify::PuzzleReward(puzzle_reward)],
+                    }
                 }
             };
 

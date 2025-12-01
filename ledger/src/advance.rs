@@ -344,23 +344,18 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         )?;
 
         // Calculate the coinbase reward.
-        let coinbase_reward = match next_height >= N::MAX_SUPPLY_LIMIT_HEIGHT {
-            // A `None` value indicates that no coinbase reward and no block reward should be given.
-            true => None,
-            // Otherwise, compute the coinbase reward as usual.
-            false => Some(coinbase_reward::<N>(
-                next_height,
-                next_timestamp,
-                N::GENESIS_TIMESTAMP,
-                N::STARTING_SUPPLY,
-                N::ANCHOR_TIME,
-                N::ANCHOR_HEIGHT,
-                N::BLOCK_TIME,
-                combined_proof_target,
-                u64::try_from(latest_cumulative_proof_target)?,
-                latest_coinbase_target,
-            )?),
-        };
+        let coinbase_reward = coinbase_reward::<N>(
+            next_height,
+            next_timestamp,
+            N::GENESIS_TIMESTAMP,
+            N::STARTING_SUPPLY,
+            N::ANCHOR_TIME,
+            N::ANCHOR_HEIGHT,
+            N::BLOCK_TIME,
+            combined_proof_target,
+            u64::try_from(latest_cumulative_proof_target)?,
+            latest_coinbase_target,
+        )?;
 
         // Determine if the block timestamp should be included.
         let next_block_timestamp =
@@ -378,7 +373,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = self.vm.speculate(
             state,
             next_timestamp.saturating_sub(previous_block.timestamp()),
-            coinbase_reward,
+            Some(coinbase_reward),
             candidate_ratifications,
             &solutions,
             candidate_transactions.iter(),
