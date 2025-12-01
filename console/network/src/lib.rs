@@ -136,7 +136,7 @@ pub trait Network:
     #[cfg(not(any(test, feature = "test")))]
     const MAX_SUPPLY_LIMIT_HEIGHT: u32 = 263_527_685;
     /// The block height that upper bounds the total supply of Aleo credits to 5 billion.
-    /// This is deliberately set to a low value (8) for testing purposes only.
+    /// This is deliberately set to a low value for testing purposes only.
     #[cfg(any(test, feature = "test"))]
     const MAX_SUPPLY_LIMIT_HEIGHT: u32 = 5;
     /// The cost in microcredits per byte for the deployment transaction.
