@@ -283,33 +283,50 @@ impl<N: Network> Block<N> {
     fn verify_ratifications(&self, expected_block_reward: u64, expected_puzzle_reward: u64) -> Result<()> {
         let height = self.height();
 
-        // Ensure there are sufficient ratifications.
-        ensure!(self.ratifications.len() >= 2, "Block {height} must contain at least 2 ratifications");
+        // Check if the block height is at or above the max supply limit height.
+        match height >= N::MAX_SUPPLY_LIMIT_HEIGHT {
+            // Ensure there are no block reward or puzzle reward ratifications after the max supply limit height.
+            true => {
+                ensure!(
+                    !self
+                        .ratifications()
+                        .iter()
+                        .any(|ratification| matches!(ratification, Ratify::BlockReward(..) | Ratify::PuzzleReward(..))),
+                    "Blocks {height} cannot contain `BlockReward` or `CoinbaseReward` ratifications",
+                );
+            }
+            // Check that the block reward and puzzle reward ratifications are correct.
+            false => {
+                // Ensure there are sufficient ratifications.
+                ensure!(self.ratifications.len() >= 2, "Block {height} must contain at least 2 ratifications");
 
-        // Initialize a ratifications iterator.
-        let mut ratifications_iter = self.ratifications.iter();
+                // Initialize a ratifications iterator.
+                let mut ratifications_iter = self.ratifications.iter();
 
-        // Retrieve the block reward from the first block ratification.
-        let block_reward = match ratifications_iter.next() {
-            Some(Ratify::BlockReward(block_reward)) => *block_reward,
-            _ => bail!("Block {height} is invalid - the first ratification must be a block reward"),
-        };
-        // Retrieve the puzzle reward from the second block ratification.
-        let puzzle_reward = match ratifications_iter.next() {
-            Some(Ratify::PuzzleReward(puzzle_reward)) => *puzzle_reward,
-            _ => bail!("Block {height} is invalid - the second ratification must be a puzzle reward"),
-        };
+                // Retrieve the block reward from the first block ratification.
+                let block_reward = match ratifications_iter.next() {
+                    Some(Ratify::BlockReward(block_reward)) => *block_reward,
+                    _ => bail!("Block {height} is invalid - the first ratification must be a block reward"),
+                };
+                // Retrieve the puzzle reward from the second block ratification.
+                let puzzle_reward = match ratifications_iter.next() {
+                    Some(Ratify::PuzzleReward(puzzle_reward)) => *puzzle_reward,
+                    _ => bail!("Block {height} is invalid - the second ratification must be a puzzle reward"),
+                };
 
-        // Ensure the block reward is correct.
-        ensure!(
-            block_reward == expected_block_reward,
-            "Block {height} has an invalid block reward (found '{block_reward}', expected '{expected_block_reward}')",
-        );
-        // Ensure the puzzle reward is correct.
-        ensure!(
-            puzzle_reward == expected_puzzle_reward,
-            "Block {height} has an invalid puzzle reward (found '{puzzle_reward}', expected '{expected_puzzle_reward}')",
-        );
+                // Ensure the block reward is correct.
+                ensure!(
+                    block_reward == expected_block_reward,
+                    "Block {height} has an invalid block reward (found '{block_reward}', expected '{expected_block_reward}')",
+                );
+                // Ensure the puzzle reward is correct.
+                ensure!(
+                    puzzle_reward == expected_puzzle_reward,
+                    "Block {height} has an invalid puzzle reward (found '{puzzle_reward}', expected '{expected_puzzle_reward}')",
+                );
+            }
+        }
+
         Ok(())
     }
 
