@@ -29,6 +29,7 @@ const V2_MIN_BLOCK_INTERVAL: i64 = 1; // 1 second.
 const SECONDS_IN_A_YEAR: u32 = 60 * 60 * 24 * 365;
 
 /// Calculate the block reward based on the network’s consensus version, determined by the given block height.
+/// If the block height is at or beyond the max supply limit height, the block reward is zero.
 pub fn block_reward<N: Network>(
     block_height: u32,
     total_supply: u64,
@@ -37,6 +38,11 @@ pub fn block_reward<N: Network>(
     coinbase_reward: u64,
     transaction_fees: u64,
 ) -> Result<u64> {
+    // If the height is at or beyond the max supply limit height, set rewards to zero.
+    if block_height >= N::MAX_SUPPLY_LIMIT_HEIGHT {
+        return Ok(0);
+    }
+
     // Determine which block reward version to use.
     let consensus_version = N::CONSENSUS_VERSION(block_height)?;
     match consensus_version == ConsensusVersion::V1 {
@@ -96,6 +102,7 @@ pub const fn puzzle_reward(coinbase_reward: u64) -> u64 {
 }
 
 /// Calculate the coinbase reward based on the network’s consensus version, determined by the given block height.
+/// If the block height is at or beyond the max supply limit height, the coinbase reward is zero.
 pub fn coinbase_reward<N: Network>(
     block_height: u32,
     block_timestamp: i64,
@@ -108,6 +115,11 @@ pub fn coinbase_reward<N: Network>(
     cumulative_proof_target: u64,
     coinbase_target: u64,
 ) -> Result<u64> {
+    // If the height is at or beyond the max supply limit height, set rewards to zero.
+    if block_height >= N::MAX_SUPPLY_LIMIT_HEIGHT {
+        return Ok(0);
+    }
+
     // Determine which coinbase reward version to use.
     let consensus_version = N::CONSENSUS_VERSION(block_height)?;
     if consensus_version == ConsensusVersion::V1 {

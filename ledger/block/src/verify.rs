@@ -413,7 +413,7 @@ impl<N: Network> Block<N> {
         // Calculate the time since last block.
         let time_since_last_block = timestamp.saturating_sub(previous_block.timestamp());
         // Compute the expected block reward.
-        let mut expected_block_reward = block_reward::<N>(
+        let expected_block_reward = block_reward::<N>(
             height,
             N::STARTING_SUPPLY,
             N::BLOCK_TIME,
@@ -422,13 +422,7 @@ impl<N: Network> Block<N> {
             expected_transaction_fees,
         )?;
         // Compute the expected puzzle reward.
-        let mut expected_puzzle_reward = puzzle_reward(expected_coinbase_reward);
-
-        // If the height is at or beyond the max supply limit height, set rewards to zero.
-        if height >= N::MAX_SUPPLY_LIMIT_HEIGHT {
-            expected_block_reward = 0;
-            expected_puzzle_reward = 0;
-        }
+        let expected_puzzle_reward = puzzle_reward(expected_coinbase_reward);
 
         Ok((
             expected_cumulative_weight,
