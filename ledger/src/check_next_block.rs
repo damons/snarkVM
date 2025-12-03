@@ -34,6 +34,37 @@ impl<N: Network> Deref for PendingBlock<N> {
     }
 }
 
+/// Error returned by [`Self::check_block_subdag`] and [`Self::check_block_subdag_inner`].
+///
+/// This allows parsing for begning errors, such as the block already existing in the ledger.
+#[derive(thiserror::Error, Debug)]
+pub enum CheckBlockError<N: Network> {
+    #[error("Block with hash {hash} already exists in the ledger")]
+    BlockAlreadyExists { hash: N::BlockHash },
+    #[error("Block has invalid height. Expected {expected}, but got {actual}.")]
+    InvalidHeight { expected: u32, actual: u32 },
+    #[error("Block has invalid hash")]
+    InvalidHash,
+    /// An error related to the given prefix of pending blocks.
+    #[error("Prefix of the block at height {height} is incorrect. {error}.")]
+    InvalidPrefix { height: u32, error: Box<CheckBlockError<N>> },
+    #[error("{0:?}")]
+    Other(anyhow::Error),
+}
+
+impl<N: Network> CheckBlockError<N> {
+    pub fn other(err: anyhow::Error) -> Self {
+        Self::Other(err)
+    }
+
+    pub fn into_anyhow(self) -> anyhow::Error {
+        match self {
+            Self::Other(err) => err,
+            _ => anyhow::anyhow!("{self:?}"),
+        }
+    }
+}
+
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Checks that the subDAG in a given block is valid, but does not fully verify the block.
     ///
@@ -49,46 +80,60 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// * This will reject any blocks with a height <= the current height and any blocks with a height >= the current height + GC.
     ///   For the former, a valid block already exists and,
     ///   for the latter, the comittte is still unknown.
-    pub fn check_block_subdag(&self, block: Block<N>, pending_blocks: &[PendingBlock<N>]) -> Result<PendingBlock<N>> {
+    pub fn check_block_subdag(
+        &self,
+        block: Block<N>,
+        pending_blocks: &[PendingBlock<N>],
+    ) -> Result<PendingBlock<N>, CheckBlockError<N>> {
         self.check_block_subdag_inner(&block, pending_blocks)?;
         Ok(PendingBlock(block))
     }
 
-    fn check_block_subdag_inner(&self, block: &Block<N>, pending_blocks: &[PendingBlock<N>]) -> Result<()> {
+    fn check_block_subdag_inner(
+        &self,
+        block: &Block<N>,
+        pending_blocks: &[PendingBlock<N>],
+    ) -> Result<(), CheckBlockError<N>> {
         // First check that the heights and hashes of the pending block sequence and of the new block are correct.
         // The hash checks should be redundant, but we perform them out of extra caution.
         let mut expected_height = self.latest_height() + 1;
         for pending in pending_blocks {
             if pending.height() != expected_height {
-                bail!(
-                    "Pending block has invalid height. Expected {expected_height}, but got {actual}.",
-                    actual = pending.height()
-                );
+                return Err(CheckBlockError::InvalidPrefix {
+                    height: pending.height(),
+                    error: Box::new(CheckBlockError::InvalidHeight {
+                        expected: expected_height,
+                        actual: pending.height(),
+                    }),
+                });
             }
 
-            if self.contains_block_hash(&pending.hash())? {
-                bail!("Hash for pending block '{}' already exists in the ledger", block.hash())
+            if self.contains_block_hash(&pending.hash()).map_err(CheckBlockError::other)? {
+                return Err(CheckBlockError::InvalidPrefix {
+                    height: pending.height(),
+                    error: Box::new(CheckBlockError::BlockAlreadyExists { hash: pending.hash() }),
+                });
             }
 
             expected_height += 1;
         }
 
-        if self.contains_block_hash(&block.hash())? {
-            bail!("Block hash '{}' already exists in the ledger", block.hash())
+        if self.contains_block_hash(&block.hash()).map_err(CheckBlockError::other)? {
+            return Err(CheckBlockError::BlockAlreadyExists { hash: block.hash() });
         }
 
         if block.height() != expected_height {
-            bail!("Block has invalid height. Expected {expected_height}, but got {}.", block.height());
+            return Err(CheckBlockError::InvalidHeight { expected: expected_height, actual: block.height() });
         }
 
         // Ensure the certificates in the block subdag have met quorum requirements.
-        self.check_block_subdag_quorum(block)?;
+        self.check_block_subdag_quorum(block).map_err(CheckBlockError::other)?;
 
         // Determine if the block subdag is correctly constructed and is not a combination of multiple subdags.
-        self.check_block_subdag_atomicity(block)?;
+        self.check_block_subdag_atomicity(block).map_err(CheckBlockError::other)?;
 
         // Ensure that all leaves of the subdag point to valid batches in other subdags/blocks.
-        self.check_block_subdag_leaves(block, pending_blocks)?;
+        self.check_block_subdag_leaves(block, pending_blocks).map_err(CheckBlockError::other)?;
 
         Ok(())
     }
@@ -98,7 +143,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// # Panics
     /// This function panics if called from an async context.
     pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
-        self.check_block_subdag_inner(block, &[])?;
+        self.check_block_subdag_inner(block, &[]).map_err(|err| err.into_anyhow())?;
         self.check_block_content_inner(block, rng)?;
 
         Ok(())

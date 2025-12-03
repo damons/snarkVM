@@ -38,7 +38,7 @@ pub use helpers::*;
 pub use crate::block::*;
 
 mod check_next_block;
-pub use check_next_block::PendingBlock;
+pub use check_next_block::{CheckBlockError, PendingBlock};
 
 mod advance;
 mod check_transaction_basic;

@@ -3345,6 +3345,7 @@ dependencies = [
  "snarkvm-ledger-test-helpers",
  "snarkvm-synthesizer",
  "snarkvm-utilities",
+ "thiserror 2.0.17",
  "time",
  "tracing",
  "tracing-subscriber",
