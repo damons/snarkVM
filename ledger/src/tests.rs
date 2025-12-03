@@ -2515,6 +2515,7 @@ function foo:
     }
 }
 
+#[cfg(feature = "test")]
 #[test]
 fn test_no_rewards_after_limit_height() {
     let rng = &mut TestRng::default();

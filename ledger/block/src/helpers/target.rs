@@ -807,8 +807,9 @@ mod tests {
             assert_eq!(consensus_v1_reward, expected_reward);
 
             // Check that the block reward is correct for the second consensus version.
-            let consensus_v2_height =
-                rng.gen_range(TestnetV0::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap()..u32::MAX);
+            let consensus_v2_height = rng.gen_range(
+                TestnetV0::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap()..TestnetV0::MAX_SUPPLY_LIMIT_HEIGHT,
+            );
             let time_since_last_block = rng.gen_range(1..=V2_MAX_BLOCK_INTERVAL);
             let consensus_v2_reward = block_reward::<TestnetV0>(
                 consensus_v2_height,
@@ -821,6 +822,19 @@ mod tests {
             .unwrap();
             let expected_reward = block_reward_v2(TestnetV0::STARTING_SUPPLY, time_since_last_block, 0, 0);
             assert_eq!(consensus_v2_reward, expected_reward);
+
+            // Check that the block reward is 0 after the max supply limit height.
+            let after_max_supply_limit_height = rng.gen_range(TestnetV0::MAX_SUPPLY_LIMIT_HEIGHT..u32::MAX);
+            let block_reward = block_reward::<TestnetV0>(
+                after_max_supply_limit_height,
+                TestnetV0::STARTING_SUPPLY,
+                TestnetV0::BLOCK_TIME,
+                time_since_last_block,
+                0,
+                0,
+            )
+            .unwrap();
+            assert_eq!(block_reward, 0);
         }
     }
 
@@ -980,8 +994,9 @@ mod tests {
             assert_eq!(consensus_v1_reward, expected_reward);
 
             // Check that the block reward is correct for the second consensus version.
-            let consensus_v2_height =
-                rng.gen_range(TestnetV0::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap()..u32::MAX);
+            let consensus_v2_height = rng.gen_range(
+                TestnetV0::CONSENSUS_HEIGHT(ConsensusVersion::V2).unwrap()..TestnetV0::MAX_SUPPLY_LIMIT_HEIGHT,
+            );
             let block_timestamp = TestnetV0::GENESIS_TIMESTAMP
                 .saturating_add(consensus_v2_height.saturating_mul(TestnetV0::BLOCK_TIME as u32) as i64);
             let consensus_v2_reward = coinbase_reward::<TestnetV0>(
@@ -1008,6 +1023,23 @@ mod tests {
             )
             .unwrap();
             assert_eq!(consensus_v2_reward, expected_reward);
+
+            // Check that the coinbase reward is 0 after the max supply limit height.
+            let after_max_supply_limit_height = rng.gen_range(TestnetV0::MAX_SUPPLY_LIMIT_HEIGHT..u32::MAX);
+            let coinbase_reward = coinbase_reward::<TestnetV0>(
+                after_max_supply_limit_height,
+                block_timestamp,
+                TestnetV0::GENESIS_TIMESTAMP,
+                TestnetV0::STARTING_SUPPLY,
+                TestnetV0::ANCHOR_TIME,
+                TestnetV0::ANCHOR_HEIGHT,
+                TestnetV0::BLOCK_TIME,
+                1,
+                0,
+                1,
+            )
+            .unwrap();
+            assert_eq!(coinbase_reward, 0);
         }
     }
 
@@ -1568,7 +1600,9 @@ mod tests {
             block_height / blocks_per_year
         );
 
+        // Check that block height matches the expected max supply limit height.
         assert_eq!(block_height, N::MAX_SUPPLY_LIMIT_HEIGHT);
+        assert_eq!(N::MAX_SUPPLY_LIMIT_HEIGHT, 263_527_685);
     }
 
     #[test]
