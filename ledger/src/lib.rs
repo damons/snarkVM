@@ -515,7 +515,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 #[cfg(feature = "rocks")]
 impl<N: Network, C: ConsensusStorage<N>> Drop for InnerLedger<N, C> {
     fn drop(&mut self) {
-        // Cache the block tree on shutdown.
+        // Cache the block tree in order to speed up the next startup; this operation
+        // is guaranteed to conclude as long as the destructors are allowed to run
+        // (a clean shutdown, panic = "unwind", an explicit call to `drop`, etc.).
+        // At the moment this code is executed, the Ledger is guaranteed to be owned
+        // exclusively by this method, so no other activity may interrupt it.
         if let Err(e) = self.vm.block_store().cache_block_tree() {
             error!("Couldn't cache the block tree: {e}");
         }
