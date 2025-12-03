@@ -36,9 +36,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Currently, we do not support ratifications from the memory pool.
         ensure!(ratifications.is_empty(), "Ratifications are currently unsupported from the memory pool");
         // Construct the block template.
-        let (header, ratifications, solutions, aborted_solution_ids, transactions, aborted_transaction_ids) = self
-            .construct_block_template(&previous_block, Some(&subdag), ratifications, solutions, transactions, rng)
-            .with_context(|| "Failed to construct block template")?;
+        let (header, ratifications, solutions, aborted_solution_ids, transactions, aborted_transaction_ids) =
+            self.construct_block_template(&previous_block, Some(&subdag), ratifications, solutions, transactions, rng)?;
 
         // Construct the new quorum block.
         Block::new_quorum(
@@ -80,8 +79,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 candidate_solutions,
                 candidate_transactions,
                 rng,
-            )
-            .with_context(|| "Failed to construct block template")?;
+            )?;
 
         // Construct the new beacon block.
         Block::new_beacon(
