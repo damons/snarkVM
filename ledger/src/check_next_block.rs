@@ -94,9 +94,13 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         block: &Block<N>,
         pending_blocks: &[PendingBlock<N>],
     ) -> Result<(), CheckBlockError<N>> {
+        // Grab a lock to the latest_block in the ledger, to prevent concurrent writes to the ledger,
+        // and to ensure that this check is atomic.
+        let latest_block = self.current_block.read();
+
         // First check that the heights and hashes of the pending block sequence and of the new block are correct.
         // The hash checks should be redundant, but we perform them out of extra caution.
-        let mut expected_height = self.latest_height() + 1;
+        let mut expected_height = latest_block.height() + 1;
         for pending in pending_blocks {
             if pending.height() != expected_height {
                 return Err(CheckBlockError::InvalidPrefix {
@@ -168,7 +172,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// # Panics
     /// This function panics if called from an async context.
     fn check_block_content_inner<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
-        let latest_block = self.latest_block();
+        let latest_block = self.current_block.read();
 
         // Ensure the solutions do not already exist.
         for solution_id in block.solutions().solution_ids() {
