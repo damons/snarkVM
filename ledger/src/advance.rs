@@ -19,7 +19,8 @@ use anyhow::Context;
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Returns a candidate for the next block in the ledger, using a committed subdag and its transmissions.
-    ///    
+    /// This candidate can then be passed to [`Ledger::advance_to_next_block`] to be added to the ledger.
+    ///
     /// # Panics
     /// This function panics if called from an async context.
     pub fn prepare_advance_to_next_quorum_block<R: Rng + CryptoRng>(
@@ -53,6 +54,10 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Returns a candidate for the next block in the ledger.
+    /// This candidate can then be passed to [`Ledger::advance_to_next_block`] to be added to the ledger.
+    ///
+    /// Note, that beacon blocks are only used for testing purposes.
+    /// Production code will most likely used `[Ledger::prepare_advance_to_next_quorum_block`] instead.
     ///
     /// # Panics
     /// This function panics if called from an async context.
@@ -96,6 +101,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     }
 
     /// Adds the given block as the next block in the ledger.
+    ///
+    /// This function expects a valid block, that either was created by a trusted source, or successfully passed
+    /// the blocks checks (e.g. [`Ledger::check_next_block`]).
+    /// Note, that it is still possible that this function returns an error for a valid block, if there are concurrent tasks
+    /// updating the ledger.
     ///
     /// # Panics
     /// This function panics if called from an async context.
