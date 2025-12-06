@@ -78,30 +78,30 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     ///
     /// # Arguments
     /// * `block` - The block to check.
-    /// * `pending_block` - A sequence of blocks between the block to check and the current height of the ledger.
+    /// * `prefix` - A sequence of blocks between the block to check and the current height of the ledger.
+    ///
+    /// # Returns
+    /// * On success, a [`PendingBlock`] representing the block that was checked. Once the prefix of this block has been fully added to the ledger,
+    ///   the [`PendingBlock`] can then be passed to [`Self::check_block_content`] to fully verify it.
+    /// * On failure, a [`CheckBlockError`] describing the reason the block was rejected.
     ///
     /// # Notes
     /// * This does *not* check that the header of the block is correct or execute/verify any of the transmissions contained within it.
-    ///
     /// * In most cases, you want to use [`Self::check_next_block`] instead to perform a full verification.
-    ///
     /// * This will reject any blocks with a height <= the current height and any blocks with a height >= the current height + GC.
-    ///   For the former, a valid block already exists and,
-    ///   for the latter, the comittte is still unknown.
+    ///   For the former, a valid block already exists and,for the latter, the comittee is still unknown.
+    /// * This function executes atomically, in that there is guaranteed to be no concurrent updates to the ledger during its execution.
+    ///   However there are no ordering guarantees *between* multiple invocations of this function, [`Self::check_block_content`] and [`Self::advance_to_next_block`].
     pub fn check_block_subdag(
         &self,
         block: Block<N>,
-        pending_blocks: &[PendingBlock<N>],
+        prefix: &[PendingBlock<N>],
     ) -> Result<PendingBlock<N>, CheckBlockError<N>> {
-        self.check_block_subdag_inner(&block, pending_blocks)?;
+        self.check_block_subdag_inner(&block, prefix)?;
         Ok(PendingBlock(block))
     }
 
-    fn check_block_subdag_inner(
-        &self,
-        block: &Block<N>,
-        pending_blocks: &[PendingBlock<N>],
-    ) -> Result<(), CheckBlockError<N>> {
+    fn check_block_subdag_inner(&self, block: &Block<N>, prefix: &[PendingBlock<N>]) -> Result<(), CheckBlockError<N>> {
         // Grab a lock to the latest_block in the ledger, to prevent concurrent writes to the ledger,
         // and to ensure that this check is atomic.
         let latest_block = self.current_block.read();
@@ -109,21 +109,21 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // First check that the heights and hashes of the pending block sequence and of the new block are correct.
         // The hash checks should be redundant, but we perform them out of extra caution.
         let mut expected_height = latest_block.height() + 1;
-        for pending in pending_blocks {
-            if pending.height() != expected_height {
+        for prefix_block in prefix {
+            if prefix_block.height() != expected_height {
                 return Err(CheckBlockError::InvalidPrefix {
-                    height: pending.height(),
+                    height: prefix_block.height(),
                     error: Box::new(CheckBlockError::InvalidHeight {
                         expected: expected_height,
-                        actual: pending.height(),
+                        actual: prefix_block.height(),
                     }),
                 });
             }
 
-            if self.contains_block_hash(&pending.hash())? {
+            if self.contains_block_hash(&prefix_block.hash())? {
                 return Err(CheckBlockError::InvalidPrefix {
-                    height: pending.height(),
-                    error: Box::new(CheckBlockError::BlockAlreadyExists { hash: pending.hash() }),
+                    height: prefix_block.height(),
+                    error: Box::new(CheckBlockError::BlockAlreadyExists { hash: prefix_block.hash() }),
                 });
             }
 
@@ -145,7 +145,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         self.check_block_subdag_atomicity(block)?;
 
         // Ensure that all leaves of the subdag point to valid batches in other subdags/blocks.
-        self.check_block_subdag_leaves(block, pending_blocks)?;
+        self.check_block_subdag_leaves(block, prefix)?;
 
         Ok(())
     }
@@ -169,6 +169,13 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     ///
     /// # Return Value
     /// This returns a [`Block`] on success representing the fully verified block.
+    ///
+    /// # Notes
+    /// - This check can only succeed for pending blocks that are a direct successor of the latest block in the ledger.
+    /// - Execution of this function is atomic, and there is guaranteed to be no concurrent update to the ledger during its execution.
+    /// - Even though this function may return `Ok(block)`, advancing the ledger to this block may still fail, if there was an update to the ledger
+    ///   *between* calling `check_block_content` and `advance_to_next_block`.
+    ///   If your implementation requires atomicity across these two steps, you need to implement your own locking mechanism.
     ///
     /// # Panics
     /// This function panics if called from an async context.
@@ -288,15 +295,21 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Check that leaves in the subdag point to batches in other blocks that are valid.
     ///
-    /// This does not verify that the batches are signed correctly or that the edges are valid
-    /// (only point to the previous round), as those checks already happened when the node received the batch.
-    fn check_block_subdag_leaves(&self, block: &Block<N>, previous_blocks: &[PendingBlock<N>]) -> Result<()> {
+    //
+    /// # Arguments
+    /// * `block` - The block to check.
+    /// * `prefix` - A sequence of [`PendingBlock`]s between the block to check and the current height of the ledger.
+    ///
+    /// # Notes
+    /// This only checks that leaves point to valid batch in the previous round, and *not* hat the batches are signed correctly
+    /// or that the edges are valid, as those checks already happened when the node received the batch.
+    fn check_block_subdag_leaves(&self, block: &Block<N>, prefix: &[PendingBlock<N>]) -> Result<()> {
         // Check if the block has a subdag.
         let Authority::Quorum(subdag) = block.authority() else {
             return Ok(());
         };
 
-        let previous_certs: HashSet<_> = previous_blocks
+        let previous_certs: HashSet<_> = prefix
             .iter()
             .filter_map(|block| match block.authority() {
                 Authority::Quorum(subdag) => Some(subdag.certificate_ids()),
