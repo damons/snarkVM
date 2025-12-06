@@ -15,7 +15,7 @@
 
 use super::*;
 
-use crate::narwhal::BatchHeader;
+use crate::{narwhal::BatchHeader, puzzle::SolutionID};
 
 use anyhow::{Context, bail};
 
@@ -48,6 +48,18 @@ pub enum CheckBlockError<N: Network> {
     /// An error related to the given prefix of pending blocks.
     #[error("Prefix of the block at height {height} is incorrect. {error}.")]
     InvalidPrefix { height: u32, error: Box<CheckBlockError<N>> },
+    #[error("The block contains solution '{solution_id}', but it already exists in the ledger")]
+    SolutionAlreadyExists { solution_id: SolutionID<N> },
+    #[error("Failed to speculate over unconfirmed transactions: {inner}")]
+    SpeculationFailed { inner: anyhow::Error },
+    #[error("Failed to verify block: {inner}")]
+    VerificationFailed { inner: anyhow::Error },
+    #[error("Prover '{prover_address}' has reached their solution limit for the current epoch")]
+    SolutionLimitReached { prover_address: Address<N> },
+    #[error("The previovus block should contain solution '{solution_id}', but it does not exist in the ledger")]
+    PreviousSolutionNotFound { solution_id: SolutionID<N> },
+    #[error("The previous block should contain solution '{transaction_id}', but it does not exist in the ledger")]
+    PreviousTransactionNotFound { transaction_id: N::TransactionID },
     #[error("{0:?}")]
     Other(anyhow::Error),
 }
@@ -148,7 +160,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// This function panics if called from an async context.
     pub fn check_next_block<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
         self.check_block_subdag_inner(block, &[]).map_err(|err| err.into_anyhow())?;
-        self.check_block_content_inner(block, rng)?;
+        self.check_block_content_inner(block, rng).map_err(|err| err.into_anyhow())?;
 
         Ok(())
     }
@@ -164,20 +176,33 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     ///
     /// # Panics
     /// This function panics if called from an async context.
-    pub fn check_block_content<R: CryptoRng + Rng>(&self, block: PendingBlock<N>, rng: &mut R) -> Result<Block<N>> {
+    pub fn check_block_content<R: CryptoRng + Rng>(
+        &self,
+        block: PendingBlock<N>,
+        rng: &mut R,
+    ) -> Result<Block<N>, CheckBlockError<N>> {
         self.check_block_content_inner(&block.0, rng)?;
         Ok(block.0)
     }
 
     /// # Panics
     /// This function panics if called from an async context.
-    fn check_block_content_inner<R: CryptoRng + Rng>(&self, block: &Block<N>, rng: &mut R) -> Result<()> {
+    fn check_block_content_inner<R: CryptoRng + Rng>(
+        &self,
+        block: &Block<N>,
+        rng: &mut R,
+    ) -> Result<(), CheckBlockError<N>> {
         let latest_block = self.current_block.read();
+
+        // Ensure, again, that the ledger has not advanced yet. This prevents cryptic errors form appearing during the block check.
+        if block.height() + 1 != latest_block.height() {
+            return Err(CheckBlockError::InvalidHeight { expected: latest_block.height() + 1, actual: block.height() });
+        }
 
         // Ensure the solutions do not already exist.
         for solution_id in block.solutions().solution_ids() {
-            if self.contains_solution_id(solution_id)? {
-                bail!("Solution ID {solution_id} already exists in the ledger");
+            if self.contains_solution_id(solution_id).map_err(CheckBlockError::other)? {
+                return Err(CheckBlockError::SolutionAlreadyExists { solution_id: *solution_id });
             }
         }
 
@@ -192,7 +217,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             block.cumulative_weight(),
             block.cumulative_proof_target(),
             block.previous_hash(),
-        )?;
+        )
+        .map_err(CheckBlockError::other)?;
 
         // Ensure speculation over the unconfirmed transactions is correct and ensure each transaction is well-formed and unique.
         let time_since_last_block = block.timestamp().saturating_sub(self.latest_timestamp());
@@ -206,20 +232,22 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 block.transactions(),
                 rng,
             )
-            .with_context(|| "Failed to speculate over unconfirmed transactions")?;
+            .map_err(|err| CheckBlockError::SpeculationFailed { inner: err })?;
 
         // Retrieve the committee lookback.
         let committee_lookback = self
-            .get_committee_lookback_for_round(block.round())?
-            .ok_or(anyhow!("Failed to fetch committee lookback for round {}", block.round()))?;
+            .get_committee_lookback_for_round(block.round())
+            .map_err(CheckBlockError::other)?
+            .ok_or(CheckBlockError::other(anyhow!("Failed to fetch committee lookback for round {}", block.round())))?;
 
         // Retrieve the previous committee lookback.
         let previous_committee_lookback = {
             // Calculate the penultimate round, which is the round before the anchor round.
             let penultimate_round = block.round().saturating_sub(1);
             // Output the committee lookback for the penultimate round.
-            self.get_committee_lookback_for_round(penultimate_round)?
-                .ok_or(anyhow!("Failed to fetch committee lookback for round {penultimate_round}"))?
+            self.get_committee_lookback_for_round(penultimate_round).map_err(CheckBlockError::other)?.ok_or(
+                CheckBlockError::Other(anyhow!("Failed to fetch committee lookback for round {penultimate_round}")),
+            )?
         };
 
         // Ensure the block is correct.
@@ -230,11 +258,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 &previous_committee_lookback,
                 &committee_lookback,
                 self.puzzle(),
-                self.latest_epoch_hash()?,
+                self.latest_epoch_hash().map_err(CheckBlockError::other)?,
                 OffsetDateTime::now_utc().unix_timestamp(),
                 ratified_finalize_operations,
             )
-            .with_context(|| "Failed to verify block")?;
+            .map_err(|err| CheckBlockError::VerificationFailed { inner: err })?;
 
         // Ensure that the provers are within their stake bounds.
         if let Some(solutions) = block.solutions().deref() {
@@ -244,7 +272,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 let num_accepted_solutions = *accepted_solutions.get(&prover_address).unwrap_or(&0);
                 // Check if the prover has reached their solution limit.
                 if self.is_solution_limit_reached(&prover_address, num_accepted_solutions) {
-                    bail!("Prover '{prover_address}' has reached their solution limit for the current epoch");
+                    return Err(CheckBlockError::SolutionLimitReached { prover_address });
                 }
                 // Track the already accepted solutions.
                 *accepted_solutions.entry(prover_address).or_insert(0) += 1;
@@ -253,15 +281,15 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
         // Ensure that each existing solution ID from the block exists in the ledger.
         for existing_solution_id in expected_existing_solution_ids {
-            if !self.contains_solution_id(&existing_solution_id)? {
-                bail!("Solution ID '{existing_solution_id}' does not exist in the ledger");
+            if !self.contains_solution_id(&existing_solution_id).map_err(CheckBlockError::other)? {
+                return Err(CheckBlockError::PreviousSolutionNotFound { solution_id: existing_solution_id });
             }
         }
 
         // Ensure that each existing transaction ID from the block exists in the ledger.
         for existing_transaction_id in expected_existing_transaction_ids {
-            if !self.contains_transaction_id(&existing_transaction_id)? {
-                bail!("Transaction ID '{existing_transaction_id}' does not exist in the ledger");
+            if !self.contains_transaction_id(&existing_transaction_id).map_err(CheckBlockError::other)? {
+                return Err(CheckBlockError::PreviousTransactionNotFound { transaction_id: existing_transaction_id });
             }
         }
 
