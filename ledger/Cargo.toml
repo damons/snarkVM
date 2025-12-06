@@ -176,6 +176,7 @@ workspace = true
 
 [dependencies.thiserror]
 workspace = true
+features = [ "std" ]
 
 [dev-dependencies.bincode]
 workspace = true
