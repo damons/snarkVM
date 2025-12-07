@@ -52,8 +52,8 @@ pub enum CheckBlockError<N: Network> {
     #[error("Block has invalid hash")]
     InvalidHash,
     /// An error related to the given prefix of pending blocks.
-    #[error("Prefix of the block at height {height} is incorrect - {error:?}")]
-    InvalidPrefix { height: u32, error: Box<CheckBlockError<N>> },
+    #[error("The prefix as an error at index {index} - {error:?}")]
+    InvalidPrefix { index: usize, error: Box<CheckBlockError<N>> },
     #[error("The block contains solution '{solution_id}', but it already exists in the ledger")]
     SolutionAlreadyExists { solution_id: SolutionID<N> },
     #[error("Failed to speculate over unconfirmed transactions - {inner}")]
@@ -115,10 +115,10 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // First check that the heights and hashes of the pending block sequence and of the new block are correct.
         // The hash checks should be redundant, but we perform them out of extra caution.
         let mut expected_height = latest_block.height() + 1;
-        for prefix_block in prefix {
+        for (index, prefix_block) in prefix.iter().enumerate() {
             if prefix_block.height() != expected_height {
                 return Err(CheckBlockError::InvalidPrefix {
-                    height: prefix_block.height(),
+                    index,
                     error: Box::new(CheckBlockError::InvalidHeight {
                         expected: expected_height,
                         actual: prefix_block.height(),
@@ -128,7 +128,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
             if self.contains_block_hash(&prefix_block.hash())? {
                 return Err(CheckBlockError::InvalidPrefix {
-                    height: prefix_block.height(),
+                    index,
                     error: Box::new(CheckBlockError::BlockAlreadyExists { hash: prefix_block.hash() }),
                 });
             }

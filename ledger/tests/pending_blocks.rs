@@ -121,13 +121,13 @@ fn test_prefix_with_duplicate_block_error() {
 
     // Test a prefix that contains block2 twice.
     let result = ledger.check_block_subdag(block4.clone(), &[block2.clone(), block2.clone(), block3.clone()]);
-    assert!(matches!(result, Err(CheckBlockError::InvalidPrefix { height: 2, .. })));
+    assert!(matches!(result, Err(CheckBlockError::InvalidPrefix { index: 1, .. })));
     let CheckBlockError::InvalidPrefix { error, .. } = result.unwrap_err() else { unreachable!() };
     assert!(matches!(*error, CheckBlockError::InvalidHeight { expected: 3, actual: 2 }));
 
     // Test a prefix that misses block 2.
     let result = ledger.check_block_subdag(block4.clone(), &[block3]);
-    assert!(matches!(result, Err(CheckBlockError::InvalidPrefix { height: 3, .. })));
+    assert!(matches!(result, Err(CheckBlockError::InvalidPrefix { index: 0, .. })));
     let CheckBlockError::InvalidPrefix { error, .. } = result.unwrap_err() else { unreachable!() };
     assert!(matches!(*error, CheckBlockError::InvalidHeight { expected: 2, actual: 3 }));
 }
