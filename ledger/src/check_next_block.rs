@@ -34,6 +34,12 @@ impl<N: Network> Deref for PendingBlock<N> {
     }
 }
 
+impl<N: Network> Debug for PendingBlock<N> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "PendingBlock {{ height: {}, hash: {} }}", self.height(), self.hash())
+    }
+}
+
 /// Error returned by [`Self::check_block_subdag`] and [`Self::check_block_subdag_inner`].
 ///
 /// This allows parsing for begning errors, such as the block already existing in the ledger.
@@ -198,7 +204,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         let latest_block = self.current_block.read();
 
         // Ensure, again, that the ledger has not advanced yet. This prevents cryptic errors form appearing during the block check.
-        if block.height() + 1 != latest_block.height() {
+        if block.height() != latest_block.height() + 1 {
             return Err(CheckBlockError::InvalidHeight { expected: latest_block.height() + 1, actual: block.height() });
         }
 
