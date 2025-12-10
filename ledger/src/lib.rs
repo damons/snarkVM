@@ -266,8 +266,9 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Fetch the block heights that belong to the current epoch.
         let current_block_height = self.vm().block_store().current_block_height();
 
-        // Determine the first block to start checking. Note that the starting block of the epoch (where current_block_height % N::NUM_BLOCKS_PER_EPOCH == 0),
-        // will have solutions counted towards the previous epoch, so we start from the next block.
+        // Determine the first block to start checking.
+        // Note that the epoch boundary (where current_block_height % N::NUM_BLOCKS_PER_EPOCH == 0) can contain solutions
+        // for the previous epoch X. The subsequent block is the first block to contain solutions for the current epoch X+1.
         let start =
             current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH).saturating_add(1);
         let existing_epoch_blocks: Vec<_> = (start..=current_block_height).collect();
