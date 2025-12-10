@@ -266,15 +266,11 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Fetch the block heights that belong to the current epoch.
         let current_block_height = self.vm().block_store().current_block_height();
 
-        // If the current block height is at the start of an epoch, return an empty map.
-        // This is safe because it is once a ledger advances to the next epoch, then the cache should be empty
-        // to prepare for solutions on the next epoch.
-        if current_block_height % N::NUM_BLOCKS_PER_EPOCH == 0 {
-            return IndexMap::new();
-        }
-
-        let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
-        let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
+        // Determine the first block to start checking. Note that the starting block of the epoch (where current_block_height % N::NUM_BLOCKS_PER_EPOCH == 0),
+        // will have solutions counted towards the previous epoch, so we start from the next block.
+        let start =
+            current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH).saturating_add(1);
+        let existing_epoch_blocks: Vec<_> = (start..=current_block_height).collect();
 
         // Collect the addresses of the solutions submitted in the current epoch.
         let solution_addresses = cfg_iter!(existing_epoch_blocks)

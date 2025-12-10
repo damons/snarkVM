@@ -2652,7 +2652,7 @@ mod valid_solutions {
         let rng = &mut TestRng::default();
 
         // The number of blocks to test.
-        let num_blocks = CurrentNetwork::NUM_BLOCKS_PER_EPOCH - 1;
+        let num_blocks = CurrentNetwork::NUM_BLOCKS_PER_EPOCH * 2;
 
         // Initialize the test environment.
         let crate::test_helpers::TestEnv { ledger, private_key, .. } = crate::test_helpers::sample_test_env(rng);
@@ -2730,21 +2730,26 @@ mod valid_solutions {
             block_height = ledger.latest_height();
 
             // Update the epoch solutions count.
-            total_epoch_solutions += num_solutions;
-        }
+            if block_height % CurrentNetwork::NUM_BLOCKS_PER_EPOCH == 0 {
+                // Reset the epoch solutions count at the epoch boundary.
+                total_epoch_solutions = 0;
+            } else {
+                total_epoch_solutions += num_solutions;
+            }
 
-        // Fetch the epoch provers cache.
-        let epoch_provers = ledger.epoch_provers_cache.read();
-        // Load the epoch provers from the blocks in the current epoch.
-        let expected_epoch_provers = ledger.load_epoch_provers();
-        // Check that the epoch solutions are correct
-        assert_eq!(epoch_provers.values().sum::<u32>(), u32::try_from(total_epoch_solutions).unwrap());
-        assert_eq!(epoch_provers.len(), expected_epoch_provers.len());
-        for ((expected_address, expected_count), (address, count)) in
-            expected_epoch_provers.iter().zip(epoch_provers.iter())
-        {
-            assert_eq!(expected_address, address);
-            assert_eq!(expected_count, count);
+            // Fetch the epoch provers cache.
+            let epoch_provers = ledger.epoch_provers_cache.read();
+            // Load the epoch provers from the blocks in the current epoch.
+            let expected_epoch_provers = ledger.load_epoch_provers();
+            // Check that the epoch solutions are correct
+            assert_eq!(epoch_provers.values().sum::<u32>(), u32::try_from(total_epoch_solutions).unwrap());
+            assert_eq!(epoch_provers.len(), expected_epoch_provers.len());
+            for ((expected_address, expected_count), (address, count)) in
+                expected_epoch_provers.iter().zip(epoch_provers.iter())
+            {
+                assert_eq!(expected_address, address);
+                assert_eq!(expected_count, count);
+            }
         }
     }
 
