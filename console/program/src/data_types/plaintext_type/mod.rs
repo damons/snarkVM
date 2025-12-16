@@ -21,7 +21,7 @@ mod size_in_bits;
 use crate::{ArrayType, Identifier, LiteralType, Locator, ProgramID, StructType};
 use snarkvm_console_network::prelude::*;
 
-/// A `PlaintextType` defines the type parameter for a literal, struct, or array.
+/// A `PlaintextType` defines the type parameter for a literal, struct, array, or external struct.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum PlaintextType<N: Network> {
     /// A literal type contains its type name.

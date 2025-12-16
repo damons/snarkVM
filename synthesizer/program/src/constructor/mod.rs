@@ -53,12 +53,7 @@ impl<N: Network> ConstructorCore<N> {
 
     /// Returns whether this constructor refers to an external struct.
     pub fn contains_external_struct(&self) -> bool {
-        self.commands.iter().any(|command| {
-            matches!(
-                command,
-                Command::Instruction(instruction) if instruction.contains_external_struct()
-            )
-        })
+        self.commands.iter().any(|command| command.contains_external_struct())
     }
 
     /// Returns `true` if the constructor commands contain a string type.

@@ -143,13 +143,6 @@ impl<N: Network> FromBytes for CastType<N> {
     }
 }
 
-impl<N: Network> CastType<N> {
-    /// Returns whether this type refers to an external struct.
-    pub fn contains_external_struct(&self) -> bool {
-        matches!(self, CastType::Plaintext(plaintext_type) if plaintext_type.contains_external_struct())
-    }
-}
-
 /// The `cast` instruction.
 pub type Cast<N> = CastOperation<N, { CastVariant::Cast as u8 }>;
 /// The `cast.lossy` instruction.
@@ -195,10 +188,15 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
         vec![self.destination.clone()]
     }
 
-    /// Returns the cast type.
     #[inline]
     pub const fn cast_type(&self) -> &CastType<N> {
         &self.cast_type
+    }
+
+    /// Returns whether this instruction refers to an external struct.
+    #[inline]
+    pub fn contains_external_struct(&self) -> bool {
+        matches!(&self.cast_type, CastType::Plaintext(plaintext_type) if plaintext_type.contains_external_struct())
     }
 }
 
@@ -642,7 +640,12 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
             self.operands.len(),
         );
 
-        let struct_checks = |struct_type: &StructType<N>| {
+        fn struct_checks<N: Network>(
+            struct_stack: &impl StackTrait<N>,
+            stack: &impl StackTrait<N>,
+            struct_type: &StructType<N>,
+            input_types: &[RegisterType<N>],
+        ) -> Result<()> {
             let struct_name = struct_type.name();
 
             // Ensure the input types length is at least the minimum.
@@ -658,7 +661,7 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
             ensure!(
                 input_types.len() == struct_type.members().len(),
                 "Casting to the struct {} requires {} operands, but {} were provided",
-                struct_type.name(),
+                struct_name,
                 struct_type.members().len(),
                 input_types.len()
             );
@@ -668,7 +671,7 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
                     // Ensure the plaintext type matches the member type.
                     RegisterType::Plaintext(plaintext_type) => {
                         ensure!(
-                            types_equivalent(stack, member_type, stack, plaintext_type,)?,
+                            types_equivalent(struct_stack, member_type, stack, plaintext_type,)?,
                             "Struct '{struct_name}' member type mismatch: expected '{member_type}', found '{plaintext_type}'"
                         )
                     }
@@ -688,7 +691,7 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
             }
 
             Ok(())
-        };
+        }
 
         // Ensure the output type is defined in the program.
         match &self.cast_type {
@@ -706,12 +709,12 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
             CastType::Plaintext(PlaintextType::ExternalStruct(locator)) => {
                 let external_stack = stack.get_external_stack(locator.program_id())?;
                 let struct_type = external_stack.program().get_struct(locator.resource())?;
-                struct_checks(struct_type)?;
+                struct_checks(&*external_stack, stack, struct_type, input_types)?;
             }
             CastType::Plaintext(PlaintextType::Struct(struct_name)) => {
                 // Retrieve the struct and ensure it is defined in the program.
                 let struct_type = stack.program().get_struct(struct_name)?;
-                struct_checks(struct_type)?;
+                struct_checks(stack, stack, struct_type, input_types)?;
             }
             CastType::Plaintext(PlaintextType::Array(array_type)) => {
                 // Ensure the input types length is at least the minimum.

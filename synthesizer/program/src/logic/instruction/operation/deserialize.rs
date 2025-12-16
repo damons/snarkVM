@@ -187,6 +187,12 @@ impl<N: Network, const VARIANT: u8> DeserializeInstruction<N, VARIANT> {
     pub const fn destination_type(&self) -> &PlaintextType<N> {
         &self.destination_type
     }
+
+    /// Returns whether this instruction refers to an external struct.
+    #[inline]
+    pub fn contains_external_struct(&self) -> bool {
+        self.destination_type.contains_external_struct()
+    }
 }
 
 /// Evaluate a `deserialize` operation.
@@ -261,6 +267,67 @@ where
         }
     };
 
+    // Closure to deserialize a struct from a resolved `StructType<N>`.
+    let mut deserialize_struct = |struct_: &StructType<N>| -> Result<Plaintext<N>> {
+        // If the variant is `FromBits`, check the variant and metadata.
+        if variant == (DeserializeVariant::FromBits as u8) {
+            let plaintext_variant = next_bits(2)?;
+            let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
+            ensure!(
+                plaintext_variant == PlaintextType::<N>::STRUCT_PREFIX_BITS,
+                "Invalid plaintext variant for struct type"
+            );
+
+            let num_members = u8::from_bits_le(next_bits(8)?)?;
+            ensure!(struct_.members().len() == num_members as usize, "Struct exceeds maximum of entries.");
+        }
+
+        // Get the members.
+        let mut members = IndexMap::with_capacity(struct_.members().len());
+
+        for (member_identifier, member_type) in struct_.members().iter() {
+            let expected_member_size = get_size_in_bits(member_type)?;
+
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let identifier_size = u8::from_bits_le(next_bits(8)?)?;
+                ensure!(
+                    member_identifier.size_in_bits() == identifier_size,
+                    "Mismatched identifier size. Expected '{}', found '{}'",
+                    member_identifier.size_in_bits(),
+                    identifier_size
+                );
+
+                let identifier_bits = next_bits(identifier_size as usize)?;
+                let identifier = Identifier::<N>::from_bits_le(identifier_bits)?;
+                ensure!(
+                    *member_identifier == identifier,
+                    "Mismatched identifier. Expected '{member_identifier}', found '{identifier}'",
+                );
+
+                let member_size = u16::from_bits_le(next_bits(16)?)?;
+                ensure!(
+                    member_size as usize == expected_member_size,
+                    "Mismatched member size. Expected '{expected_member_size}', found '{member_size}'",
+                );
+            }
+
+            let value = evaluate_deserialize_internal(
+                variant,
+                next_bits(expected_member_size)?,
+                member_type,
+                get_struct,
+                get_external_struct,
+                depth + 1,
+            )?;
+
+            if members.insert(*member_identifier, value).is_some() {
+                bail!("Duplicate identifier in struct.");
+            }
+        }
+
+        Ok(Plaintext::Struct(members, Default::default()))
+    };
+
     match destination_type {
         PlaintextType::Literal(literal_type) => {
             // Get the expected size of the literal.
@@ -294,68 +361,13 @@ where
         PlaintextType::Struct(identifier) => {
             // Get the struct.
             let struct_ = get_struct(identifier)?;
-            // If the variant is `FromBits`, check the variant and metadata.
-            if variant == (DeserializeVariant::FromBits as u8) {
-                let plaintext_variant = next_bits(2)?;
-                let plaintext_variant = [plaintext_variant[0], plaintext_variant[1]];
-                ensure!(
-                    plaintext_variant == PlaintextType::<N>::STRUCT_PREFIX_BITS,
-                    "Invalid plaintext variant for struct type '{identifier}'"
-                );
-
-                let num_members = u8::from_bits_le(next_bits(8)?)?;
-                ensure!(struct_.members().len() == num_members as usize, "Struct exceeds maximum of entries.");
-            }
-
-            // Get the members.
-            let mut members = IndexMap::with_capacity(struct_.members().len());
-
-            for (member_identifier, member_type) in struct_.members().iter() {
-                // Get the expected member size.
-                let expected_member_size = get_size_in_bits(member_type)?;
-
-                // If the variant is `FromBits`, check the member metadata.
-                if variant == (DeserializeVariant::FromBits as u8) {
-                    let identifier_size = u8::from_bits_le(next_bits(8)?)?;
-                    ensure!(
-                        member_identifier.size_in_bits() == identifier_size,
-                        "Mismatched identifier size. Expected '{}', found '{}'",
-                        member_identifier.size_in_bits(),
-                        identifier_size
-                    );
-
-                    let identifier_bits = next_bits(identifier_size as usize)?;
-                    let identifier = Identifier::<N>::from_bits_le(identifier_bits)?;
-                    ensure!(
-                        *member_identifier == identifier,
-                        "Mismatched identifier. Expected '{member_identifier}', found '{identifier}'",
-                    );
-
-                    let member_size = u16::from_bits_le(next_bits(16)?)?;
-                    ensure!(
-                        member_size as usize == expected_member_size,
-                        "Mismatched member size. Expected '{expected_member_size}', found '{member_size}'",
-                    );
-                }
-
-                let value = evaluate_deserialize_internal(
-                    variant,
-                    next_bits(expected_member_size)?,
-                    member_type,
-                    get_struct,
-                    get_external_struct,
-                    depth + 1,
-                )?;
-
-                if members.insert(*member_identifier, value).is_some() {
-                    bail!("Duplicate identifier in struct.");
-                }
-            }
-
-            // Cache the plaintext bits, and return the struct.
-            Ok(Plaintext::Struct(members, Default::default()))
+            deserialize_struct(&struct_)
         }
-        PlaintextType::ExternalStruct(_identifier) => todo!(),
+        PlaintextType::ExternalStruct(locator) => {
+            // Get the external struct.
+            let struct_ = get_external_struct(locator)?;
+            deserialize_struct(&struct_)
+        }
         PlaintextType::Array(array_type) => {
             // If the variant is `FromBits`, check the variant and metadata.
             if variant == (DeserializeVariant::FromBits as u8) {
@@ -461,6 +473,63 @@ where
         }
     };
 
+    // Closure to deserialize a struct from a resolved `StructType<N>`.
+    let mut deserialize_struct = |struct_: &StructType<N>| -> Result<circuit::Plaintext<A>> {
+        // Get the expected number of members.
+        let expected_num_members =
+            u8::try_from(struct_.members().len()).map_err(|_| anyhow!("Struct exceeds maximum of entries."))?;
+
+        // If the variant is `FromBits`, check the variant and metadata.
+        if variant == (DeserializeVariant::FromBits as u8) {
+            let plaintext_variant = next_bits(2)?;
+            let expected_bits = PlaintextType::<A::Network>::STRUCT_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
+            A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
+            A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
+
+            let num_members = circuit::U8::<A>::from_bits_le(next_bits(8)?);
+            A::assert_eq(num_members, circuit::U8::<A>::constant(U8::new(expected_num_members)));
+        }
+
+        // Get the members.
+        let mut members = IndexMap::with_capacity(struct_.members().len());
+
+        for (member_identifier, member_type) in struct_.members().iter() {
+            // Get the expected member size.
+            let expected_member_size = u16::try_from(get_size_in_bits(member_type)?)
+                .map_err(|_| anyhow!("Member size exceeds maximum of 65535 bits."))?;
+
+            // If the variant is `FromBits`, check the member metadata.
+            if variant == (DeserializeVariant::FromBits as u8) {
+                let expected_identifier_size = member_identifier.size_in_bits();
+                let identifier_size = circuit::U8::<A>::from_bits_le(next_bits(8)?);
+                A::assert_eq(&identifier_size, circuit::U8::<A>::constant(U8::new(expected_identifier_size)));
+
+                let identifier_bits = next_bits(expected_identifier_size as usize)?;
+                let identifier = circuit::Identifier::<A>::from_bits_le(identifier_bits);
+                A::assert_eq(circuit::Identifier::<A>::constant(*member_identifier), &identifier);
+
+                let member_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
+                A::assert_eq(&member_size, circuit::U16::<A>::constant(U16::new(expected_member_size)));
+            }
+
+            let value = execute_deserialize_internal(
+                variant,
+                next_bits(expected_member_size as usize)?,
+                member_type,
+                get_struct,
+                get_external_struct,
+                depth + 1,
+            )?;
+
+            if members.insert(circuit::Identifier::constant(*member_identifier), value).is_some() {
+                bail!("Duplicate identifier in struct.");
+            }
+        }
+
+        // Cache the plaintext bits, and return the struct.
+        Ok(circuit::Plaintext::Struct(members, Default::default()))
+    };
+
     match destination_type {
         PlaintextType::Literal(literal_type) => {
             // Get the expected size of the literal.
@@ -490,63 +559,13 @@ where
         PlaintextType::Struct(identifier) => {
             // Get the struct.
             let struct_ = get_struct(identifier)?;
-
-            // Get the expected number of members.
-            let expected_num_members =
-                u8::try_from(struct_.members().len()).map_err(|_| anyhow!("Struct exceeds maximum of entries."))?;
-
-            // If the variant is `FromBits`, check the variant and metadata.
-            if variant == (DeserializeVariant::FromBits as u8) {
-                let plaintext_variant = next_bits(2)?;
-                let expected_bits =
-                    PlaintextType::<A::Network>::STRUCT_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
-                A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
-                A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
-
-                let num_members = circuit::U8::<A>::from_bits_le(next_bits(8)?);
-                A::assert_eq(num_members, circuit::U8::<A>::constant(U8::new(expected_num_members)));
-            }
-
-            // Get the members.
-            let mut members = IndexMap::with_capacity(struct_.members().len());
-
-            for (member_identifier, member_type) in struct_.members().iter() {
-                // Get the expected member size.
-                let expected_member_size = u16::try_from(get_size_in_bits(member_type)?)
-                    .map_err(|_| anyhow!("Member size exceeds maximum of 65535 bits."))?;
-
-                // If the variant is `FromBits`, check the member metadata.
-                if variant == (DeserializeVariant::FromBits as u8) {
-                    let expected_identifier_size = member_identifier.size_in_bits();
-                    let identifier_size = circuit::U8::<A>::from_bits_le(next_bits(8)?);
-                    A::assert_eq(&identifier_size, circuit::U8::<A>::constant(U8::new(expected_identifier_size)));
-
-                    let identifier_bits = next_bits(expected_identifier_size as usize)?;
-                    let identifier = circuit::Identifier::<A>::from_bits_le(identifier_bits);
-                    A::assert_eq(circuit::Identifier::<A>::constant(*member_identifier), &identifier);
-
-                    let member_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
-                    A::assert_eq(&member_size, circuit::U16::<A>::constant(U16::new(expected_member_size)));
-                }
-
-                let value = execute_deserialize_internal(
-                    variant,
-                    next_bits(expected_member_size as usize)?,
-                    member_type,
-                    get_struct,
-                    get_external_struct,
-                    depth + 1,
-                )?;
-
-                if members.insert(circuit::Identifier::constant(*member_identifier), value).is_some() {
-                    bail!("Duplicate identifier in struct.");
-                }
-            }
-
-            // Cache the plaintext bits, and return the struct.
-            Ok(circuit::Plaintext::Struct(members, Default::default()))
+            deserialize_struct(&struct_)
         }
-        PlaintextType::ExternalStruct(_identifier) => todo!(),
+        PlaintextType::ExternalStruct(_identifier) => {
+            // Get the external struct.
+            let struct_ = get_external_struct(_identifier)?;
+            deserialize_struct(&struct_)
+        }
         PlaintextType::Array(array_type) => {
             // Get the expected length of the array.
             let expected_length = **array_type.length();

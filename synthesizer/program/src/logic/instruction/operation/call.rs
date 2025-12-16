@@ -142,6 +142,12 @@ impl<N: Network> Call<N> {
         self.destinations.clone()
     }
 
+    /// Returns whether this instruction refers to an external struct.
+    #[inline]
+    pub fn contains_external_struct(&self) -> bool {
+        false
+    }
+
     /// Returns `true` if the instruction is a function call.
     #[inline]
     pub fn is_function_call(&self, stack: &impl StackTrait<N>) -> Result<bool> {

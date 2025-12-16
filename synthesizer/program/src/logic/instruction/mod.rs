@@ -591,12 +591,7 @@ impl<N: Network> Instruction<N> {
 
     /// Returns whether this instruction refers to an external struct.
     pub fn contains_external_struct(&self) -> bool {
-        // Only cast instructions may contain an explicit reference to an external struct.
-        // Calls may produce them, but they don't explicitly reference the type, and that's
-        // always been allowed.
-        matches!(self,
-            Instruction::Cast(instruction) if instruction.cast_type().contains_external_struct()
-        )
+        instruction!(self, |instruction| instruction.contains_external_struct())
     }
 
     /// Returns `true` if the instruction contains a literal string type.

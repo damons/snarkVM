@@ -475,6 +475,12 @@ impl<N: Network, const VARIANT: u8> HashInstruction<N, VARIANT> {
     pub const fn destination_type(&self) -> &PlaintextType<N> {
         &self.destination_type
     }
+
+    /// Returns whether this instruction refers to an external struct.
+    #[inline]
+    pub fn contains_external_struct(&self) -> bool {
+        self.destination_type.contains_external_struct()
+    }
 }
 
 // This code is nearly identical in `execute` and `evaluate`; we

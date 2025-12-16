@@ -17,7 +17,13 @@ use super::*;
 
 impl<N: Network> RegisterTypes<N> {
     /// Checks that the given operands matches the layout of the struct. The ordering of the operands matters.
-    pub fn matches_struct(&self, stack: &Stack<N>, operands: &[Operand<N>], struct_: &StructType<N>) -> Result<()> {
+    pub fn matches_struct(
+        &self,
+        operands_stack: &Stack<N>,
+        stack: &Stack<N>,
+        operands: &[Operand<N>],
+        struct_: &StructType<N>,
+    ) -> Result<()> {
         // Retrieve the struct name.
         let struct_name = struct_.name();
         // Ensure the struct name is valid.
@@ -52,7 +58,7 @@ impl<N: Network> RegisterTypes<N> {
                 // Ensure the register type matches the member type.
                 Operand::Register(register) => {
                     // Retrieve the register type.
-                    match self.get_type(stack, register)? {
+                    match self.get_type(operands_stack, register)? {
                         // Ensure the register type is not a record.
                         RegisterType::ExternalRecord(..) | RegisterType::Record(..) => {
                             bail!("Casting a record into a struct entry is illegal")
@@ -64,7 +70,7 @@ impl<N: Network> RegisterTypes<N> {
                         // Ensure the register type matches the member type.
                         RegisterType::Plaintext(type_) => {
                             ensure!(
-                                types_equivalent(stack, &type_, stack, member_type)?,
+                                types_equivalent(operands_stack, &type_, stack, member_type)?,
                                 "Struct entry '{struct_name}.{member_name}' expects a '{member_type}', but found '{type_}' in the operand '{operand}'.",
                             )
                         }

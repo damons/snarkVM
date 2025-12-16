@@ -30,7 +30,7 @@ fn sample_stack(program_text: &str) -> Result<Stack<CurrentNetwork>> {
     Ok(stack)
 }
 
-// ---------- 1️⃣ Literal equivalence ----------
+// ---------- Literal equivalence ----------
 #[test]
 fn test_literal_equivalence() -> Result<()> {
     let stack = sample_stack("program p_lit.aleo; function main:")?;
@@ -44,7 +44,7 @@ fn test_literal_equivalence() -> Result<()> {
     Ok(())
 }
 
-// ---------- 2️⃣ Struct equivalence (same program) ----------
+// ---------- Struct equivalence (same program) ----------
 #[test]
 fn test_struct_equivalence_same_program() -> Result<()> {
     let program_text = r"
@@ -64,7 +64,7 @@ fn test_struct_equivalence_same_program() -> Result<()> {
     Ok(())
 }
 
-// ---------- 3️⃣ Array equivalence ----------
+// ---------- Array equivalence ----------
 #[test]
 fn test_array_equivalence() -> Result<()> {
     let stack = sample_stack("program p_array.aleo; function main:")?;
@@ -81,7 +81,7 @@ fn test_array_equivalence() -> Result<()> {
     Ok(())
 }
 
-// ---------- 4️⃣ Cross-program struct equivalence ----------
+// ---------- Cross-program struct equivalence ----------
 #[test]
 fn test_cross_program_structs_equivalence() -> Result<()> {
     // ---------- Sample stacks ----------
@@ -125,13 +125,13 @@ fn test_cross_program_structs_equivalence() -> Result<()> {
     Ok(())
 }
 
-// ---------- 5️⃣ External vs Local struct ----------
+// ---------- External vs Local struct ----------
 #[test]
 fn test_external_vs_local_struct_equivalence() -> Result<()> {
     // Create a single process to hold both programs
     let mut process = Process::<CurrentNetwork>::load()?;
 
-    // 1️⃣ External program
+    // External program
     let external_program = Program::from_str(
         r"program external.aleo;
         struct Foo: x as u32; y as u32;
@@ -139,7 +139,7 @@ fn test_external_vs_local_struct_equivalence() -> Result<()> {
     )?;
     process.add_program(&external_program)?;
 
-    // 2️⃣ Local program that imports external
+    // Local program that imports external
     let local_program = Program::from_str(
         r"import external.aleo;
         program local.aleo;
@@ -148,7 +148,7 @@ fn test_external_vs_local_struct_equivalence() -> Result<()> {
     )?;
     process.add_program(&local_program)?;
 
-    // 3️⃣ Retrieve the stack for the local program
+    // Retrieve the stack for the local program
     let s_local = process.get_stack(local_program.id())?;
 
     let local_ty = PlaintextType::<CurrentNetwork>::Struct("Foo".try_into()?);
@@ -172,10 +172,10 @@ fn test_external_and_array_struct_equivalence() -> Result<()> {
     use console::program::{ArrayType, LiteralType, Locator, PlaintextType, U32};
     use snarkvm_synthesizer_program::types_equivalent;
 
-    // ---------- 1️⃣ Create a single process ----------
+    // ---------- Create a single process ----------
     let mut process = Process::<CurrentNetwork>::load()?;
 
-    // ---------- 2️⃣ External program ----------
+    // ---------- External program ----------
     let external_program = Program::from_str(
         r"program external.aleo;
         struct Foo: x as u32; y as u32;
@@ -184,7 +184,7 @@ fn test_external_and_array_struct_equivalence() -> Result<()> {
     )?;
     process.add_program(&external_program)?;
 
-    // ---------- 3️⃣ Local program importing external ----------
+    // ---------- Local program importing external ----------
     let local_program = Program::from_str(
         r"import external.aleo;
         program local.aleo;
@@ -194,10 +194,10 @@ fn test_external_and_array_struct_equivalence() -> Result<()> {
     )?;
     process.add_program(&local_program)?;
 
-    // ---------- 4️⃣ Retrieve the stack ----------
+    // ---------- Retrieve the stack ----------
     let s_local = process.get_stack(local_program.id())?;
 
-    // ---------- 5️⃣ Define types ----------
+    // ---------- Define types ----------
     let local_foo = PlaintextType::Struct("Foo".try_into()?);
     let external_foo = PlaintextType::ExternalStruct(Locator::new("external.aleo".try_into()?, "Foo".try_into()?));
 
@@ -213,7 +213,7 @@ fn test_external_and_array_struct_equivalence() -> Result<()> {
     let array_external_foo_2 =
         PlaintextType::Array(ArrayType::new(*Box::new(external_foo.clone()), vec![U32::new(2)])?);
 
-    // ---------- 6️⃣ Assertions ----------
+    // ---------- Assertions ----------
 
     // Local vs External struct
     assert!(types_equivalent(&*s_local, &local_foo, &*s_local, &external_foo)?);

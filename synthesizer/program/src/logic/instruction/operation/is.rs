@@ -71,6 +71,12 @@ impl<N: Network, const VARIANT: u8> IsInstruction<N, VARIANT> {
     pub fn destinations(&self) -> Vec<Register<N>> {
         vec![self.destination.clone()]
     }
+
+    /// Returns whether this instruction refers to an external struct.
+    #[inline]
+    pub fn contains_external_struct(&self) -> bool {
+        false
+    }
 }
 
 impl<N: Network, const VARIANT: u8> IsInstruction<N, VARIANT> {

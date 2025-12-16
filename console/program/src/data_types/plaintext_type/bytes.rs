@@ -24,7 +24,7 @@ impl<N: Network> FromBytes for PlaintextType<N> {
             1 => Ok(Self::Struct(Identifier::read_le(&mut reader)?)),
             2 => Ok(Self::Array(ArrayType::read_le(&mut reader)?)),
             3 => Ok(Self::ExternalStruct(Locator::read_le(&mut reader)?)),
-            4.. => Err(error(format!("Failed to deserialize annotation variant {variant}"))),
+            4.. => Err(error(format!("Failed to deserialize plaintext type variant {variant}"))),
         }
     }
 }

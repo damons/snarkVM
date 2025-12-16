@@ -36,7 +36,7 @@ fn test_deploy_external_structs_v10() {
 }
 
 // This test verifies that a program with external structs can be deployed on
-// consensus version 12.
+// consensus version 13.
 #[test]
 fn test_deploy_external_structs_v13() {
     let block = deploy_programs(ConsensusVersion::V13);
@@ -53,8 +53,8 @@ fn deploy_programs(consensus_version: ConsensusVersion) -> Block<CurrentNetwork>
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
     // Initialize the VM at the correct height.
-    let v10_height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v10_height, rng);
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
 
     // Define the first program with a record.
     let program_one = Program::from_str(

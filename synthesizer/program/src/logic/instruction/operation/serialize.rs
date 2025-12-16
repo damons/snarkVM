@@ -158,6 +158,12 @@ impl<N: Network, const VARIANT: u8> SerializeInstruction<N, VARIANT> {
     pub const fn destination_type(&self) -> &ArrayType<N> {
         &self.destination_type
     }
+
+    /// Returns whether this instruction refers to an external struct.
+    #[inline]
+    pub fn contains_external_struct(&self) -> bool {
+        self.operand_type.contains_external_struct()
+    }
 }
 
 /// Evaluate a `serialize` operation.

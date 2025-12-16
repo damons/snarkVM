@@ -263,7 +263,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if consensus_version < ConsensusVersion::V13 {
                     ensure!(
                         !deployment.program().contains_external_struct(),
-                        "Invalid deployment transaction '{id}' - external structs may only be used beginning with Consensus version 10"
+                        "Invalid deployment transaction '{id}' - external structs may only be used beginning with `ConsensusVersion::V13`"
                     );
                 }
 

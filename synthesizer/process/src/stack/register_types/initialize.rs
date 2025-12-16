@@ -511,7 +511,7 @@ impl<N: Network> RegisterTypes<N> {
                             // Retrieve the struct.
                             let struct_ = stack.program().get_struct(struct_name)?;
                             // Ensure the operand types match the struct.
-                            self.matches_struct(stack, instruction.operands(), struct_)?;
+                            self.matches_struct(stack, stack, instruction.operands(), struct_)?;
                         }
                         CastType::Plaintext(plaintext @ PlaintextType::ExternalStruct(locator)) => {
                             // Ensure the type is valid.
@@ -521,7 +521,7 @@ impl<N: Network> RegisterTypes<N> {
                             // Retrieve the struct.
                             let struct_ = external_stack.program().get_struct(struct_name)?;
                             // Ensure the operand types match the struct.
-                            self.matches_struct(&*external_stack, instruction.operands(), struct_)?;
+                            self.matches_struct(stack, &*external_stack, instruction.operands(), struct_)?;
                         }
                         CastType::Plaintext(plaintext @ PlaintextType::Array(array_type)) => {
                             // Ensure the type is valid.
