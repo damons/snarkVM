@@ -2730,7 +2730,7 @@ mod valid_solutions {
             block_height = ledger.latest_height();
 
             // Update the epoch solutions count.
-            if block_height % CurrentNetwork::NUM_BLOCKS_PER_EPOCH == 0 {
+            if block_height.is_multiple_of(CurrentNetwork::NUM_BLOCKS_PER_EPOCH) {
                 // Reset the epoch solutions count at the epoch boundary.
                 total_epoch_solutions = 0;
             } else {
@@ -2853,7 +2853,7 @@ mod valid_solutions {
         }
 
         // Ensure that we are at the end of the epoch.
-        assert!(block_height % CurrentNetwork::NUM_BLOCKS_PER_EPOCH == 0);
+        assert!(block_height.is_multiple_of(CurrentNetwork::NUM_BLOCKS_PER_EPOCH));
 
         // Fetch the epoch provers cache.
         let epoch_provers = ledger.epoch_provers_cache.read();
