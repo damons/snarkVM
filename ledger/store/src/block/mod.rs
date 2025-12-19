@@ -46,7 +46,6 @@ use snarkvm_ledger_block::{
 use snarkvm_ledger_narwhal_batch_certificate::BatchCertificate;
 use snarkvm_ledger_puzzle::{Solution, SolutionID};
 use snarkvm_synthesizer_program::{FinalizeOperation, Program};
-use std::io::BufWriter;
 
 use aleo_std_storage::StorageMode;
 #[cfg(feature = "rocks")]
@@ -56,9 +55,9 @@ use anyhow::{Context, Result};
 use locktick::{LockGuard, parking_lot::RwLock};
 #[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
-#[cfg(feature = "rocks")]
-use std::fs;
 use std::{borrow::Cow, sync::Arc};
+#[cfg(feature = "rocks")]
+use std::{fs, io::BufWriter};
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;

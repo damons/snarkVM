@@ -242,7 +242,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         ensure!(
             latest_height == ledger.vm().block_store().current_block_height(),
             "The stored height is different than the one in the block tree; \
-            please ensure that the cached block tree is valid or delete it"
+            please ensure that the cached block tree is valid or delete the \
+            'block_tree' file from the ledger folder"
         );
 
         // Verify that the root of the cached block tree matches the one in the storage.
@@ -255,7 +256,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         ensure!(
             tree_root == state_root,
             "The stored state root is different than the one in the block tree;
-            please ensure that the cached block tree is valid or delete it"
+            please ensure that the cached block tree is valid or delete the \
+            'block_tree' file from the ledger folder"
         );
 
         // Fetch the latest block.
