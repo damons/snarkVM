@@ -37,8 +37,10 @@ pub use helpers::*;
 
 pub use crate::block::*;
 
-mod advance;
 mod check_next_block;
+pub use check_next_block::{CheckBlockError, PendingBlock};
+
+mod advance;
 mod check_transaction_basic;
 mod contains;
 mod find;
@@ -146,7 +148,11 @@ pub struct InnerLedger<N: Network, C: ConsensusStorage<N>> {
     /// but there are cases in which it is `None`,
     /// probably only temporarily when loading/initializing the ledger,
     current_committee: RwLock<Option<Committee<N>>>,
-    /// The latest block.
+
+    /// The latest block that was added to the ledger.
+    ///
+    /// This lock is also used as a way to prevent concurrent updates to the ledger, and to ensure that
+    /// the ledger does not advance while certain check happen.
     current_block: RwLock<Block<N>>,
     /// The recent committees of interest paired with their applicable rounds.
     ///
