@@ -24,6 +24,7 @@ use rayon::prelude::*;
 use snarkvm_fields::PrimeField;
 use snarkvm_utilities::{cfg_iter, cfg_iter_mut, serialize::*};
 
+use itertools::Itertools;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use super::domain::IFFTPrecomputation;
@@ -88,7 +89,7 @@ impl<F: PrimeField> Evaluations<F> {
     }
 
     pub fn evaluate_with_coeffs(&self, lagrange_coefficients_at_point: &[F]) -> F {
-        cfg_iter!(self.evaluations).zip_eq(lagrange_coefficients_at_point).map(|(a, b)| *a * b).sum()
+        cfg_iter!(self.evaluations, 1_000).zip_eq(lagrange_coefficients_at_point).map(|(a, b)| *a * b).sum()
     }
 }
 

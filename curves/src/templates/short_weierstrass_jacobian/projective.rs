@@ -209,7 +209,7 @@ impl<P: Parameters> ProjectiveCurve for Projective<P> {
             g.z = tmp * s;
             tmp = newtmp;
         }
-        cfg_iter_mut!(v).filter(|g| !g.is_normalized()).for_each(|g| {
+        v.iter_mut().filter(|g| !g.is_normalized()).for_each(|g| {
             // Perform affine transformations
             let z2 = g.z.square(); // 1/z
             g.x *= &z2; // x/z^2

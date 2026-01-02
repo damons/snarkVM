@@ -271,7 +271,8 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
             .map(|((circuit, circuit_specific_state), w_polys)| {
                 let x_polys = &circuit_specific_state.x_polys;
                 let input_domain = &circuit_specific_state.input_domain;
-                let assignments_i: Vec<_> = cfg_iter!(w_polys)
+                let assignments_i: Vec<_> = w_polys
+                    .iter()
                     .zip_eq(x_polys)
                     .enumerate()
                     .map(|(_j, (w_poly, x_poly))| {
@@ -341,7 +342,8 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
         // L^C_col(k)(X) will be 1
         let m_at_alpha_evals_time = start_timer!(|| format!("Compute m_at_alpha_evals parallel for {_matrix_label}"));
         let l_at_alpha = constraint_domain.evaluate_all_lagrange_coefficients(alpha);
-        let m_at_alpha_evals: Vec<_> = cfg_iter!(matrix_transpose)
+        let m_at_alpha_evals: Vec<_> = matrix_transpose
+            .iter()
             .map(|col| col.iter().map(|(val, row_index)| *val * l_at_alpha[*row_index]).sum::<F>())
             .collect();
         end_timer!(m_at_alpha_evals_time);
