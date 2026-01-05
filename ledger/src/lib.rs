@@ -302,12 +302,22 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
 
     /// Loads the provers and the number of solutions they have submitted for the current epoch.
     pub fn load_epoch_provers(&self) -> IndexMap<Address<N>, u32> {
-        // Fetch the block heights that belong to the current epoch.
+        // Fetch the current block height.
         let current_block_height = self.vm().block_store().current_block_height();
-        let start_of_epoch = current_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
-        let existing_epoch_blocks: Vec<_> = (start_of_epoch..=current_block_height).collect();
+
+        // Determine the first block to start checking.
+        // Note that the epoch boundary (where current_block_height % N::NUM_BLOCKS_PER_EPOCH == 0) can contain solutions
+        // for the previous epoch X. The subsequent block is the first block to contain solutions for the current epoch X+1.
+        let next_block_height = current_block_height.saturating_add(1);
+        let start = next_block_height.saturating_sub(current_block_height % N::NUM_BLOCKS_PER_EPOCH);
+
+        // If the epoch contains no blocks that have solutions for the epoch.
+        if start > current_block_height {
+            return IndexMap::new();
+        }
 
         // Collect the addresses of the solutions submitted in the current epoch.
+        let existing_epoch_blocks: Vec<_> = (start..=current_block_height).collect();
         let solution_addresses = cfg_iter!(existing_epoch_blocks)
             .flat_map(|height| match self.get_solutions(*height).as_deref() {
                 Ok(Some(solutions)) => solutions.iter().map(|(_, s)| s.address()).collect::<Vec<_>>(),
