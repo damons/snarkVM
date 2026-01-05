@@ -32,16 +32,13 @@ use crate::{
     },
 };
 use snarkvm_fields::{PrimeField, batch_inversion_and_mul};
-use snarkvm_utilities::{ExecutionPool, cfg_iter, cfg_iter_mut};
+use snarkvm_utilities::ExecutionPool;
 
 use anyhow::Result;
 use core::convert::TryInto;
 use itertools::Itertools;
 use rand::RngCore;
 use std::collections::BTreeMap;
-
-#[cfg(not(feature = "serial"))]
-use rayon::prelude::*;
 
 type Sum<F> = F;
 type Lhs<F> = DensePolynomial<F>;

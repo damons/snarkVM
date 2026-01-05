@@ -24,7 +24,6 @@ use rayon::prelude::*;
 use snarkvm_fields::PrimeField;
 use snarkvm_utilities::{cfg_iter, cfg_iter_mut, serialize::*};
 
-use itertools::Itertools;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use super::domain::IFFTPrecomputation;

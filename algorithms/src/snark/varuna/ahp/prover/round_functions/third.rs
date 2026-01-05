@@ -35,15 +35,12 @@ use crate::{
     },
 };
 use snarkvm_fields::PrimeField;
-use snarkvm_utilities::{ExecutionPool, cfg_iter};
+use snarkvm_utilities::ExecutionPool;
 
 use anyhow::{Result, ensure};
 use itertools::Itertools;
 use rand::RngCore;
 use std::collections::BTreeMap;
-
-#[cfg(not(feature = "serial"))]
-use rayon::prelude::*;
 
 struct LinevalInstance<F: PrimeField> {
     h_1_i: DensePolynomial<F>,
@@ -274,8 +271,7 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                 let assignments_i: Vec<_> = w_polys
                     .iter()
                     .zip_eq(x_polys)
-                    .enumerate()
-                    .map(|(_j, (w_poly, x_poly))| {
+                    .map(|(w_poly, x_poly)| {
                         let z_time = start_timer!(move || format!("Compute z poly for circuit {} {}", circuit.id, _j));
                         let mut assignment =
                             w_poly.0.polynomial().as_dense().unwrap().mul_by_vanishing_poly(*input_domain);

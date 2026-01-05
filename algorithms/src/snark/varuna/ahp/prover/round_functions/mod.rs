@@ -28,10 +28,7 @@ use itertools::Itertools;
 use rand::{CryptoRng, Rng};
 use std::collections::BTreeMap;
 
-use snarkvm_utilities::{cfg_iter, dev_println};
-
-#[cfg(not(feature = "serial"))]
-use rayon::prelude::*;
+use snarkvm_utilities::dev_println;
 
 mod fifth;
 mod first;
@@ -71,8 +68,7 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                 let assignments = constraints
                     .iter()
                     .zip(circuit_rand_assignments)
-                    .enumerate()
-                    .map(|(_i, (instance, rand_assignments))| {
+                    .map(|(instance, rand_assignments)| {
                         let constraint_time = start_timer!(|| format!(
                             "Generating constraints and witnesses for {:?} and index {_i}",
                             circuit.id

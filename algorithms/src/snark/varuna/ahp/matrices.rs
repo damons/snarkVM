@@ -25,7 +25,7 @@ use crate::{
     },
 };
 use snarkvm_fields::{Field, PrimeField};
-use snarkvm_utilities::{cfg_into_iter, cfg_iter, cfg_iter_mut, serialize::*};
+use snarkvm_utilities::{cfg_into_iter, serialize::*};
 
 use anyhow::{Result, anyhow, ensure};
 

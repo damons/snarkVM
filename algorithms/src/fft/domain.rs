@@ -41,7 +41,6 @@ use rand::Rng;
 use std::{borrow::Cow, fmt};
 
 use anyhow::{Result, ensure};
-use itertools::Itertools;
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;

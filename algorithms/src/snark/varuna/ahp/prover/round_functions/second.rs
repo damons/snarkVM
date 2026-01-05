@@ -31,7 +31,7 @@ use crate::{
 use anyhow::Result;
 use rand::RngCore;
 use snarkvm_fields::PrimeField;
-use snarkvm_utilities::{ExecutionPool, cfg_into_iter, cfg_iter_mut, cfg_reduce};
+use snarkvm_utilities::{ExecutionPool, cfg_into_iter, cfg_reduce};
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
