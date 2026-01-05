@@ -68,7 +68,8 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                 let assignments = constraints
                     .iter()
                     .zip(circuit_rand_assignments)
-                    .map(|(instance, rand_assignments)| {
+                    .enumerate()
+                    .map(|(_i, (instance, rand_assignments))| {
                         let constraint_time = start_timer!(|| format!(
                             "Generating constraints and witnesses for {:?} and index {_i}",
                             circuit.id

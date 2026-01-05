@@ -270,8 +270,9 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                 let input_domain = &circuit_specific_state.input_domain;
                 let assignments_i: Vec<_> = w_polys
                     .iter()
+                    .enumerate()
                     .zip_eq(x_polys)
-                    .map(|(w_poly, x_poly)| {
+                    .map(|(_j, (w_poly, x_poly))| {
                         let z_time = start_timer!(move || format!("Compute z poly for circuit {} {}", circuit.id, _j));
                         let mut assignment =
                             w_poly.0.polynomial().as_dense().unwrap().mul_by_vanishing_poly(*input_domain);
