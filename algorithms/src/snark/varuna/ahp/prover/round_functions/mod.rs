@@ -69,17 +69,22 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                     .iter()
                     .zip(circuit_rand_assignments)
                     .enumerate()
-                    .map(|(_i, (instance, rand_assignments))| {
+                    .map(|(i, (instance, rand_assignments))| {
                         let constraint_time = start_timer!(|| format!(
-                            "Generating constraints and witnesses for {:?} and index {_i}",
+                            "Generating constraints and witnesses for {:?} and index {i}",
                             circuit.id
                         ));
+
+                        // i may not be used if the timer feature is disabled.
+                        #[allow(unused_variables)]
+                        let _ = i;
+
                         let mut pcs = prover::ConstraintSystem::new();
                         instance.generate_constraints(&mut pcs)?;
                         end_timer!(constraint_time);
 
                         let padding_time =
-                            start_timer!(|| format!("Padding matrices for {:?} and index {_i}", circuit.id));
+                            start_timer!(|| format!("Padding matrices for {:?} and index {i}", circuit.id));
 
                         SM::ZK.then(|| {
                             crate::snark::varuna::ahp::matrices::add_randomizing_variables::<_, _>(
@@ -120,7 +125,7 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
 
                         Self::formatted_public_input_is_admissible(&padded_public_variables)?;
 
-                        let eval_z_a_time = start_timer!(|| format!("For {:?}, evaluating z_A_{_i}", circuit.id));
+                        let eval_z_a_time = start_timer!(|| format!("For {:?}, evaluating z_A_{i}", circuit.id));
                         let z_a = circuit
                             .a
                             .iter()
@@ -130,7 +135,7 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                             .collect();
                         end_timer!(eval_z_a_time);
 
-                        let eval_z_b_time = start_timer!(|| format!("For {:?}, evaluating z_B_{_i}", circuit.id));
+                        let eval_z_b_time = start_timer!(|| format!("For {:?}, evaluating z_B_{i}", circuit.id));
                         let z_b = circuit
                             .b
                             .iter()
@@ -140,7 +145,7 @@ impl<F: PrimeField, SM: SNARKMode> AHPForR1CS<F, SM> {
                             .collect();
                         end_timer!(eval_z_b_time);
 
-                        let eval_z_c_time = start_timer!(|| format!("For {:?}, evaluating z_C_{_i}", circuit.id));
+                        let eval_z_c_time = start_timer!(|| format!("For {:?}, evaluating z_C_{i}", circuit.id));
                         let z_c = circuit
                             .c
                             .iter()
