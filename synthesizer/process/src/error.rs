@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use circuit::environment::ConstraintUnsatisfied;
 use thiserror::Error;
 
 // NOTE: Many errors in this module temporarily contain `Anyhow` variants.
@@ -82,6 +83,9 @@ pub enum CallExecError {
     /// An error occurred during substack evaluation.
     #[error("Substack evaluation failed: {0}")]
     StackEval(#[from] StackEvalError),
+    /// A circuit constraint was not satisfied.
+    #[error(transparent)]
+    Constraint(#[from] ConstraintUnsatisfied),
     /// A temporary variant for type-erased anyhow errors.
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
@@ -107,6 +111,9 @@ pub enum StackExecError {
     /// Instruction at the given index failed.
     #[error(transparent)]
     Instruction(#[from] IndexedInstructionError<InstructionError>),
+    /// A circuit constraint was not satisfied.
+    #[error(transparent)]
+    Constraint(#[from] ConstraintUnsatisfied),
     /// A temporary variant for type-erased anyhow errors.
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),

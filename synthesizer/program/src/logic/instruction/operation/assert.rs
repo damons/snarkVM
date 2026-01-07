@@ -124,8 +124,8 @@ impl<N: Network, const VARIANT: u8> AssertInstruction<N, VARIANT> {
 
         // Assert the inputs.
         match VARIANT {
-            0 => A::assert(input_a.is_equal(&input_b)),
-            1 => A::assert(input_a.is_not_equal(&input_b)),
+            0 => A::assert(input_a.is_equal(&input_b))?,
+            1 => A::assert(input_a.is_not_equal(&input_b))?,
             _ => bail!("Invalid 'assert' variant: {VARIANT}"),
         }
         Ok(())
