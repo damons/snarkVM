@@ -1138,6 +1138,7 @@ workflows:
     jobs:
       - check-fmt
       - check-clippy
+      - check-cargo-audit
       - check-all-targets
 
   circuit-workflow:
@@ -1179,8 +1180,6 @@ workflows:
   ledger-workflow:
     jobs:
       - ledger
-      - ledger-with-rocksdb-partition1
-      - ledger-with-rocksdb-partition2
       - ledger-with-valid-solutions
       - ledger-authority
       - ledger-block
@@ -1203,8 +1202,8 @@ workflows:
       - synthesizer
       - synthesizer-test-partition1
       - synthesizer-test-partition2
+      - synthesizer-process 
       - synthesizer-integration
-      - synthesizer-process-with-rocksdb
       - synthesizer-program
       - synthesizer-program-integration
       - synthesizer-snark
@@ -1220,25 +1219,27 @@ workflows:
       - utilities-derives
       - wasm
   
-  # Enable to run additional checks before releases
-  # prerelease-workflow:
-  #   jobs:
-  #     - synthesizer-process
-  #     - parameters-large
-  #     - parameters-uncached
-  #     - algorithms-profiler
-  #     - check-unused-dependencies
-  #     - check-cargo-audit
-  #     - check-cargo-semver-checks
-  #     - synthesizer-program-integration-keccak
-  #     - synthesizer-program-integration-psd
-  #     - synthesizer-program-integration-sha
-  #     - synthesizer-program-integration-instruction-is
-  #     - synthesizer-program-integration-instruction-equal
-  #     - synthesizer-program-integration-instruction-commit
-
-  windows-workflow:
+  # Run additional but unlikely to fail checks on merges only
+  merge-workflow:
+    when: pipeline.git.branch == "staging"
+      or pipeline.git.branch == "canary"
+      or pipeline.git.branch == "testnet"
+      or pipeline.git.branch == "mainnet"
     jobs:
+      - ledger-with-rocksdb-partition1 # Often similar results as `ledger`
+      - ledger-with-rocksdb-partition2 # Often similar results as `ledger`
+      - synthesizer-process-with-rocksdb # Often similar results as `synthesizer-process`
+      - parameters-large # Infrastructure which often runs fine
+      - parameters-uncached # Infrastructure which often runs fine
+      - algorithms-profiler # Often similar results as `algorithms`
+      - check-unused-dependencies # This can be cleaned up before releases
+      - check-cargo-semver-checks # This can be cleaned up before releases
+      - synthesizer-program-integration-keccak # Expensive and rarely used
+      - synthesizer-program-integration-psd # Expensive and rarely used
+      - synthesizer-program-integration-sha # Expensive and rarely used
+      - synthesizer-program-integration-instruction-is # Expensive and rarely used
+      - synthesizer-program-integration-instruction-equal # Expensive and rarely used
+      - synthesizer-program-integration-instruction-commit # Expensive and rarely used
       - verify-windows:
           matrix:
             parameters:
