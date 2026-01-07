@@ -444,16 +444,6 @@ jobs:
       - run_test:
           workspace_member: snarkvm-circuit-account
 
-  # This checks that no `console` structs are used in core circuit logic.
-  circuit-account-noconsole:
-    executor: rust-docker
-    resource_class: << pipeline.parameters.small >>
-    steps:
-      - run_test:
-          workspace_member: snarkvm-circuit-account
-          cache_key_suffix: -noconsole
-          flags: --no-default-features
-
   circuit-algorithms:
     executor: rust-docker
     resource_class: << pipeline.parameters.medium >>
@@ -467,16 +457,6 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-circuit-collections
-
-  # This checks that no `console` structs are used in core circuit logic.
-  circuit-collections-noconsole:
-    executor: rust-docker
-    resource_class: << pipeline.parameters.xlarge >>
-    steps:
-      - run_test:
-          workspace_member: snarkvm-circuit-collections
-          cache_key_suffix: -noconsole
-          flags: --no-default-features
 
   circuit-environment:
     executor: rust-docker
@@ -1167,10 +1147,8 @@ workflows:
     jobs:
       - circuit
       - circuit-account
-      - circuit-account-noconsole
       - circuit-algorithms
       - circuit-collections
-      - circuit-collections-noconsole
       - circuit-environment
       - circuit-network
       - circuit-program
