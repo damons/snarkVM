@@ -27,6 +27,10 @@ pub type SnarkVerify<N> = SnarkVerification<N, { SnarkVerifyVariant::Varuna as u
 /// Computes whether a `batch_proof` is valid for the given `verifying_keys` and `public inputs`.
 pub type SnarkVerifyBatch<N> = SnarkVerification<N, { SnarkVerifyVariant::VarunaBatch as u8 }>;
 
+// TODO (raychu86): SnarkVerify - Consider increasing this limit in the future.
+/// The maximum number of `snark.verify` circuits supported in a batch verification.
+pub const MAX_SNARK_VERIFY_CIRCUITS: u32 = 32;
+
 /// Which hash function to use.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SnarkVerifyVariant {
@@ -280,11 +284,16 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
         // Enforce that the verifying key input matches the expected type based on the variant.
         let variant = SnarkVerifyVariant::new(VARIANT);
 
-        // Ensure the array type for the first operand is correct.
-        let (result, expected_type) = match variant {
-            SnarkVerifyVariant::Varuna => (check_nd_array_type(&input_types[0], LiteralType::U8, 1), "a byte array"),
+        // Ensure the array type for the first operand (the VKs) is correct.
+        let (result, expected_type, num_vks) = match variant {
+            SnarkVerifyVariant::Varuna => (check_nd_array_type(&input_types[0], LiteralType::U8, 1), "a byte array", 1),
             SnarkVerifyVariant::VarunaBatch => {
-                (check_nd_array_type(&input_types[0], LiteralType::U8, 2), "a 2-dimensional byte array")
+                // For batch verification, ensure it's a 2-dimensional array of bytes with non-zero length.
+                let num_vks = match &input_types[0] {
+                    RegisterType::Plaintext(PlaintextType::Array(array_type)) => **array_type.length(),
+                    _ => 0,
+                };
+                (check_nd_array_type(&input_types[0], LiteralType::U8, 2), "a 2-dimensional byte array", num_vks)
             }
         };
         if !result {
@@ -296,13 +305,22 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
             );
         }
 
-        // Ensure the array type for the second operand is correct.
-        let (result, expected_type) = match variant {
+        // Ensure the array type for the second operand (the inputs) is correct.
+        let (result, expected_type, num_circuits) = match variant {
             SnarkVerifyVariant::Varuna => {
-                (check_nd_array_type(&input_types[1], LiteralType::Field, 1), "an array of fields")
+                (check_nd_array_type(&input_types[1], LiteralType::Field, 1), "an array of fields", 1)
             }
             SnarkVerifyVariant::VarunaBatch => {
-                (check_nd_array_type(&input_types[1], LiteralType::Field, 3), "a 3-dimensional array of fields")
+                // Count the number of circuits from the outer array length.
+                let num_circuits = match &input_types[1] {
+                    RegisterType::Plaintext(PlaintextType::Array(array_type)) => **array_type.length(),
+                    _ => 0,
+                };
+                (
+                    check_nd_array_type(&input_types[1], LiteralType::Field, 3),
+                    "a 3-dimensional array of fields",
+                    num_circuits,
+                )
             }
         };
         if !result {
@@ -314,7 +332,20 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
             );
         }
 
-        // Ensure the third operand is an array of bytes.
+        // Check the number of batched instances is correct.
+        ensure!(
+            num_circuits == num_vks,
+            "Instruction '{}' expects the number of circuits ({num_circuits}) to match the number of verifying keys ({num_vks}).",
+            Self::opcode()
+        );
+        // Check that the number of circuit instances is properly bound.
+        ensure!(
+            num_circuits < MAX_SNARK_VERIFY_CIRCUITS,
+            "Instruction '{}' supports a maximum of {MAX_SNARK_VERIFY_CIRCUITS} batched circuits, found {num_circuits} circuits.",
+            Self::opcode()
+        );
+
+        // Ensure the third operand (the proof) is an array of bytes.
         match &input_types[2] {
             RegisterType::Plaintext(PlaintextType::Array(array_type))
                 if array_type.base_element_type() == &PlaintextType::Literal(LiteralType::U8) =>

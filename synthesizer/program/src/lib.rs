@@ -1012,7 +1012,7 @@ impl<N: Network> ProgramCore<N> {
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
-        // Determine if any of the array types exceed the previous maximum length of 32.
+        // Determine if any of the array types exceed the previous maximum length of 512.
         let array_size_exceeds = self.exceeds_max_array_size(V12_MAX_ARRAY_ELEMENTS);
 
         function_contains || closure_contains || command_contains || array_size_exceeds
