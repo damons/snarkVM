@@ -58,7 +58,7 @@ pub mod test_helpers {
     pub type CurrentNetwork = MainnetV0;
 
     /// Compute 2^EXPONENT - 1, in a purposefully constraint-inefficient manner for testing.
-    fn create_example_circuit<E: Environment>() -> Field<E> {
+    pub fn create_example_circuit<E: Environment>() -> Field<E> {
         let one = console::types::Field::<E::Network>::one();
         let two = one + one;
 
