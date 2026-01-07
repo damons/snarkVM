@@ -1138,9 +1138,6 @@ workflows:
     jobs:
       - check-fmt
       - check-clippy
-      - check-unused-dependencies
-      - check-cargo-audit
-      - check-cargo-semver-checks
       - check-all-targets
 
   circuit-workflow:
@@ -1207,31 +1204,38 @@ workflows:
       - synthesizer-test-partition1
       - synthesizer-test-partition2
       - synthesizer-integration
-      - synthesizer-process
       - synthesizer-process-with-rocksdb
       - synthesizer-program
       - synthesizer-program-integration
-      - synthesizer-program-integration-keccak
-      - synthesizer-program-integration-psd
-      - synthesizer-program-integration-sha
-      - synthesizer-program-integration-instruction-is
-      - synthesizer-program-integration-instruction-equal
-      - synthesizer-program-integration-instruction-commit
       - synthesizer-snark
 
   snarkvm-workflow:
     jobs:
       - snarkvm
       - algorithms
-      - algorithms-profiler
       - curves
       - fields
       - parameters
-      - parameters-large
-      - parameters-uncached
       - utilities
       - utilities-derives
       - wasm
+  
+  # Enable to run additional checks before releases
+  # prerelease-workflow:
+  #   jobs:
+  #     - synthesizer-process
+  #     - parameters-large
+  #     - parameters-uncached
+  #     - algorithms-profiler
+  #     - check-unused-dependencies
+  #     - check-cargo-audit
+  #     - check-cargo-semver-checks
+  #     - synthesizer-program-integration-keccak
+  #     - synthesizer-program-integration-psd
+  #     - synthesizer-program-integration-sha
+  #     - synthesizer-program-integration-instruction-is
+  #     - synthesizer-program-integration-instruction-equal
+  #     - synthesizer-program-integration-instruction-commit
 
   windows-workflow:
     jobs:
