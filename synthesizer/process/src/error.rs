@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use circuit::environment::ConstraintUnsatisfied;
+use snarkvm_synthesizer_program::EvalError;
 use thiserror::Error;
 
 // NOTE: Many errors in this module temporarily contain `Anyhow` variants.
@@ -157,6 +158,9 @@ pub enum InstructionError {
 /// An error occurred during the evaluation of an instruction.
 #[derive(Debug, Error)]
 pub enum InstructionEvalError {
+    /// An instruction evaluation failed.
+    #[error(transparent)]
+    Eval(#[from] EvalError),
     /// An error occurred during a `Call` instruction.
     #[error("Call failed: {0}")]
     Call(#[from] Box<CallEvalError>),

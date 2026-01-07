@@ -212,7 +212,7 @@ impl<N: Network> Stack<N> {
                 Instruction::Call(call) => CallTrait::evaluate(call, self, &mut registers, rng)
                     .map_err(|e| InstructionEvalError::Call(Box::new(e))),
                 // Otherwise, evaluate the instruction normally.
-                _ => instruction.evaluate(self, &mut registers).map_err(InstructionEvalError::Anyhow),
+                _ => instruction.evaluate(self, &mut registers).map_err(Into::into),
             };
             // If the evaluation fails, bail and return the error.
             if let Err(error) = result {

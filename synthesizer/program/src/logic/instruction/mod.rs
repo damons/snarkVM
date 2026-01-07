@@ -13,6 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod error;
+pub use error::*;
+
 mod opcode;
 pub use opcode::*;
 
@@ -559,8 +562,12 @@ impl<N: Network> Instruction<N> {
 
     /// Evaluates the instruction.
     #[inline]
-    pub fn evaluate(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersSigner<N>) -> Result<()> {
-        instruction!(self, |instruction| instruction.evaluate(stack, registers))
+    pub fn evaluate(
+        &self,
+        stack: &impl StackTrait<N>,
+        registers: &mut impl RegistersSigner<N>,
+    ) -> Result<(), EvalError> {
+        instruction!(self, |instruction| instruction.evaluate(stack, registers).map_err(Into::into))
     }
 
     /// Executes the instruction.
@@ -575,8 +582,12 @@ impl<N: Network> Instruction<N> {
 
     /// Finalizes the instruction.
     #[inline]
-    pub fn finalize(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersTrait<N>) -> Result<()> {
-        instruction!(self, |instruction| instruction.finalize(stack, registers))
+    pub fn finalize(
+        &self,
+        stack: &impl StackTrait<N>,
+        registers: &mut impl RegistersTrait<N>,
+    ) -> Result<(), FinalizeError> {
+        instruction!(self, |instruction| instruction.finalize(stack, registers).map_err(Into::into))
     }
 
     /// Returns the output type from the given input types.
