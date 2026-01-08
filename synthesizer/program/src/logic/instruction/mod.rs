@@ -576,8 +576,8 @@ impl<N: Network> Instruction<N> {
         &self,
         stack: &impl StackTrait<N>,
         registers: &mut impl RegistersCircuit<N, A>,
-    ) -> Result<()> {
-        instruction!(self, |instruction| instruction.execute::<A>(stack, registers))
+    ) -> Result<(), ExecError> {
+        instruction!(self, |instruction| instruction.execute::<A>(stack, registers).map_err(Into::into))
     }
 
     /// Finalizes the instruction.

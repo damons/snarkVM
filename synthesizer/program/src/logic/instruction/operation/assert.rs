@@ -16,6 +16,7 @@
 use crate::{
     AssertError,
     EvalError,
+    ExecError,
     FinalizeError,
     Opcode,
     Operand,
@@ -131,10 +132,15 @@ impl<N: Network, const VARIANT: u8> AssertInstruction<N, VARIANT> {
         &self,
         stack: &impl StackTrait<N>,
         registers: &mut impl RegistersCircuit<N, A>,
-    ) -> Result<()> {
+    ) -> Result<(), ExecError> {
         // Ensure the number of operands is correct.
         if self.operands.len() != 2 {
-            bail!("Instruction '{}' expects 2 operands, found {} operands", Self::opcode(), self.operands.len())
+            return Err(anyhow!(
+                "Instruction '{}' expects 2 operands, found {} operands",
+                Self::opcode(),
+                self.operands.len()
+            )
+            .into());
         }
 
         // Retrieve the inputs.
@@ -145,7 +151,7 @@ impl<N: Network, const VARIANT: u8> AssertInstruction<N, VARIANT> {
         match VARIANT {
             0 => A::assert(input_a.is_equal(&input_b))?,
             1 => A::assert(input_a.is_not_equal(&input_b))?,
-            _ => bail!("Invalid 'assert' variant: {VARIANT}"),
+            _ => return Err(anyhow!("Invalid 'assert' variant: {VARIANT}").into()),
         }
         Ok(())
     }

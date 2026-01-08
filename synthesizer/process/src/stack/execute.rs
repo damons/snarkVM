@@ -336,7 +336,7 @@ impl<N: Network> Stack<N> {
                 Instruction::Call(call) => CallTrait::execute(call, self, &mut registers, rng)
                     .map_err(|e| InstructionExecError::Call(Box::new(e))),
                 // Otherwise, execute the instruction normally.
-                _ => instruction.execute(self, &mut registers).map_err(InstructionExecError::Anyhow),
+                _ => instruction.execute(self, &mut registers).map_err(InstructionExecError::Exec),
             };
             // If the execution fails, bail and return the error.
             if let Err(error) = result {

@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use circuit::environment::ConstraintUnsatisfied;
-use snarkvm_synthesizer_program::EvalError;
+use snarkvm_synthesizer_program::{EvalError, ExecError};
 use thiserror::Error;
 
 // NOTE: Many errors in this module temporarily contain `Anyhow` variants.
@@ -175,6 +175,9 @@ pub enum InstructionExecError {
     /// An error occurred during a `Call` instruction.
     #[error("Call failed: {0}")]
     Call(#[from] Box<CallExecError>),
+    /// An instruction execution error.
+    #[error(transparent)]
+    Exec(#[from] ExecError),
     /// A temporary variant for type-erased anyhow errors.
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),

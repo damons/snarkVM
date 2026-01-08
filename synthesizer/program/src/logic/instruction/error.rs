@@ -15,6 +15,7 @@
 
 //! Errors for instruction operations.
 
+use circuit::environment::ConstraintUnsatisfied;
 use console::network::prelude::Error as AnyhowError;
 use thiserror::Error;
 
@@ -28,7 +29,6 @@ pub enum EvalError {
     #[error(transparent)]
     Assert(#[from] AssertError),
     /// A temporary variant for type-erased anyhow errors.
-    /// TODO: Remove this variant as we migrate errors to thiserror.
     #[error(transparent)]
     Anyhow(#[from] AnyhowError),
 }
@@ -40,7 +40,17 @@ pub enum FinalizeError {
     #[error(transparent)]
     Eval(#[from] EvalError),
     /// A temporary variant for type-erased anyhow errors.
-    /// TODO: Remove this variant as we migrate errors to thiserror.
+    #[error(transparent)]
+    Anyhow(#[from] AnyhowError),
+}
+
+/// An error occurred during instruction execution.
+#[derive(Debug, Error)]
+pub enum ExecError {
+    /// A circuit constraint was unsatisfied during execution.
+    #[error(transparent)]
+    Constraint(#[from] ConstraintUnsatisfied),
+    /// A temporary variant for type-erased anyhow errors.
     #[error(transparent)]
     Anyhow(#[from] AnyhowError),
 }
