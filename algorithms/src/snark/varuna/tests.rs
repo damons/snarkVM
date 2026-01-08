@@ -717,10 +717,10 @@ mod varuna_hiding {
         let malicious_len: u64 = 13;
         malicious_len.serialize_compressed(&mut malicious_bytes).unwrap();
         
-        // Serialize 13 commitments (repeating the first commitment)
+        // Serialize 13 commitments (repeating commitments as needed)
         for i in 0..13 {
-            let commitment = &index_vk.circuit_commitments[i % index_vk.circuit_commitments.len()];
-            commitment.serialize_compressed(&mut malicious_bytes).unwrap();
+            let commitment_idx = i % index_vk.circuit_commitments.len();
+            index_vk.circuit_commitments[commitment_idx].serialize_compressed(&mut malicious_bytes).unwrap();
         }
         
         // Serialize id
@@ -741,14 +741,14 @@ mod varuna_hiding {
             // Serialize circuit_info
             index_vk.circuit_info.serialize_compressed(&mut compatible_bytes).unwrap();
             
-            // Write a valid length
-            let valid_len: u64 = num_commitments.min(index_vk.circuit_commitments.len()) as u64;
-            valid_len.serialize_compressed(&mut compatible_bytes).unwrap();
+            // Write a valid length (use min to handle cases where circuit has fewer commitments)
+            let actual_len = num_commitments.min(index_vk.circuit_commitments.len());
+            (actual_len as u64).serialize_compressed(&mut compatible_bytes).unwrap();
             
-            // Serialize the commitments
-            for i in 0..(valid_len as usize) {
-                let commitment = &index_vk.circuit_commitments[i % index_vk.circuit_commitments.len()];
-                commitment.serialize_compressed(&mut compatible_bytes).unwrap();
+            // Serialize the commitments (repeat if necessary for testing)
+            for i in 0..actual_len {
+                let commitment_idx = i % index_vk.circuit_commitments.len();
+                index_vk.circuit_commitments[commitment_idx].serialize_compressed(&mut compatible_bytes).unwrap();
             }
             
             // Serialize id

@@ -83,8 +83,7 @@ impl<E: PairingEngine> CanonicalDeserialize for CircuitVerifyingKey<E> {
         }
         
         // Deserialize circuit_commitments
-        let mut circuit_commitments = Vec::new();
-        let _ = circuit_commitments.try_reserve(len as usize);
+        let mut circuit_commitments = Vec::with_capacity(len as usize);
         for _ in 0..len {
             circuit_commitments.push(sonic_pc::Commitment::deserialize_with_mode(&mut reader, compress, Validate::No)?);
         }
