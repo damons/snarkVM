@@ -71,7 +71,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
     #[inline]
     pub fn new(operands: Vec<Operand<N>>, destination: Register<N>) -> Result<Self> {
         // Sanity check the number of operands.
-        ensure!(operands.len() == 3, "Instruction '{}' must have three operands", Self::opcode());
+        ensure!(operands.len() == 4, "Instruction '{}' must have four operands", Self::opcode());
         // Return the instruction.
         Ok(Self { operands, destination })
     }
@@ -86,7 +86,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
     #[inline]
     pub fn operands(&self) -> &[Operand<N>] {
         // Sanity check that there are exactly three operands.
-        debug_assert!(self.operands.len() == 3, "Instruction '{}' must have three operands", Self::opcode());
+        debug_assert!(self.operands.len() == 4, "Instruction '{}' must have four operands", Self::opcode());
         // Return the operands.
         &self.operands
     }
@@ -101,7 +101,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
 // Perform the snark verification based on the variant.
 #[rustfmt::skip]
 macro_rules! do_snark_verification {
-    ($variant: expr, $function_name: expr, $varuna_version: expr, $verifying_key: expr, $inputs: expr, $proof: expr) => {{
+    ($variant: expr, $function_name: expr, $verifying_key: expr, $varuna_version: expr, $inputs: expr, $proof: expr) => {{
         let verifying_key = || match $verifying_key {
             Value::Plaintext(plaintext) => VerifyingKey::<N>::from_bytes_le(&plaintext.as_byte_array()?),
             _ => bail!("Expected the first operand to be a byte array."),
@@ -116,6 +116,11 @@ macro_rules! do_snark_verification {
                     .collect::<Result<Vec<VerifyingKey<N>>, _>>()
             }
             _ => bail!("Expected the first operand to be a two-dimensional byte array."),
+        };
+
+        let varuna_version = || match $varuna_version {
+            Value::Plaintext(Plaintext::Literal(Literal::U8(version), _)) => VarunaVersion::from_bytes_le(&[*version]),
+            _ => bail!("Expected the Varuna version to be a U8 literal."),
         };
 
         let inputs = || match $inputs {
@@ -156,10 +161,10 @@ macro_rules! do_snark_verification {
         };
 
         match $variant {
-            SnarkVerifyVariant::Varuna      => verifying_key()?.verify($function_name, $varuna_version, &inputs()?, &varuna_proof()?),
+            SnarkVerifyVariant::Varuna      => verifying_key()?.verify($function_name, varuna_version()?, &inputs()?, &varuna_proof()?),
             SnarkVerifyVariant::VarunaBatch => VerifyingKey::verify_batch(
                 $function_name,
-                $varuna_version,
+                varuna_version()?,
                 verifying_keys()?.into_iter().zip(batch_inputs()?).collect(),
                 &varuna_proof()?
             ).is_ok(),
@@ -173,23 +178,23 @@ macro_rules! do_snark_verification {
 pub fn evaluate_varuna_proof<N: Network>(
     variant: SnarkVerifyVariant,
     _function_name: &str,
-    varuna_version: VarunaVersion,
     verifying_key: &Value<N>,
+    varuna_version: Value<N>,
     inputs: &Value<N>,
     proof: &Value<N>,
 ) -> Result<bool> {
-    evaluate_varuna_proof_internal(variant, _function_name, varuna_version, verifying_key, inputs, proof)
+    evaluate_varuna_proof_internal(variant, _function_name, verifying_key, varuna_version, inputs, proof)
 }
 
 fn evaluate_varuna_proof_internal<N: Network>(
     variant: SnarkVerifyVariant,
     _function_name: &str,
-    varuna_version: VarunaVersion,
     verifying_key: &Value<N>,
+    varuna_version: Value<N>,
     inputs: &Value<N>,
     proof: &Value<N>,
 ) -> Result<bool> {
-    Ok(do_snark_verification!(variant, _function_name, varuna_version, verifying_key, inputs, proof))
+    Ok(do_snark_verification!(variant, _function_name, verifying_key, varuna_version, inputs, proof))
 }
 
 // Helper function to check if a type is a N-dimensional array of a given base literal type.
@@ -243,23 +248,23 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
     #[inline]
     pub fn finalize(&self, stack: &impl StackTrait<N>, registers: &mut impl RegistersTrait<N>) -> Result<()> {
         // Ensure the number of operands is correct.
-        if self.operands.len() != 3 {
-            bail!("Instruction '{}' expects 3 operands, found {} operands", Self::opcode(), self.operands.len())
+        if self.operands.len() != 4 {
+            bail!("Instruction '{}' expects 4 operands, found {} operands", Self::opcode(), self.operands.len())
         }
 
         // Retrieve the inputs.
         let verifying_key = registers.load(stack, &self.operands[0])?;
-        let inputs = registers.load(stack, &self.operands[1])?;
-        let proof = registers.load(stack, &self.operands[2])?;
+        let varuna_version = registers.load(stack, &self.operands[1])?;
+        let inputs = registers.load(stack, &self.operands[2])?;
+        let proof = registers.load(stack, &self.operands[3])?;
 
         // Verify the signature.
         let _function_name = "snark.verify";
-        let varuna_version = VarunaVersion::V2;
         let output = evaluate_varuna_proof_internal(
             SnarkVerifyVariant::new(VARIANT),
             _function_name,
-            varuna_version,
             &verifying_key,
+            varuna_version,
             &inputs,
             &proof,
         )?;
@@ -277,8 +282,8 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
         input_types: &[RegisterType<N>],
     ) -> Result<Vec<RegisterType<N>>> {
         // Ensure the number of input types is correct.
-        if input_types.len() != 3 {
-            bail!("Instruction '{}' expects 3 inputs, found {} inputs", Self::opcode(), input_types.len())
+        if input_types.len() != 4 {
+            bail!("Instruction '{}' expects 4 inputs, found {} inputs", Self::opcode(), input_types.len())
         }
 
         // Enforce that the verifying key input matches the expected type based on the variant.
@@ -305,19 +310,27 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
             );
         }
 
-        // Ensure the array type for the second operand (the inputs) is correct.
+        // Ensure the second operand (the Varuna version) is a U8 literal.
+        ensure!(
+            matches!(input_types[1], RegisterType::Plaintext(PlaintextType::Literal(LiteralType::U8))),
+            "Instruction '{}' expects the second input to be a U8 literal. Found input of type '{}'",
+            Self::opcode(),
+            &input_types[1]
+        );
+
+        // Ensure the array type for the third operand (the inputs) is correct.
         let (result, expected_type, num_circuits) = match variant {
             SnarkVerifyVariant::Varuna => {
-                (check_nd_array_type(&input_types[1], LiteralType::Field, 1), "an array of fields", 1)
+                (check_nd_array_type(&input_types[2], LiteralType::Field, 1), "an array of fields", 1)
             }
             SnarkVerifyVariant::VarunaBatch => {
                 // Count the number of circuits from the outer array length.
-                let num_circuits = match &input_types[1] {
+                let num_circuits = match &input_types[2] {
                     RegisterType::Plaintext(PlaintextType::Array(array_type)) => **array_type.length(),
                     _ => 0,
                 };
                 (
-                    check_nd_array_type(&input_types[1], LiteralType::Field, 3),
+                    check_nd_array_type(&input_types[2], LiteralType::Field, 3),
                     "a 3-dimensional array of fields",
                     num_circuits,
                 )
@@ -325,7 +338,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
         };
         if !result {
             bail!(
-                "Instruction '{}' expects the second input to be {}. Found input of type '{}'",
+                "Instruction '{}' expects the third input to be {}. Found input of type '{}'",
                 Self::opcode(),
                 expected_type,
                 &input_types[1]
@@ -345,15 +358,15 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
             Self::opcode()
         );
 
-        // Ensure the third operand (the proof) is an array of bytes.
-        match &input_types[2] {
+        // Ensure the fourth operand (the proof) is an array of bytes.
+        match &input_types[3] {
             RegisterType::Plaintext(PlaintextType::Array(array_type))
                 if array_type.base_element_type() == &PlaintextType::Literal(LiteralType::U8) =>
             {
                 // valid byte array
             }
             _ => bail!(
-                "Instruction '{}' expects the third input to be a byte array. Found input of type '{}'",
+                "Instruction '{}' expects the fourth input to be a byte array. Found input of type '{}'",
                 Self::opcode(),
                 input_types[2]
             ),
@@ -383,6 +396,10 @@ impl<N: Network, const VARIANT: u8> Parser for SnarkVerification<N, VARIANT> {
         let (string, third) = Operand::parse(string)?;
         // Parse the whitespace from the string.
         let (string, _) = Sanitizer::parse_whitespaces(string)?;
+        // Parse the fourth operand from the string.
+        let (string, fourth) = Operand::parse(string)?;
+        // Parse the whitespace from the string.
+        let (string, _) = Sanitizer::parse_whitespaces(string)?;
         // Parse the "into" from the string.
         let (string, _) = tag("into")(string)?;
         // Parse the whitespace from the string.
@@ -390,7 +407,7 @@ impl<N: Network, const VARIANT: u8> Parser for SnarkVerification<N, VARIANT> {
         // Parse the destination register from the string.
         let (string, destination) = Register::parse(string)?;
 
-        Ok((string, Self { operands: vec![first, second, third], destination }))
+        Ok((string, Self { operands: vec![first, second, third, fourth], destination }))
     }
 }
 
@@ -422,8 +439,8 @@ impl<N: Network, const VARIANT: u8> Debug for SnarkVerification<N, VARIANT> {
 impl<N: Network, const VARIANT: u8> Display for SnarkVerification<N, VARIANT> {
     /// Prints the operation to a string.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // Ensure the number of operands is 3.
-        if self.operands.len() != 3 {
+        // Ensure the number of operands is 4.
+        if self.operands.len() != 4 {
             return Err(fmt::Error);
         }
         // Print the operation.
@@ -437,9 +454,9 @@ impl<N: Network, const VARIANT: u8> FromBytes for SnarkVerification<N, VARIANT> 
     /// Reads the operation from a buffer.
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Initialize the vector for the operands.
-        let mut operands = Vec::with_capacity(3);
+        let mut operands = Vec::with_capacity(4);
         // Read the operands.
-        for _ in 0..3 {
+        for _ in 0..4 {
             operands.push(Operand::read_le(&mut reader)?);
         }
         // Read the destination register.
@@ -453,9 +470,9 @@ impl<N: Network, const VARIANT: u8> FromBytes for SnarkVerification<N, VARIANT> 
 impl<N: Network, const VARIANT: u8> ToBytes for SnarkVerification<N, VARIANT> {
     /// Writes the operation to a buffer.
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
-        // Ensure the number of operands is 3.
-        if self.operands.len() != 3 {
-            return Err(error(format!("The number of operands must be 3, found {}", self.operands.len())));
+        // Ensure the number of operands is 4.
+        if self.operands.len() != 4 {
+            return Err(error(format!("The number of operands must be 4, found {}", self.operands.len())));
         }
         // Write the operands.
         self.operands.iter().try_for_each(|operand| operand.write_le(&mut writer))?;
@@ -473,20 +490,22 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let (string, is) = SnarkVerify::<CurrentNetwork>::parse("snark.verify r0 r1 r2 into r3").unwrap();
+        let (string, is) = SnarkVerify::<CurrentNetwork>::parse("snark.verify r0 r1 r2 r3 into r4").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
         assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
         assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
         assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
-        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
+        assert_eq!(is.operands[3], Operand::Register(Register::Locator(3)), "The fourth operand is incorrect");
+        assert_eq!(is.destination, Register::Locator(4), "The destination register is incorrect");
 
-        let (string, is) = SnarkVerifyBatch::<CurrentNetwork>::parse("snark.verify.batch r0 r1 r2 into r3").unwrap();
+        let (string, is) = SnarkVerifyBatch::<CurrentNetwork>::parse("snark.verify.batch r0 r1 r2 r3 into r4").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
         assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
         assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
         assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
-        assert_eq!(is.destination, Register::Locator(3), "The destination register is incorrect");
+        assert_eq!(is.operands[3], Operand::Register(Register::Locator(3)), "The fourth operand is incorrect");
+        assert_eq!(is.destination, Register::Locator(4), "The destination register is incorrect");
     }
 }

@@ -17,7 +17,7 @@ use super::*;
 
 use crate::vm::test_helpers::*;
 
-use circuit::Circuit;
+use circuit::{Circuit, Environment, Inject, Mode};
 use console::{algorithms::U8, network::ConsensusVersion};
 use snarkvm_synthesizer_program::Program;
 use snarkvm_synthesizer_snark::{ProvingKey, UniversalSRS};
@@ -61,7 +61,7 @@ finalize dummy:
     input r0 as  [u8; 8u32].public;
     input r1 as [field; 8u32].public;
     input r2 as [u8; 8u32].public;
-    snark.verify r0 r1 r2 into r3;
+    snark.verify r0 1u8 r1 r2 into r3;
     assert.eq r3 true;
 
 constructor:
@@ -123,7 +123,7 @@ finalize verify_proof:
     input r0 as [u8; 673u32].public;
     input r1 as [field; 2u32].public;
     input r2 as [u8; 957u32].public;
-    snark.verify r0 r1 r2 into r3;
+    snark.verify r0 2u8 r1 r2 into r3;
     assert.eq r3 true;
 
 constructor:
@@ -261,7 +261,7 @@ finalize verify_batch_proof:
     input r0 as [[u8; 673u32]; 1u32].public;
     input r1 as [[[field; 2u32]; 2u32]; 1u32].public;
     input r2 as [u8; 1101u32].public;
-    snark.verify.batch r0 r1 r2 into r3;
+    snark.verify.batch r0 2u8 r1 r2 into r3;
     assert.eq r3 true;
 
 constructor:
@@ -412,6 +412,206 @@ constructor:
 }
 
 #[test]
+fn test_snark_verify_batch_multiple_circuits() {
+    // Define the verification program.
+    let program = Program::from_str(
+        r"
+program test_snark_verify_batch.aleo;
+
+function verify_batch_proof:
+    input r0 as [[u8; 673u32]; 2u32].private;
+    input r1 as [[[field; 2u32]; 2u32]; 2u32].private;
+    input r2 as [u8; 1733u32].private;
+    async verify_batch_proof r0 r1 r2 into r3;
+    output r3 as test_snark_verify_batch.aleo/verify_batch_proof.future;
+finalize verify_batch_proof:
+    input r0 as [[u8; 673u32]; 2u32].public;
+    input r1 as [[[field; 2u32]; 2u32]; 2u32].public;
+    input r2 as [u8; 1733u32].public;
+    snark.verify.batch r0 2u8 r1 r2 into r3;
+    assert.eq r3 true;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    // Initialize an RNG.
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    // Initialize the VM at the V13 height.
+    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+
+    // Deploy the program.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Sample two Varuna assignments
+    let assignment = snarkvm_synthesizer_snark::test_helpers::sample_assignment();
+    let assignment_2 = {
+        let _candidate_output = snarkvm_synthesizer_snark::test_helpers::create_example_circuit::<Circuit>();
+        let _ = circuit::Field::<CurrentAleo>::new(Mode::Private, Field::from_u8(100));
+        Circuit::eject_assignment_and_reset()
+    };
+
+    // Varuna setup, prove, and verify.
+    let srs = UniversalSRS::<CurrentNetwork>::load().unwrap();
+    let (proving_key, verifying_key) = srs.to_circuit_key("test", &assignment).unwrap();
+    let (proving_key_2, verifying_key_2) = srs.to_circuit_key("test_2", &assignment_2).unwrap();
+    let verifying_key_bytes = verifying_key.to_bytes_le().unwrap();
+    let verifying_key_2_bytes = verifying_key_2.to_bytes_le().unwrap();
+
+    // Construct the batch_proof
+    let varuna_version = VarunaVersion::V2;
+    let assignments = vec![
+        (proving_key.clone(), vec![assignment.clone(); 2]),
+        (proving_key_2.clone(), vec![assignment_2.clone(); 2]),
+    ];
+    let batch_proof = ProvingKey::prove_batch("test", varuna_version, &assignments, &mut TestRng::default()).unwrap();
+    let batch_proof_bytes = batch_proof.to_bytes_le().unwrap();
+
+    println!("verifying_key_size: {}", verifying_key_bytes.len());
+    println!("proof size: {}", batch_proof_bytes.len());
+
+    let one = <Circuit as circuit::Environment>::BaseField::one();
+    let zero = <Circuit as circuit::Environment>::BaseField::zero();
+    let public_inputs = vec![one, one];
+    let invalid_public_inputs = vec![one, zero];
+
+    let valid_inputs = vec![
+        (verifying_key.clone(), vec![public_inputs.clone(); 2]),
+        (verifying_key_2.clone(), vec![public_inputs.clone(); 2]),
+    ];
+    let invalid_inputs = vec![
+        (verifying_key.clone(), vec![invalid_public_inputs.clone(); 2]),
+        (verifying_key_2.clone(), vec![invalid_public_inputs.clone(); 2]),
+    ];
+    assert!(VerifyingKey::verify_batch("test", varuna_version, valid_inputs, &batch_proof).is_ok());
+    assert!(VerifyingKey::verify_batch("test", varuna_version, invalid_inputs, &batch_proof).is_err());
+
+    // Construct the inputs for the execution.
+    let verifying_key_input = Value::Plaintext(Plaintext::Array(
+        vec![
+            Plaintext::Array(
+                verifying_key_bytes
+                    .into_iter()
+                    .map(|byte| Plaintext::from(Literal::<CurrentNetwork>::U8(U8::new(byte))))
+                    .collect(),
+                OnceLock::new(),
+            ),
+            Plaintext::Array(
+                verifying_key_2_bytes
+                    .into_iter()
+                    .map(|byte| Plaintext::from(Literal::<CurrentNetwork>::U8(U8::new(byte))))
+                    .collect(),
+                OnceLock::new(),
+            ),
+        ],
+        OnceLock::new(),
+    ));
+    let verification_inputs = Value::Plaintext(Plaintext::Array(
+        vec![
+            Plaintext::Array(
+                vec![
+                    Plaintext::Array(
+                        public_inputs
+                            .clone()
+                            .into_iter()
+                            .map(|field| Plaintext::from(Literal::<CurrentNetwork>::Field(Field::new(field))))
+                            .collect(),
+                        OnceLock::new(),
+                    )
+                    .clone();
+                    2
+                ],
+                OnceLock::new(),
+            )
+            .clone();
+            2
+        ],
+        OnceLock::new(),
+    ));
+    let invalid_verification_inputs = Value::Plaintext(Plaintext::Array(
+        vec![
+            Plaintext::Array(
+                vec![
+                    Plaintext::Array(
+                        invalid_public_inputs
+                            .into_iter()
+                            .map(|field| Plaintext::from(Literal::<CurrentNetwork>::Field(Field::new(field))))
+                            .collect(),
+                        OnceLock::new(),
+                    )
+                    .clone();
+                    2
+                ],
+                OnceLock::new(),
+            )
+            .clone();
+            2
+        ],
+        OnceLock::new(),
+    ));
+    let proof_input = Value::Plaintext(Plaintext::Array(
+        batch_proof_bytes
+            .into_iter()
+            .map(|byte| Plaintext::from(Literal::<CurrentNetwork>::U8(U8::new(byte))))
+            .collect(),
+        OnceLock::new(),
+    ));
+
+    // Execute a transaction that verifies the proof correctly.
+    let valid_execution = {
+        let inputs = vec![verifying_key_input.clone(), verification_inputs.clone(), proof_input.clone()];
+        vm.execute(
+            &caller_private_key,
+            ("test_snark_verify_batch.aleo", "verify_batch_proof"),
+            inputs.into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap()
+    };
+    let valid_execution_id = valid_execution.id();
+
+    // Execute a transaction that fails to verify the proof.
+    let invalid_execution = {
+        let inputs = vec![verifying_key_input.clone(), invalid_verification_inputs, proof_input.clone()];
+        vm.execute(
+            &caller_private_key,
+            ("test_snark_verify_batch.aleo", "verify_batch_proof"),
+            inputs.into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap()
+    };
+    let invalid_execution_id = invalid_execution.id();
+
+    let block = sample_next_block(&vm, &caller_private_key, &[valid_execution, invalid_execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    assert!(vm.transaction_store().contains_transaction_id(&valid_execution_id).unwrap());
+    assert!(vm.block_store().contains_rejected_or_aborted_transaction_id(&invalid_execution_id).unwrap());
+}
+
+#[test]
 fn test_snark_verify_batch_via_mapping() {
     // Define the verification program.
     let program = Program::from_str(
@@ -446,7 +646,7 @@ finalize verify_batch_proof:
     input r0 as [[[field; 2u32]; 2u32]; 1u32].public;
     get verifying_keys[0u8] into r1;
     get proofs[0u8] into r2;
-    snark.verify.batch r1 r0 r2 into r3;
+    snark.verify.batch r1 2u8 r0 r2 into r3;
     assert.eq r3 true;
 
 constructor:
