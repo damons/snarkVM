@@ -29,7 +29,9 @@ pub type SnarkVerifyBatch<N> = SnarkVerification<N, { SnarkVerifyVariant::Varuna
 
 // TODO (raychu86): SnarkVerify - Consider increasing this limit in the future.
 /// The maximum number of `snark.verify` circuits supported in a batch verification.
-pub const MAX_SNARK_VERIFY_CIRCUITS: u32 = 32;
+pub const MAX_SNARK_VERIFY_CIRCUITS: u32 = 1 << 5;
+/// The maximum number of `snark.verify` instances supported in a batch verification.
+pub const MAX_SNARK_VERIFY_INSTANCES: u32 = 1 << 7;
 
 /// Which hash function to use.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -319,20 +321,34 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
         );
 
         // Ensure the array type for the third operand (the inputs) is correct.
-        let (result, expected_type, num_circuits) = match variant {
+        let (result, expected_type, num_circuits, num_instances) = match variant {
             SnarkVerifyVariant::Varuna => {
-                (check_nd_array_type(&input_types[2], LiteralType::Field, 1), "an array of fields", 1)
+                (check_nd_array_type(&input_types[2], LiteralType::Field, 1), "an array of fields", 1, 1)
             }
             SnarkVerifyVariant::VarunaBatch => {
-                // Count the number of circuits from the outer array length.
-                let num_circuits = match &input_types[2] {
-                    RegisterType::Plaintext(PlaintextType::Array(array_type)) => **array_type.length(),
-                    _ => 0,
+                // Count the number of circuits and total instances from the outer array length.
+                let (num_circuits, num_instances) = match &input_types[2] {
+                    RegisterType::Plaintext(PlaintextType::Array(array_type)) => {
+                        // The number of circuits with unique verifying keys.
+                        let num_circuits = **array_type.length();
+                        // The total number of instances across all circuits.
+                        let num_instances = match array_type.next_element_type() {
+                            PlaintextType::Array(inner_array_type) => **inner_array_type.length() * num_circuits,
+                            _ => bail!(
+                                "Instruction '{}' expects the third input to be a 3-dimensional array of fields. Found input of type '{}'",
+                                Self::opcode(),
+                                &input_types[2]
+                            ),
+                        };
+                        (num_circuits, num_instances)
+                    }
+                    _ => (0, 0),
                 };
                 (
                     check_nd_array_type(&input_types[2], LiteralType::Field, 3),
                     "a 3-dimensional array of fields",
                     num_circuits,
+                    num_instances,
                 )
             }
         };
@@ -351,10 +367,16 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
             "Instruction '{}' expects the number of circuits ({num_circuits}) to match the number of verifying keys ({num_vks}).",
             Self::opcode()
         );
-        // Check that the number of circuit instances is properly bound.
+        // Check that the number of circuit is properly bound.
         ensure!(
             num_circuits < MAX_SNARK_VERIFY_CIRCUITS,
             "Instruction '{}' supports a maximum of {MAX_SNARK_VERIFY_CIRCUITS} batched circuits, found {num_circuits} circuits.",
+            Self::opcode()
+        );
+        // Check that the total number of instances/assignments is properly bound.
+        ensure!(
+            num_instances < MAX_SNARK_VERIFY_INSTANCES,
+            "Instruction '{}' supports a maximum of {MAX_SNARK_VERIFY_INSTANCES} batched instances, found {num_instances} instances.",
             Self::opcode()
         );
 
