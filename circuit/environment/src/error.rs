@@ -13,16 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+//! The set of errors that can be encountered within the circuit environment.
 
-impl<E: Environment> Boolean<E> {
-    /// Asserts that all bits in `bits_le` are zero.
-    #[doc(hidden)]
-    pub fn assert_bits_are_zero(bits_le: &[Boolean<E>]) {
-        let mut sum = Self::constant(false).0;
-        for bit in bits_le {
-            sum += &**bit;
-        }
-        E::assert_eq(sum, E::zero()).expect("bits_are_zero assertion failed");
-    }
+use thiserror::Error;
+
+/// A constraint was not satisfied.
+#[derive(Debug, Error)]
+#[error("Constraint unsatisfied: ({a} * {b}) != {c}")]
+pub struct ConstraintUnsatisfied {
+    pub a: String,
+    pub b: String,
+    pub c: String,
 }

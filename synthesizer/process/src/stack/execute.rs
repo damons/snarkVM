@@ -268,7 +268,7 @@ impl<N: Network> Stack<N> {
         let caller = Ternary::ternary(&is_root, request.signer(), &parent);
 
         // Ensure the request has a valid signature, inputs, and transition view key.
-        A::assert(request.verify(&input_types, &tpk, Some(root_tvk), is_root, program_checksum));
+        A::assert(request.verify(&input_types, &tpk, Some(root_tvk), is_root, program_checksum))?;
         lap!(timer, "Verify the circuit request");
 
         // Set the transition signer.
@@ -321,7 +321,7 @@ impl<N: Network> Stack<N> {
                     Instruction::Call(call) => CallTrait::evaluate(call, self, &mut registers, rng)
                         .map_err(|e| InstructionEvalError::Call(Box::new(e))),
                     // Otherwise, evaluate the instruction normally.
-                    _ => instruction.evaluate(self, &mut registers).map_err(InstructionEvalError::Anyhow),
+                    _ => instruction.evaluate(self, &mut registers).map_err(Into::into),
                 };
                 // If the evaluation fails, bail and return the error.
                 if let Err(error) = result {
@@ -336,7 +336,7 @@ impl<N: Network> Stack<N> {
                 Instruction::Call(call) => CallTrait::execute(call, self, &mut registers, rng)
                     .map_err(|e| InstructionExecError::Call(Box::new(e))),
                 // Otherwise, execute the instruction normally.
-                _ => instruction.execute(self, &mut registers).map_err(InstructionExecError::Anyhow),
+                _ => instruction.execute(self, &mut registers).map_err(InstructionExecError::Exec),
             };
             // If the execution fails, bail and return the error.
             if let Err(error) = result {

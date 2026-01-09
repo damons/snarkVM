@@ -483,11 +483,11 @@ where
         if variant == (DeserializeVariant::FromBits as u8) {
             let plaintext_variant = next_bits(2)?;
             let expected_bits = PlaintextType::<A::Network>::STRUCT_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
-            A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
-            A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
+            A::assert_eq(&expected_bits[0], &plaintext_variant[0])?;
+            A::assert_eq(&expected_bits[1], &plaintext_variant[1])?;
 
             let num_members = circuit::U8::<A>::from_bits_le(next_bits(8)?);
-            A::assert_eq(num_members, circuit::U8::<A>::constant(U8::new(expected_num_members)));
+            A::assert_eq(num_members, circuit::U8::<A>::constant(U8::new(expected_num_members)))?;
         }
 
         // Get the members.
@@ -502,14 +502,14 @@ where
             if variant == (DeserializeVariant::FromBits as u8) {
                 let expected_identifier_size = member_identifier.size_in_bits();
                 let identifier_size = circuit::U8::<A>::from_bits_le(next_bits(8)?);
-                A::assert_eq(&identifier_size, circuit::U8::<A>::constant(U8::new(expected_identifier_size)));
+                A::assert_eq(&identifier_size, circuit::U8::<A>::constant(U8::new(expected_identifier_size)))?;
 
                 let identifier_bits = next_bits(expected_identifier_size as usize)?;
                 let identifier = circuit::Identifier::<A>::from_bits_le(identifier_bits);
-                A::assert_eq(circuit::Identifier::<A>::constant(*member_identifier), &identifier);
+                A::assert_eq(circuit::Identifier::<A>::constant(*member_identifier), &identifier)?;
 
                 let member_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
-                A::assert_eq(&member_size, circuit::U16::<A>::constant(U16::new(expected_member_size)));
+                A::assert_eq(&member_size, circuit::U16::<A>::constant(U16::new(expected_member_size)))?;
             }
 
             let value = execute_deserialize_internal(
@@ -540,14 +540,14 @@ where
                 let plaintext_variant = next_bits(2)?;
                 let expected_bits =
                     PlaintextType::<A::Network>::LITERAL_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
-                A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
-                A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
+                A::assert_eq(&expected_bits[0], &plaintext_variant[0])?;
+                A::assert_eq(&expected_bits[1], &plaintext_variant[1])?;
 
                 let literal_variant = circuit::U8::<A>::from_bits_le(next_bits(8)?);
-                A::assert_eq(&literal_variant, circuit::U8::<A>::constant(U8::new(literal_type.type_id())));
+                A::assert_eq(&literal_variant, circuit::U8::<A>::constant(U8::new(literal_type.type_id())))?;
 
                 let literal_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
-                A::assert_eq(&literal_size, circuit::U16::<A>::constant(U16::new(expected_size)));
+                A::assert_eq(&literal_size, circuit::U16::<A>::constant(U16::new(expected_size)))?;
             };
             // Deserialize the literal.
             let literal = circuit::Literal::<A>::from_bits_le(
@@ -574,11 +574,11 @@ where
             if variant == (DeserializeVariant::FromBits as u8) {
                 let plaintext_variant = next_bits(2)?;
                 let expected_bits = PlaintextType::<A::Network>::ARRAY_PREFIX_BITS.map(circuit::Boolean::<A>::constant);
-                A::assert_eq(&expected_bits[0], &plaintext_variant[0]);
-                A::assert_eq(&expected_bits[1], &plaintext_variant[1]);
+                A::assert_eq(&expected_bits[0], &plaintext_variant[0])?;
+                A::assert_eq(&expected_bits[1], &plaintext_variant[1])?;
 
                 let num_elements = circuit::U32::<A>::from_bits_le(next_bits(32)?);
-                A::assert_eq(&num_elements, circuit::U32::<A>::constant(U32::new(expected_length)));
+                A::assert_eq(&num_elements, circuit::U32::<A>::constant(U32::new(expected_length)))?;
             }
 
             let expected_element_type = array_type.next_element_type();
@@ -590,7 +590,7 @@ where
             for _ in 0..**array_type.length() {
                 if variant == (DeserializeVariant::FromBits as u8) {
                     let element_size = circuit::U16::<A>::from_bits_le(next_bits(16)?);
-                    A::assert_eq(&element_size, circuit::U16::<A>::constant(U16::new(expected_element_size)));
+                    A::assert_eq(&element_size, circuit::U16::<A>::constant(U16::new(expected_element_size)))?;
                 }
 
                 let element = execute_deserialize_internal(

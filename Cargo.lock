@@ -2943,6 +2943,7 @@ dependencies = [
  "snarkvm-curves",
  "snarkvm-fields",
  "snarkvm-utilities",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -3743,6 +3744,7 @@ dependencies = [
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-snark",
  "snarkvm-utilities",
+ "thiserror 2.0.17",
  "tiny-keccak",
 ]
 
