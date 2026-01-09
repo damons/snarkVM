@@ -597,6 +597,11 @@ impl<N: Network> Instruction<N> {
         instruction!(self, |instruction| instruction.output_types(stack, input_types))
     }
 
+    /// Returns whether this instruction refers to an external struct.
+    pub fn contains_external_struct(&self) -> bool {
+        instruction!(self, |instruction| instruction.contains_external_struct())
+    }
+
     /// Returns `true` if the instruction contains a literal string type.
     pub fn contains_string_type(&self) -> bool {
         self.operands().iter().any(|operand| operand.contains_string_type())

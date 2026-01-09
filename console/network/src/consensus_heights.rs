@@ -45,9 +45,9 @@ pub enum ConsensusVersion {
     V10 = 10,
     /// V11: Expand array size limit to 512 and introduce ECDSA signature verification opcodes.
     V11 = 11,
-    /// V12: Prevent connection to forked nodes, disable StringType, add block.timestamp opcode.
+    /// V12: Prevent connection to forked nodes, disable StringType, enable block timestamp.
     V12 = 12,
-    /// V13: Increase array size limit to 2048 and introduce snark.verify opcode.
+    /// V13: Introduces external structs.
     V13 = 13,
 }
 
@@ -108,7 +108,7 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CON
     (ConsensusVersion::V9, 8_028_000),
     (ConsensusVersion::V10, 8_600_000),
     (ConsensusVersion::V11, 9_510_000),
-    (ConsensusVersion::V12, 9_906_000),
+    (ConsensusVersion::V12, 10_030_000),
     (ConsensusVersion::V13, u32::MAX),
 ];
 
@@ -125,7 +125,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V9, 10_272_000),
     (ConsensusVersion::V10, 11_205_000),
     (ConsensusVersion::V11, 12_870_000),
-    (ConsensusVersion::V12, 13_579_000),
+    (ConsensusVersion::V12, 13_815_000),
     (ConsensusVersion::V13, u32::MAX),
 ];
 
@@ -142,7 +142,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V9, 9_800_000),
     (ConsensusVersion::V10, 10_525_000),
     (ConsensusVersion::V11, 11_952_000),
-    (ConsensusVersion::V12, 12_522_984),
+    (ConsensusVersion::V12, 12_669_000),
     (ConsensusVersion::V13, u32::MAX),
 ];
 

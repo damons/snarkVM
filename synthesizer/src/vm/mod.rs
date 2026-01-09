@@ -29,19 +29,7 @@ use crate::{Restrictions, cast_mut_ref, cast_ref, convert, process};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
-    program::{
-        Argument,
-        Identifier,
-        Literal,
-        Locator,
-        Plaintext,
-        ProgramID,
-        ProgramOwner,
-        Record,
-        Response,
-        Value,
-        ValueType,
-    },
+    program::{Argument, Identifier, Literal, Locator, Plaintext, ProgramID, ProgramOwner, Record, Response, Value},
     types::{Field, Group, U16, U64},
 };
 use snarkvm_algorithms::snark::varuna::VarunaVersion;
@@ -602,13 +590,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
 impl<N: Network, C: ConsensusStorage<N>> Drop for VM<N, C> {
     fn drop(&mut self) {
-        // This check isn't perfect, but in practice it was only needed in order
-        // for tests to not leak memory.
-        if Arc::strong_count(&self.sequential_ops_tx) == 2 {
-            // Send a shutdown signal.
-            self.run_sequential_operation(SequentialOperation::Shutdown);
-            // Disable the channel.
-            self.sequential_ops_tx.write().take();
+        // Check if this the final external reference to `VM`.
+        if Arc::strong_count(&self.sequential_ops_tx) == 1 {
+            // If the background thread exists, shut it down.
+            if let Some(thread) = self.sequential_ops_thread.lock().take() {
+                // First, close the channel.
+                self.sequential_ops_tx.write().take();
+                // Wait for the thread to terminate.
+                trace!("Waiting for sequential ops thread to terminate");
+                thread.join().expect("Sequential ops thread had an error");
+            } else {
+                debug!("No sequential ops background thread existed durign shutdown");
+            }
         }
     }
 }
