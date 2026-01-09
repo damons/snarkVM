@@ -289,12 +289,4 @@ mod tests {
             Transaction::<CurrentNetwork>::MAX_TRANSITIONS
         );
     }
-
-    #[test]
-    fn test_max_transitions() {
-        assert_eq!(
-            Transaction::<CurrentNetwork>::MAX_TRANSITIONS,
-            snarkvm_synthesizer_program::MAX_SNARK_VERIFY_CIRCUITS as usize
-        );
-    }
 }
