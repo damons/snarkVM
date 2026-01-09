@@ -2,7 +2,7 @@
 
 set -x
 
-BASELINE_REV=1d47c130fa9c2 # UPDATE ME ON NECESSARY BREAKING CHANGES
+BASELINE_REV=8bf6e14d3de1 # UPDATE ME ON NECESSARY BREAKING CHANGES
 
 # Ensure that the command is installed.
 cargo install cargo-semver-checks@0.43.0 --locked
