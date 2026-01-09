@@ -561,6 +561,8 @@ impl<N: Network> Instruction<N> {
     }
 
     /// Evaluates the instruction.
+    // Temporary until all instruction evaluate methods return EvalError (#2941, #3055).
+    #[allow(clippy::useless_conversion)]
     #[inline]
     pub fn evaluate(
         &self,
@@ -571,6 +573,8 @@ impl<N: Network> Instruction<N> {
     }
 
     /// Executes the instruction.
+    // Temporary until all instruction execute methods return ExecError (#2941, #3055).
+    #[allow(clippy::useless_conversion)]
     #[inline]
     pub fn execute<A: circuit::Aleo<Network = N>>(
         &self,
@@ -581,6 +585,8 @@ impl<N: Network> Instruction<N> {
     }
 
     /// Finalizes the instruction.
+    // Temporary until all instruction finalize methods return FinalizeError (#2941, #3055).
+    #[allow(clippy::useless_conversion)]
     #[inline]
     pub fn finalize(
         &self,
