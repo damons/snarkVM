@@ -1044,6 +1044,27 @@ impl<N: Network> ProgramCore<N> {
         })
     }
 
+    /// Checks that the program size does not exceed the maximum allowed size for the given consensus version.
+    pub fn check_program_size(&self, consensus_version: ConsensusVersion) -> Result<()> {
+        // The previous maximum program size before V14.
+        const MAX_PROGRAM_SIZE_V13: usize = 100_000; // 100 kB
+
+        // Calculate the program size.
+        let program_size = self.to_string().len();
+        // Determine the maximum allowed program size for the current consensus version.
+        let maximum_allowed_program_size = match consensus_version <= ConsensusVersion::V13 {
+            true => MAX_PROGRAM_SIZE_V13,
+            false => N::MAX_PROGRAM_SIZE,
+        };
+
+        ensure!(
+            program_size <= maximum_allowed_program_size,
+            "Program size of {program_size} bytes exceeds the maximum allowed size of {maximum_allowed_program_size} bytes for the current consensus version {consensus_version}.",
+        );
+
+        Ok(())
+    }
+
     /// Returns `true` if a program contains any string type.
     /// Before ConsensusVersion::V12, variable-length string sampling when using them as inputs caused deployment synthesis to be inconsistent and abort with probability 63/64.
     /// After ConsensusVersion::V12, string types are disallowed.
