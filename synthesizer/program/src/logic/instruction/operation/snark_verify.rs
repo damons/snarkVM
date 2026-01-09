@@ -100,7 +100,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
     }
 }
 
-// Perform the snark verification based on the variant.
+/// Perform the snark verification based on the variant.
 #[rustfmt::skip]
 macro_rules! do_snark_verification {
     ($variant: expr, $function_name: expr, $verifying_key: expr, $varuna_version: expr, $inputs: expr, $proof: expr) => {{
@@ -162,14 +162,53 @@ macro_rules! do_snark_verification {
             _ => bail!("Expected the third operand to be a byte array."),
         };
 
+        // Checks that the number of public inputs matches the verifying key's expectation and any excess inputs are zero.
+        // Returns the trimmed inputs.
+        let trimmed_inputs = |vk: &VerifyingKey<N>, inputs: &[N::Field]| -> Result<Vec<N::Field>> {
+            // Ensure there are at least as many public inputs as expected.
+            let num_public_inputs = vk.circuit_info.num_public_inputs as usize;
+            ensure!(
+                inputs.len() >= num_public_inputs,
+                "The number of public inputs ({}) is less than the expected number of public inputs ({}).",
+                inputs.len(),
+                num_public_inputs
+            );
+            // Ensure any excess public inputs are zero.
+            for input in &inputs[num_public_inputs..] {
+                ensure!(input.is_zero(), "Excess public inputs must be zero.");
+            }
+            // Return the inputs trimmed to the expected length.
+            Ok(inputs[..num_public_inputs].to_vec())
+        };
+
         match $variant {
-            SnarkVerifyVariant::Varuna      => verifying_key()?.verify($function_name, varuna_version()?, &inputs()?, &varuna_proof()?),
-            SnarkVerifyVariant::VarunaBatch => VerifyingKey::verify_batch(
-                $function_name,
-                varuna_version()?,
-                verifying_keys()?.into_iter().zip(batch_inputs()?).collect(),
-                &varuna_proof()?
-            ).is_ok(),
+            SnarkVerifyVariant::Varuna => {
+                let vk = verifying_key()?;
+                let inputs_vec = inputs()?;
+                let trimmed = trimmed_inputs(&vk, &inputs_vec)?;
+                vk.verify($function_name, varuna_version()?, &trimmed, &varuna_proof()?)
+            }
+            SnarkVerifyVariant::VarunaBatch => {
+                let vks = verifying_keys()?;
+                let batch_inputs_vec = batch_inputs()?;
+                // Validate and trim each instance against its verifying key
+                let trimmed_batch: Vec<Vec<Vec<N::Field>>> = vks
+                    .iter()
+                    .zip(batch_inputs_vec.iter())
+                    .map(|(vk, instances)| {
+                        instances
+                            .iter()
+                            .map(|instance_inputs| trimmed_inputs(vk, instance_inputs))
+                            .collect::<Result<Vec<Vec<N::Field>>>>()
+                    })
+                    .collect::<Result<Vec<Vec<Vec<N::Field>>>>>()?;
+                VerifyingKey::verify_batch(
+                    $function_name,
+                    varuna_version()?,
+                    vks.into_iter().zip(trimmed_batch).collect(),
+                    &varuna_proof()?
+                ).is_ok()
+            }
         }
     }};
 }
