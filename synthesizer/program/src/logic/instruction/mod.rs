@@ -451,7 +451,7 @@ macro_rules! instruction {
             SerializeBits,
             SerializeBitsRaw,
 
-            // New opcodes added in `ConsensusVersion::V13`
+            // New opcodes added in `ConsensusVersion::V14`
             SnarkVerify,
             SnarkVerifyBatch,
 

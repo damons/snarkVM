@@ -255,12 +255,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses string type after `ConsensusVersion::V12`"
                     );
                 }
-                if consensus_version < ConsensusVersion::V13 {
-                    ensure!(
-                        !deployment.program().contains_v13_syntax(),
-                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V13`"
-                    );
-                }
 
                 // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
                 //   - the program does not use the external struct syntax `some_program.aleo/StructT`
@@ -275,6 +269,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
                 if consensus_version >= ConsensusVersion::V13 {
                     self.process.read().mapping_types_exist(deployment.program())?;
+                }
+
+                if consensus_version < ConsensusVersion::V14 {
+                    ensure!(
+                        !deployment.program().contains_v14_syntax(),
+                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V14`"
+                    );
                 }
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.

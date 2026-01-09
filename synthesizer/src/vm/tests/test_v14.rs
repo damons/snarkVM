@@ -26,11 +26,11 @@ use snarkvm_utilities::TestRng;
 use std::sync::OnceLock;
 
 // This test verifies that:
-// - programs using syntax introduced in `V13` cannot be deployed before `V13`.
-// - programs using syntax introduced in `V13` can be deployed at and after `V13`.
-// - a program with an array larger than 2048 cannot be deployed after `V13`.
+// - programs using syntax introduced in `V14` cannot be deployed before `V14`.
+// - programs using syntax introduced in `V14` can be deployed at and after `V14`.
+// - a program with an array larger than 2048 cannot be deployed after `V14`.
 #[test]
-fn test_deployments_for_v13_features() {
+fn test_deployments_for_v14_features() {
     // Define the programs.
     let programs = vec![
         // A program with an array larger than 512 elements.
@@ -75,10 +75,10 @@ constructor:
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Initialize the VM at one less than the V13 height.
-    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
+    // Initialize the VM at one less than the V14 height.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
     let num_programs = u32::try_from(programs.len()).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height - num_programs, rng);
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height - num_programs, rng);
 
     // Deploy each program and ensure it fails.
     for program in &programs {
@@ -92,7 +92,7 @@ constructor:
     }
 
     // Verify that we are at the expected height.
-    assert_eq!(vm.block_store().current_block_height(), v13_height);
+    assert_eq!(vm.block_store().current_block_height(), v14_height);
 
     // Deploy each program and ensure it succeeds.
     for program in &programs {
@@ -138,9 +138,9 @@ constructor:
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Initialize the VM at the V13 height.
-    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+    // Initialize the VM at the V14 height.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height, rng);
 
     // Deploy the program.
     let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
@@ -276,9 +276,9 @@ constructor:
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Initialize the VM at the V13 height.
-    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+    // Initialize the VM at the V14 height.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height, rng);
 
     // Deploy the program.
     let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
@@ -443,9 +443,9 @@ constructor:
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Initialize the VM at the V13 height.
-    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+    // Initialize the VM at the V14 height.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height, rng);
 
     // Deploy the program.
     let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
@@ -618,9 +618,9 @@ constructor:
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Initialize the VM at the V13 height.
-    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+    // Initialize the VM at the V14 height.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height, rng);
 
     // Deploy the program.
     let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
@@ -836,9 +836,9 @@ constructor:
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Initialize the VM at the V13 height.
-    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+    // Initialize the VM at the V14 height.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height, rng);
 
     // Deploy the program.
     let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();

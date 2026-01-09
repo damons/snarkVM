@@ -1044,14 +1044,14 @@ impl<N: Network> ProgramCore<N> {
         })
     }
 
-    /// Returns `true` if a program contains any V13 syntax.
+    /// Returns `true` if a program contains any V14 syntax.
     /// This includes:
     /// 1. `snark.verify.*` opcodes
     /// 2. arrays that exceed the previous maximum length of 512.
     #[inline]
-    pub fn contains_v13_syntax(&self) -> bool {
-        // The previous maximum array size before V13.
-        const V12_MAX_ARRAY_ELEMENTS: u32 = 512;
+    pub fn contains_v14_syntax(&self) -> bool {
+        // The previous maximum array size before V14.
+        const V13_MAX_ARRAY_ELEMENTS: u32 = 512;
 
         // Helper to check if any of the opcodes start with `snark.verify`
         let has_op = |opcode: &str| opcode.starts_with("snark.verify");
@@ -1074,7 +1074,7 @@ impl<N: Network> ProgramCore<N> {
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
         // Determine if any of the array types exceed the previous maximum length of 512.
-        let array_size_exceeds = self.exceeds_max_array_size(V12_MAX_ARRAY_ELEMENTS);
+        let array_size_exceeds = self.exceeds_max_array_size(V13_MAX_ARRAY_ELEMENTS);
 
         function_contains || closure_contains || command_contains || array_size_exceeds
     }
