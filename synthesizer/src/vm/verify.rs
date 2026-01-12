@@ -135,7 +135,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         lap!(timer, "Check for duplicate elements");
 
         // Get the consensus version.
-        let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+        let current_block_height = self.block_store().current_block_height();
+        let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
 
         // Construct the transaction checksum.
         let checksum = Data::<Transaction<N>>::Buffer(transaction.to_bytes_le()?.into()).to_checksum::<N>()?;
@@ -271,8 +272,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     self.process.read().mapping_types_exist(deployment.program())?;
                 }
 
-                // Ensure the program size is bounded properly.
-                deployment.program().check_program_size(consensus_version)?;
+                // Ensure the program size is bounded properly based on the current block height.
+                deployment.program().check_program_size(current_block_height)?;
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {

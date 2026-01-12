@@ -185,6 +185,11 @@ impl Network for MainnetV0 {
         (ConsensusVersion::V6, 103),
         (ConsensusVersion::V9, 104),
     ];
+    /// The maximum program size by number of characters.
+    const MAX_PROGRAM_SIZE: [(ConsensusVersion, usize); 2] = [
+        (ConsensusVersion::V1, 100_000),  // 100 kB
+        (ConsensusVersion::V14, 256_000), // 256 kB
+    ];
     /// The (long) network name.
     const NAME: &'static str = "Aleo Mainnet (v0)";
     /// The short network name.

@@ -180,6 +180,11 @@ impl Network for TestnetV0 {
         (ConsensusVersion::V6, 25),
         (ConsensusVersion::V9, 25),
     ];
+    /// The maximum program size by number of characters.
+    const MAX_PROGRAM_SIZE: [(ConsensusVersion, usize); 2] = [
+        (ConsensusVersion::V1, 100_000),  // 100 kB
+        (ConsensusVersion::V14, 256_000), // 256 kB
+    ];
     /// The (long) network name.
     const NAME: &'static str = "Aleo Testnet (v0)";
     /// The short network name.

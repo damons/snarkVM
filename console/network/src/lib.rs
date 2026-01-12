@@ -201,7 +201,7 @@ pub trait Network:
     const MAX_RECORD_ENTRIES: usize = Self::MIN_RECORD_ENTRIES.saturating_add(Self::MAX_DATA_ENTRIES);
 
     /// The maximum program size by number of characters.
-    const MAX_PROGRAM_SIZE: usize = 256_000; // 256 kB
+    const MAX_PROGRAM_SIZE: [(ConsensusVersion, usize); 2];
 
     /// The maximum number of mappings in a program.
     const MAX_MAPPINGS: usize = 31;
@@ -306,6 +306,12 @@ pub trait Network:
     #[allow(non_snake_case)]
     fn LATEST_MAX_CERTIFICATES() -> Result<u16> {
         Self::MAX_CERTIFICATES.last().map_or(Err(anyhow!("No MAX_CERTIFICATES defined.")), |(_, value)| Ok(*value))
+    }
+
+    /// Returns the last `MAX_PROGRAM_SIZE` value.
+    #[allow(non_snake_case)]
+    fn LATEST_MAX_PROGRAM_SIZE() -> Result<usize> {
+        Self::MAX_PROGRAM_SIZE.last().map_or(Err(anyhow!("No MAX_PROGRAM_SIZE defined.")), |(_, value)| Ok(*value))
     }
 
     /// Returns the block height where the the inclusion proof will be updated.
