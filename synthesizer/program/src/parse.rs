@@ -345,7 +345,7 @@ function compute:
             let mut s = String::with_capacity(max_program_size);
             for i in 0..n {
                 s.push_str(&format!("function f{i}:\n    add 1u128 1u128 into r0;\n"));
-                for j in 0..10 {
+                for j in 0..150 {
                     s.push_str(&format!("    add r0 r0 into r{j};\n"));
                 }
             }
