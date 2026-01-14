@@ -2943,6 +2943,7 @@ dependencies = [
  "snarkvm-curves",
  "snarkvm-fields",
  "snarkvm-utilities",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -3687,6 +3688,7 @@ dependencies = [
  "snarkvm-synthesizer-snark",
  "snarkvm-utilities",
  "tempfile",
+ "thiserror 2.0.17",
  "tokio",
  "tracing",
  "walkdir",
@@ -3697,6 +3699,7 @@ name = "snarkvm-synthesizer-process"
 version = "4.4.0"
 dependencies = [
  "aleo-std",
+ "anyhow",
  "bincode",
  "colored 3.0.0",
  "criterion",
@@ -3719,6 +3722,7 @@ dependencies = [
  "snarkvm-synthesizer-snark",
  "snarkvm-utilities",
  "tempfile",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -3741,6 +3745,7 @@ dependencies = [
  "snarkvm-synthesizer-process",
  "snarkvm-synthesizer-snark",
  "snarkvm-utilities",
+ "thiserror 2.0.17",
  "tiny-keccak",
 ]
 
