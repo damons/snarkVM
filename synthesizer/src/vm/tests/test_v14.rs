@@ -596,13 +596,13 @@ program test_snark_verify_batch.aleo;
 function verify_batch_proof:
     input r0 as [[u8; 673u32]; 2u32].private;
     input r1 as [[[field; 2u32]; 2u32]; 2u32].private;
-    input r2 as [u8; 11u32].private;
+    input r2 as [u8; 1733u32].private;
     async verify_batch_proof r0 r1 r2 into r3;
     output r3 as test_snark_verify_batch.aleo/verify_batch_proof.future;
 finalize verify_batch_proof:
     input r0 as [[u8; 673u32]; 2u32].public;
     input r1 as [[[field; 2u32]; 2u32]; 2u32].public;
-    input r2 as [u8; 11u32].public;
+    input r2 as [u8; 1733u32].public;
     snark.verify.batch r0 2u8 r1 r2 into r3;
     assert.eq r3 true;
 
