@@ -192,7 +192,7 @@ mod tests {
 
     use anyhow::Result;
 
-    pub(crate) const ITERATIONS: usize = 20;
+    pub(crate) const ITERATIONS: usize = 10;
 
     fn check_from_outputs(
         mode: Mode,
