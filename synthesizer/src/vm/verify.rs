@@ -701,17 +701,21 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 mod tests {
     use super::*;
 
-    use crate::vm::test_helpers::{LedgerType, sample_finalize_state};
-    use console::{
-        account::{Address, ViewKey},
-        types::Field,
-    };
+    #[cfg(feature = "prerelease")]
+    use crate::vm::test_helpers::sample_finalize_state;
+    #[cfg(feature = "prerelease")]
+    use console::account::ViewKey;
+
+    use crate::vm::test_helpers::LedgerType;
+    use console::{account::Address, types::Field};
     #[cfg(feature = "test")]
     use console::{
         algorithms::{ECDSASignature, Keccak256},
         types::U8,
     };
-    use snarkvm_ledger_block::{Block, Header, Metadata, Transaction, Transition};
+    #[cfg(feature = "prerelease")]
+    use snarkvm_ledger_block::{Block, Header, Metadata};
+    use snarkvm_ledger_block::{Transaction, Transition};
     #[cfg(feature = "test")]
     use snarkvm_utilities::bytes_from_bits_le;
 

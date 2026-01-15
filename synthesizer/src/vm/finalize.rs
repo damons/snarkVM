@@ -1733,6 +1733,7 @@ finalize transfer_public:
     }
 
     /// Sample a public transfer transaction.
+    #[cfg(feature = "prerelease")]
     fn sample_transfer_public(
         vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
