@@ -995,6 +995,13 @@ finalize test:
         // Prepare the VM.
         let (vm, _) = prepare_vm(rng).unwrap();
 
+        // Forward the chain to block 13:
+        for _i in 1..13 {
+            let next_block = crate::test_helpers::sample_next_block(&vm, &caller_private_key, &[], rng).unwrap();
+
+            vm.add_next_block(&next_block).unwrap();
+        }
+
         // Construct the base program.
         let base_program = Program::from_str(
             r"
@@ -1012,7 +1019,9 @@ finalize test:
     input r1 as field.public;
     hash.bhp256 r0 into r2 as field;
     hash.bhp256 r1 into r3 as field;
-    set r2 into data[r3];",
+    set r2 into data[r3];
+constructor:
+    assert.eq edition 0u16;",
         )
         .unwrap();
 
@@ -1048,7 +1057,9 @@ finalize test:
     await r2;
     hash.bhp256 r0 into r3 as field;
     hash.bhp256 r1 into r4 as field;
-    set r3 into data[r4];",
+    set r3 into data[r4];
+constructor:
+    assert.eq edition 0u16;",
                 imports = (1..i).map(|j| format!("import test_{j}.aleo;")).join("\n"),
                 prev = i - 1,
                 curr = i,

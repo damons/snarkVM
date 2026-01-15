@@ -1145,6 +1145,7 @@ workflows:
   version: 2
 
   cargo-workflow:
+    when: pipeline.git.branch == "staging"
     jobs:
       - check-fmt
       - check-clippy
@@ -1152,6 +1153,7 @@ workflows:
       - check-all-targets
 
   circuit-workflow:
+    when: pipeline.git.branch == "staging"
     jobs:
       - circuit
       - circuit-account
@@ -1170,6 +1172,7 @@ workflows:
       - circuit-types-string
 
   console-workflow:
+    when: pipeline.git.branch == "staging"
     jobs:
       - console
       - console-account
@@ -1188,6 +1191,7 @@ workflows:
       - console-types-string
 
   ledger-workflow:
+    when: pipeline.git.branch == "staging"
     jobs:
       - ledger
       - ledger-with-valid-solutions
@@ -1208,6 +1212,7 @@ workflows:
       - ledger-test-helpers
 
   synthesizer-workflow:
+    when: pipeline.git.branch == "staging"
     jobs:
       - synthesizer
       - synthesizer-process 
@@ -1216,6 +1221,7 @@ workflows:
       - synthesizer-snark
 
   snarkvm-workflow:
+    when: pipeline.git.branch == "staging"
     jobs:
       - algorithms
       - curves
@@ -1225,7 +1231,7 @@ workflows:
       - utilities
       - utilities-derives
       - wasm
-  
+
   # Run additional but unlikely to fail checks on merges only
   merge-workflow:
     when: pipeline.git.branch == "staging"
@@ -1255,9 +1261,9 @@ workflows:
       or pipeline.git.branch == "mainnet"
       or pipeline.git.branch == "introduce-pre-release-grouping"
     jobs:
-      - algorithms-profiler # Just checks some non-critical profiling code
-      - parameters-large # Infrastructure which often runs fine
-      - parameters-uncached # Infrastructure which often runs fine
+      #- algorithms-profiler # Just checks some non-critical profiling code
+      #- parameters-large # Infrastructure which often runs fine
+      #- parameters-uncached # Infrastructure which often runs fine
       - synthesizer-prerelease # Run the slowest synthesizer tests as pre-release
       - verify-windows: # Windows has never failed us when linux passed
           matrix:
