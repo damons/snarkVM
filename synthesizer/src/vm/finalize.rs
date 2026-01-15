@@ -2157,6 +2157,8 @@ finalize transfer_public:
     }
 
     #[test]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     fn test_atomic_finalize_many() {
         let rng = &mut TestRng::default();
 
@@ -2367,6 +2369,8 @@ finalize transfer_public:
     }
 
     #[test]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     fn test_finalize_catch_halt() {
         let rng = &mut TestRng::default();
 
@@ -2475,6 +2479,8 @@ function ped_hash:
     }
 
     #[test]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     fn test_rejected_transaction_should_not_update_storage() {
         let rng = &mut TestRng::default();
 

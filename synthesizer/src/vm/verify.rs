@@ -900,6 +900,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     fn test_verify_deploy_and_execute() {
         // Initialize the RNG.
         let rng = &mut TestRng::default();

@@ -841,6 +841,16 @@ jobs:
           no_output_timeout: 20m
           timeout: 30m
 
+  synthesizer-prerelease:
+    executor: rust-docker
+    resource_class: << pipeline.parameters.twoxlarge >>
+    steps:
+      - run_test:
+          workspace_member: snarkvm-synthesizer
+          flags: --features prerelease --run-ignored ignored-only -- --test-threads 2
+          no_output_timeout: 20m
+          timeout: 20m
+
   synthesizer-test-partition1:
     executor: rust-docker
     resource_class: << pipeline.parameters.twoxlarge >>
@@ -1243,10 +1253,12 @@ workflows:
     when: pipeline.git.branch == "canary"
       or pipeline.git.branch == "testnet"
       or pipeline.git.branch == "mainnet"
+      or pipeline.git.branch == "introduce-pre-release-grouping"
     jobs:
       - algorithms-profiler # Just checks some non-critical profiling code
       - parameters-large # Infrastructure which often runs fine
       - parameters-uncached # Infrastructure which often runs fine
+      - synthesizer-prerelease # Run the slowest synthesizer tests as pre-release
       - verify-windows: # Windows has never failed us when linux passed
           matrix:
             parameters:
