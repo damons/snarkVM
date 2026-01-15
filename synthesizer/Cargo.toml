@@ -62,6 +62,7 @@ dev-print = [ "snarkvm-utilities/dev-print" ]
 dev_skip_checks = [ "snarkvm-synthesizer-process/dev_skip_checks" ]
 test_consensus_heights = [ "snarkvm-synthesizer-process/test_consensus_heights" ]
 prerelease = [ ]
+memory-intensive = [ ]
 
 [[bench]]
 name = "kary_merkle_tree"
