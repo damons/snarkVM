@@ -1052,13 +1052,13 @@ impl<N: Network> ProgramCore<N> {
         // Determine if any function instructions contain the new syntax.
         let function_contains =
             cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(|instruction| {
-                cfg_iter!(instruction.operands()).any(|operand| matches!(operand, Operand::Generator(_)))
+                cfg_iter!(instruction.operands()).any(|operand| matches!(operand, Operand::AleoGenerator(_)))
             });
 
         // Determine if any closure instructions contain the new syntax.
         let closure_contains =
             cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(|instruction| {
-                cfg_iter!(instruction.operands()).any(|operand| matches!(operand, Operand::Generator(_)))
+                cfg_iter!(instruction.operands()).any(|operand| matches!(operand, Operand::AleoGenerator(_)))
             });
 
         // Determine if any finalize commands or constructor commands contain the new syntax.
@@ -1066,7 +1066,7 @@ impl<N: Network> ProgramCore<N> {
             .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
             .flatten()
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
-            .any(|command| cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::Generator(_))));
+            .any(|command| cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::AleoGenerator(_))));
 
         function_contains || closure_contains || command_contains
     }

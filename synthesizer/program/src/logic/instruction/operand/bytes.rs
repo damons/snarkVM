@@ -58,9 +58,9 @@ impl<N: Network> FromBytes for Operand<N> {
                 match index_exists {
                     true => {
                         let index: U32<N> = FromBytes::read_le(&mut reader)?;
-                        Ok(Self::Generator(Some(index)))
+                        Ok(Self::AleoGenerator(Some(index)))
                     }
-                    false => Ok(Self::Generator(None)),
+                    false => Ok(Self::AleoGenerator(None)),
                 }
             }
             variant => Err(error(format!("Failed to deserialize operand variant {variant}"))),
@@ -121,7 +121,7 @@ impl<N: Network> ToBytes for Operand<N> {
                 }
             }
             Self::BlockTimestamp => 10u8.write_le(&mut writer),
-            Self::Generator(index) => {
+            Self::AleoGenerator(index) => {
                 11u8.write_le(&mut writer)?;
                 // Write the index if it is present.
                 match index {

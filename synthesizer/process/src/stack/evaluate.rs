@@ -85,7 +85,7 @@ impl<N: Network> Stack<N> {
                     // If the operand is the caller, retrieve the caller from the registers.
                     Operand::Caller => Ok(Value::Plaintext(Plaintext::from(Literal::Address(registers.caller()?)))),
                     // If the operand is the generator, retrieve the generator powers.
-                    Operand::Generator(index) => match index {
+                    Operand::AleoGenerator(index) => match index {
                         None => Ok(Value::Plaintext(Plaintext::Array(
                             N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
                             OnceLock::new(),
@@ -256,7 +256,7 @@ impl<N: Network> Stack<N> {
                     // If the operand is the caller, retrieve the caller from the registers.
                     Operand::Caller => Ok(Value::Plaintext(Plaintext::from(Literal::Address(registers.caller()?)))),
                     // If the operand is the generator, retrieve the generator powers.
-                    Operand::Generator(index) => match index {
+                    Operand::AleoGenerator(index) => match index {
                         None => Ok(Value::Plaintext(Plaintext::Array(
                             N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
                             OnceLock::new(),

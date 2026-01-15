@@ -87,7 +87,7 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersTrait<N> for Registers<
             // If the operand is the caller, load the value of the caller.
             Operand::Caller => return Ok(Value::Plaintext(Plaintext::from(Literal::Address(self.caller()?)))),
             // If the operand is the generator, load the generator powers.
-            Operand::Generator(index) => match index {
+            Operand::AleoGenerator(index) => match index {
                 None => {
                     return Ok(Value::Plaintext(Plaintext::Array(
                         N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),

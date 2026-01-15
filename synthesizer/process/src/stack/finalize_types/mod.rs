@@ -109,7 +109,7 @@ impl<N: Network> FinalizeTypes<N> {
             Operand::BlockHeight => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::U32)),
             Operand::BlockTimestamp => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::I64)),
             Operand::NetworkID => FinalizeType::Plaintext(PlaintextType::Literal(LiteralType::U16)),
-            Operand::Generator(index) => match index {
+            Operand::AleoGenerator(index) => match index {
                 None => FinalizeType::Plaintext(PlaintextType::Array(ArrayType::new(
                     PlaintextType::Literal(LiteralType::Group),
                     vec![U32::new(N::Scalar::SIZE_IN_BITS as u32)],

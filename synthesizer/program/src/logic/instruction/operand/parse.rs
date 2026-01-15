@@ -30,7 +30,7 @@ impl<N: Network> Parser for Operand<N> {
             map(tag("block.timestamp"), |_| Self::BlockTimestamp),
             map(tag("network.id"), |_| Self::NetworkID),
             map(pair(tag("aleo::GENERATOR"), opt(delimited(tag("["), U32::<N>::parse, tag("]")))), |(_, index)| {
-                Self::Generator(index)
+                Self::AleoGenerator(index)
             }),
             // Note that `Operand::Checksum` and `Operand::Edition` must be parsed before `Operand::ProgramID`s, since an edition or checksum may be prefixed with a program ID.
             map(pair(opt(terminated(ProgramID::parse, tag("/"))), tag("checksum")), |(program_id, _)| {
@@ -98,7 +98,7 @@ impl<N: Network> Display for Operand<N> {
             // Prints the identifier for the network ID, i.e. network.id
             Self::NetworkID => write!(f, "network.id"),
             // Prints the identifier for the generator, i.e. aleo::GENERATOR
-            Self::Generator(index) => match index {
+            Self::AleoGenerator(index) => match index {
                 None => write!(f, "aleo::GENERATOR"),
                 Some(index) => write!(f, "aleo::GENERATOR[{index}]"),
             },
@@ -158,10 +158,10 @@ mod tests {
         assert_eq!(Operand::NetworkID, operand);
 
         let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR").unwrap().1;
-        assert_eq!(Operand::Generator(None), operand);
+        assert_eq!(Operand::AleoGenerator(None), operand);
 
         let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR[5u32]").unwrap().1;
-        assert_eq!(Operand::Generator(Some(U32::new(5u32))), operand);
+        assert_eq!(Operand::AleoGenerator(Some(U32::new(5u32))), operand);
 
         let operand = Operand::<CurrentNetwork>::parse("group::GEN").unwrap().1;
         assert_eq!(Operand::Literal(Literal::Group(Group::generator())), operand);

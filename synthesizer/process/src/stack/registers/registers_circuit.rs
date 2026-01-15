@@ -101,7 +101,7 @@ impl<N: Network, A: circuit::Aleo<Network = N>> RegistersCircuit<N, A> for Regis
                 ))));
             }
             // If the operand is the generator, load the generator powers.
-            Operand::Generator(index) => match index {
+            Operand::AleoGenerator(index) => match index {
                 None => {
                     return Ok(circuit::Value::Plaintext(circuit::Plaintext::Array(
                         A::g_powers()

@@ -54,7 +54,7 @@ impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(U16::new(N::ID)))));
             }
             // If the operand is the generator, load the group bases.
-            Operand::Generator(index) => match index {
+            Operand::AleoGenerator(index) => match index {
                 None => {
                     return Ok(Value::Plaintext(Plaintext::Array(
                         N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),

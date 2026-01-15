@@ -121,7 +121,7 @@ impl<N: Network> Stack<N> {
                         circuit::Literal::Address(registers.caller_circuit()?),
                     ))),
                     // If the operand is the generator, retrieve the generator powers.
-                    Operand::Generator(index) => match index {
+                    Operand::AleoGenerator(index) => match index {
                         None => Ok(circuit::Value::Plaintext(circuit::Plaintext::Array(
                             A::g_powers()
                                 .into_iter()
@@ -398,7 +398,7 @@ impl<N: Network> Stack<N> {
                     Operand::Caller => Ok(circuit::Value::Plaintext(circuit::Plaintext::from(
                         circuit::Literal::Address(registers.caller_circuit()?),
                     ))),
-                    Operand::Generator(index) => match index {
+                    Operand::AleoGenerator(index) => match index {
                         None => Ok(circuit::Value::Plaintext(circuit::Plaintext::Array(
                             A::g_powers()
                                 .into_iter()
