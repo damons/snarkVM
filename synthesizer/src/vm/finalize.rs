@@ -1490,9 +1490,11 @@ mod tests {
         test_helpers,
         test_helpers::{sample_finalize_state, sample_vm},
     };
+    #[cfg(feature = "prerelease")]
+    use console::program::Entry;
     use console::{
         account::{Address, PrivateKey, ViewKey},
-        program::{Ciphertext, Entry, Record},
+        program::{Ciphertext, Record},
         types::Field,
     };
     use snarkvm_ledger_block::{Block, Header, Metadata, Transaction, Transition};
@@ -1648,6 +1650,7 @@ finalize transfer_public:
     }
 
     /// Generate split transactions for the unspent records.
+    #[cfg(feature = "prerelease")]
     fn generate_splits<R: Rng + CryptoRng>(
         vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
@@ -1687,6 +1690,7 @@ finalize transfer_public:
     }
 
     /// Create an execution transaction.
+    #[cfg(feature = "prerelease")]
     fn create_execution(
         vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
@@ -1715,6 +1719,7 @@ finalize transfer_public:
     }
 
     /// Sample a public mint transaction.
+    #[cfg(feature = "prerelease")]
     fn sample_mint_public(
         vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
