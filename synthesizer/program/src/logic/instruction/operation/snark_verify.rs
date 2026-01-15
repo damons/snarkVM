@@ -559,7 +559,7 @@ mod tests {
     fn test_parse() {
         let (string, is) = SnarkVerify::<CurrentNetwork>::parse("snark.verify r0 r1 r2 r3 into r4").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
+        assert_eq!(is.operands.len(), 4, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
         assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
         assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
@@ -568,7 +568,7 @@ mod tests {
 
         let (string, is) = SnarkVerifyBatch::<CurrentNetwork>::parse("snark.verify.batch r0 r1 r2 r3 into r4").unwrap();
         assert!(string.is_empty(), "Parser did not consume all of the string: '{string}'");
-        assert_eq!(is.operands.len(), 3, "The number of operands is incorrect");
+        assert_eq!(is.operands.len(), 4, "The number of operands is incorrect");
         assert_eq!(is.operands[0], Operand::Register(Register::Locator(0)), "The first operand is incorrect");
         assert_eq!(is.operands[1], Operand::Register(Register::Locator(1)), "The second operand is incorrect");
         assert_eq!(is.operands[2], Operand::Register(Register::Locator(2)), "The third operand is incorrect");
