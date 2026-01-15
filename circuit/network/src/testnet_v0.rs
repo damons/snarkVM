@@ -428,7 +428,7 @@ impl Environment for AleoTestnetV0 {
     }
 
     /// Adds one constraint enforcing that `(A * B) == C`.
-    fn enforce<Fn, A, B, C>(constraint: Fn)
+    fn enforce<Fn, A, B, C>(constraint: Fn) -> Result<(), ConstraintUnsatisfied>
     where
         Fn: FnOnce() -> (A, B, C),
         A: Into<LinearCombination<Self::BaseField>>,
@@ -624,7 +624,7 @@ mod tests {
             let group = g_powers[0].clone() * scalar;
             assert_eq!(expected.eject_value(), group.eject_value());
 
-            CurrentAleo::assert(expected.is_equal(&group));
+            CurrentAleo::assert(expected.is_equal(&group)).unwrap();
 
             assert!(E::is_satisfied());
         }

@@ -16,152 +16,208 @@
 use super::*;
 
 use crate::vm::test_helpers::*;
-
-use console::{network::ConsensusVersion, program::Value};
+use console::network::ConsensusVersion;
 use snarkvm_synthesizer_program::Program;
 use snarkvm_utilities::TestRng;
 
-use console::account::ViewKey;
-
-#[cfg(feature = "test")]
+// This test verifies that a program with external structs cannot be deployed on
+// consensus version 12.
 #[test]
-fn test_aleo_generators_migration() {
+fn test_deploy_external_structs_v11() {
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    // when deploying the second program.
+    let block = deploy_external_structs_programs(ConsensusVersion::V11);
+
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+}
+
+// This test verifies that a program with external structs can be deployed on
+// consensus version 13.
+#[test]
+fn test_deploy_external_structs_v13() {
+    let block = deploy_external_structs_programs(ConsensusVersion::V13);
+
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+}
+
+fn deploy_external_structs_programs(consensus_version: ConsensusVersion) -> Block<CurrentNetwork> {
     let rng = &mut TestRng::default();
 
-    // Initialize the VM.
-    let vm = sample_vm();
-    // Initialize the genesis block.
-    let genesis = sample_genesis_block(rng);
-    // Update the VM.
-    vm.add_next_block(&genesis).unwrap();
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Fetch the private key.
-    let private_key = sample_genesis_private_key(rng);
-    let view_key = ViewKey::try_from(&private_key).unwrap();
-    let address = Address::try_from(&view_key).unwrap();
+    // Initialize the VM at the correct height.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
 
-    // Deploy a test program to the ledger.
-    let program_id = ProgramID::<CurrentNetwork>::from_str("dummy_program.aleo").unwrap();
-    let program = Program::<CurrentNetwork>::from_str(&format!(
+    // Define the first program with a record.
+    let program_one = Program::from_str(
         r"
-    program {program_id};
-    function foo:
-        input r0 as scalar.public;
-        input r1 as address.public;
-        mul aleo::GENERATOR[0u32] r0 into r2;
-        cast r2 into r3 as address;
-        assert.eq r1 r3;
-        async foo r0 r1 into r4;
-        output r4 as {program_id}/foo.future;
-    finalize foo:
-        input r0 as scalar.public;
-        input r1 as address.public;
-        mul aleo::GENERATOR[0u32] r0 into r2;
-        cast r2 into r3 as address;
-        assert.eq r1 r3;
+program test_one.aleo;
 
-    function foo_2:
-        input r0 as scalar.public;
-        input r1 as address.public;
-        async foo_2 r0 r1 into r2;
-        output r2 as {program_id}/foo_2.future;
-    finalize foo_2:
-        input r0 as scalar.public;
-        input r1 as address.public;
-        mul aleo::GENERATOR[0u32] r0 into r2;
-        cast r2 into r3 as address;
-        assert.eq r1 r3;
+constructor:
+    assert.eq true true;
 
-    function will_fail:
-        input r0 as scalar.public;
-        async will_fail r0 into r1;
-        output r1 as {program_id}/will_fail.future;
+struct S:
+    x as field;
 
-    finalize will_fail:
-        input r0 as scalar.public;
-        mul aleo::GENERATOR[256u32] r0 into r1;
-
-    constructor:
-        assert.eq edition 0u16;",
-    ))
+function make_s:
+    cast 0field into r0 as S;
+    output r0 as S.public;
+",
+    )
     .unwrap();
 
-    // Advance the ledger past ConsensusV9 where the new varuna version and deployment version starts to take place.
-    let transactions: [Transaction<CurrentNetwork>; 0] = [];
-    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() {
-        // Call the function
-        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-        vm.add_next_block(&next_block).unwrap();
-    }
+    // Define the second program which refers to the external struct type.
+    let program_two = Program::from_str(
+        r"
+import test_one.aleo;
 
-    // Construct the deployment transaction.
-    let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+program test_two.aleo;
 
-    // Advance the ledger past ConsensusV13 where the new varuna version starts to take place.
-    let transactions: [Transaction<CurrentNetwork>; 0] = [];
-    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap() {
-        // Ensure that the deployment is invalid.
-        assert!(vm.check_transaction(&deployment, None, rng).is_err());
+constructor:
+    assert.eq true true;
 
-        // Call the function
-        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
-        vm.add_next_block(&next_block).unwrap();
-    }
+function second:
+    call test_one.aleo/make_s into r0;
+    output r0 as test_one.aleo/S.public;
+",
+    )
+    .unwrap();
 
-    // Ensure that the deployment is valid after ConsensusVersion::V13.
-    assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+    // Deploy the first program.
+    let deployment_one = vm.deploy(&caller_private_key, &program_one, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment_one], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the second program.
+    let deployment_two = vm.deploy(&caller_private_key, &program_two, None, 0, None, rng).unwrap();
+    sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap()
+}
+
+// This test verifies that a program with a mapping containing a missing struct can be deployed on
+// consensus version 12.
+#[test]
+fn test_deploy_mapping_with_missing_struct_programs_v12() {
+    let block = deploy_mapping_with_missing_struct_program(ConsensusVersion::V12);
+
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+}
+
+// This test verifies that a program with a mapping containing a missing struct cannot be deployed on
+// consensus version 13.
+#[test]
+fn test_deploy_mapping_with_missing_struct_v13() {
+    let block = deploy_mapping_with_missing_struct_program(ConsensusVersion::V13);
+
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+}
+
+fn deploy_mapping_with_missing_struct_program(consensus_version: ConsensusVersion) -> Block<CurrentNetwork> {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    // Initialize the VM at the correct height.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
+
+    // Define the first program with a record.
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+mapping foo:
+    key as field.public;
+    value as S.public;
+
+function dummy:
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
 
     // Deploy the program.
-    let next_block = sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
-    vm.add_next_block(&next_block).unwrap();
+    let deployment = vm.deploy(&caller_private_key, &program_one, None, 0, None, rng).unwrap();
+    sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap()
+}
 
-    // Construct the input with the valid view key derivation.
-    let inputs = [
-        Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Scalar(*view_key))),
-        Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Address(address))),
-    ];
-    // Create the execution transaction.
-    let valid_transaction =
-        vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).unwrap();
-    let valid_tx_id = valid_transaction.id();
+// This test verifies that a program with a mapping containing a missing struct cannot be deployed on
+// consensus version 13.
+#[test]
+fn test_deploy_mapping_with_missing_external_struct_v13() {
+    let block = deploy_mapping_with_missing_external_struct_programs(ConsensusVersion::V13);
 
-    // Create the execution transaction that will fail to execute.
-    let new_private_key = PrivateKey::<CurrentNetwork>::new(rng).unwrap();
-    let new_address = Address::try_from(&new_private_key).unwrap();
-    let inputs = [
-        Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Scalar(*view_key))),
-        Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Address(new_address))),
-    ];
-    assert!(
-        vm.execute(&private_key, (&program_id.to_string(), "foo"), inputs.into_iter(), None, 0, None, rng).is_err()
-    );
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+}
 
-    // Create the execution transaction that will fail in finalize.
-    let inputs = [
-        Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Scalar(*view_key))),
-        Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Address(new_address))),
-    ];
-    let invalid_transaction =
-        vm.execute(&private_key, (&program_id.to_string(), "foo_2"), inputs.into_iter(), None, 0, None, rng).unwrap();
-    let invalid_tx_id = invalid_transaction.id();
+fn deploy_mapping_with_missing_external_struct_programs(consensus_version: ConsensusVersion) -> Block<CurrentNetwork> {
+    let rng = &mut TestRng::default();
 
-    // Construct another invalid transaction that will fail in finalize.
-    let inputs = [Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::Scalar(*view_key)))];
-    let invalid_transaction_2 = vm
-        .execute(&private_key, (&program_id.to_string(), "will_fail"), inputs.into_iter(), None, 0, None, rng)
-        .unwrap();
-    let invalid_tx_2_id = invalid_transaction_2.id();
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
 
-    // Construct a block with both transactions.
-    let next_block =
-        sample_next_block(&vm, &private_key, &[valid_transaction, invalid_transaction, invalid_transaction_2], rng)
-            .unwrap();
-    vm.add_next_block(&next_block).unwrap();
+    // Initialize the VM at the correct height.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
 
-    // Ensure that the valid transaction was accepted and the invalid one was rejected.
-    assert_eq!(next_block.transactions().num_accepted(), 1);
-    assert_eq!(next_block.transactions().num_rejected(), 2);
-    assert!(vm.block_store().get_confirmed_transaction(&valid_tx_id).unwrap().unwrap().is_accepted());
-    assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_id).unwrap().unwrap().is_rejected());
-    assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_2_id).unwrap().unwrap().is_rejected());
+    // Define the first program with a record.
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+function dummy:
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Define the second program which refers to the external struct type.
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+
+program parent.aleo;
+
+mapping foo:
+    key as field.public;
+    value as child.aleo/S.public;
+
+function dummy:
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Deploy the first program.
+    let deployment_one = vm.deploy(&caller_private_key, &program_one, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment_one], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the second program.
+    let deployment_two = vm.deploy(&caller_private_key, &program_two, None, 0, None, rng).unwrap();
+    sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap()
 }
