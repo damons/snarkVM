@@ -2638,26 +2638,21 @@ finalize compute:
         // Add the deployment block to the VM.
         vm.add_next_block(&deployment_block).unwrap();
 
-        // Generate more records to use for the next block.
-        let splits_block =
-            generate_splits(&vm, &caller_private_key, &deployment_block, &mut unspent_records, rng).unwrap();
-
-        // Add the splits block to the VM.
-        vm.add_next_block(&splits_block).unwrap();
-
-        // Generate more records to use for the next block.
-        let splits_block = generate_splits(&vm, &caller_private_key, &splits_block, &mut unspent_records, rng).unwrap();
-
-        // Add the splits block to the VM.
-        vm.add_next_block(&splits_block).unwrap();
-
-        // Generate the transactions.
         let mut transactions = Vec::new();
         let mut excess_transaction_ids = Vec::new();
 
         for _ in 0..VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS + 1 {
-            let transaction =
-                sample_mint_public(&vm, caller_private_key, &program_id, caller_address, 10, &mut unspent_records, rng);
+            let inputs = vec![
+                Value::<CurrentNetwork>::from_str(&caller_address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("10u64").unwrap(),
+            ];
+
+            let transaction = vm
+                .execute(&caller_private_key, (&program_id, "mint_public"), inputs.into_iter(), None, 1, None, rng)
+                .unwrap();
+            // Verify.
+            vm.check_transaction(&transaction, None, rng).unwrap();
+
             // Abort the transaction if the block is full.
             if transactions.len() >= VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS {
                 excess_transaction_ids.push(transaction.id());
@@ -2668,7 +2663,7 @@ finalize compute:
 
         // Construct the next block.
         let next_block =
-            sample_next_block(&vm, &caller_private_key, &transactions, &splits_block, &mut unspent_records, rng)
+            sample_next_block(&vm, &caller_private_key, &transactions, &deployment_block, &mut unspent_records, rng)
                 .unwrap();
 
         // Ensure that the excess transactions were aborted.
