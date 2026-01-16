@@ -171,6 +171,7 @@ commands:
           key: << parameters.cache_key >>
           paths:
             - /home/circleci/project/target
+            - /home/circleci/.aleo/resources
 
   run_test:
     description: "Build and run tests"
