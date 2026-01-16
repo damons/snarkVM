@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 Follow CLAUDE.md for validation commands and code patterns.
 
 ## 1. Gather
-- [ ] `gh pr view $ARGUMENTS --json title,body,comments,reviews,reviewThreads`
+- [ ] `gh pr view --json title,body,state,isDraft,mergeable,statusCheckRollup,url,author,assignees,reviewRequests,reviews,labels,milestone,createdAt,additions,deletions,changedFiles,headRefName,baseRefName,commits`
 - [ ] `gh pr diff $ARGUMENTS`
 - [ ] List all unresolved comments
 - [ ] Read full files for context

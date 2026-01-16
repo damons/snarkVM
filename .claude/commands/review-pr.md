@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 **Assume there is a bug. Your job is to find it. Do not approve until you have proven otherwise. Think very hard.**
 
 ## 1. Gather
-- [ ] `gh pr view $ARGUMENTS --json title,body,baseRefName,headRefName,author`
+- [ ] `gh pr view --json title,body,state,isDraft,mergeable,statusCheckRollup,url,author,assignees,reviewRequests,reviews,labels,milestone,createdAt,additions,deletions,changedFiles,headRefName,baseRefName,commits`
 - [ ] `gh pr diff $ARGUMENTS`
 - [ ] Read full files (not just diff) for all modified code
 - [ ] Read files that import/are imported by modified files
