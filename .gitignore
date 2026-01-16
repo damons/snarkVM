@@ -18,6 +18,7 @@ artifacts
 
 # Claude Code - shared config committed, personal settings ignored
 .claude/*
+!.claude/AGENTS.md
 !.claude/CLAUDE.md
 !.claude/commands/
 !.claude/commands/fix-issue.md
