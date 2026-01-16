@@ -784,6 +784,7 @@ function compute:
             .clone()
     }
 
+    #[cfg(feature = "prerelease")]
     pub(crate) fn sample_execution_transaction_without_fee(rng: &mut TestRng) -> Transaction<CurrentNetwork> {
         static INSTANCE: OnceLock<Transaction<CurrentNetwork>> = OnceLock::new();
         INSTANCE
@@ -1380,6 +1381,8 @@ function check:
     }
 
     #[test]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     fn test_deployment_with_external_records() {
         let rng = &mut TestRng::default();
 

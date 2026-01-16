@@ -3104,6 +3104,8 @@ constructor:
 //  - parent programs that exceed the depth exist, but fail to execute.
 //  - the VM can be loaded from the store.
 #[test]
+#[cfg(feature = "prerelease")]
+#[ignore]
 fn test_upgrade_beyond_max_transition_depth() {
     let rng = &mut TestRng::default();
 

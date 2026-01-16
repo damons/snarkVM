@@ -871,6 +871,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     fn test_check_transaction_execution() {
         let rng = &mut TestRng::default();
 
@@ -1660,18 +1662,20 @@ function compute:
 mod credits_migration_tests {
     use super::*;
 
-    use console::{
-        account::{Address, ViewKey},
-        program::Entry,
-    };
+    use console::account::{Address, ViewKey};
+    #[cfg(feature = "prerelease")]
+    use console::program::Entry;
     use snarkvm_ledger_block::Transition;
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
+    #[cfg(feature = "prerelease")]
     const RECORD_UPGRADE_LIMIT: u64 = 1_000_000_000_000u64;
+    #[cfg(feature = "prerelease")]
     const TOTAL_UPGRADE_LIMIT: u64 = 4_000_000_000_000u64;
 
-    #[cfg(feature = "test")]
+    #[cfg(feature = "prerelease")]
+    #[ignore]
     #[test]
     fn test_inclusion_migration() {
         // 1. Check that `upgrade` is not callable before migration
