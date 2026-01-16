@@ -918,11 +918,13 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "prerelease")]
 mod tests {
     use super::*;
     use crate::{TransitionStore, helpers::memory::DeploymentMemory};
 
     #[test]
+    #[ignore]
     fn test_insert_get_remove() {
         let rng = &mut TestRng::default();
 
@@ -1013,6 +1015,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_find_transaction_id() {
         let rng = &mut TestRng::default();
 

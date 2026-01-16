@@ -97,6 +97,7 @@ test_targets = [
   "snarkvm-console/test_targets",
 ]
 timer = [ "aleo-std/timer" ]
+prerelease = [ ]
 
 [dependencies.snarkvm-console]
 workspace = true

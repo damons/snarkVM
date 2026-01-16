@@ -171,7 +171,6 @@ commands:
           key: << parameters.cache_key >>
           paths:
             - /home/circleci/project/target
-            - /home/circleci/.aleo/resources
 
   run_test:
     description: "Build and run tests"
@@ -190,10 +189,61 @@ commands:
       no_output_timeout:
         type: string
         default: 10m
+      use_cache:
+        type: boolean
+        default: true
     steps:
       - checkout
-      - setup_environment:
-          cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+
+      - when:
+          condition: << parameters.use_cache >>
+          steps:
+            - setup_environment:
+                cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+
+      - unless:
+          condition: << parameters.use_cache >>
+          steps:
+
+            - run:
+                name: Ensure clean build dirs (no cache mode)
+                command: |
+                  rm -rf target ~/.cache/sccache ~/.cargo/registry ~/.cargo/git || true
+
+            - run:
+                name: Prepare environment variables and install dependencies
+                command: |
+                  echo 'export PATH="$HOME/.cargo/bin:$CIRCLE_WORKING_DIRECTORY/.bin:$PATH"' >> "$BASH_ENV"
+                  echo 'export SCCACHE_DIR="$HOME/.cache/sccache"' >> "$BASH_ENV"
+                  echo 'export SCCACHE_CACHE_SIZE="20000M"' >> "$BASH_ENV"
+                  echo 'export SCCACHE_IDLE_TIMEOUT=0' >> "$BASH_ENV"
+                  echo 'export SCCACHE_LOG=info' >> "$BASH_ENV"
+                  echo 'export CARGO_INCREMENTAL=0' >> "$BASH_ENV"
+                  echo 'export RUSTC_WRAPPER="sccache"' >> "$BASH_ENV"
+
+            - run:
+                name: Install sccache
+                command: |
+                  export WORK_DIR="$HOME/.cache/sccache"
+                  export SCCACHE_DIR="$HOME/.cache/sccache"
+                  export SCCACHE_VERSION=v0.10.0
+                  export SCCACHE_PKG="sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl"
+
+                  mkdir -p "$CIRCLE_WORKING_DIRECTORY/.bin"
+                  mkdir -p "$HOME/.cache/sccache"
+                  if [ ! -x "$CIRCLE_WORKING_DIRECTORY/.bin/sccache" ]; then
+                    wget "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/$SCCACHE_PKG.tar.gz"
+                    tar -C "$CIRCLE_WORKING_DIRECTORY/.bin" -xvf "$SCCACHE_PKG.tar.gz"
+                    chmod +x "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache"
+                    mv "$CIRCLE_WORKING_DIRECTORY/.bin/$SCCACHE_PKG/sccache" "$CIRCLE_WORKING_DIRECTORY/.bin/sccache"
+                    rm -rf "$CIRCLE_WORKING_DIRECTORY/.cargo/registry"
+                  fi
+
+            - run:
+                name: Install debian packages
+                command: |
+                  DEBIAN_FRONTEND=noninteractive sudo apt-get update
+                  DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends clang llvm-dev llvm lld pkg-config xz-utils make libssl-dev libssl-dev
 
 
       - run:
@@ -395,9 +445,11 @@ commands:
           destination: test-timings/<< parameters.workspace_member >>
       - store_test_results:
           path: target/nextest/ci
-
-      - clear_environment:
-          cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
+      - when:
+          condition: << parameters.use_cache >>
+          steps:
+            - clear_environment:
+                cache_key: v4.2.0-rust-1.88.0-<< parameters.workspace_member >><< parameters.cache_key_suffix >>-cache
 
 
   install_rust_nightly:
@@ -691,6 +743,15 @@ jobs:
           cache_key_suffix: -with-vaild-solutions
           flags: valid_solutions --features=test
 
+  ledger-with-valid-solutions-prerelease:
+    executor: rust-docker
+    resource_class: << pipeline.parameters.xlarge >>
+    steps:
+      - run_test:
+          workspace_member: snarkvm-ledger
+          cache_key_suffix: -with-vaild-solutions-prelease
+          flags: valid_solutions --features prerelease,test --run-ignored ignored-only
+
   ledger-authority:
     executor: rust-docker
     resource_class: << pipeline.parameters.small >>
@@ -792,6 +853,15 @@ jobs:
           workspace_member: snarkvm-ledger-store
           flags: --features=rocks
 
+  ledger-store-prerelease:
+    executor: rust-docker
+    resource_class: << pipeline.parameters.twoxlarge >>
+    steps:
+      - run_test:
+          workspace_member: snarkvm-ledger-store
+          flags: --features prerelease --run-ignored ignored-only -- --test-threads 2
+          cache_key_suffix: -ledger-store-prerelease
+
   ledger-test-helpers:
     executor: rust-docker
     resource_class: << pipeline.parameters.medium >>
@@ -815,7 +885,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-parameters
           flags: --no-run --features large_params
-          cache_key_suffix: -large
+          use_cache: false
           # Compilation can take very long and produce no output for a while.
           no_output_timeout: 20m
           timeout: 30m
@@ -1212,7 +1282,6 @@ workflows:
     jobs:
       - synthesizer
       - synthesizer-process 
-      - synthesizer-integration
       - synthesizer-program
       - synthesizer-snark
 
@@ -1226,7 +1295,7 @@ workflows:
       - utilities
       - utilities-derives
       - wasm
-  
+
   # Run additional but unlikely to fail checks on merges only
   merge-workflow:
     when: pipeline.git.branch == "staging"
@@ -1240,6 +1309,7 @@ workflows:
       - synthesizer-test-partition2 # Often similar results as `synthesizer`
       - ledger-with-rocksdb-partition1 # Often similar results as `ledger`
       - ledger-with-rocksdb-partition2 # Often similar results as `ledger`
+      - synthesizer-integration # Very slow test taking over 30+ minutes to pass
       - synthesizer-process-with-rocksdb # Often similar results as `synthesizer-process`
       - synthesizer-program-integration # Expensive, rarely impacted, duplicate test-runs with `synthesizer`
       - synthesizer-program-integration-keccak # Expensive and rarely impacted
@@ -1259,6 +1329,8 @@ workflows:
       - parameters-large # Infrastructure which often runs fine
       - parameters-uncached # Infrastructure which often runs fine
       - synthesizer-prerelease # Run the slowest synthesizer tests as pre-release
+      - ledger-store-prerelease # Run the slowest ledger-store tests as pre-release
+      - ledger-with-valid-solutions-prerelease # Run the slowest ledger-with-valid-solution test as pre-release
       - verify-windows: # Windows has never failed us when linux passed
           matrix:
             parameters:
