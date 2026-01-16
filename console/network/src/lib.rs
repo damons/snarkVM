@@ -232,9 +232,9 @@ pub trait Network:
     /// The maximum number of imports.
     const MAX_IMPORTS: usize = 64;
 
-    /// The maximum number of bytes in a transaction.
-    // Note: This value must **not** be decreased as it would invalidate existing transactions.
-    const MAX_TRANSACTION_SIZE: usize = 128_000; // 128 kB
+    /// A list of consensus versions and their corresponding maximum transaction sizes.
+    // Note: This value must **not** decrease without considering the impact on transaction validity.
+    const MAX_TRANSACTION_SIZE: [(ConsensusVersion, usize); 2];
 
     /// The state root type.
     type StateRoot: Bech32ID<Field<Self>>;
@@ -312,6 +312,14 @@ pub trait Network:
     #[allow(non_snake_case)]
     fn LATEST_MAX_PROGRAM_SIZE() -> Result<usize> {
         Self::MAX_PROGRAM_SIZE.last().map_or(Err(anyhow!("No MAX_PROGRAM_SIZE defined.")), |(_, value)| Ok(*value))
+    }
+
+    /// Returns the last `MAX_TRANSACTION_SIZE` value.
+    #[allow(non_snake_case)]
+    fn LATEST_MAX_TRANSACTION_SIZE() -> Result<usize> {
+        Self::MAX_TRANSACTION_SIZE
+            .last()
+            .map_or(Err(anyhow!("No MAX_TRANSACTION_SIZE defined.")), |(_, value)| Ok(*value))
     }
 
     /// Returns the block height where the the inclusion proof will be updated.

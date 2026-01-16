@@ -75,12 +75,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     ) -> Result<()> {
         let timer = timer!("VM::check_transaction");
 
+        // Get the current block height for consensus version checks.
+        let current_block_height = self.block_store().current_block_height();
+
         /* Transaction */
 
+        // Get the maximum transaction size for the current consensus version.
+        let max_transaction_size = consensus_config_value!(N, MAX_TRANSACTION_SIZE, current_block_height)
+            .ok_or(anyhow!("Failed to fetch maximum transaction size"))?;
         // Allocate a buffer to write the transaction.
-        let mut buffer = Vec::with_capacity(N::MAX_TRANSACTION_SIZE);
+        let mut buffer = Vec::with_capacity(max_transaction_size);
         // Ensure that the transaction is well formed and does not exceed the maximum size.
-        if let Err(error) = transaction.write_le(LimitedWriter::new(&mut buffer, N::MAX_TRANSACTION_SIZE)) {
+        if let Err(error) = transaction.write_le(LimitedWriter::new(&mut buffer, max_transaction_size)) {
             bail!("Transaction '{}' is not well-formed: {error}", transaction.id())
         }
 
@@ -135,7 +141,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         lap!(timer, "Check for duplicate elements");
 
         // Get the consensus version.
-        let current_block_height = self.block_store().current_block_height();
         let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
 
         // Construct the transaction checksum.

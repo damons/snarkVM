@@ -967,7 +967,7 @@ mod tests {
     use circuit::{Aleo, AleoCanaryV0, AleoTestnetV0, AleoV0};
 
     use console::{
-        network::{CanaryV0, MainnetV0, TestnetV0},
+        network::{CanaryV0, ConsensusVersion, MainnetV0, TestnetV0, prelude::consensus_config_value_by_version},
         types::Address,
     };
     use snarkvm_synthesizer_program::Program;
@@ -1010,7 +1010,9 @@ function over_five_thousand:
         assert_eq!(execution_storage_cost::<N>(threshold_lower_offset), threshold_lower_offset);
         assert_eq!(execution_storage_cost::<N>(threshold), threshold);
         assert_eq!(execution_storage_cost::<N>(threshold_upper_offset), STORAGE_COST_ABOVE_THRESHOLD);
-        assert_eq!(execution_storage_cost::<N>(N::MAX_TRANSACTION_SIZE as u64), STORAGE_COST_MAX);
+        // Use V1 value for backwards-compatible test.
+        let max_tx_size = consensus_config_value_by_version!(N, MAX_TRANSACTION_SIZE, ConsensusVersion::V1).unwrap();
+        assert_eq!(execution_storage_cost::<N>(max_tx_size as u64), STORAGE_COST_MAX);
     }
 
     #[test]
