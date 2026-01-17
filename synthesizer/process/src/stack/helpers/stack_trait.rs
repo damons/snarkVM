@@ -583,7 +583,7 @@ impl<N: Network> Stack<N> {
             match (argument, input.finalize_type()) {
                 (Argument::Plaintext(plaintext), FinalizeType::Plaintext(plaintext_type)) => match &external_stack {
                     Some(external_stack) => {
-                        external_stack.matches_plaintext_internal(plaintext, plaintext_type, depth + 1)?,
+                        external_stack.matches_plaintext_internal(plaintext, plaintext_type, depth + 1)?
                     }
                     None => self.matches_plaintext_internal(plaintext, plaintext_type, depth + 1)?,
                 },

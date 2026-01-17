@@ -161,7 +161,7 @@ impl<N: Network> FinalizeTypes<N> {
                 }
                 // Access the member on the path to output the register type.
                 (FinalizeType::Plaintext(PlaintextType::ExternalStruct(locator)), Access::Member(identifier)) => {
-                    // Retrieve the member type from the external struct.
+                    // Retrieve the member type from the external struct and check that it exists.
                     let external_stack = stack.get_external_stack(locator.program_id())?;
                     match external_stack.program().get_struct(locator.resource())?.members().get(identifier) {
                         // Qualify local struct references so subsequent accesses use the correct stack.
