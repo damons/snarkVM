@@ -82,7 +82,6 @@ commands:
           paths:
             - C:\Users\circleci\.cargo\registry
             - C:\Users\circleci\.cargo\git
-            - target
           key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   setup_environment:
@@ -170,7 +169,6 @@ commands:
       - save_cache:
           key: << parameters.cache_key >>
           paths:
-            - /home/circleci/project/target
             - /home/circleci/.aleo/resources
 
   run_test:
