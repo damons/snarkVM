@@ -120,7 +120,7 @@ impl<N: Network> FromStr for ProgramCore<N> {
     /// Returns a program from a string literal.
     fn from_str(string: &str) -> Result<Self> {
         // Ensure the raw program string is less than MAX_PROGRAM_SIZE.
-        ensure!(string.len() <= N::LATEST_MAX_PROGRAM_SIZE()?, "Program length exceeds N::MAX_PROGRAM_SIZE.");
+        ensure!(string.len() <= N::LATEST_MAX_PROGRAM_SIZE(), "Program length exceeds N::MAX_PROGRAM_SIZE.");
 
         match Self::parse(string) {
             Ok((remainder, object)) => {
@@ -280,7 +280,7 @@ function compute:
 
     #[test]
     fn test_program_size() {
-        let max_program_size: usize = CurrentNetwork::LATEST_MAX_PROGRAM_SIZE().unwrap();
+        let max_program_size: usize = CurrentNetwork::LATEST_MAX_PROGRAM_SIZE();
 
         // Define variable name for easy experimentation with program sizes.
         let var_name = "a";

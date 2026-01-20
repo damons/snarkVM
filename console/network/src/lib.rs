@@ -304,22 +304,20 @@ pub trait Network:
     }
     /// Returns the last `MAX_CERTIFICATES` value.
     #[allow(non_snake_case)]
-    fn LATEST_MAX_CERTIFICATES() -> Result<u16> {
-        Self::MAX_CERTIFICATES.last().map_or(Err(anyhow!("No MAX_CERTIFICATES defined.")), |(_, value)| Ok(*value))
+    fn LATEST_MAX_CERTIFICATES() -> u16 {
+        Self::MAX_CERTIFICATES.last().expect("MAX_CERTIFICATES must have at least one entry").1
     }
 
     /// Returns the last `MAX_PROGRAM_SIZE` value.
     #[allow(non_snake_case)]
-    fn LATEST_MAX_PROGRAM_SIZE() -> Result<usize> {
-        Self::MAX_PROGRAM_SIZE.last().map_or(Err(anyhow!("No MAX_PROGRAM_SIZE defined.")), |(_, value)| Ok(*value))
+    fn LATEST_MAX_PROGRAM_SIZE() -> usize {
+        Self::MAX_PROGRAM_SIZE.last().expect("MAX_PROGRAM_SIZE must have at least one entry").1
     }
 
     /// Returns the last `MAX_TRANSACTION_SIZE` value.
     #[allow(non_snake_case)]
-    fn LATEST_MAX_TRANSACTION_SIZE() -> Result<usize> {
-        Self::MAX_TRANSACTION_SIZE
-            .last()
-            .map_or(Err(anyhow!("No MAX_TRANSACTION_SIZE defined.")), |(_, value)| Ok(*value))
+    fn LATEST_MAX_TRANSACTION_SIZE() -> usize {
+        Self::MAX_TRANSACTION_SIZE.last().expect("MAX_TRANSACTION_SIZE must have at least one entry").1
     }
 
     /// Returns the block height where the the inclusion proof will be updated.

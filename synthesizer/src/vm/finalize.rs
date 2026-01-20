@@ -271,9 +271,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Retrieve the number of transactions.
         let num_transactions = transactions.len();
         // Determine the maximum number of aborted solutions allowed in a block.
-        let max_aborted_solutions = Solutions::<N>::max_aborted_solutions()?;
+        let max_aborted_solutions = Solutions::<N>::max_aborted_solutions();
         // Determine the maximum number of aborted transactions allowed in a block.
-        let max_aborted_transactions = Transactions::<N>::max_aborted_transactions()?;
+        let max_aborted_transactions = Transactions::<N>::max_aborted_transactions();
 
         // Perform the finalize operation on the preset finalize mode.
         atomic_finalize!(self.finalize_store(), FinalizeMode::DryRun, {
@@ -2674,10 +2674,8 @@ finalize compute:
         let vm = sample_vm();
 
         // Construct the validators, greater than the maximum committee size.
-        let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::max_committee_size().unwrap() as usize + 1,
-            rng,
-        );
+        let validators =
+            sample_validators::<CurrentNetwork>(Committee::<CurrentNetwork>::max_committee_size() as usize + 1, rng);
 
         // Construct the committee.
         let mut committee_map = IndexMap::new();

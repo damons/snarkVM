@@ -416,6 +416,17 @@ mod tests {
         let _ = [N1::MAX_TRANSACTION_SIZE, N2::MAX_TRANSACTION_SIZE, N3::MAX_TRANSACTION_SIZE];
     }
 
+    /// Ensure that `LATEST_MAX_*` functions return valid values without panicking.
+    /// These functions use `.expect()` internally, so this test verifies the arrays are non-empty.
+    fn latest_max_functions_are_safe<N: Network>() {
+        // Verify LATEST_MAX_CERTIFICATES returns a positive value.
+        assert!(N::LATEST_MAX_CERTIFICATES() > 0, "LATEST_MAX_CERTIFICATES must be positive");
+        // Verify LATEST_MAX_PROGRAM_SIZE returns a positive value.
+        assert!(N::LATEST_MAX_PROGRAM_SIZE() > 0, "LATEST_MAX_PROGRAM_SIZE must be positive");
+        // Verify LATEST_MAX_TRANSACTION_SIZE returns a positive value.
+        assert!(N::LATEST_MAX_TRANSACTION_SIZE() > 0, "LATEST_MAX_TRANSACTION_SIZE must be positive");
+    }
+
     #[test]
     #[allow(clippy::assertions_on_constants)]
     fn test_consensus_constants() {
@@ -446,6 +457,10 @@ mod tests {
         transaction_size_exceeds_program_size::<MainnetV0>();
         transaction_size_exceeds_program_size::<TestnetV0>();
         transaction_size_exceeds_program_size::<CanaryV0>();
+
+        latest_max_functions_are_safe::<MainnetV0>();
+        latest_max_functions_are_safe::<TestnetV0>();
+        latest_max_functions_are_safe::<CanaryV0>();
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
     }
