@@ -14,15 +14,19 @@
 // limitations under the License.
 
 #[cfg(feature = "test")]
+#[cfg(feature = "prerelease")]
 mod test_v8;
 
 #[cfg(feature = "test")]
+#[cfg(feature = "prerelease")]
 mod test_v9;
 
 #[cfg(feature = "test")]
+#[cfg(feature = "prerelease")]
 mod test_v10;
 
 #[cfg(feature = "test")]
+#[cfg(feature = "prerelease")]
 mod test_v11;
 
 #[cfg(feature = "test")]

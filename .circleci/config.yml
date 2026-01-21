@@ -916,7 +916,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --features prerelease --run-ignored ignored-only -- --test-threads 2
+          flags: --features prerelease,test --run-ignored ignored-only -- --test-threads 2
           no_output_timeout: 20m
           cache_key_suffix: -synthesizer-prerelease
           timeout: 20m
@@ -1259,10 +1259,8 @@ workflows:
 
   ledger-workflow:
     jobs:
-      - ledger
       - ledger-with-valid-solutions
       - ledger-authority
-      - ledger-block
       - ledger-committee
       - ledger-narwhal
       - ledger-narwhal-batch-certificate
@@ -1308,6 +1306,7 @@ workflows:
       - synthesizer-test-partition2 # Often similar results as `synthesizer`
       - ledger-with-rocksdb-partition1 # Often similar results as `ledger`
       - ledger-with-rocksdb-partition2 # Often similar results as `ledger`
+      - ledger-block # Very heavy and time taking run
       - synthesizer-integration # Very slow test taking over 30+ minutes to pass
       - synthesizer-process-with-rocksdb # Often similar results as `synthesizer-process`
       - synthesizer-program-integration # Expensive, rarely impacted, duplicate test-runs with `synthesizer`
@@ -1330,6 +1329,7 @@ workflows:
       - synthesizer-prerelease # Run the slowest synthesizer tests as pre-release
       - ledger-store-prerelease # Run the slowest ledger-store tests as pre-release
       - ledger-with-valid-solutions-prerelease # Run the slowest ledger-with-valid-solution test as pre-release
+      - ledger # Time taking run
       - verify-windows: # Windows has never failed us when linux passed
           matrix:
             parameters:
