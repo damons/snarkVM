@@ -1216,9 +1216,6 @@ workflows:
   version: 2
 
   cargo-workflow:
-    when: pipeline.git.branch == "canary"
-      or pipeline.git.branch == "testnet"
-      or pipeline.git.branch == "mainnet"
     jobs:
       - check-fmt
       - check-clippy
@@ -1226,9 +1223,6 @@ workflows:
       - check-all-targets
 
   circuit-workflow:
-    when: pipeline.git.branch == "canary"
-      or pipeline.git.branch == "testnet"
-      or pipeline.git.branch == "mainnet"
     jobs:
       - circuit
       - circuit-account
@@ -1265,9 +1259,6 @@ workflows:
       - console-types-string
 
   ledger-workflow:
-    when: pipeline.git.branch == "canary"
-      or pipeline.git.branch == "testnet"
-      or pipeline.git.branch == "mainnet"
     jobs:
       - ledger-with-valid-solutions
       - ledger-authority
@@ -1286,9 +1277,6 @@ workflows:
       - ledger-test-helpers
 
   synthesizer-workflow:
-    when: pipeline.git.branch == "canary"
-      or pipeline.git.branch == "testnet"
-      or pipeline.git.branch == "mainnet"
     jobs:
       - synthesizer
       - synthesizer-process 
@@ -1296,9 +1284,6 @@ workflows:
       - synthesizer-snark
 
   snarkvm-workflow:
-    when: pipeline.git.branch == "canary"
-      or pipeline.git.branch == "testnet"
-      or pipeline.git.branch == "mainnet"
     jobs:
       - algorithms
       - curves
