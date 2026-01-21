@@ -39,7 +39,15 @@ impl<N: Network> ToBits for Future<N> {
             let argument_bits = argument.to_bits_le();
 
             // Write the size of the argument.
-            u16::try_from(argument_bits.len()).or_halt_with::<N>("argument exceeds u16::MAX bits").write_bits_le(vec);
+            let argument_length = argument_bits.len();
+            match argument_length <= u16::MAX as usize {
+                true => u16::try_from(argument_length)
+                    .or_halt_with::<N>("argument exceeds u16::MAX bits")
+                    .write_bits_le(vec),
+                false => u32::try_from(argument_length)
+                    .or_halt_with::<N>("argument exceeds u32::MAX bits")
+                    .write_bits_le(vec),
+            }
 
             // Write the argument.
             vec.extend_from_slice(&argument_bits);
@@ -61,7 +69,7 @@ impl<N: Network> ToBits for Future<N> {
             .write_bits_be(vec);
         vec.extend_from_slice(&function_name_bits);
 
-        // Write the number of arguments.
+        // Write the number of arguments.s
         u8::try_from(self.arguments.len()).or_halt_with::<N>("arguments exceed u8::MAX").write_bits_be(vec);
 
         // Write the arguments.
@@ -69,7 +77,15 @@ impl<N: Network> ToBits for Future<N> {
             let argument_bits = argument.to_bits_be();
 
             // Write the size of the argument.
-            u16::try_from(argument_bits.len()).or_halt_with::<N>("argument exceeds u16::MAX bits").write_bits_be(vec);
+            let argument_length = argument_bits.len();
+            match argument_length <= u16::MAX as usize {
+                true => u16::try_from(argument_length)
+                    .or_halt_with::<N>("argument exceeds u16::MAX bits")
+                    .write_bits_be(vec),
+                false => u32::try_from(argument_length)
+                    .or_halt_with::<N>("argument exceeds u32::MAX bits")
+                    .write_bits_be(vec),
+            }
 
             // Write the argument.
             vec.extend_from_slice(&argument_bits);

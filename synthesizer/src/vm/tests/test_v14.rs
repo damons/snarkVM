@@ -985,3 +985,98 @@ constructor:
     assert!(vm.transaction_store().contains_transaction_id(&valid_execution_id).unwrap());
     assert!(vm.block_store().contains_rejected_or_aborted_transaction_id(&invalid_execution_id).unwrap());
 }
+
+#[test]
+fn test_increased_argument_bitsize() {
+    // Define the programs.
+    let program = Program::from_str(
+        r"
+program test_large_argument.aleo;
+
+function large_argument_input:
+    input r0 as [[u8; 512u32]; 3u32].private;
+    async large_argument_input r0 into r1;
+    output r1 as test_large_argument.aleo/large_argument_input.future;
+
+finalize large_argument_input:
+    input r0 as [[u8; 512u32]; 3u32].public;
+    assert.eq true true;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    // Initialize an RNG.
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    // Initialize the VM at one less than the V13 height.
+    let v13_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap();
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v13_height, rng);
+
+    // Create the deployment.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+    assert!(vm.check_transaction(&deployment, None, rng).is_err());
+
+    // Advance the VM to the V14 height.
+    while vm.block_store().current_block_height() < v14_height {
+        let block = sample_next_block(&vm, &caller_private_key, &[], rng).unwrap();
+        vm.add_next_block(&block).unwrap();
+    }
+
+    // Verify that we are at the expected height.
+    assert_eq!(vm.block_store().current_block_height(), v14_height);
+
+    // Ensure that the deployment is now valid.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+    assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+
+    // Add the deployment block.
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Construct the inputs for the execution.
+    let input = Value::Plaintext(Plaintext::Array(
+        vec![
+            Plaintext::Array(
+                vec![0u8; 512]
+                    .into_iter()
+                    .map(|byte| Plaintext::from(Literal::<CurrentNetwork>::U8(U8::new(byte))))
+                    .collect(),
+                OnceLock::new(),
+            )
+            .clone();
+            3
+        ],
+        OnceLock::new(),
+    ));
+
+    // Execute a transaction that verifies.
+    let execution = vm
+        .execute(
+            &caller_private_key,
+            (program.id().to_string(), "large_argument_input"),
+            [input].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    assert!(vm.check_transaction(&execution, None, rng).is_ok());
+
+    // Add the execution block.
+    let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+}

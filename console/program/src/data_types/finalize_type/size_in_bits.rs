@@ -36,7 +36,7 @@ impl<N: Network> FinalizeType<N> {
 
     /// A helper function to determine the number of bits of a plaintext type, while tracking the depth of the data.
     /// Note. The plaintext variant is assumed to be an argument of a `Future` and thus does not have a "raw" serialization.
-    fn size_in_bits_internal<F0, F1, F2>(
+    pub fn size_in_bits_internal<F0, F1, F2>(
         &self,
         get_struct: &F0,
         get_external_struct: &F1,
@@ -108,7 +108,7 @@ impl<N: Network> FinalizeType<N> {
         }
     }
 
-    /// Returns the number of raw bits of a finlaize type.
+    /// Returns the number of raw bits of a finalize type.
     pub fn future_size_in_bits_raw<F0, F1, F2>(
         locator: &Locator<N>,
         get_struct: &F0,

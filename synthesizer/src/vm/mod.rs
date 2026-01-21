@@ -28,7 +28,7 @@ mod verify;
 #[cfg(test)]
 mod tests;
 
-use crate::{Restrictions, cast_mut_ref, cast_ref, convert, process};
+use crate::{Restrictions, Stack, cast_mut_ref, cast_ref, convert, process};
 use console::{
     account::{Address, PrivateKey},
     network::prelude::*,
