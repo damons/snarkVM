@@ -404,9 +404,10 @@ commands:
             # Use plain cargo test if --no-run was requested
             # Otherwise, run tests with cargo nextest
             if printf '%s' " $BUILD_FLAGS_SANITIZED " | grep -q ' --no-run '; then
-              unset RUSTC_WRAPPER
-              RUST_MIN_STACK=67108864 cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
-              : > "$CSV"; : > "$TOP"
+              RUST_MIN_STACK=67108864 \
+              RUSTC_WRAPPER= \
+              cargo test --no-run --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED \
+                2>&1 | tee "$OUT"
             else
               RUST_MIN_STACK=67108864 \
               cargo nextest run \
