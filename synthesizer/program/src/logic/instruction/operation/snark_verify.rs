@@ -29,9 +29,10 @@ pub type SnarkVerifyBatch<N> = SnarkVerification<N, { SnarkVerifyVariant::Varuna
 
 // TODO (raychu86): SnarkVerify - Consider increasing this limit in the future.
 /// The maximum number of `snark.verify` circuits supported in a batch verification.
-pub const MAX_SNARK_VERIFY_CIRCUITS: u32 = 1 << 5;
-/// The maximum number of `snark.verify` instances supported in a batch verification.
-pub const MAX_SNARK_VERIFY_INSTANCES: u32 = 1 << 7;
+pub const MAX_SNARK_VERIFY_CIRCUITS: u32 = 1 << 5; // 32
+/// The maximum number of proof instances that can be verified in a single `snark.verify.batch` instruction.
+/// Note: This limit is independent to the total number of circuit instances that may exist in an `Execution` proof.
+pub const MAX_SNARK_VERIFY_INSTANCES: u32 = 1 << 7; // 128
 
 /// Which hash function to use.
 #[derive(Debug, Clone, Eq, PartialEq)]
