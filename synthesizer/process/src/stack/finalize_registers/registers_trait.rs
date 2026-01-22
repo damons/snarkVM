@@ -53,8 +53,15 @@ impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
             Operand::NetworkID => {
                 return Ok(Value::Plaintext(Plaintext::from(Literal::U16(U16::new(N::ID)))));
             }
-            // If the operand is the generator, load the group bases.
-            Operand::AleoGenerator(index) => match index {
+            // If the operand is the Aleo generator, retrieve the Aleo generator.
+            Operand::AleoGenerator => {
+                return N::g_powers()
+                    .first()
+                    .map(|element| Value::Plaintext(Plaintext::from(Literal::Group(*element))))
+                    .ok_or_else(|| anyhow!("Failed to retrieve the Aleo generator."));
+            }
+            // If the operand is the generator powers, retrieve the generator powers or the indexed group.
+            Operand::AleoGeneratorPowers(index) => match index {
                 None => {
                     return Ok(Value::Plaintext(Plaintext::Array(
                         N::g_powers().iter().map(|element| Plaintext::from(Literal::Group(*element))).collect(),
@@ -65,7 +72,7 @@ impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
                     return N::g_powers()
                         .get(**index as usize)
                         .map(|element| Value::Plaintext(Plaintext::from(Literal::Group(*element))))
-                        .ok_or_else(|| anyhow!("Generator index {index} out of bounds"));
+                        .ok_or_else(|| anyhow!("Index {index} out of bounds for Aleo generator"));
                 }
             },
             // If the operand is the checksum, load the checksum.

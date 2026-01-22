@@ -99,7 +99,8 @@ impl<N: Network> RegisterTypes<N> {
             Operand::ProgramID(_) | Operand::Signer | Operand::Caller => {
                 RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Address))
             }
-            Operand::AleoGenerator(index) => match index {
+            Operand::AleoGenerator => RegisterType::Plaintext(PlaintextType::Literal(LiteralType::Group)),
+            Operand::AleoGeneratorPowers(index) => match index {
                 None => RegisterType::Plaintext(PlaintextType::Array(ArrayType::new(
                     PlaintextType::Literal(LiteralType::Group),
                     vec![U32::new(N::Scalar::SIZE_IN_BITS as u32)],

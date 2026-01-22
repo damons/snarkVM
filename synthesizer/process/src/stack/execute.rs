@@ -120,8 +120,17 @@ impl<N: Network> Stack<N> {
                     Operand::Caller => Ok(circuit::Value::Plaintext(circuit::Plaintext::from(
                         circuit::Literal::Address(registers.caller_circuit()?),
                     ))),
-                    // If the operand is the generator, retrieve the generator powers.
-                    Operand::AleoGenerator(index) => match index {
+                    // If the operand is the generator, retrieve the Aleo generator.
+                    Operand::AleoGenerator => A::g_powers()
+                        .first()
+                        .map(|element| {
+                            circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::Group(
+                                element.clone(),
+                            )))
+                        })
+                        .ok_or_else(|| anyhow!("Failed to retrieve the Aleo generator")),
+                    // If the operand is the generator powers, retrieve the generator powers or the indexed group.
+                    Operand::AleoGeneratorPowers(index) => match index {
                         None => Ok(circuit::Value::Plaintext(circuit::Plaintext::Array(
                             A::g_powers()
                                 .into_iter()
@@ -136,7 +145,7 @@ impl<N: Network> Stack<N> {
                                     element.clone(),
                                 )))
                             })
-                            .ok_or_else(|| anyhow!("Generator index {index} out of bounds")),
+                            .ok_or_else(|| anyhow!("Index {index} out of bounds for Aleo generator")),
                     },
                     // If the operand is the block height, throw an error.
                     Operand::BlockHeight => {
@@ -398,7 +407,17 @@ impl<N: Network> Stack<N> {
                     Operand::Caller => Ok(circuit::Value::Plaintext(circuit::Plaintext::from(
                         circuit::Literal::Address(registers.caller_circuit()?),
                     ))),
-                    Operand::AleoGenerator(index) => match index {
+                    // If the operand is the generator, retrieve the Aleo generator.
+                    Operand::AleoGenerator => A::g_powers()
+                        .first()
+                        .map(|element| {
+                            circuit::Value::Plaintext(circuit::Plaintext::from(circuit::Literal::Group(
+                                element.clone(),
+                            )))
+                        })
+                        .ok_or_else(|| anyhow!("Failed to retrieve the Aleo generator")),
+                    // If the operand is the generator powers, retrieve the generator powers or the indexed group.
+                    Operand::AleoGeneratorPowers(index) => match index {
                         None => Ok(circuit::Value::Plaintext(circuit::Plaintext::Array(
                             A::g_powers()
                                 .into_iter()
@@ -413,7 +432,7 @@ impl<N: Network> Stack<N> {
                                     element.clone(),
                                 )))
                             })
-                            .ok_or_else(|| anyhow!("Generator index {index} out of bounds")),
+                            .ok_or_else(|| anyhow!("Index {index} out of bounds for Aleo generator")),
                     },
                     // If the operand is the block height, throw an error.
                     Operand::BlockHeight => {

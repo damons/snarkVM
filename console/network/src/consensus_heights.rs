@@ -49,7 +49,7 @@ pub enum ConsensusVersion {
     V12 = 12,
     /// V13: Introduces external structs.
     V13 = 13,
-    /// V14: Introduces `aleo::GENERATOR` opcode.
+    /// V14: Introduces `aleo::GENERATOR` and `aleo::GENERATOR_POWERS` opcodes.
     V14 = 14,
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,17 +48,23 @@ fn test_aleo_generators_migration() {
     function foo:
         input r0 as scalar.public;
         input r1 as address.public;
-        mul aleo::GENERATOR[0u32] r0 into r2;
-        cast r2 into r3 as address;
-        assert.eq r1 r3;
-        async foo r0 r1 into r4;
-        output r4 as {program_id}/foo.future;
+        mul aleo::GENERATOR r0 into r2;
+        mul aleo::GENERATOR_POWERS[0u32] r0 into r3;
+        assert.eq aleo::GENERATOR aleo::GENERATOR_POWERS[0u32];
+        assert.eq r2 r3;
+        cast r2 into r4 as address;
+        assert.eq r1 r4;
+        async foo r0 r1 into r5;
+        output r5 as {program_id}/foo.future;
     finalize foo:
         input r0 as scalar.public;
         input r1 as address.public;
-        mul aleo::GENERATOR[0u32] r0 into r2;
-        cast r2 into r3 as address;
-        assert.eq r1 r3;
+        mul aleo::GENERATOR r0 into r2;
+        mul aleo::GENERATOR_POWERS[0u32] r0 into r3;
+        assert.eq r2 r3;
+        assert.eq aleo::GENERATOR aleo::GENERATOR_POWERS[0u32];
+        cast r2 into r4 as address;
+        assert.eq r1 r4;
 
     function foo_2:
         input r0 as scalar.public;
@@ -68,7 +74,7 @@ fn test_aleo_generators_migration() {
     finalize foo_2:
         input r0 as scalar.public;
         input r1 as address.public;
-        mul aleo::GENERATOR[0u32] r0 into r2;
+        mul aleo::GENERATOR r0 into r2;
         cast r2 into r3 as address;
         assert.eq r1 r3;
 
@@ -79,7 +85,7 @@ fn test_aleo_generators_migration() {
 
     finalize will_fail:
         input r0 as scalar.public;
-        mul aleo::GENERATOR[256u32] r0 into r1;
+        mul aleo::GENERATOR_POWERS[256u32] r0 into r1;
 
     constructor:
         assert.eq edition 0u16;",
@@ -97,9 +103,9 @@ fn test_aleo_generators_migration() {
     // Construct the deployment transaction.
     let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
 
-    // Advance the ledger past ConsensusV13 where the new varuna version starts to take place.
+    // Advance the ledger past ConsensusV14 where the new varuna version starts to take place.
     let transactions: [Transaction<CurrentNetwork>; 0] = [];
-    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap() {
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap() {
         // Ensure that the deployment is invalid.
         assert!(vm.check_transaction(&deployment, None, rng).is_err());
 
@@ -108,7 +114,7 @@ fn test_aleo_generators_migration() {
         vm.add_next_block(&next_block).unwrap();
     }
 
-    // Ensure that the deployment is valid after ConsensusVersion::V13.
+    // Ensure that the deployment is valid after ConsensusVersion::V14.
     assert!(vm.check_transaction(&deployment, None, rng).is_ok());
 
     // Deploy the program.
