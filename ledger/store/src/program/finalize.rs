@@ -760,7 +760,6 @@ mod tests {
 
     use aleo_std::StorageMode;
 
-    #[cfg(feature = "prerelease")]
     use console::{program::Literal, types::U64};
 
     type CurrentNetwork = MainnetV0;
@@ -1266,7 +1265,6 @@ mod tests {
     /// NUM_ITEMS=100000 cargo test test_finalize_timings --features rocks -- --nocapture
     /// ```
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_finalize_timings() {
         let rng = &mut TestRng::default();

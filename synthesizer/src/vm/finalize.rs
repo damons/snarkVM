@@ -1490,11 +1490,9 @@ mod tests {
         test_helpers,
         test_helpers::{sample_finalize_state, sample_vm},
     };
-    #[cfg(feature = "prerelease")]
-    use console::program::Entry;
     use console::{
         account::{Address, PrivateKey, ViewKey},
-        program::{Ciphertext, Record},
+        program::{Ciphertext, Entry, Record},
         types::Field,
     };
     use snarkvm_ledger_block::{Block, Header, Metadata, Transaction, Transition};
@@ -1650,7 +1648,6 @@ finalize transfer_public:
     }
 
     /// Generate split transactions for the unspent records.
-    #[cfg(feature = "prerelease")]
     fn generate_splits<R: Rng + CryptoRng>(
         vm: &VM<CurrentNetwork, LedgerType>,
         private_key: &PrivateKey<CurrentNetwork>,
@@ -1690,7 +1687,6 @@ finalize transfer_public:
     }
 
     /// Create an execution transaction.
-    #[cfg(feature = "prerelease")]
     fn create_execution(
         vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
@@ -1719,7 +1715,6 @@ finalize transfer_public:
     }
 
     /// Sample a public mint transaction.
-    #[cfg(feature = "prerelease")]
     fn sample_mint_public(
         vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
@@ -1738,7 +1733,6 @@ finalize transfer_public:
     }
 
     /// Sample a public transfer transaction.
-    #[cfg(feature = "prerelease")]
     fn sample_transfer_public(
         vm: &VM<CurrentNetwork, LedgerType>,
         caller_private_key: PrivateKey<CurrentNetwork>,
@@ -2163,7 +2157,6 @@ finalize transfer_public:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_atomic_finalize_many() {
         let rng = &mut TestRng::default();
@@ -2375,7 +2368,6 @@ finalize transfer_public:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_finalize_catch_halt() {
         let rng = &mut TestRng::default();
@@ -2485,7 +2477,6 @@ function ped_hash:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_rejected_transaction_should_not_update_storage() {
         let rng = &mut TestRng::default();

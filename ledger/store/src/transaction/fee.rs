@@ -256,7 +256,6 @@ impl<N: Network, F: FeeStorage<N>> FeeStore<N, F> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "prerelease")]
 mod tests {
     use super::*;
     use crate::helpers::memory::FeeMemory;

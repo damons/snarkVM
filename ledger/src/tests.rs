@@ -2647,7 +2647,6 @@ mod valid_solutions {
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_cumulative_proof_target_correctness() {
         // Initialize an RNG.
@@ -2756,7 +2755,6 @@ mod valid_solutions {
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_epoch_provers_cache_cleared_at_epoch_boundary() {
         // Initialize an RNG.
@@ -3023,7 +3021,6 @@ mod valid_solutions {
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_excess_invalid_solution_ids() {
         // Note that the sum of `NUM_INVALID_SOLUTIONS` and `NUM_VALID_SOLUTIONS` should exceed the maximum number of solutions.
@@ -3116,7 +3113,6 @@ mod valid_solutions {
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_excess_valid_solution_ids() {
         // Note that this should be greater than the maximum number of solutions.

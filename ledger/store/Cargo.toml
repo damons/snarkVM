@@ -39,7 +39,6 @@ wasm = [
   "snarkvm-synthesizer-snark/wasm"
 ]
 test = [ ]
-prerelease = [ ]
 
 [dependencies.snarkvm-console]
 workspace = true

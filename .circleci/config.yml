@@ -750,7 +750,7 @@ jobs:
       - run_test:
           workspace_member: snarkvm-ledger
           cache_key_suffix: -with-vaild-solutions-prelease
-          flags: valid_solutions --features prerelease,test --run-ignored ignored-only
+          flags: valid_solutions --features test --run-ignored ignored-only
 
   ledger-authority:
     executor: rust-docker
@@ -859,7 +859,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-ledger-store
-          flags: --features prerelease --run-ignored ignored-only -- --test-threads 2
+          flags: --run-ignored ignored-only -- --test-threads 2
           cache_key_suffix: -ledger-store-prerelease
 
   ledger-test-helpers:
@@ -917,7 +917,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer
-          flags: --features prerelease,test --run-ignored ignored-only -- --test-threads 2
+          flags: --features test --run-ignored ignored-only -- --test-threads 2
           no_output_timeout: 20m
           cache_key_suffix: -synthesizer-prerelease
           timeout: 20m

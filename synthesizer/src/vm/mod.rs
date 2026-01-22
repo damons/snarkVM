@@ -784,7 +784,6 @@ function compute:
             .clone()
     }
 
-    #[cfg(feature = "prerelease")]
     pub(crate) fn sample_execution_transaction_without_fee(rng: &mut TestRng) -> Transaction<CurrentNetwork> {
         static INSTANCE: OnceLock<Transaction<CurrentNetwork>> = OnceLock::new();
         INSTANCE
@@ -988,7 +987,6 @@ function compute:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_multiple_deployments_and_multiple_executions() {
         let rng = &mut TestRng::default();
@@ -1139,7 +1137,6 @@ finalize getter:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_load_deployments_with_imports() {
         // NOTE: This seed was chosen for the CI's RNG to ensure that the test passes.
@@ -1381,7 +1378,6 @@ function check:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_deployment_with_external_records() {
         let rng = &mut TestRng::default();

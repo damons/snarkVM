@@ -710,7 +710,6 @@ finalize test:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_join_transaction_size() {
         let rng = &mut TestRng::default();
@@ -788,7 +787,6 @@ finalize test:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_fee_private_transition_size() {
         let rng = &mut TestRng::default();
@@ -830,7 +828,6 @@ finalize test:
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_wide_nested_execution_cost() {
         // Initialize an RNG.

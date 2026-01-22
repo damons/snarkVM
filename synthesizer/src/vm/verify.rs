@@ -701,9 +701,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "prerelease")]
     use crate::vm::test_helpers::sample_finalize_state;
-    #[cfg(feature = "prerelease")]
     use console::account::ViewKey;
 
     use crate::vm::test_helpers::LedgerType;
@@ -713,9 +711,7 @@ mod tests {
         algorithms::{ECDSASignature, Keccak256},
         types::U8,
     };
-    #[cfg(feature = "prerelease")]
-    use snarkvm_ledger_block::{Block, Header, Metadata};
-    use snarkvm_ledger_block::{Transaction, Transition};
+    use snarkvm_ledger_block::{Block, Header, Metadata, Transaction, Transition};
     #[cfg(feature = "test")]
     use snarkvm_utilities::bytes_from_bits_le;
 
@@ -871,7 +867,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_check_transaction_execution() {
         let rng = &mut TestRng::default();
@@ -906,7 +901,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "prerelease")]
     #[ignore]
     fn test_verify_deploy_and_execute() {
         // Initialize the RNG.
@@ -1662,19 +1656,17 @@ function compute:
 mod credits_migration_tests {
     use super::*;
 
-    use console::account::{Address, ViewKey};
-    #[cfg(feature = "prerelease")]
-    use console::program::Entry;
+    use console::{
+        account::{Address, ViewKey},
+        program::Entry,
+    };
     use snarkvm_ledger_block::Transition;
 
     type CurrentNetwork = test_helpers::CurrentNetwork;
 
-    #[cfg(feature = "prerelease")]
     const RECORD_UPGRADE_LIMIT: u64 = 1_000_000_000_000u64;
-    #[cfg(feature = "prerelease")]
     const TOTAL_UPGRADE_LIMIT: u64 = 4_000_000_000_000u64;
 
-    #[cfg(feature = "prerelease")]
     #[ignore]
     #[test]
     fn test_inclusion_migration() {

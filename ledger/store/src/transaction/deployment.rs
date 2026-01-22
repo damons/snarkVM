@@ -918,7 +918,6 @@ impl<N: Network, D: DeploymentStorage<N>> DeploymentStore<N, D> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "prerelease")]
 mod tests {
     use super::*;
     use crate::{TransitionStore, helpers::memory::DeploymentMemory};
