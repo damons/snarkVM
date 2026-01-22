@@ -35,6 +35,7 @@ use console::{
         StructType,
         ValueType,
     },
+    types::U32,
 };
 use snarkvm_synthesizer_program::{
     CallOperator,
@@ -51,7 +52,6 @@ use snarkvm_synthesizer_program::{
 };
 use snarkvm_utilities::dev_eprintln;
 
-use console::algorithms::U32;
 use indexmap::{IndexMap, IndexSet};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

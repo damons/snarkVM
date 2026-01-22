@@ -15,6 +15,7 @@
 
 use super::*;
 use console::program::FinalizeType;
+
 use std::sync::OnceLock;
 
 impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {

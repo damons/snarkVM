@@ -205,6 +205,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //   - the program does not include V12 syntax
                 // If the `CONSENSUS_VERSION` is less than `V13`, ensure that
                 //   - the program does not include V13 syntax
+                //   - the program does not use the external struct syntax `some_program.aleo/Struct`
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
+                //   - the program's mappings do not use non-existent structs.
+                // If the `CONSENSUS_VERSION` is less than `V14`, ensure that
+                //   - the program does not include V14 syntax
                 if consensus_version < ConsensusVersion::V8 {
                     ensure!(
                         deployment.edition().is_zero(),
@@ -257,10 +262,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses string type after `ConsensusVersion::V12`"
                     );
                 }
-                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
-                //   - the program does not use the external struct syntax `some_program.aleo/StructT`
-                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
-                //   - the program's mappings do not use non-existent structs.
                 if consensus_version < ConsensusVersion::V13 {
                     ensure!(
                         !deployment.program().contains_external_struct(),
@@ -270,8 +271,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if consensus_version >= ConsensusVersion::V13 {
                     self.process.read().mapping_types_exist(deployment.program())?;
                 }
-                // If the `CONSENSUS_VERSION` is less than `V14`, ensure that
-                //   - the program does not include V14 syntax
                 if consensus_version < ConsensusVersion::V14 {
                     ensure!(
                         !deployment.program().contains_v14_syntax(),
