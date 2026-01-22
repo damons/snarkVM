@@ -192,8 +192,9 @@ pub trait Network:
 
     /// The minimum number of elements in an array.
     const MIN_ARRAY_ELEMENTS: usize = 1; // This ensures the array is not empty.
-    /// The maximum number of elements in an array.
-    const MAX_ARRAY_ELEMENTS: usize = 2048;
+    ///  A list of (consensus_version, size) pairs indicating the maximum number of elements in an array.
+    const MAX_ARRAY_ELEMENTS: [(ConsensusVersion, usize); 3] =
+        [(ConsensusVersion::V1, 32), (ConsensusVersion::V11, 512), (ConsensusVersion::V14, 2048)];
 
     /// The minimum number of entries in a record.
     const MIN_RECORD_ENTRIES: usize = 1; // This accounts for 'record.owner'.
@@ -301,6 +302,11 @@ pub trait Network:
     #[allow(non_snake_case)]
     fn CONSENSUS_HEIGHT(version: ConsensusVersion) -> Result<u32> {
         Ok(Self::CONSENSUS_VERSION_HEIGHTS().get(version as usize - 1).ok_or(anyhow!("Invalid consensus version"))?.1)
+    }
+    /// Returns the last `MAX_ARRAY_ELEMENTS` value.
+    #[allow(non_snake_case)]
+    fn LATEST_MAX_ARRAY_ELEMENTS() -> usize {
+        Self::MAX_ARRAY_ELEMENTS.last().expect("MAX_ARRAY_ELEMENTS must have at least one entry").1
     }
     /// Returns the last `MAX_CERTIFICATES` value.
     #[allow(non_snake_case)]

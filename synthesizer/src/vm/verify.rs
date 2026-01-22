@@ -135,6 +135,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         lap!(timer, "Check for duplicate elements");
 
         // Get the consensus version.
+        let current_block_height = self.block_store().current_block_height();
         let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
 
         // Construct the transaction checksum.
@@ -282,6 +283,14 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     let stack = Stack::new(&self.process().read(), deployment.program())?;
                     check_future_argument_bit_size(deployment.program(), &stack, u16::MAX as usize)?;
                 }
+
+                // Determine if any of the array types exceed the maximum array elements.
+                let max_array_elements = consensus_config_value!(N, MAX_ARRAY_ELEMENTS, current_block_height)
+                    .ok_or(anyhow!("Failed to retrieve the maximum array elements"))?;
+                ensure!(
+                    !deployment.program().exceeds_max_array_size(u32::try_from(max_array_elements)?),
+                    "Invalid deployment transaction '{id}' - program contains an array that exceeds the maximum allowed size of {max_array_elements} elements",
+                );
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {
