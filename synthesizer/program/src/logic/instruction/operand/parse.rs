@@ -229,7 +229,7 @@ mod tests {
         assert_eq!(format!("{operand}"), "aleo::GENERATOR_POWERS");
 
         let operand = Operand::<CurrentNetwork>::parse("aleo::GENERATOR_POWERS[5u32]").unwrap().1;
-        assert_eq!(format!("{operand}"), "aleo::GENERATOR[5u32]");
+        assert_eq!(format!("{operand}"), "aleo::GENERATOR_POWERS[5u32]");
 
         let operand = Operand::<CurrentNetwork>::parse("foo.aleo/checksum").unwrap().1;
         assert_eq!(format!("{operand}"), "foo.aleo/checksum");
