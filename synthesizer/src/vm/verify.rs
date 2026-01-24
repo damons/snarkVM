@@ -203,6 +203,13 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //   - the program does not include V11 syntax
                 // If the `CONSENSUS_VERSION` is less than `V12`, ensure that
                 //   - the program does not include V12 syntax
+                // If the `CONSENSUS_VERSION` is less than `V13`, ensure that
+                //   - the program does not include V13 syntax
+                //   - the program does not use the external struct syntax `some_program.aleo/Struct`
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
+                //   - the program's mappings do not use non-existent structs.
+                // If the `CONSENSUS_VERSION` is less than `V14`, ensure that
+                //   - the program does not include V14 syntax
                 if consensus_version < ConsensusVersion::V8 {
                     ensure!(
                         deployment.edition().is_zero(),
@@ -255,20 +262,20 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses string type after `ConsensusVersion::V12`"
                     );
                 }
-
-                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
-                //   - the program does not use the external struct syntax `some_program.aleo/StructT`
-                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
-                //   - the program's mappings do not use non-existent structs.
                 if consensus_version < ConsensusVersion::V13 {
                     ensure!(
                         !deployment.program().contains_external_struct(),
                         "Invalid deployment transaction '{id}' - external structs may only be used beginning with `ConsensusVersion::V13`"
                     );
                 }
-
                 if consensus_version >= ConsensusVersion::V13 {
                     self.process.read().mapping_types_exist(deployment.program())?;
+                }
+                if consensus_version < ConsensusVersion::V14 {
+                    ensure!(
+                        !deployment.program().contains_v14_syntax(),
+                        "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V14`"
+                    );
                 }
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
