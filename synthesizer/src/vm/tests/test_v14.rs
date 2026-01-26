@@ -314,3 +314,80 @@ fn test_aleo_generators_migration() {
     assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_id).unwrap().unwrap().is_rejected());
     assert!(vm.block_store().get_confirmed_transaction(&invalid_tx_2_id).unwrap().unwrap().is_rejected());
 }
+
+#[cfg(feature = "test")]
+#[test]
+fn test_max_writes_migration() {
+    let rng = &mut TestRng::default();
+
+    // Initialize the VM.
+    let vm = sample_vm();
+    // Initialize the genesis block.
+    let genesis = sample_genesis_block(rng);
+    // Update the VM.
+    vm.add_next_block(&genesis).unwrap();
+
+    // Fetch the private key.
+    let private_key = sample_genesis_private_key(rng);
+
+    // Create a program that hits the max writes limit.
+    let mut program_string = String::from(
+        "program test_max_writes.aleo;
+
+mapping foo:
+    key as u16.public;
+    value as field.public;
+
+constructor:
+    assert.eq true true;
+
+function compute:
+    input r0 as u64.public;
+    async compute r0 into r1;
+    output r1 as test_max_writes.aleo/compute.future;
+
+finalize compute:
+    input r0 as u64.public;
+",
+    );
+
+    // Generate cast instructions to create large arrays.
+    // Each cast with 32 elements is ~200+ bytes, so we need fewer instructions.
+    for i in 0..CurrentNetwork::LATEST_MAX_WRITES() {
+        program_string.push_str(&format!("    set 0field into foo[{i}u16];\n"));
+    }
+
+    let program = Program::<CurrentNetwork>::from_str(&program_string).unwrap();
+
+    // Advance the ledger past ConsensusV9 where the new varuna version and deployment version starts to take place.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() {
+        // Call the function
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+    }
+
+    // Construct the deployment transaction.
+    let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+
+    // Advance the ledger past ConsensusV14 where the new varuna version starts to take place.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap() {
+        // Ensure that the deployment is invalid.
+        assert!(vm.check_transaction(&deployment, None, rng).is_err());
+
+        // Call the function
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+    }
+
+    // Ensure that the deployment is valid after ConsensusVersion::V14.
+    assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+
+    // Deploy the program.
+    let next_block = sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+    vm.add_next_block(&next_block).unwrap();
+
+    // Ensure that the valid transaction was accepted and the invalid one was rejected.
+    assert_eq!(next_block.transactions().num_accepted(), 1);
+}

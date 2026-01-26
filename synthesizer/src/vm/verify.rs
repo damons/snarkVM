@@ -287,6 +287,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Ensure the program size is bounded properly based on the current block height.
                 deployment.program().check_program_size(current_block_height)?;
 
+                // Ensure the program writes do not exceed the maximum allowed based on the current block height.
+                deployment.program().check_program_writes(current_block_height)?;
+
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {
                     // Ensure the program owner matches the owner in the transaction.

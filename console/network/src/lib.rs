@@ -220,7 +220,7 @@ pub trait Network:
     /// The maximum number of commands in finalize.
     const MAX_COMMANDS: usize = u16::MAX as usize;
     /// The maximum number of write commands in finalize.
-    const MAX_WRITES: u16 = 16;
+    const MAX_WRITES: [(ConsensusVersion, u16); 2] = [(ConsensusVersion::V1, 16), (ConsensusVersion::V14, 32)];
     /// The maximum number of `position` commands in finalize.
     const MAX_POSITIONS: usize = u8::MAX as usize;
 
@@ -312,6 +312,12 @@ pub trait Network:
     #[allow(non_snake_case)]
     fn LATEST_MAX_PROGRAM_SIZE() -> usize {
         Self::MAX_PROGRAM_SIZE.last().expect("MAX_PROGRAM_SIZE must have at least one entry").1
+    }
+
+    /// Returns the last `MAX_WRITES` value.
+    #[allow(non_snake_case)]
+    fn LATEST_MAX_WRITES() -> u16 {
+        Self::MAX_WRITES.last().expect("MAX_WRITES must have at least one entry").1
     }
 
     /// Returns the last `MAX_TRANSACTION_SIZE` value.
