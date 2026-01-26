@@ -39,9 +39,7 @@ features = [ "account", "network", "program", "types" ]
 workspace = true
 
 [dependencies.snarkvm-utilities]
-path = "../../utilities"
-version = "=4.4.0"
-default-features = false
+workspace = true
 
 [dependencies.enum-iterator]
 workspace = true
