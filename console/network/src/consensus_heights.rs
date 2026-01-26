@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,6 +50,7 @@ pub enum ConsensusVersion {
     /// V13: Introduces external structs.
     V13 = 13,
     /// V14: Increase the program size limit to 512 kB and transaction size limit to 540 kB.
+    ///      Introduces `aleo::GENERATOR` and `aleo::GENERATOR_POWERS` opcodes.
     V14 = 14,
 }
 

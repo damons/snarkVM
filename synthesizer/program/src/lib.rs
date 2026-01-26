@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -1060,6 +1060,38 @@ impl<N: Network> ProgramCore<N> {
         );
 
         Ok(())
+    }
+
+    /// Returns `true` if a program contains any V14 syntax.
+    /// This includes `Operand::AleoGenerator` or `Operand::AleoGeneratorPowers.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
+    #[inline]
+    pub fn contains_v14_syntax(&self) -> bool {
+        // Determine if any function instructions contain the new syntax.
+        let function_contains =
+            cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(|instruction| {
+                cfg_iter!(instruction.operands())
+                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
+            });
+
+        // Determine if any closure instructions contain the new syntax.
+        let closure_contains =
+            cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(|instruction| {
+                cfg_iter!(instruction.operands())
+                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
+            });
+
+        // Determine if any finalize commands or constructor commands contain the new syntax.
+        let command_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
+            .flatten()
+            .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
+            .any(|command| {
+                cfg_iter!(command.operands())
+                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
+            });
+
+        function_contains || closure_contains || command_contains
     }
 
     /// Returns `true` if a program contains any string type.
