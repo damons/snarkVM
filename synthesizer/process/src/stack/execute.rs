@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::error::*;
+use snarkvm_synthesizer_error::*;
 
 impl<N: Network> Stack<N> {
     /// Executes a program closure on the given inputs.

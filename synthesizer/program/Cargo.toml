@@ -35,6 +35,9 @@ workspace = true
 workspace = true
 features = [ "account", "network", "program", "types" ]
 
+[dependencies.snarkvm-synthesizer-error]
+workspace = true
+
 [dependencies.snarkvm-utilities]
 path = "../../utilities"
 version = "=4.4.0"
