@@ -233,6 +233,14 @@ pub trait Network:
     const MAX_IMPORTS: usize = 64;
 
     /// A list of consensus versions and their corresponding maximum transaction sizes.
+    ///
+    /// A transaction consists of fixed identifiers, deployment data, and fees.
+    /// Fixed components include identifiers, ownership, checksums, and fees.
+    /// Variable components include the program bytecode and verifying-key entries.
+    /// Verifying-key entries scale with the number of functions and records.
+    ///
+    /// MAX_TRANSACTION_SIZE = C + MAX_PROGRAM_SIZE + (673 + 58) * (MAX_FUNCTIONS + MAX_RECORDS)
+    /// C = fixed size components (Up to 2367 bytes)
     // Note: This value must **not** decrease without considering the impact on transaction validity.
     const MAX_TRANSACTION_SIZE: [(ConsensusVersion, usize); 2];
 

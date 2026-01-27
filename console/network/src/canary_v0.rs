@@ -188,7 +188,7 @@ impl Network for CanaryV0 {
     /// The maximum transaction size in bytes.
     const MAX_TRANSACTION_SIZE: [(ConsensusVersion, usize); 2] = [
         (ConsensusVersion::V1, 128_000),  // 128 kB
-        (ConsensusVersion::V14, 540_000), // 540 kB
+        (ConsensusVersion::V14, 768_000), // 768 kB
     ];
     /// The (long) network name.
     const NAME: &'static str = "Aleo Canary (v0)";
