@@ -3,7 +3,7 @@ version: 2.1
 parameters:
   excluded_run_ignored_all_workspaces:
     type: string
-    default: "snarkvm snarkvm-parameters snarkvm-parameters snarkvm-circuit-types snarkvm-console-collections snarkvm-synthesizer snarkvm-synthesizer-process snarkvm-ledger snarkvm-ledger-puzzle snarkvm-ledger-store"
+    default: "snarkvm snarkvm-parameters snarkvm-parameters snarkvm-circuit-types snarkvm-circuit-types-integers snarkvm-console-collections snarkvm-synthesizer snarkvm-synthesizer-process snarkvm-ledger snarkvm-ledger-puzzle snarkvm-ledger-store"
   small:
     type: string
     default: small
