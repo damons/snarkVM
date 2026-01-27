@@ -1,6 +1,9 @@
 version: 2.1
 
 parameters:
+  excluded_run_ignored_all_workspaces:
+    type: string
+    default: "snarkvm-synthesizer snarkvm-ledger snarkvm-ledger-store"
   small:
     type: string
     default: small
@@ -310,6 +313,30 @@ commands:
               BUILD_FLAGS="$FLAGS_TRIM"
             fi
 
+            WSM="<< parameters.workspace_member >>"
+
+            # Config-driven exclusion list (space-separated tokens)
+            EXCLUDED_LIST="<< pipeline.parameters.excluded_run_ignored_all_workspaces >>"
+
+            # Check if WSM is in the excluded list (exact token match)
+            IS_EXCLUDED=0
+            if printf '%s\n' " $EXCLUDED_LIST " | grep -Fq " $WSM "; then
+              IS_EXCLUDED=1
+            fi
+
+            HAS_RUN_IGNORED=0
+            if printf '%s\n' "$BUILD_FLAGS" | grep -Eq -- '(^|[[:space:]])--run-ignored([=[:space:]]|$)'; then
+              HAS_RUN_IGNORED=1
+            fi
+
+            if [ "$IS_EXCLUDED" -eq 0 ] && [ "$HAS_RUN_IGNORED" -eq 0 ]; then
+              if [ -n "$BUILD_FLAGS" ]; then
+                BUILD_FLAGS="$BUILD_FLAGS --run-ignored all"
+              else
+                BUILD_FLAGS="--run-ignored all"
+              fi
+            fi
+
             # Remove any --test target flags,they cause nextest build errors
             BUILD_FLAGS_SANITIZED="$(printf '%s' "$BUILD_FLAGS" \
               | sed -E "s/(^|[[:space:]])--test[[:space:]]+'[^']*'([[:space:]]|$)/ /g" \
@@ -327,7 +354,7 @@ commands:
             # Build nextest filter expression from any --skip <pattern> arguments
             FILTER_EXPR=""
 
-            WSM="<< parameters.workspace_member >>"
+
             if [ "$WSM" = "snarkvm-synthesizer" ] && [ "$HAS_TEST_WILDCARD" -eq 1 ]; then
               FILTER_EXPR='test(/test_command_parse/)+test(/test_instruction_parse/)+test(/test_process_execute/)+test(/test_program_parse/)+test(/test_vm_execute_and_finalize/)'
             fi
@@ -1143,7 +1170,7 @@ jobs:
           name:  Check for security vulnerabilities
           no_output_timeout: 10m
           command: |
-            cargo install cargo-audit@0.22.0 --locked
+            cargo install cargo-audit@0.22.0 --locked --force
             cargo audit -D warnings
       - clear_environment:
           cache_key: v4.2.0-rust-1.88.0-cargo-audit-cache
