@@ -399,7 +399,8 @@ const HASH_PSD_PER_BYTE_COST: u64 = 75;
 const ECDSA_VERIFY_BASE_COST: u64 = 60_000;
 const ECDSA_VERIFY_ETH_BASE_COST: u64 = 75_000;
 
-const SNARK_VERIFY_BASE_COST: u64 = 100_000; // TODO (raychu86): SnarkVerify - Determine proper snark verification cost.
+const SNARK_VERIFY_BASE_COST: u64 = 100_000;
+const SNARK_VERIFY_PER_BYTE_COST: u64 = 50;
 
 #[derive(Copy, Clone)]
 pub enum ConsensusFeeVersion {
@@ -817,10 +818,10 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::Shr(_)) => Ok(500),
         Command::Instruction(Instruction::ShrWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::SnarkVerify(snark)) => {
-            cost_in_size(stack, finalize_types, snark.operands(), MAPPING_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
+            cost_in_size(stack, finalize_types, snark.operands(), SNARK_VERIFY_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
         }
         Command::Instruction(Instruction::SnarkVerifyBatch(snark)) => {
-            cost_in_size(stack, finalize_types, snark.operands(), MAPPING_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
+            cost_in_size(stack, finalize_types, snark.operands(), SNARK_VERIFY_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
         }
         Command::Instruction(Instruction::Square(_)) => Ok(500),
         Command::Instruction(Instruction::SquareRoot(_)) => Ok(2_500),
