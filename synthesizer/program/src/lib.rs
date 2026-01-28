@@ -99,7 +99,17 @@ use console::{
             take,
         },
     },
-    program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
+    program::{
+        EntryType,
+        FinalizeType,
+        Identifier,
+        Locator,
+        PlaintextType,
+        ProgramID,
+        RecordType,
+        StructType,
+        ValueType,
+    },
     types::U8,
 };
 use snarkvm_utilities::cfg_iter;
@@ -972,6 +982,105 @@ impl<N: Network> ProgramCore<N> {
             || self.closures.values().any(|closure| closure.contains_external_struct())
             || self.functions.values().any(|function| function.contains_external_struct())
             || self.constructor.iter().any(|constructor| constructor.contains_external_struct())
+    }
+
+    /// Returns `true` if this program violates pre-V13 rules for external records
+    /// or futures by referencing non-local struct types across program boundaries.
+    ///
+    /// Notes:
+    /// 1. We only need to check functions because closures and constructors cannot refernece
+    ///    external records or future in any way
+    /// 2. We only need to check function inputs because if function outputs have a violation then
+    ///    either the inputs or the body of the function must violate first.
+    /// 3. No need to check instructions other than `Call`. The only other instruction that can
+    ///    refer to a record is a `cast` but we cannot cast to external record anyways.
+    pub fn violates_pre_v13_external_record_and_future_rules<F0, F1, F2, F3>(
+        &self,
+        get_external_record: &F0,
+        get_external_function: &F1,
+        get_external_future: &F2,
+        is_local_struct: &F3,
+    ) -> bool
+    where
+        F0: Fn(&Locator<N>) -> Result<RecordType<N>>,
+        F1: Fn(&Locator<N>) -> Result<FunctionCore<N>>,
+        F2: Fn(&Locator<N>) -> Result<FinalizeCore<N>>,
+        F3: Fn(&Identifier<N>) -> bool,
+    {
+        // Helper: does a record contain any struct not defined locally?
+        let record_uses_external_struct = |record: &RecordType<N>| {
+            record.entries().iter().any(|(_, member)| {
+                matches!(
+                    member,
+                    EntryType::Constant(PlaintextType::Struct(name))
+                        | EntryType::Private(PlaintextType::Struct(name))
+                        | EntryType::Public(PlaintextType::Struct(name))
+                    if !is_local_struct(name)
+                )
+            })
+        };
+
+        for function in self.functions.values() {
+            // Scan function inputs for external record types.
+            for input in function.inputs() {
+                let ValueType::ExternalRecord(locator) = input.value_type() else {
+                    continue;
+                };
+                let Ok(record) = get_external_record(locator) else {
+                    continue;
+                };
+                if record_uses_external_struct(&record) {
+                    return true;
+                }
+            }
+
+            // Scan instructions for calls to external programs.
+            for instruction in function.instructions() {
+                let Instruction::Call(call) = instruction else { continue };
+                let CallOperator::Locator(locator) = call.operator() else { continue };
+
+                let Ok(external_function) = get_external_function(locator) else {
+                    continue;
+                };
+
+                // Check if the outputs of the external function reference a struct that is not
+                // locally available. That's a violation.
+                for output in external_function.outputs() {
+                    match output.value_type() {
+                        ValueType::Record(identifier) => {
+                            let locator = Locator::new(*locator.program_id(), *identifier);
+                            let Ok(record) = get_external_record(&locator) else {
+                                continue;
+                            };
+                            if record_uses_external_struct(&record) {
+                                return true;
+                            }
+                        }
+
+                        ValueType::Future(loc) => {
+                            let Ok(future) = get_external_future(loc) else {
+                                continue;
+                            };
+                            if future.input_types().iter().any(|input| {
+                                matches!(
+                                    input,
+                                    FinalizeType::Plaintext(
+                                        PlaintextType::Struct(name)
+                                    )
+                                    if !is_local_struct(name)
+                                )
+                            }) {
+                                return true;
+                            }
+                        }
+
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        false
     }
 
     /// Returns `true` if the program contains an array type with a size that exceeds the given maximum.

@@ -227,16 +227,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V9`"
                     );
                 }
-                if consensus_version >= ConsensusVersion::V9 {
-                    ensure!(
-                        deployment.program_checksum().is_some(),
-                        "Invalid deployment transaction '{id}' - missing program checksum"
-                    );
-                    ensure!(
-                        deployment.program_owner().is_some(),
-                        "Invalid deployment transaction '{id}' - missing program owner"
-                    );
-                }
+
                 if consensus_version < ConsensusVersion::V11 {
                     ensure!(
                         !deployment.program().contains_v11_syntax(),
@@ -249,6 +240,67 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V12`"
                     );
                 }
+
+                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
+                //   - the program does not use the external struct syntax `some_program.aleo/StructT`
+                //   - the program does not use an invalid external record or future pattern where
+                //     the record or the future use a struct from their own program which is not available in the current program.
+                if consensus_version < ConsensusVersion::V13 {
+                    let program = deployment.program();
+
+                    ensure!(
+                        !program.contains_external_struct(),
+                        "Invalid deployment transaction '{id}' - external structs may only be used beginning with `ConsensusVersion::V13`"
+                    );
+
+                    // Returns the external record that `locator` references.
+                    let get_external_record = |locator: &Locator<N>| {
+                        let external_stack = self.process.read().get_stack(locator.program_id())?;
+                        external_stack.program().get_record(locator.resource()).cloned()
+                    };
+                    // Returns the external function that `locator` references.
+                    let get_external_function = |locator: &Locator<N>| {
+                        let external_stack = self.process.read().get_stack(locator.program_id())?;
+                        external_stack.program().get_function(locator.resource())
+                    };
+                    // Returns the *external* finalize logic that `locator` references.
+                    let get_external_future = |locator: &Locator<N>| {
+                        if program.id() == locator.program_id() {
+                            anyhow::bail!("external finalize logic refers to the current program")
+                        }
+                        let external_stack = self.process.read().get_stack(locator.program_id())?;
+                        external_stack
+                            .program()
+                            .get_function_ref(locator.resource())?
+                            .finalize_logic()
+                            .cloned()
+                            .ok_or_else(|| anyhow::anyhow!("missing finalize logic for {locator}"))
+                    };
+                    // Does this program have this struct?
+                    let is_local_struct = |identifier: &Identifier<N>| program.structs().contains_key(identifier);
+
+                    ensure!(
+                        !program.violates_pre_v13_external_record_and_future_rules(
+                            &get_external_record,
+                            &get_external_function,
+                            &get_external_future,
+                            &is_local_struct,
+                        ),
+                        "Invalid external record",
+                    );
+                }
+
+                if consensus_version >= ConsensusVersion::V9 {
+                    ensure!(
+                        deployment.program_checksum().is_some(),
+                        "Invalid deployment transaction '{id}' - missing program checksum"
+                    );
+                    ensure!(
+                        deployment.program_owner().is_some(),
+                        "Invalid deployment transaction '{id}' - missing program owner"
+                    );
+                }
+
                 if consensus_version >= ConsensusVersion::V12 {
                     ensure!(
                         !deployment.program().contains_string_type(),
@@ -256,17 +308,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     );
                 }
 
-                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
-                //   - the program does not use the external struct syntax `some_program.aleo/StructT`
                 // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
                 //   - the program's mappings do not use non-existent structs.
-                if consensus_version < ConsensusVersion::V13 {
-                    ensure!(
-                        !deployment.program().contains_external_struct(),
-                        "Invalid deployment transaction '{id}' - external structs may only be used beginning with `ConsensusVersion::V13`"
-                    );
-                }
-
                 if consensus_version >= ConsensusVersion::V13 {
                     self.process.read().mapping_types_exist(deployment.program())?;
                 }
