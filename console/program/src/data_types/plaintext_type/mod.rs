@@ -108,6 +108,15 @@ impl<N: Network> PlaintextType<N> {
         }
     }
 
+    /// Returns `true` if the `PlaintextType` contains an identifier type.
+    pub fn contains_identifier_type(&self) -> bool {
+        match self {
+            Self::Literal(LiteralType::Identifier) => true,
+            Self::Array(array_type) => array_type.contains_identifier_type(),
+            _ => false, // Structs are checked in their definition.
+        }
+    }
+
     /// Returns `true` if the `PlaintextType` is an array and the size exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         match self {

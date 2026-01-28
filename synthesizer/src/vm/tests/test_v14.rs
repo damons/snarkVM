@@ -44,8 +44,9 @@ fn test_identifier_literal_migration() {
         r"
     program {program_id};
     function foo:
-        is.eq 'hello' 'hello' into r0;
-        output r0 as boolean.public;
+        input r0 as identifier.public;
+        is.eq r0 'hello' into r1;
+        output r1 as boolean.public;
 
     constructor:
         assert.eq edition 0u16;",
@@ -79,18 +80,10 @@ fn test_identifier_literal_migration() {
     let next_block = sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
     vm.add_next_block(&next_block).unwrap();
 
-    // Execute the function to verify it works correctly.
-    let valid_transaction = vm
-        .execute(
-            &private_key,
-            (&program_id.to_string(), "foo"),
-            Vec::<Value<CurrentNetwork>>::new().into_iter(),
-            None,
-            0,
-            None,
-            rng,
-        )
-        .unwrap();
+    // Execute the function with an identifier literal input to verify parsing works correctly.
+    let input = Value::<CurrentNetwork>::from_str("'hello'").unwrap();
+    let valid_transaction =
+        vm.execute(&private_key, (&program_id.to_string(), "foo"), [input].into_iter(), None, 0, None, rng).unwrap();
 
     // Construct a block with the execution.
     let next_block = sample_next_block(&vm, &private_key, &[valid_transaction], rng).unwrap();

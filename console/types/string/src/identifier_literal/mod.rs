@@ -41,12 +41,10 @@ pub struct IdentifierLiteral<E: Environment> {
 }
 
 impl<E: Environment> IdentifierLiteral<E> {
-    /// The maximum number of bytes in an identifier literal.
-    pub const MAX_BYTES: usize = Field::<E>::SIZE_IN_DATA_BITS / 8;
     /// The number of bits in an identifier literal.
     pub const SIZE_IN_BITS: usize = Self::SIZE_IN_BYTES * 8;
     /// The number of bytes in an identifier literal.
-    pub const SIZE_IN_BYTES: usize = Self::MAX_BYTES;
+    pub const SIZE_IN_BYTES: usize = Field::<E>::SIZE_IN_DATA_BITS / 8;
 
     /// Creates a new identifier literal from a string.
     /// Allowed characters: `[a-zA-Z][a-zA-Z0-9_]*`.
@@ -54,7 +52,7 @@ impl<E: Environment> IdentifierLiteral<E> {
         // Ensure the string is not empty.
         ensure!(!string.is_empty(), "Identifier literal cannot be empty");
         // Ensure the string does not exceed the maximum length.
-        ensure!(string.len() <= Self::MAX_BYTES, "Identifier literal exceeds {} bytes", Self::MAX_BYTES);
+        ensure!(string.len() <= Self::SIZE_IN_BYTES, "Identifier literal exceeds {} bytes", Self::SIZE_IN_BYTES);
         // Copy the string bytes into a 31-byte array.
         let mut bytes = [0u8; 31];
         bytes[..string.len()].copy_from_slice(string.as_bytes());
@@ -77,10 +75,10 @@ impl<E: Environment> IdentifierLiteral<E> {
 
     /// Returns the length of the identifier (number of non-null bytes).
     pub fn length(&self) -> u8 {
-        // Find the first null byte, or return MAX_BYTES if no null is found.
-        // Safety: MAX_BYTES is 31, which always fits in u8.
+        // Find the first null byte, or return SIZE_IN_BYTES if no null is found.
+        // Safety: SIZE_IN_BYTES is 31, which always fits in u8.
         #[allow(clippy::cast_possible_truncation)]
-        let length = self.bytes.iter().position(|&b| b == 0).unwrap_or(Self::MAX_BYTES) as u8;
+        let length = self.bytes.iter().position(|&b| b == 0).unwrap_or(Self::SIZE_IN_BYTES) as u8;
         length
     }
 }
@@ -158,7 +156,7 @@ mod tests {
         // With underscores and digits.
         assert!(IdentifierLiteral::<CurrentEnvironment>::new("hello_world_42").is_ok());
         // Maximum length (31 bytes).
-        let max_str = "a".repeat(IdentifierLiteral::<CurrentEnvironment>::MAX_BYTES);
+        let max_str = "a".repeat(IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BYTES);
         assert!(IdentifierLiteral::<CurrentEnvironment>::new(&max_str).is_ok());
     }
 
@@ -169,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_new_too_long_fails() {
-        let long_str = "a".repeat(IdentifierLiteral::<CurrentEnvironment>::MAX_BYTES + 1);
+        let long_str = "a".repeat(IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BYTES + 1);
         assert!(IdentifierLiteral::<CurrentEnvironment>::new(&long_str).is_err());
     }
 

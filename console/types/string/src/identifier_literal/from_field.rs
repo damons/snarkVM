@@ -31,7 +31,7 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
-    const ITERATIONS: u64 = 100;
+    const ITERATIONS: u64 = 1000;
 
     #[test]
     fn test_from_field_round_trip() -> Result<()> {

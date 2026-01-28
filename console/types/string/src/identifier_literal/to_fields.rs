@@ -31,7 +31,7 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
-    const ITERATIONS: u64 = 100;
+    const ITERATIONS: u64 = 1000;
 
     #[test]
     fn test_to_fields() -> Result<()> {
@@ -39,16 +39,20 @@ mod tests {
 
         for _ in 0..ITERATIONS {
             // Sample a random identifier literal.
-            let identifier = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let expected = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
 
             // Convert to fields.
-            let fields = identifier.to_fields()?;
+            let fields = expected.to_fields()?;
 
             // Verify exactly one field element.
             assert_eq!(1, fields.len());
 
             // Verify the field value matches to_field.
-            assert_eq!(identifier.to_field()?, fields[0]);
+            assert_eq!(expected.to_field()?, fields[0]);
+
+            // Verify round-trip through from_field.
+            let recovered = IdentifierLiteral::<CurrentEnvironment>::from_field(&fields[0])?;
+            assert_eq!(expected, recovered);
         }
         Ok(())
     }

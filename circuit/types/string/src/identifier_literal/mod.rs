@@ -173,7 +173,7 @@ fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
 /// The remaining high bits (248..252) must be zero.
 fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
     // The maximum number of bytes in an identifier literal.
-    let max_bytes = console::IdentifierLiteral::<E::Network>::MAX_BYTES;
+    let max_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
 
     // Null flags per byte, collected for trailing-null enforcement in Step 9.
     let mut null_flags: Vec<Boolean<E>> = Vec::with_capacity(max_bytes);

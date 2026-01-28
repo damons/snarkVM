@@ -42,33 +42,43 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
+    const ITERATIONS: u64 = 1000;
+
     #[test]
     fn test_serde_json() -> Result<()> {
-        let expected = IdentifierLiteral::<CurrentEnvironment>::new("hello_world")?;
+        let mut rng = TestRng::default();
 
-        // Serialize.
-        let expected_string = &expected.to_string();
-        let candidate_string = serde_json::to_string(&expected)?;
-        assert_eq!(expected_string, serde_json::Value::from_str(&candidate_string)?.as_str().unwrap());
+        for _ in 0..ITERATIONS {
+            let expected = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
 
-        // Deserialize.
-        assert_eq!(expected, IdentifierLiteral::from_str(expected_string)?);
-        assert_eq!(expected, serde_json::from_str(&candidate_string)?);
+            // Serialize.
+            let expected_string = &expected.to_string();
+            let candidate_string = serde_json::to_string(&expected)?;
+            assert_eq!(expected_string, serde_json::Value::from_str(&candidate_string)?.as_str().unwrap());
+
+            // Deserialize.
+            assert_eq!(expected, IdentifierLiteral::from_str(expected_string)?);
+            assert_eq!(expected, serde_json::from_str(&candidate_string)?);
+        }
         Ok(())
     }
 
     #[test]
     fn test_bincode() -> Result<()> {
-        let expected = IdentifierLiteral::<CurrentEnvironment>::new("hello_world")?;
+        let mut rng = TestRng::default();
 
-        // Serialize.
-        let expected_bytes = expected.to_bytes_le()?;
-        let expected_bytes_with_size_encoding = bincode::serialize(&expected)?;
-        assert_eq!(&expected_bytes[..], &expected_bytes_with_size_encoding[8..]);
+        for _ in 0..ITERATIONS {
+            let expected = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
 
-        // Deserialize.
-        assert_eq!(expected, IdentifierLiteral::read_le(&expected_bytes[..])?);
-        assert_eq!(expected, bincode::deserialize(&expected_bytes_with_size_encoding[..])?);
+            // Serialize.
+            let expected_bytes = expected.to_bytes_le()?;
+            let expected_bytes_with_size_encoding = bincode::serialize(&expected)?;
+            assert_eq!(&expected_bytes[..], &expected_bytes_with_size_encoding[8..]);
+
+            // Deserialize.
+            assert_eq!(expected, IdentifierLiteral::read_le(&expected_bytes[..])?);
+            assert_eq!(expected, bincode::deserialize(&expected_bytes_with_size_encoding[..])?);
+        }
         Ok(())
     }
 }

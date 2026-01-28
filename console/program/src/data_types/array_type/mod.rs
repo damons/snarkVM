@@ -59,6 +59,28 @@ impl<N: Network> ArrayType<N> {
         true
     }
 
+    /// Returns `true` if the `ArrayType` contains an identifier type.
+    pub fn contains_identifier_type(&self) -> bool {
+        // Initialize depth counter and current array type.
+        let mut array_type = self;
+
+        // Check nested array types up to the maximum data depth.
+        for _ in 0..=N::MAX_DATA_DEPTH {
+            // Check if the current element type is an identifier type.
+            if array_type.next_element_type().contains_identifier_type() {
+                return true;
+            }
+            // If the next element is an array, continue to the next depth. Otherwise, we can stop checking.
+            if let PlaintextType::Array(next) = array_type.next_element_type() {
+                array_type = next;
+            } else {
+                return false;
+            }
+        }
+        // If we reach here, it means we've exceeded the maximum depth without finding a non-array type.
+        true
+    }
+
     /// Returns `true` if the `ArrayType` contains an array type with a size that exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         // Initialize depth counter and current array type.

@@ -91,6 +91,14 @@ impl<N: Network> RegisterType<N> {
         }
     }
 
+    /// Returns `true` if the register type contains an identifier type.
+    pub fn contains_identifier_type(&self) -> bool {
+        match self {
+            Self::Plaintext(plaintext_type) => plaintext_type.contains_identifier_type(),
+            _ => false, // Record, external record, and future types are checked elsewhere.
+        }
+    }
+
     /// Returns `true` if the register type is an array and the size exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         match self {

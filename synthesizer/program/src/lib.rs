@@ -213,7 +213,6 @@ impl<N: Network> ProgramCore<N> {
         "scalar",
         "signature",
         "string",
-        "identifier",
         // Boolean
         "true",
         "false",
@@ -1048,6 +1047,8 @@ impl<N: Network> ProgramCore<N> {
 
     /// Returns `true` if a program contains any V14 syntax.
     /// This includes `Operand::AleoGenerator`, `Operand::AleoGeneratorPowers`, or `Literal::Identifier`.
+    /// Also checks for identifier type declarations in function inputs/outputs, finalize inputs/outputs,
+    /// closures, structs, mappings, and records.
     /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
     #[inline]
     pub fn contains_v14_syntax(&self) -> bool {
@@ -1077,7 +1078,14 @@ impl<N: Network> ProgramCore<N> {
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
             .any(|command| cfg_iter!(command.operands()).any(is_v14_operand));
 
-        function_contains || closure_contains || command_contains
+        // Check for identifier type declarations in type definitions.
+        let type_declarations_contain = self.mappings.values().any(|mapping| mapping.contains_identifier_type())
+            || self.structs.values().any(|struct_type| struct_type.contains_identifier_type())
+            || self.records.values().any(|record_type| record_type.contains_identifier_type())
+            || self.closures.values().any(|closure| closure.contains_identifier_type())
+            || self.functions.values().any(|function| function.contains_identifier_type());
+
+        function_contains || closure_contains || command_contains || type_declarations_contain
     }
 
     /// Returns `true` if a program contains any string type.

@@ -17,14 +17,11 @@ use super::*;
 
 impl<E: Environment> ToBits for IdentifierLiteral<E> {
     /// Returns the little-endian bits of the identifier literal.
-    /// Returns all 248 bits (31 bytes).
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
-        // Write all 31 bytes (248 bits).
         self.bytes.write_bits_le(vec);
     }
 
     /// Returns the big-endian bits of the identifier literal.
-    /// Returns all 248 bits (31 bytes), reversed from LE order.
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
         let initial_len = vec.len();
         self.write_bits_le(vec);
@@ -43,8 +40,7 @@ mod tests {
     fn test_to_bits_length() {
         let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
         let bits = literal.to_bits_le();
-        // The identifier literal returns 248 bits (31 bytes).
-        assert_eq!(bits.len(), 248);
+        assert_eq!(bits.len(), IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BITS);
     }
 
     #[test]

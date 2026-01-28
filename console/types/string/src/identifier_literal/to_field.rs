@@ -20,7 +20,6 @@ impl<E: Environment> ToField for IdentifierLiteral<E> {
 
     /// Returns the identifier literal as a field element.
     fn to_field(&self) -> Result<Self::Field> {
-        // Pack all 248 bits (31 bytes) into a field element.
         Field::from_bits_le(&self.bytes.to_bits_le())
     }
 }
@@ -32,7 +31,7 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
-    const ITERATIONS: u64 = 100;
+    const ITERATIONS: u64 = 1000;
 
     #[test]
     fn test_to_field() -> Result<()> {
@@ -62,6 +61,10 @@ mod tests {
             for candidate_bit in &candidate_bits_le[size_in_bits..] {
                 assert!(!candidate_bit);
             }
+
+            // Verify round-trip through from_field.
+            let recovered = IdentifierLiteral::<CurrentEnvironment>::from_field(&candidate)?;
+            assert_eq!(expected, recovered);
         }
         Ok(())
     }

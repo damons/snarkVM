@@ -88,6 +88,12 @@ impl<N: Network> ClosureCore<N> {
         self.instructions.iter().any(|instruction| instruction.contains_string_type())
     }
 
+    /// Returns `true` if the closure contains an identifier type in its inputs/outputs.
+    pub fn contains_identifier_type(&self) -> bool {
+        self.inputs.iter().any(|input| input.register_type().contains_identifier_type())
+            || self.outputs.iter().any(|output| output.register_type().contains_identifier_type())
+    }
+
     /// Returns `true` if the closure contains an array type with a size that exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         self.inputs.iter().any(|input| input.register_type().exceeds_max_array_size(max_array_size))

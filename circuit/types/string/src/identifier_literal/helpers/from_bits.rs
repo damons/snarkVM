@@ -25,7 +25,7 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
     /// - Validates the identifier format (character set, first char is letter, trailing nulls).
     fn from_bits_le(bits_le: &[Self::Boolean]) -> Self {
         let size_in_bits = Self::size_in_bits();
-        let max_bytes = console::IdentifierLiteral::<E::Network>::MAX_BYTES;
+        let size_in_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
 
         // If more bits than needed, assert upper bits are zero.
         if bits_le.len() > size_in_bits {
@@ -37,8 +37,8 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
         padded.resize(size_in_bits, Boolean::constant(false));
 
         // Convert bits to bytes.
-        let mut bytes_vec = Vec::with_capacity(max_bytes);
-        for i in 0..max_bytes {
+        let mut bytes_vec = Vec::with_capacity(size_in_bytes);
+        for i in 0..size_in_bytes {
             let chunk = &padded[i * 8..(i + 1) * 8];
             bytes_vec.push(U8::from_bits_le(chunk));
         }

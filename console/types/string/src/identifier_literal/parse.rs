@@ -126,4 +126,17 @@ mod tests {
         let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
         assert_eq!(literal.to_string(), "'hello'");
     }
+
+    #[test]
+    fn test_parse_random() {
+        const ITERATIONS: u64 = 1000;
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            let expected = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let display = expected.to_string();
+            let recovered = IdentifierLiteral::<CurrentEnvironment>::from_str(&display).unwrap();
+            assert_eq!(expected, recovered);
+        }
+    }
 }

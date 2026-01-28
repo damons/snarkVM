@@ -20,22 +20,18 @@ impl<E: Environment> FromBytes for IdentifierLiteral<E> {
     /// Format: length-prefixed (num_bytes as u8, then content bytes).
     #[inline]
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
-        // Read the number of bytes.
+        // Read the number of content bytes.
         let num_bytes = u8::read_le(&mut reader)? as usize;
         // Validate the length.
         if num_bytes == 0 || num_bytes > Self::SIZE_IN_BYTES {
             return Err(error("Invalid identifier literal length"));
         }
-        // Read the content bytes.
-        let mut content = vec![0u8; num_bytes];
-        reader.read_exact(&mut content)?;
-        // Pad into a 31-byte array.
+        // Read directly into a 31-byte array (remaining bytes stay zero).
+        // Note: Using 31 directly because Rust doesn't support associated constants in array sizes.
         let mut bytes = [0u8; 31];
-        bytes[..num_bytes].copy_from_slice(&content);
-        // Validate the identifier bytes.
-        validate_identifier_bytes(&bytes).map_err(|e| error(e.to_string()))?;
-        // Return the identifier literal.
-        Ok(Self { bytes, _phantom: core::marker::PhantomData })
+        reader.read_exact(&mut bytes[..num_bytes])?;
+        // Validate and construct the identifier literal.
+        Self::from_bytes_array(bytes).map_err(|e| error(e.to_string()))
     }
 }
 
@@ -59,12 +55,18 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
+    const ITERATIONS: u64 = 1000;
+
     #[test]
     fn test_bytes_roundtrip() -> Result<()> {
-        let expected = IdentifierLiteral::<CurrentEnvironment>::new("hello_world")?;
-        let expected_bytes = expected.to_bytes_le()?;
-        let recovered = IdentifierLiteral::read_le(&expected_bytes[..])?;
-        assert_eq!(expected, recovered);
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            let expected = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let expected_bytes = expected.to_bytes_le()?;
+            let recovered = IdentifierLiteral::read_le(&expected_bytes[..])?;
+            assert_eq!(expected, recovered);
+        }
         Ok(())
     }
 

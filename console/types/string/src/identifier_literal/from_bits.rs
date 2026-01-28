@@ -18,23 +18,28 @@ use super::*;
 impl<E: Environment> FromBits for IdentifierLiteral<E> {
     /// Initializes an identifier literal from a list of little-endian bits.
     fn from_bits_le(bits_le: &[bool]) -> Result<Self> {
-        // Ensure there are enough bits for 31 bytes.
-        ensure!(bits_le.len() >= 248, "Not enough bits for identifier literal");
-        // Reconstruct the 31 bytes from the first 248 bits.
+        // Ensure there are enough bits.
+        ensure!(bits_le.len() >= Self::SIZE_IN_BITS, "Not enough bits for identifier literal");
+
+        // If there are excess bits, ensure they are all zero.
+        if bits_le.len() > Self::SIZE_IN_BITS {
+            let has_nonzero = bits_le[Self::SIZE_IN_BITS..].iter().any(|&b| b);
+            ensure!(!has_nonzero, "Excess bits are not zero");
+        }
+
+        // Reconstruct bytes from the first SIZE_IN_BITS bits.
+        // Note: Using 31 directly because Rust doesn't support associated constants in array sizes.
         let mut bytes = [0u8; 31];
-        for i in 0..31 {
-            let mut byte = 0u8;
-            for j in 0..8 {
-                if bits_le[i * 8 + j] {
-                    byte |= 1 << j;
+        for (i, chunk) in bits_le[..Self::SIZE_IN_BITS].chunks(8).enumerate() {
+            for (j, &bit) in chunk.iter().enumerate() {
+                if bit {
+                    bytes[i] |= 1 << j;
                 }
             }
-            bytes[i] = byte;
         }
-        // Validate the identifier bytes.
-        validate_identifier_bytes(&bytes)?;
-        // Return the identifier literal.
-        Ok(Self { bytes, _phantom: core::marker::PhantomData })
+
+        // Validate and construct the identifier literal.
+        Self::from_bytes_array(bytes)
     }
 
     /// Initializes an identifier literal from a list of big-endian bits.

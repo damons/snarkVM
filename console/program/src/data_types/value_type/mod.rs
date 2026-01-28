@@ -84,6 +84,16 @@ impl<N: Network> ValueType<N> {
         )
     }
 
+    /// Returns `true` if the value type contains an identifier type.
+    /// Record, external record, and future types are checked elsewhere.
+    pub fn contains_identifier_type(&self) -> bool {
+        use ValueType::*;
+        matches!(
+            self,
+            Constant(plaintext) | Public(plaintext) | Private(plaintext) if plaintext.contains_identifier_type()
+        )
+    }
+
     /// Returns `true` if the value type is an array and the size exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         use ValueType::*;

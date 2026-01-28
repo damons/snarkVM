@@ -106,13 +106,7 @@ fn cast_boolean_to_type<N: Network>(input: &Boolean<N>, to_type: LiteralType) ->
 
 /// Casts a field literal to the given literal type.
 fn cast_field_to_type<N: Network>(input: &Field<N>, to_type: LiteralType) -> Result<Literal<N>> {
-    match to_type {
-        // Identifier requires a dedicated path since the macro cannot handle it.
-        LiteralType::Identifier => Ok(Literal::Identifier(Box::new(input.cast()?))),
-        _ => {
-            impl_cast_body!(field, cast, input, to_type)
-        }
-    }
+    impl_cast_body!(field, cast, input, to_type)
 }
 
 /// Casts a group literal to the given literal type.
