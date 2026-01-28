@@ -201,8 +201,10 @@ pub trait Network:
     const MAX_RECORD_ENTRIES: usize = Self::MIN_RECORD_ENTRIES.saturating_add(Self::MAX_DATA_ENTRIES);
 
     /// The maximum program size by number of characters.
-    const MAX_PROGRAM_SIZE: [(ConsensusVersion, usize); 2];
-
+    const MAX_PROGRAM_SIZE: [(ConsensusVersion, usize); 2] = [
+        (ConsensusVersion::V1, 100_000),  // 100 kB
+        (ConsensusVersion::V14, 512_000), // 512 kB
+    ];
     /// The maximum number of mappings in a program.
     const MAX_MAPPINGS: usize = 31;
     /// The maximum number of functions in a program.
@@ -232,7 +234,7 @@ pub trait Network:
     /// The maximum number of imports.
     const MAX_IMPORTS: usize = 64;
 
-    /// A list of consensus versions and their corresponding maximum transaction sizes.
+    /// A list of consensus versions and their corresponding maximum transaction sizes in bytes.
     ///
     /// A transaction consists of fixed identifiers, deployment data, and fees.
     /// Fixed components include identifiers, ownership, checksums, and fees.
@@ -242,7 +244,10 @@ pub trait Network:
     /// MAX_TRANSACTION_SIZE = C + MAX_PROGRAM_SIZE + (673 + 58) * (MAX_FUNCTIONS + MAX_RECORDS)
     /// C = fixed size components (Up to 2367 bytes)
     // Note: This value must **not** decrease without considering the impact on transaction validity.
-    const MAX_TRANSACTION_SIZE: [(ConsensusVersion, usize); 2];
+    const MAX_TRANSACTION_SIZE: [(ConsensusVersion, usize); 2] = [
+        (ConsensusVersion::V1, 128_000),  // 128 kB
+        (ConsensusVersion::V14, 768_000), // 768 kB
+    ];
 
     /// The state root type.
     type StateRoot: Bech32ID<Field<Self>>;
