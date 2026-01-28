@@ -142,16 +142,8 @@ impl<N: Network> FinalizeTypes<N> {
             }
         };
 
-        let primary_program = *stack.program().id();
-        let mut current_program = *stack.program().id();
-
         // Traverse the path to find the register type.
         for access in path.iter() {
-            let stack = if current_program == primary_program {
-                stack
-            } else {
-                &*stack.get_external_stack(&current_program)?
-            };
             match (&finalize_type, access) {
                 // Ensure the plaintext type is not a literal, as the register references an access.
                 (FinalizeType::Plaintext(PlaintextType::Literal(..)), _) => {
@@ -175,7 +167,6 @@ impl<N: Network> FinalizeTypes<N> {
                         // Qualify local struct references so subsequent accesses use the correct stack.
                         Some(member_type) => {
                             let qualified = member_type.clone().qualify(*locator.program_id());
-                            current_program = *locator.program_id();
                             finalize_type = FinalizeType::Plaintext(qualified);
                         }
                         // Halts if the member does not exist.
@@ -198,11 +189,7 @@ impl<N: Network> FinalizeTypes<N> {
                         true => None,
                         // Attention - This method must fail here and early return if the external program is missing.
                         // Otherwise, this method will proceed to look for the requested function in its own program.
-                        false => {
-                            let external_stack = stack.get_external_stack(locator.program_id())?;
-                            current_program = *locator.program_id();
-                            Some(external_stack)
-                        }
+                        false => Some(stack.get_external_stack(locator.program_id())?),
                     };
                     // Retrieve the associated function.
                     let function = match &external_stack {
@@ -217,7 +204,19 @@ impl<N: Network> FinalizeTypes<N> {
                     // Check that the index is in bounds.
                     match finalize_inputs.get_index(**index as usize) {
                         // Retrieve the input type and update `finalize_type` for the next iteration.
-                        Some(input) => finalize_type = input.finalize_type().clone(),
+                        Some(input) => {
+                            finalize_type = match input.finalize_type() {
+                                FinalizeType::Plaintext(plaintext_type) => {
+                                    let plaintext = match external_stack {
+                                        Some(ref stack) => plaintext_type.clone().qualify(*stack.program_id()),
+                                        None => plaintext_type.clone(),
+                                    };
+
+                                    FinalizeType::Plaintext(plaintext)
+                                }
+                                FinalizeType::Future(locator) => FinalizeType::Future(*locator),
+                            }
+                        }
                         // Halts if the index is out of bounds.
                         None => bail!("Index out of bounds"),
                     }
