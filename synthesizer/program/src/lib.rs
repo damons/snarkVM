@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -1040,27 +1040,29 @@ impl<N: Network> ProgramCore<N> {
     /// Returns `true` if a program contains any V14 syntax.
     /// This includes:
     /// 1. `snark.verify.*` opcodes
+    /// 2. `Operand::AleoGenerator` or `Operand::AleoGeneratorPowers`.
     #[inline]
     pub fn contains_v14_syntax(&self) -> bool {
-        // Helper to check if any of the opcodes start with `snark.verify`
-        let has_op = |opcode: &str| opcode.starts_with("snark.verify");
+        // Helper to check if any of the opcodes start with `snark.verify` or uses AleoGenerator/AleoGeneratorPowers operands
+        let has_op = |instr: &Instruction<N>| {
+            instr.opcode().starts_with("snark.verify")
+                || cfg_iter!(instr.operands())
+                    .any(|operand| matches!(operand, Operand::AleoGenerator | Operand::AleoGeneratorPowers(_)))
+        };
 
         // Determine if any function instructions contain the new syntax.
-        let function_contains = cfg_iter!(self.functions())
-            .flat_map(|(_, function)| function.instructions())
-            .any(|instruction| has_op(*instruction.opcode()));
+        let function_contains =
+            cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(has_op);
 
         // Determine if any closure instructions contain the new syntax.
-        let closure_contains = cfg_iter!(self.closures())
-            .flat_map(|(_, closure)| closure.instructions())
-            .any(|instruction| has_op(*instruction.opcode()));
+        let closure_contains = cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(has_op);
 
         // Determine if any finalize commands or constructor commands contain the new syntax.
         let command_contains = cfg_iter!(self.functions())
             .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
             .flatten()
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
-            .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
+            .any(|command| matches!(command, Command::Instruction(instruction) if has_op(instruction)));
 
         function_contains || closure_contains || command_contains
     }

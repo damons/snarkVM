@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +49,8 @@ pub enum ConsensusVersion {
     V12 = 12,
     /// V13: Introduces external structs.
     V13 = 13,
-    /// V14: Increase array size limit to 2048 and introduce snark.verify opcode.
+    /// V14: Introduces `aleo::GENERATOR` and `aleo::GENERATOR_POWERS` opcodes.
+    ///      Increase array size limit to 2048 and introduce snark.verify opcode.
     V14 = 14,
 }
 
