@@ -707,3 +707,109 @@ constructor:
         assert_pre_post_v13(block, consensus_version);
     }
 }
+
+#[test]
+fn test_nonlocal_struct_access_from_external_future() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Params:
+    amount as u64;
+
+mapping store:
+    key as u8.public;
+    value as u64.public;
+
+function compute:
+    input r0 as u64.public;
+    cast r0 into r1 as Params;
+    async compute r1 into r2;
+    output r2 as child.aleo/compute.future;
+
+finalize compute:
+    input r0 as Params.public;
+    set r0.amount into store[0u8];
+
+constructor:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+
+program parent.aleo;
+
+mapping results:
+    key as u8.public;
+    value as u64.public;
+
+function relay:
+    input r0 as u64.public;
+    call child.aleo/compute r0 into r1;
+    async relay r1 into r2;
+    output r2 as parent.aleo/relay.future;
+
+finalize relay:
+    input r0 as child.aleo/compute.future;
+    set r0[0u32].amount into results[0u8];
+    await r0;
+
+constructor:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        let block = run_deploy_test(consensus_version, &program_one, &program_two);
+        assert_pre_post_v13(block, consensus_version);
+    }
+}
+
+#[test]
+fn test_foofoo() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct S:
+    x as u32;
+
+function main:
+    cast 0u32 into r0 as S;
+    cast 1u32 into r1 as S;
+    cast r0 r1 into r2 as [S; 2u32];
+    output r2 as [S; 2u32].private;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program external_future.aleo;
+
+function main:
+    call child.aleo/main into r0;
+    output r0[0u32].x as u32.private;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        let block = run_deploy_test(consensus_version, &program_one, &program_two);
+        assert_pre_post_v13(block, consensus_version);
+    }
+}

@@ -989,7 +989,7 @@ impl<N: Network> ProgramCore<N> {
     ///
     /// Notes:
     /// 1. We only need to check functions because closures and constructors cannot refernece
-    ///    external records or future in any way
+    ///    external records or futures.
     /// 2. We only need to check function inputs because if function outputs have a violation then
     ///    either the inputs or the body of the function must violate first.
     /// 3. No need to check instructions other than `Call`. The only other instruction that can

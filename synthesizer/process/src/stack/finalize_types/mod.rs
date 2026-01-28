@@ -142,8 +142,16 @@ impl<N: Network> FinalizeTypes<N> {
             }
         };
 
+        let primary_program = *stack.program().id();
+        let mut current_program = *stack.program().id();
+
         // Traverse the path to find the register type.
         for access in path.iter() {
+            let stack = if current_program == primary_program {
+                stack
+            } else {
+                &*stack.get_external_stack(&current_program)?
+            };
             match (&finalize_type, access) {
                 // Ensure the plaintext type is not a literal, as the register references an access.
                 (FinalizeType::Plaintext(PlaintextType::Literal(..)), _) => {
@@ -167,6 +175,7 @@ impl<N: Network> FinalizeTypes<N> {
                         // Qualify local struct references so subsequent accesses use the correct stack.
                         Some(member_type) => {
                             let qualified = member_type.clone().qualify(*locator.program_id());
+                            current_program = *locator.program_id();
                             finalize_type = FinalizeType::Plaintext(qualified);
                         }
                         // Halts if the member does not exist.
@@ -189,7 +198,11 @@ impl<N: Network> FinalizeTypes<N> {
                         true => None,
                         // Attention - This method must fail here and early return if the external program is missing.
                         // Otherwise, this method will proceed to look for the requested function in its own program.
-                        false => Some(stack.get_external_stack(locator.program_id())?),
+                        false => {
+                            let external_stack = stack.get_external_stack(locator.program_id())?;
+                            current_program = *locator.program_id();
+                            Some(external_stack)
+                        }
                     };
                     // Retrieve the associated function.
                     let function = match &external_stack {

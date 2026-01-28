@@ -189,6 +189,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
 
+                // Legacy checks for old consensus versions.
+                //
+                // These checks do not have any long term implications on verification time because they
+                // are skipped by the time we get to the latest consensus version.
+                //
                 // If the `CONSENSUS_VERSION` is less than `V8`, ensure that
                 //   - the deployment edition is zero.
                 // If the `CONSENSUS_VERSION` is less than `V9` ensure that
@@ -196,13 +201,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //   - the program checksum is **not** present in the deployment,
                 //   - the program owner is **not** present in the deployment
                 //   - the program does not use constructors, `Operand::Checksum`, `Operand::Edition`, or `Operand::ProgramOwner`
-                // If the `CONSENSUS_VERSION` is greater than or equal to `V9`, then verify that:
-                //   - the program checksum is present in the deployment
-                //   - the program owner is present in the deployment
                 // If the `CONSENSUS_VERSION` is less than `V11`, ensure that
                 //   - the program does not include V11 syntax
                 // If the `CONSENSUS_VERSION` is less than `V12`, ensure that
                 //   - the program does not include V12 syntax
+                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
+                //   - the program does not use the external struct syntax `some_program.aleo/StructT`
+                //   - the program does not use an invalid external record or future pattern where
+                //     the record or the future use a struct from their own program which is not available
+                //     in the current program.
                 if consensus_version < ConsensusVersion::V8 {
                     ensure!(
                         deployment.edition().is_zero(),
@@ -227,7 +234,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V9`"
                     );
                 }
-
                 if consensus_version < ConsensusVersion::V11 {
                     ensure!(
                         !deployment.program().contains_v11_syntax(),
@@ -240,11 +246,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V12`"
                     );
                 }
-
-                // If the `CONSENSUS_VERSION` is less than `V13`, then verify that:
-                //   - the program does not use the external struct syntax `some_program.aleo/StructT`
-                //   - the program does not use an invalid external record or future pattern where
-                //     the record or the future use a struct from their own program which is not available in the current program.
                 if consensus_version < ConsensusVersion::V13 {
                     let program = deployment.program();
 
@@ -290,6 +291,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     );
                 }
 
+                // Checks required for current and future consensus versions (>= V9).
+                //
+                // These validations enforce rules introduced in newer consensus versions.
+                // Unlike legacy checks, they have lasting implications on verification time
+                // and cannot be skipped for recent or future versions.
+                //
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V9`, then verify that:
+                //   - the program checksum is present in the deployment
+                //   - the program owner is present in the deployment
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
+                //   - the program's mappings do not use non-existent structs.
                 if consensus_version >= ConsensusVersion::V9 {
                     ensure!(
                         deployment.program_checksum().is_some(),
@@ -300,16 +312,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - missing program owner"
                     );
                 }
-
                 if consensus_version >= ConsensusVersion::V12 {
                     ensure!(
                         !deployment.program().contains_string_type(),
                         "Invalid deployment transaction '{id}' - program uses string type after `ConsensusVersion::V12`"
                     );
                 }
-
-                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
-                //   - the program's mappings do not use non-existent structs.
                 if consensus_version >= ConsensusVersion::V13 {
                     self.process.read().mapping_types_exist(deployment.program())?;
                 }
