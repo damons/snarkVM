@@ -1,0 +1,68 @@
+// Copyright (c) 2019-2026 Provable Inc.
+// This file is part of the snarkVM library.
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at:
+
+// http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use super::*;
+
+impl<E: Environment> ToBits for IdentifierLiteral<E> {
+    /// Returns the little-endian bits of the identifier literal.
+    /// Returns all 248 bits (31 bytes).
+    fn write_bits_le(&self, vec: &mut Vec<bool>) {
+        // Write all 31 bytes (248 bits).
+        self.bytes.write_bits_le(vec);
+    }
+
+    /// Returns the big-endian bits of the identifier literal.
+    /// Returns all 248 bits (31 bytes), reversed from LE order.
+    fn write_bits_be(&self, vec: &mut Vec<bool>) {
+        let initial_len = vec.len();
+        self.write_bits_le(vec);
+        vec[initial_len..].reverse();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use snarkvm_console_network_environment::Console;
+
+    type CurrentEnvironment = Console;
+
+    #[test]
+    fn test_to_bits_length() {
+        let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
+        let bits = literal.to_bits_le();
+        // The identifier literal returns 248 bits (31 bytes).
+        assert_eq!(bits.len(), 248);
+    }
+
+    #[test]
+    fn test_to_bits_le_roundtrip() {
+        let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
+        let bits_le = literal.to_bits_le();
+        // The field should be recoverable from the bits.
+        let recovered_field = Field::<CurrentEnvironment>::from_bits_le(&bits_le).unwrap();
+        assert_eq!(literal.to_field().unwrap(), recovered_field);
+    }
+
+    #[test]
+    fn test_to_bits_be_roundtrip() {
+        let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
+        let bits_be = literal.to_bits_be();
+        // Reverse to get LE and reconstruct.
+        let bits_le: Vec<bool> = bits_be.iter().rev().copied().collect();
+        let recovered_field = Field::<CurrentEnvironment>::from_bits_le(&bits_le).unwrap();
+        assert_eq!(literal.to_field().unwrap(), recovered_field);
+    }
+}

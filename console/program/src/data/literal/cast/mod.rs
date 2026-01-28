@@ -15,6 +15,7 @@
 
 mod boolean;
 mod field;
+mod identifier;
 mod integer;
 mod scalar;
 
@@ -39,6 +40,7 @@ impl<N: Network> Literal<N> {
     ///
     /// The hierarchy of casting is as follows:
     ///  - (`Address`, `Group`) <-> `Field` <-> `Scalar` <-> `Integer` <-> `Boolean`
+    ///  - `Identifier` <-> `Field`
     ///  - `Signature` (not supported)
     ///  - `String` (not supported)
     ///
@@ -62,6 +64,7 @@ impl<N: Network> Literal<N> {
             Self::Scalar(scalar) => cast_scalar_to_type(scalar, to_type),
             Self::Signature(..) => bail!("Cannot cast a signature literal to another type."),
             Self::String(..) => bail!("Cannot cast a string literal to another type."),
+            Self::Identifier(identifier) => cast_identifier_literal_to_type(identifier, to_type),
         }
     }
 }
@@ -91,6 +94,7 @@ macro_rules! impl_cast_body {
             LiteralType::String => {
                 bail!(concat!("Cannot cast a ", stringify!($type_name), " literal to a string type."))
             }
+            LiteralType::Identifier => Ok(Literal::Identifier(Box::new($input.$cast()?))),
         }
     };
 }
@@ -102,7 +106,13 @@ fn cast_boolean_to_type<N: Network>(input: &Boolean<N>, to_type: LiteralType) ->
 
 /// Casts a field literal to the given literal type.
 fn cast_field_to_type<N: Network>(input: &Field<N>, to_type: LiteralType) -> Result<Literal<N>> {
-    impl_cast_body!(field, cast, input, to_type)
+    match to_type {
+        // Identifier requires a dedicated path since the macro cannot handle it.
+        LiteralType::Identifier => Ok(Literal::Identifier(Box::new(input.cast()?))),
+        _ => {
+            impl_cast_body!(field, cast, input, to_type)
+        }
+    }
 }
 
 /// Casts a group literal to the given literal type.
@@ -137,4 +147,16 @@ where
 /// Casts a scalar literal to the given literal type.
 fn cast_scalar_to_type<N: Network>(input: &Scalar<N>, to_type: LiteralType) -> Result<Literal<N>> {
     impl_cast_body!(scalar, cast, input, to_type)
+}
+
+/// Casts an identifier literal to the given literal type.
+fn cast_identifier_literal_to_type<N: Network>(
+    input: &IdentifierLiteral<N>,
+    to_type: LiteralType,
+) -> Result<Literal<N>> {
+    match to_type {
+        LiteralType::Field => Ok(Literal::Field(input.cast()?)),
+        LiteralType::Identifier => Ok(Literal::Identifier(Box::new(input.cast()?))),
+        _ => bail!("Cannot cast an identifier literal to a '{to_type}' type."),
+    }
 }

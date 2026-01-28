@@ -140,6 +140,18 @@ impl<E: Environment, I: IntegerType> Cast<Scalar<E>> for Integer<E, I> {
     }
 }
 
+impl<E: Environment, I: IntegerType> Cast<IdentifierLiteral<E>> for Integer<E, I> {
+    /// Casts an `Integer` to an `IdentifierLiteral`.
+    ///
+    /// This operation converts the integer to a field element, and then attempts to
+    /// create an identifier literal from that field element.
+    #[inline]
+    fn cast(&self) -> IdentifierLiteral<E> {
+        let field: Field<E> = self.cast();
+        field.cast()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

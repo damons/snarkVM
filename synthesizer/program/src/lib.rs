@@ -213,6 +213,7 @@ impl<N: Network> ProgramCore<N> {
         "scalar",
         "signature",
         "string",
+        "identifier",
         // Boolean
         "true",
         "false",
@@ -269,7 +270,8 @@ impl<N: Network> ProgramCore<N> {
     /// the keywords in the list should be restricted.
     #[rustfmt::skip]
     pub const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
-        (ConsensusVersion::V6, &["constructor"])
+        (ConsensusVersion::V6, &["constructor"]),
+        (ConsensusVersion::V14, &["identifier"])
     ];
 
     /// Initializes an empty program.
@@ -1045,33 +1047,35 @@ impl<N: Network> ProgramCore<N> {
     }
 
     /// Returns `true` if a program contains any V14 syntax.
-    /// This includes `Operand::AleoGenerator` or `Operand::AleoGeneratorPowers.
+    /// This includes `Operand::AleoGenerator`, `Operand::AleoGeneratorPowers`, or `Literal::Identifier`.
     /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
     #[inline]
     pub fn contains_v14_syntax(&self) -> bool {
+        /// Returns `true` if the operand is V14 syntax.
+        fn is_v14_operand<N: Network>(operand: &Operand<N>) -> bool {
+            match operand {
+                Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator => true,
+                Operand::Literal(literal) => literal.to_type() == console::program::LiteralType::Identifier,
+                _ => false,
+            }
+        }
+
         // Determine if any function instructions contain the new syntax.
-        let function_contains =
-            cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(|instruction| {
-                cfg_iter!(instruction.operands())
-                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
-            });
+        let function_contains = cfg_iter!(self.functions())
+            .flat_map(|(_, function)| function.instructions())
+            .any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand));
 
         // Determine if any closure instructions contain the new syntax.
-        let closure_contains =
-            cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(|instruction| {
-                cfg_iter!(instruction.operands())
-                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
-            });
+        let closure_contains = cfg_iter!(self.closures())
+            .flat_map(|(_, closure)| closure.instructions())
+            .any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand));
 
         // Determine if any finalize commands or constructor commands contain the new syntax.
         let command_contains = cfg_iter!(self.functions())
             .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
             .flatten()
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
-            .any(|command| {
-                cfg_iter!(command.operands())
-                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
-            });
+            .any(|command| cfg_iter!(command.operands()).any(is_v14_operand));
 
         function_contains || closure_contains || command_contains
     }

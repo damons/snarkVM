@@ -25,6 +25,83 @@ use console::account::ViewKey;
 
 #[cfg(feature = "test")]
 #[test]
+fn test_identifier_literal_migration() {
+    let rng = &mut TestRng::default();
+
+    // Initialize the VM.
+    let vm = sample_vm();
+    // Initialize the genesis block.
+    let genesis = sample_genesis_block(rng);
+    // Update the VM.
+    vm.add_next_block(&genesis).unwrap();
+
+    // Fetch the private key.
+    let private_key = sample_genesis_private_key(rng);
+
+    // Deploy a test program that uses identifier literal syntax.
+    let program_id = ProgramID::<CurrentNetwork>::from_str("identifier_literal_test.aleo").unwrap();
+    let program = Program::<CurrentNetwork>::from_str(&format!(
+        r"
+    program {program_id};
+    function foo:
+        is.eq 'hello' 'hello' into r0;
+        output r0 as boolean.public;
+
+    constructor:
+        assert.eq edition 0u16;",
+    ))
+    .unwrap();
+
+    // Advance the ledger past ConsensusVersion::V9 where the new deployment version starts.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap() {
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+    }
+
+    // Construct the deployment transaction.
+    let deployment = vm.deploy(&private_key, &program, None, 0, None, rng).unwrap();
+
+    // Advance the ledger past ConsensusVersion::V14 where identifier literals become valid.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap() {
+        // Ensure that the deployment is invalid before V14.
+        assert!(vm.check_transaction(&deployment, None, rng).is_err());
+
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+    }
+
+    // Ensure that the deployment is valid after ConsensusVersion::V14.
+    assert!(vm.check_transaction(&deployment, None, rng).is_ok());
+
+    // Deploy the program.
+    let next_block = sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+    vm.add_next_block(&next_block).unwrap();
+
+    // Execute the function to verify it works correctly.
+    let valid_transaction = vm
+        .execute(
+            &private_key,
+            (&program_id.to_string(), "foo"),
+            Vec::<Value<CurrentNetwork>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+
+    // Construct a block with the execution.
+    let next_block = sample_next_block(&vm, &private_key, &[valid_transaction], rng).unwrap();
+    vm.add_next_block(&next_block).unwrap();
+
+    // Ensure the transaction was accepted.
+    assert_eq!(next_block.transactions().num_accepted(), 1);
+}
+
+#[cfg(feature = "test")]
+#[test]
 fn test_aleo_generators_migration() {
     let rng = &mut TestRng::default();
 

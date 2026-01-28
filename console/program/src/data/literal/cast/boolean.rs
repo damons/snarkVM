@@ -66,3 +66,15 @@ impl<E: Environment> Cast<Scalar<E>> for Boolean<E> {
         Ok(self.cast_lossy())
     }
 }
+
+impl<E: Environment> Cast<IdentifierLiteral<E>> for Boolean<E> {
+    /// Casts a `Boolean` to an `IdentifierLiteral`.
+    ///
+    /// This operation converts the boolean to a field element, and then attempts to
+    /// create an identifier literal from that field element.
+    #[inline]
+    fn cast(&self) -> Result<IdentifierLiteral<E>> {
+        let field: Field<E> = self.cast()?;
+        field.cast()
+    }
+}
