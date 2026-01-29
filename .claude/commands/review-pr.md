@@ -1,65 +1,62 @@
 ---
-description: Review a PR - find the bug
+description: Security-focused PR review
 allowed-tools: Bash, Read, Write, Grep, Glob, Task
 ---
 
 # Review: $ARGUMENTS
 
-**Assume there is a bug. Your job is to find it. Do not approve until you have proven otherwise. Think very hard.**
+Assume there is a bug. Your job is to find it. Think very hard.
 
 ## 1. Gather
-- [ ] `gh pr view --json title,body,state,isDraft,mergeable,statusCheckRollup,url,author,assignees,reviewRequests,reviews,labels,milestone,createdAt,additions,deletions,changedFiles,headRefName,baseRefName,commits`
+
+- [ ] `gh pr view $ARGUMENTS --json title,body,state,headRefName,baseRefName`
 - [ ] `gh pr diff $ARGUMENTS`
+- [ ] Fetch all review threads:
+  ```bash
+  gh api graphql -f query='
+  {
+    repository(owner: "ProvableHQ", name: "snarkVM") {
+      pullRequest(number: $ARGUMENTS) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            comments(first: 10) {
+              nodes { path line body author { login } }
+            }
+          }
+        }
+      }
+    }
+  }'
+  ```
 - [ ] Read full files (not just diff) for all modified code
 - [ ] Read files that import/are imported by modified files
 - [ ] Identify affected crates: `gh pr diff $ARGUMENTS --name-only`
 
 ## 2. Understand
+
 - [ ] What problem is this solving?
 - [ ] What is the approach?
 - [ ] Write down your understanding before proceeding
 
 ## 3. Analyze
-For each change, check:
 
-**Correctness**
-- [ ] Logic traced step-by-step
-- [ ] Boundary conditions: zero, empty, max
-- [ ] Error handling correct
-- [ ] No panics possible
-- [ ] No race conditions
-
-**Crypto (if applicable)**
-- [ ] Field operations safe
-- [ ] Checked arithmetic used
-- [ ] Randomness appropriate
-
-**Memory**
-- [ ] Pre-allocation where needed
-- [ ] No unnecessary `.collect()`
-- [ ] `into_iter()` over `iter().cloned()`
+For each change, apply the **Review Checklist** from AGENTS.md (correctness, crypto, memory & performance).
 
 ## 4. Verify
-- [ ] Run tests: `cargo test -p <crate>`
-- [ ] For each non-trivial change: write a test that would catch a bug, run it
+
+- [ ] Run tests on affected crates
 - [ ] If you cannot prove correctness, it's a bug
 
 ## 5. Report
 
-**Format:**
-```
-[SEVERITY] file:line — Issue. Suggested fix.
-```
+**Format:** `[SEVERITY] file:line — Issue. Suggested fix.`
 
-**Severities:** BLOCKER > BUG > ISSUE > NIT > QUESTION
+**Severities:** BLOCKER > BUG > ISSUE > NIT
 
-**Summary table:**
 | Severity | Location | Issue |
 |----------|----------|-------|
 
-**Recommendation:**
-- **Approve** — You proved no bugs exist
-- **Request changes** — You found bugs or cannot prove correctness
-- **Reject** — Fundamental flaws
+**Recommendation:** Approve / Request changes / Reject
 
-Do not commit. Leave repo unchanged.
+Do not commit.

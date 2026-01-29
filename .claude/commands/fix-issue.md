@@ -1,41 +1,54 @@
 ---
-description: Fix a GitHub issue with TDD
-allowed-tools: Bash, Read, Write, Grep, Glob, Task
+description: Fix issue with TDD and security focus
+allowed-tools: Bash, Read, Write, Grep, Glob, Task, AskUserQuestion
 ---
 
 # Fix: $ARGUMENTS
 
 Follow CLAUDE.md for validation commands and code patterns.
 
-## 1. Understand
-- [ ] `gh issue view $ARGUMENTS --json title,body,comments`
+## 1. Gather
+
+- [ ] Fetch issue details:
+  ```bash
+  gh api graphql -f query='
+  {
+    repository(owner: "ProvableHQ", name: "snarkVM") {
+      issue(number: $ARGUMENTS) {
+        title
+        body
+        comments(first: 50) {
+          nodes { body author { login } }
+        }
+      }
+    }
+  }'
+  ```
 - [ ] Identify affected crate(s)
 - [ ] Locate relevant code
-- [ ] Articulate root cause and proposed fix
+- [ ] Articulate root cause
 
-Do not proceed until you can explain the root cause. Think very hard.
+Think very hard. Do not proceed until you can explain the root cause.
 
-## 2. Baseline
-- [ ] Run validation on affected crate (see CLAUDE.md)
-- [ ] All checks pass before changes
+## 2. Plan (APPROVAL REQUIRED)
 
-## 3. Test First
+Present:
+- **Root cause:** ...
+- **Proposed fix:** ...
+- **Files to modify:** ...
+- **Tests to add:** ...
+
+Use **AskUserQuestion** to get approval before proceeding.
+
+## 3. Implement
+
+- [ ] Baseline: all validation passes before changes
 - [ ] Write failing test that reproduces the bug
-- [ ] Confirm test fails: `cargo test -p <crate> <test_name>`
+- [ ] Make smallest change that makes test pass
+- [ ] Verify: all validation passes
 
-## 4. Fix
-- [ ] Smallest change that makes test pass
-- [ ] No refactoring, no extras
+## 4. Report
 
-## 5. Verify
-- [ ] `cargo check -p <crate>`
-- [ ] `cargo clippy -p <crate> -- -D warnings`
-- [ ] `cargo fmt --check`
-- [ ] `cargo test -p <crate>`
-
-All must pass. If not, fix and repeat.
-
-## 6. Report
 - Root cause
 - What changed
 - Test added

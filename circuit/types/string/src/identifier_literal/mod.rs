@@ -417,4 +417,54 @@ mod tests {
     fn test_size_in_bits() {
         assert_eq!(IdentifierLiteral::<CurrentEnvironment>::size_in_bits(), 248);
     }
+
+    #[test]
+    fn test_ascii_character_validation() {
+        use console::FromBytes;
+
+        // Test all 256 possible first byte values.
+        for byte in 0u8..=255 {
+            let mut raw_bytes = vec![0u8; 32];
+            raw_bytes[0] = byte;
+            let field_value = console::Field::<<CurrentEnvironment as Environment>::Network>::from_bytes_le(&raw_bytes)
+                .expect("Failed to construct field");
+
+            Circuit::scope(format!("first_byte_{byte}"), || {
+                let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
+                let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+            });
+
+            // Only a-z and A-Z should satisfy the circuit.
+            let expected_valid = byte.is_ascii_alphabetic();
+            assert_eq!(
+                Circuit::is_satisfied(),
+                expected_valid,
+                "First byte {byte}: expected satisfied={expected_valid}"
+            );
+            Circuit::reset();
+        }
+
+        // Test all 256 possible second byte values (with valid first byte).
+        for byte in 0u8..=255 {
+            let mut raw_bytes = vec![0u8; 32];
+            raw_bytes[0] = b'a'; // Valid first byte.
+            raw_bytes[1] = byte;
+            let field_value = console::Field::<<CurrentEnvironment as Environment>::Network>::from_bytes_le(&raw_bytes)
+                .expect("Failed to construct field");
+
+            Circuit::scope(format!("second_byte_{byte}"), || {
+                let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
+                let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+            });
+
+            // a-z, A-Z, 0-9, _, and null should satisfy the circuit.
+            let expected_valid = byte.is_ascii_alphanumeric() || byte == b'_' || byte == 0;
+            assert_eq!(
+                Circuit::is_satisfied(),
+                expected_valid,
+                "Second byte {byte}: expected satisfied={expected_valid}"
+            );
+            Circuit::reset();
+        }
+    }
 }

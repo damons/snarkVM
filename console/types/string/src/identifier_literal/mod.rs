@@ -202,4 +202,36 @@ mod tests {
     fn test_size_in_bytes() {
         assert_eq!(IdentifierLiteral::<CurrentEnvironment>::size_in_bytes(), 31);
     }
+
+    #[test]
+    fn test_validate_identifier_bytes_all_ascii() {
+        // Test first byte: only a-z and A-Z should be valid.
+        for byte in 0u8..=255 {
+            let mut bytes = [0u8; 31];
+            bytes[0] = byte;
+            let result = IdentifierLiteral::<CurrentEnvironment>::from_bytes_array(bytes);
+            let expected_valid = byte.is_ascii_alphabetic();
+            assert_eq!(
+                result.is_ok(),
+                expected_valid,
+                "First byte {byte} ('{}'): expected valid={expected_valid}",
+                if byte.is_ascii_graphic() { byte as char } else { '?' }
+            );
+        }
+
+        // Test subsequent bytes: a-z, A-Z, 0-9, _ should be valid (plus null for padding).
+        for byte in 0u8..=255 {
+            let mut bytes = [0u8; 31];
+            bytes[0] = b'a'; // Valid first byte.
+            bytes[1] = byte;
+            let result = IdentifierLiteral::<CurrentEnvironment>::from_bytes_array(bytes);
+            let expected_valid = byte.is_ascii_alphanumeric() || byte == b'_' || byte == 0;
+            assert_eq!(
+                result.is_ok(),
+                expected_valid,
+                "Subsequent byte {byte} ('{}'): expected valid={expected_valid}",
+                if byte.is_ascii_graphic() { byte as char } else { '?' }
+            );
+        }
+    }
 }

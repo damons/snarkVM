@@ -1,58 +1,80 @@
 # snarkVM
 
-@CONTRIBUTING.md
-
 ## Before Writing Code
-- Search for existing implementations
-- Read the target module and match its patterns exactly
-- Scope out necessary tests ahead of time
-- If uncertain, ask
-- Think very hard in your planning process
+- Search for existing implementations.
+- Read the target module and match its patterns exactly.
+- Scope out necessary tests ahead of time.
+- If uncertain, ask.
+- Think very hard in your planning process.
+- New files, crates, dependencies, abstractions, traits, or error types require approval.
 
 ## Architecture
-- Console and circuit layers should mirror each other in structure and API surface.
+- All changes must be backwards compatible and must not introduce forks.
+- New features may be gated by `ConsensusVersion` if needed.
 - Validation logic should exist in one place per layer.
-- Trait impls (ToBits, FromBits, ToField, FromField) should follow existing patterns in the codebase.
-- All changes must be backwards compatible and new changes should not introduce forks. You may optionally gate new features by a `ConsensusVersion`
+- Trait impls (ToBits, FromBits, ToField, FromField) should follow existing patterns.
+
+## Crates
+
+**console / circuit**
+- These layers must stay in sync — same structure, same API surface.
+- Circuits must be deterministic.
+- Test circuit equivalence by comparing constraint counts.
+- When modifying one layer, check if the other needs the same change.
+
+**synthesizer**
+- Tests are slow. Run only the relevant test module or function.
+- Use `--features test,dev_println` for integration tests.
 
 ## Code and Patterns
-- `unwrap`s should be commented with justification
-- Use high performance Rust patterns
-- ALWAYS use test driven development
-- Pre-allocate collections with `with_capacity` when final size is known
-- Prefer arrays and slices over `Vec` when size is known at compile time
-- Use iterators instead of intermediate vectors where possible
-- Don't `.clone()` when a reference suffices
+- Test-driven development: write failing tests first.
+- `unwrap`s must be commented with justification.
+- Pre-allocate with `with_capacity` when final size is known.
+- Prefer arrays/slices over `Vec` when size is known at compile time.
+- Use iterators; avoid intermediate vectors and unnecessary `.collect()`.
+- Prefer references and `into_iter()` over `.clone()` and `iter().cloned()`.
 
-## Prohibited Without Approval
-New files, crates, dependencies, abstractions, traits, error types, or refactoring outside the task.
+See @CONTRIBUTING.md for detailed memory and performance guidelines.
 
-## Validation (in order)
+## Validation
+
+Run in order:
 ```bash
 cargo check -p <crate>
 cargo clippy -p <crate> -- -D warnings
 cargo +nightly fmt --check
 cargo test -p <crate>
-
-Tests in snarkVM can be very slow. 
-For faster feedback, run only the relevant test module or function.
-Some tests will require setting the appropriate features. e.g.: `--features test,dev_println` for integration tests in the `synthesizer` crate.
 ```
 
+Clippy warnings are errors. Formatting requires nightly (`cargo +nightly fmt --all` to fix).
+
 ## Git
-Never commit. Stage with `git add` if asked.
+- Never commit unless explicitly asked.
+- Stage with `git add` only if requested.
+- Pre-commit hooks run fmt and clippy. Run `cargo +nightly fmt --all` before staging.
 
 ## Style
-Rigid. No deviation. Run `cargo +nightly fmt --all` when you have finished coding.
+- One blank line between functions.
+- No trailing whitespace.
+- Imports: std first, external crates second, crate-local third.
+- Match existing file patterns exactly.
+- Comments must be concise, complete, punctuated sentences.
+- License header required (enforced by `build.rs`).
+- `#![forbid(unsafe_code)]` unless approved.
 
-- One blank line between functions
-- No trailing whitespace
-- Imports: std first, external crates second, crate-local third
-- Match existing file exactly — if the file uses `Self::`, you use `Self::`
-- Comments must be concise, complete, punctuated sentences
-- Variable names should be concise but use complete words
-- Each logical component of the code should be commented
+## Review Checklist
 
-## Files
-- License header required (enforced by `build.rs`)
-- `#![forbid(unsafe_code)]` unless approved
+**Correctness**
+- Logic traced step-by-step.
+- Boundary conditions handled: zero, empty, max.
+- Error handling correct; no panics possible.
+- No race conditions.
+
+**Crypto**
+- Field operations safe (no overflow, proper modular arithmetic).
+- Checked arithmetic used.
+- Randomness sourced appropriately.
+- No timing side-channels.
+
+**Performance**
+- See Code and Patterns above.
