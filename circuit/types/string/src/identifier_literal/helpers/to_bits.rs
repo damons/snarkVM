@@ -66,7 +66,6 @@ mod tests {
                     assert_eq!(*expected_bit, candidate_bit.eject_value());
                 }
 
-                // ToBits incurs no additional constraints (bits already exist in bytes).
                 assert_scope!(0, 0, 0, 0);
             });
 
@@ -97,7 +96,6 @@ mod tests {
                     assert_eq!(*expected_bit, candidate_bit.eject_value());
                 }
 
-                // ToBits incurs no additional constraints (bits already exist in bytes).
                 assert_scope!(0, 0, 0, 0);
             });
 

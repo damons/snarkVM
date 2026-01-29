@@ -148,9 +148,5 @@ fn cast_identifier_literal_to_type<N: Network>(
     input: &IdentifierLiteral<N>,
     to_type: LiteralType,
 ) -> Result<Literal<N>> {
-    match to_type {
-        LiteralType::Field => Ok(Literal::Field(input.cast()?)),
-        LiteralType::Identifier => Ok(Literal::Identifier(Box::new(input.cast()?))),
-        _ => bail!("Cannot cast an identifier literal to a '{to_type}' type."),
-    }
+    impl_cast_body!(identifier, cast, input, to_type)
 }

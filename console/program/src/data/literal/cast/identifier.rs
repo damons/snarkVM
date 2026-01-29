@@ -15,11 +15,51 @@
 
 use super::*;
 
+impl<N: Network> Cast<Address<N>> for IdentifierLiteral<N> {
+    /// Casts an `IdentifierLiteral` to an `Address`.
+    #[inline]
+    fn cast(&self) -> Result<Address<N>> {
+        self.to_field()?.cast()
+    }
+}
+
+impl<N: Network> Cast<Boolean<N>> for IdentifierLiteral<N> {
+    /// Casts an `IdentifierLiteral` to a `Boolean`.
+    #[inline]
+    fn cast(&self) -> Result<Boolean<N>> {
+        self.to_field()?.cast()
+    }
+}
+
 impl<N: Network> Cast<Field<N>> for IdentifierLiteral<N> {
     /// Casts an `IdentifierLiteral` to a `Field`.
     #[inline]
     fn cast(&self) -> Result<Field<N>> {
         self.to_field()
+    }
+}
+
+impl<N: Network> Cast<Group<N>> for IdentifierLiteral<N> {
+    /// Casts an `IdentifierLiteral` to a `Group`.
+    #[inline]
+    fn cast(&self) -> Result<Group<N>> {
+        self.to_field()?.cast()
+    }
+}
+
+impl<N: Network, I: IntegerType> Cast<Integer<N, I>> for IdentifierLiteral<N> {
+    /// Casts an `IdentifierLiteral` to an `Integer`.
+    #[inline]
+    fn cast(&self) -> Result<Integer<N, I>> {
+        self.to_field()?.cast()
+    }
+}
+
+impl<N: Network> Cast<Scalar<N>> for IdentifierLiteral<N> {
+    /// Casts an `IdentifierLiteral` to a `Scalar`.
+    #[inline]
+    fn cast(&self) -> Result<Scalar<N>> {
+        self.to_field()?.cast()
     }
 }
 

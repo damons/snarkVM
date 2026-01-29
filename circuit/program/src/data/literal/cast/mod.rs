@@ -157,11 +157,7 @@ fn cast_scalar_to_type<A: Aleo>(input: &Scalar<A>, to_type: LiteralType) -> Resu
 
 /// Casts an identifier literal to the given literal type.
 fn cast_identifier_to_type<A: Aleo>(input: &IdentifierLiteral<A>, to_type: LiteralType) -> Result<Literal<A>> {
-    match to_type {
-        LiteralType::Field => Ok(Literal::Field(input.cast())),
-        LiteralType::Identifier => Ok(Literal::Identifier(Box::new(input.cast()))),
-        _ => bail!("Cannot cast an identifier literal to a '{to_type}' type."),
-    }
+    impl_cast_body!(identifier, cast, input, to_type)
 }
 
 #[cfg(test)]

@@ -99,4 +99,45 @@ mod tests {
         let field = Field::<CurrentEnvironment>::from_bits_le(&bytes.to_bits_le()).unwrap();
         assert!(IdentifierLiteral::<CurrentEnvironment>::from_field(&field).is_err());
     }
+
+    #[test]
+    fn test_from_field_rejects_empty() {
+        // All zeros should fail (empty identifier).
+        let field = Field::<CurrentEnvironment>::zero();
+        assert!(IdentifierLiteral::<CurrentEnvironment>::from_field(&field).is_err());
+    }
+
+    #[test]
+    fn test_from_field_max_length() {
+        // 31-character identifier should succeed.
+        let max_str = "a".repeat(31);
+        let original = IdentifierLiteral::<CurrentEnvironment>::new(&max_str).unwrap();
+        let field = original.to_field().unwrap();
+        let recovered = IdentifierLiteral::<CurrentEnvironment>::from_field(&field).unwrap();
+        assert_eq!(original, recovered);
+    }
+
+    #[test]
+    fn test_from_field_rejects_excess_bits() {
+        // Bits 248-252 (padding) set to 1 should fail.
+        let mut bits = vec![false; Field::<CurrentEnvironment>::size_in_bits()];
+        // Set bits for 'a' (0x61 = 0b01100001).
+        bits[0] = true;
+        bits[5] = true;
+        bits[6] = true;
+        // Set excess bit in padding region.
+        bits[248] = true;
+        let field = Field::<CurrentEnvironment>::from_bits_le(&bits).unwrap();
+        assert!(IdentifierLiteral::<CurrentEnvironment>::from_field(&field).is_err());
+    }
+
+    #[test]
+    fn test_from_field_rejects_invalid_mid_chars() {
+        // Space character (0x20) in middle position should fail.
+        let mut bytes = [0u8; 31];
+        bytes[0] = b'a';
+        bytes[1] = b' '; // Invalid: space is not a valid identifier character.
+        let field = Field::<CurrentEnvironment>::from_bits_le(&bytes.to_bits_le()).unwrap();
+        assert!(IdentifierLiteral::<CurrentEnvironment>::from_field(&field).is_err());
+    }
 }

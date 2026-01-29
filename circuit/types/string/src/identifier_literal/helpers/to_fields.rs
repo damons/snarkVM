@@ -55,7 +55,6 @@ mod tests {
                 let expected_field = console_value.to_field().unwrap();
                 assert_eq!(expected_field, fields[0].eject_value());
 
-                // ToFields is pure bit packing, no additional constraints.
                 assert_scope!(num_constants, num_public, num_private, num_constraints);
             });
 
@@ -65,19 +64,16 @@ mod tests {
 
     #[test]
     fn test_to_fields_constant() {
-        // Pure bit packing, no constraints.
         check_to_fields(Mode::Constant, 0, 0, 0, 0);
     }
 
     #[test]
     fn test_to_fields_public() {
-        // Pure bit packing, no constraints.
         check_to_fields(Mode::Public, 0, 0, 0, 0);
     }
 
     #[test]
     fn test_to_fields_private() {
-        // Pure bit packing, no constraints.
         check_to_fields(Mode::Private, 0, 0, 0, 0);
     }
 }
