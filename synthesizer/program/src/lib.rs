@@ -985,15 +985,16 @@ impl<N: Network> ProgramCore<N> {
     }
 
     /// Returns `true` if this program violates pre-V13 rules for external records
-    /// or futures by referencing non-local struct types across program boundaries.
+    /// or futures by containing registers with non-local struct types across program boundaries.
     ///
     /// Notes:
-    /// 1. We only need to check functions because closures and constructors cannot refernece
+    /// 1. We only need to check functions because closures and constructors cannot reference
     ///    external records or futures.
-    /// 2. We only need to check function inputs because if function outputs have a violation then
-    ///    either the inputs or the body of the function must violate first.
+    /// 2. We need to check function inputs.
     /// 3. No need to check instructions other than `Call`. The only other instruction that can
-    ///    refer to a record is a `cast` but we cannot cast to external record anyways.
+    ///    refer to a record is a `cast` but we cannot cast to external records anyways.
+    ///4.  No need to check function outputs, because they have already been checked in either the
+    ///    inputs or call instruction.
     pub fn violates_pre_v13_external_record_and_future_rules<F0, F1, F2, F3>(
         &self,
         get_external_record: &F0,
@@ -1053,7 +1054,7 @@ impl<N: Network> ProgramCore<N> {
                 };
 
                 // Check if the outputs of the external function reference a struct that is not
-                // locally available. That's a violation.
+                // locally available.
                 for output in external_function.outputs() {
                     match output.value_type() {
                         ValueType::Record(identifier) => {
@@ -1074,6 +1075,11 @@ impl<N: Network> ProgramCore<N> {
                                 let FinalizeType::Plaintext(ty) = input else {
                                     continue;
                                 };
+
+                                // We intentionally ignore `FinalizeType::Future(_)` here. Any such future
+                                // originates from another program whose deployment would already have been
+                                // validated under the same pre-V13 rules. At this point, only plaintext inputs
+                                // can introduce new non-local struct violations.
 
                                 if plaintext_uses_nonlocal_struct(&ty, is_local_struct) {
                                     return true;

@@ -287,7 +287,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             &get_external_future,
                             &is_local_struct,
                         ),
-                        "Invalid external record",
+                        "Invalid deployment transaction '{id}' - program violates pre-V13 external record or future rules"
                     );
                 }
 

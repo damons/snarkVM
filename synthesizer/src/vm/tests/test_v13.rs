@@ -139,6 +139,10 @@ constructor:
 
     // Deploy the second program.
     let deployment_two = vm.deploy(&caller_private_key, &program_two, None, 0, None, rng).unwrap();
+
+    // Return the block but don't try to add it to the VM. We're really just interested in
+    // inspecting the transactions in the block to see if they are accepted, rejected, or aborted,
+    // likely depending on the conesnsus version.
     sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap()
 }
 
