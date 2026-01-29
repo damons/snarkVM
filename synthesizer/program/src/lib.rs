@@ -1007,16 +1007,26 @@ impl<N: Network> ProgramCore<N> {
         F2: Fn(&Locator<N>) -> Result<FinalizeCore<N>>,
         F3: Fn(&Identifier<N>) -> bool,
     {
+        // Helper: does a plaintext type (possibly nested in arrays) reference a struct not defined locally?
+        fn plaintext_uses_nonlocal_struct<N: Network>(
+            ty: &PlaintextType<N>,
+            is_local_struct: &impl Fn(&Identifier<N>) -> bool,
+        ) -> bool {
+            match ty {
+                PlaintextType::Struct(name) => !is_local_struct(name),
+                PlaintextType::Array(array_type) => {
+                    plaintext_uses_nonlocal_struct(array_type.base_element_type(), is_local_struct)
+                }
+                _ => false,
+            }
+        }
+
         // Helper: does a record contain any struct not defined locally?
-        let record_uses_external_struct = |record: &RecordType<N>| {
-            record.entries().iter().any(|(_, member)| {
-                matches!(
-                    member,
-                    EntryType::Constant(PlaintextType::Struct(name))
-                        | EntryType::Private(PlaintextType::Struct(name))
-                        | EntryType::Public(PlaintextType::Struct(name))
-                    if !is_local_struct(name)
-                )
+        let record_uses_nonlocal_struct = |record: &RecordType<N>| {
+            record.entries().iter().any(|(_, member)| match member {
+                EntryType::Constant(ty) | EntryType::Private(ty) | EntryType::Public(ty) => {
+                    plaintext_uses_nonlocal_struct(ty, is_local_struct)
+                }
             })
         };
 
@@ -1029,7 +1039,7 @@ impl<N: Network> ProgramCore<N> {
                 let Ok(record) = get_external_record(locator) else {
                     continue;
                 };
-                if record_uses_external_struct(&record) {
+                if record_uses_nonlocal_struct(&record) {
                     return true;
                 }
             }
@@ -1038,7 +1048,6 @@ impl<N: Network> ProgramCore<N> {
             for instruction in function.instructions() {
                 let Instruction::Call(call) = instruction else { continue };
                 let CallOperator::Locator(locator) = call.operator() else { continue };
-
                 let Ok(external_function) = get_external_function(locator) else {
                     continue;
                 };
@@ -1052,7 +1061,7 @@ impl<N: Network> ProgramCore<N> {
                             let Ok(record) = get_external_record(&locator) else {
                                 continue;
                             };
-                            if record_uses_external_struct(&record) {
+                            if record_uses_nonlocal_struct(&record) {
                                 return true;
                             }
                         }
@@ -1061,16 +1070,14 @@ impl<N: Network> ProgramCore<N> {
                             let Ok(future) = get_external_future(loc) else {
                                 continue;
                             };
-                            if future.input_types().iter().any(|input| {
-                                matches!(
-                                    input,
-                                    FinalizeType::Plaintext(
-                                        PlaintextType::Struct(name)
-                                    )
-                                    if !is_local_struct(name)
-                                )
-                            }) {
-                                return true;
+                            for input in future.input_types() {
+                                let FinalizeType::Plaintext(ty) = input else {
+                                    continue;
+                                };
+
+                                if plaintext_uses_nonlocal_struct(&ty, is_local_struct) {
+                                    return true;
+                                }
                             }
                         }
 

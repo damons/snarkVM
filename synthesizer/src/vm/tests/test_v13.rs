@@ -609,6 +609,58 @@ constructor:
 }
 
 #[test]
+fn test_nonlocal_struct_in_array_in_external_future() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Foo:
+    x as u32;
+
+function main:
+    cast 42u32 into r0 as Foo;
+    cast r0 r0 into r1 as [Foo; 2u32];
+    async main r1 into r2;
+    output r2 as child.aleo/main.future;
+
+finalize main:
+    input r0 as [Foo; 2u32].public;
+    assert.eq true true;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program external_future.aleo;
+
+function main:
+    call child.aleo/main into r0;
+    async main r0 into r1;
+    output r1 as external_future.aleo/main.future;
+
+finalize main:
+    input r0 as child.aleo/main.future;
+    await r0;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        let block = run_deploy_test(consensus_version, &program_one, &program_two);
+        assert_pre_post_v13(block, consensus_version);
+    }
+}
+
+#[test]
 fn test_nonlocal_struct_in_external_record_from_call() {
     let program_one = Program::from_str(
         r"
@@ -694,6 +746,54 @@ program parent.aleo;
 
 function omega_wrapper:
     input r0 as child.aleo/BooHoo.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        let block = run_deploy_test(consensus_version, &program_one, &program_two);
+        assert_pre_post_v13(block, consensus_version);
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_in_array_in_external_record_input() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Foo:
+    x as u32;
+
+record R:
+    owner as address.private;
+    a as [Foo; 2u32].private;
+
+function main:
+    input r0 as address.private;
+    cast 42u32 into r1 as Foo;
+    cast r1 r1 into r2 as [Foo; 2u32];
+    cast r0 r2 into r3 as R.record;
+    output r3 as R.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program test.aleo;
+
+function main:
+    input r0 as child.aleo/R.record;
+    output r0 as child.aleo/R.record;
 
 constructor:
     assert.eq edition 0u16;
