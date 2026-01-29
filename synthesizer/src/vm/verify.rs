@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use super::*;
-use snarkvm_synthesizer_program::FinalizeCore;
 
 /// Ensures the given iterator has no duplicate elements, and that the ledger
 /// does not already contain a given item.

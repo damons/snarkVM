@@ -88,6 +88,7 @@ use snarkvm_synthesizer_process::{
     execution_cost,
 };
 use snarkvm_synthesizer_program::{
+    FinalizeCore,
     FinalizeGlobalState,
     FinalizeOperation,
     FinalizeStoreTrait,
