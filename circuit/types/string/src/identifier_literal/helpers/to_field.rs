@@ -68,19 +68,16 @@ mod tests {
 
     #[test]
     fn test_to_field_constant() {
-        // Pure bit packing, no constraints.
         check_to_field(Mode::Constant, 0, 0, 0, 0);
     }
 
     #[test]
     fn test_to_field_public() {
-        // Pure bit packing, no constraints.
         check_to_field(Mode::Public, 0, 0, 0, 0);
     }
 
     #[test]
     fn test_to_field_private() {
-        // Pure bit packing, no constraints.
         check_to_field(Mode::Private, 0, 0, 0, 0);
     }
 }

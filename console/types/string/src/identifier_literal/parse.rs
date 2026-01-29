@@ -23,14 +23,11 @@ impl<E: Environment> Parser for IdentifierLiteral<E> {
         // Match the opening single quote.
         let (string, _) = tag("'")(string)?;
         // Match identifier content: starts with a letter, followed by alphanumeric or underscore.
-        let (string, content) = recognize(pair(alpha1, many0(alt((alphanumeric1, tag("_"))))))(string)?;
+        let (string, literal) =
+            map_res(recognize(pair(alpha1, many0(alt((alphanumeric1, tag("_")))))), Self::new)(string)?;
         // Match the closing single quote.
         let (string, _) = tag("'")(string)?;
-        // Construct the identifier literal.
-        match Self::new(content) {
-            Ok(literal) => Ok((string, literal)),
-            Err(_) => Err(Err::Error(make_error(string, ErrorKind::Verify))),
-        }
+        Ok((string, literal))
     }
 }
 

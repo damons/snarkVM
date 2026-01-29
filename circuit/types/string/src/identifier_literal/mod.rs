@@ -40,14 +40,6 @@ impl<E: Environment> IdentifierLiteral<E> {
     pub const fn size_in_bits() -> usize {
         console::IdentifierLiteral::<E::Network>::SIZE_IN_BITS
     }
-
-    /// Creates an IdentifierLiteral from bytes without validation.
-    ///
-    /// This is used by cast_lossy where the bytes are already guaranteed to be valid.
-    /// The caller must ensure the bytes represent a valid identifier.
-    pub fn from_bytes_lossy(bytes: [U8<E>; 31]) -> Self {
-        Self { bytes }
-    }
 }
 
 impl<E: Environment> Inject for IdentifierLiteral<E> {
@@ -171,6 +163,25 @@ fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
 /// Each of the 31 bytes must be in `[a-zA-Z0-9_\0]` (null bytes must be trailing-only).
 /// The first byte must be a letter (uppercase or lowercase).
 /// The remaining high bits (248..252) must be zero.
+///
+/// # Circuit Approach
+///
+/// ASCII characters are validated by examining bit patterns. For each byte (b7..b0):
+/// - b7 must be 0 (ASCII requirement)
+/// - (b6, b5) determines the character category:
+///   - (0,0): null byte (0x00) - valid only as trailing padding
+///   - (0,1): digits 0x30-0x39 - requires b4=1 and low nibble ≤ 9
+///   - (1,0): uppercase/underscore 0x40-0x5F - valid: A-Z (1-26), _ (31)
+///   - (1,1): lowercase 0x60-0x7F - valid: a-z (1-26)
+///
+/// The validation proceeds in steps:
+///     1. Check b7=0 (ASCII high bit)
+///     2. Compute category selectors from (b6, b5)
+///     3. Compute shared intermediate values for range checks
+///     4-7. Validate each category's allowed character range
+///     8. Enforce first byte is a letter (not digit, underscore, or null)
+///     9. Enforce null bytes appear only as trailing padding
+///     10. Check padding bits (248..252) are zero
 fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
     // The maximum number of bytes in an identifier literal.
     let max_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
