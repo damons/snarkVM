@@ -17,9 +17,36 @@ use super::*;
 
 use crate::vm::test_helpers::*;
 
-use console::{account::ViewKey, network::ConsensusVersion, program::Value};
+use console::{account::ViewKey, network::ConsensusVersion, program::Value, types::U8};
 use snarkvm_synthesizer_program::Program;
 use snarkvm_utilities::TestRng;
+
+/// Generates a large program string that exceeds the V13 size limit (100KB) but fits within V14 (512KB).
+fn generate_large_program() -> String {
+    let mut program = String::from(
+        "program large_program_generated.aleo;
+
+constructor:
+    assert.eq true true;
+
+function compute:
+    input r0 as u64.public;
+",
+    );
+
+    // Generate cast instructions to create large arrays.
+    // Each cast with 32 elements is ~200+ bytes, so we need fewer instructions.
+    let mut reg = 1u32;
+    while program.len() < 110_000 {
+        // Create a 32-element array from r0.
+        program.push_str(&format!(
+            "    cast r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 into r{reg} as [u64; 32u32];\n"
+        ));
+        reg += 1;
+    }
+
+    program
+}
 
 // This test verifies that a large program that is over the previous size limit can be deployed after V14.
 #[test]
@@ -27,9 +54,10 @@ fn test_deploy_large_program_v14() {
     // Initialize an RNG.
     let rng = &mut TestRng::default();
 
-    let large_program = Program::from_str(include_str!("./resources/large_program.aleo")).unwrap();
+    let large_program_str = generate_large_program();
+    let large_program = Program::from_str(&large_program_str).unwrap();
 
-    println!("Large program size (string size): {}", large_program.to_string().len());
+    println!("Generated large program size: {} bytes", large_program_str.len());
 
     // Initialize a new caller.
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
@@ -62,33 +90,6 @@ fn test_deploy_large_program_v14() {
     assert_eq!(block.transactions().num_accepted(), 1);
     assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
-}
-
-/// Generates a large program string that exceeds the V13 size limit (100KB) but fits within V14 (512KB).
-fn generate_large_program() -> String {
-    let mut program = String::from(
-        "program large_program_generated.aleo;
-
-constructor:
-    assert.eq true true;
-
-function compute:
-    input r0 as u64.public;
-",
-    );
-
-    // Generate cast instructions to create large arrays.
-    // Each cast with 32 elements is ~200+ bytes, so we need fewer instructions.
-    let mut reg = 1u32;
-    while program.len() < 110_000 {
-        // Create a 32-element array from r0.
-        program.push_str(&format!(
-            "    cast r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 r0 into r{reg} as [u64; 32u32];\n"
-        ));
-        reg += 1;
-    }
-
-    program
 }
 
 // This test verifies serialization round-trips for large program deployment transactions at V13 and V14.
@@ -342,12 +343,12 @@ constructor:
     assert.eq true true;
 
 function compute:
-    input r0 as u64.public;
+    input r0 as u8.public;
     async compute r0 into r1;
     output r1 as test_max_writes.aleo/compute.future;
 
 finalize compute:
-    input r0 as u64.public;
+    input r0 as u8.public;
 ",
     );
 
@@ -386,6 +387,16 @@ finalize compute:
 
     // Deploy the program.
     let next_block = sample_next_block(&vm, &private_key, &[deployment], rng).unwrap();
+    vm.add_next_block(&next_block).unwrap();
+
+    // Ensure that the valid transaction was accepted and the invalid one was rejected.
+    assert_eq!(next_block.transactions().num_accepted(), 1);
+
+    // Create the execution transaction that hits the max writes limit.
+    let inputs = [Value::<CurrentNetwork>::Plaintext(Plaintext::from(Literal::U8(U8::new(1u8))))];
+    let transaction =
+        vm.execute(&private_key, (program.id(), "compute"), inputs.into_iter(), None, 0, None, rng).unwrap();
+    let next_block = sample_next_block(&vm, &private_key, &[transaction], rng).unwrap();
     vm.add_next_block(&next_block).unwrap();
 
     // Ensure that the valid transaction was accepted and the invalid one was rejected.
