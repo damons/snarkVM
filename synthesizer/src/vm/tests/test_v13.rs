@@ -22,88 +22,6 @@ use snarkvm_synthesizer_program::Program;
 use console::network::ConsensusVersion;
 use snarkvm_utilities::TestRng;
 
-// This test verifies that a program with external structs cannot be deployed on
-// consensus version 12.
-#[test]
-fn test_deploy_external_structs_v11() {
-    // Use V11 rather than V12 to make sure we still won't be on V13
-    // when deploying the second program.
-    let block = deploy_external_structs_programs(ConsensusVersion::V11);
-
-    assert_eq!(block.transactions().num_accepted(), 0);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 1);
-}
-
-// This test verifies that a program with external structs can be deployed on
-// consensus version 13.
-#[test]
-fn test_deploy_external_structs_v13() {
-    let block = deploy_external_structs_programs(ConsensusVersion::V13);
-
-    assert_eq!(block.transactions().num_accepted(), 1);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 0);
-}
-
-fn deploy_external_structs_programs(consensus_version: ConsensusVersion) -> Block<CurrentNetwork> {
-    let rng = &mut TestRng::default();
-
-    // Initialize a new caller.
-    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
-
-    // Initialize the VM at the correct height.
-    let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
-    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
-
-    // Define the first program with a record.
-    let program_one = Program::from_str(
-        r"
-program test_one.aleo;
-
-constructor:
-    assert.eq true true;
-
-struct S:
-    x as field;
-
-function make_s:
-    cast 0field into r0 as S;
-    output r0 as S.public;
-",
-    )
-    .unwrap();
-
-    // Define the second program which refers to the external struct type.
-    let program_two = Program::from_str(
-        r"
-import test_one.aleo;
-
-program test_two.aleo;
-
-constructor:
-    assert.eq true true;
-
-function second:
-    call test_one.aleo/make_s into r0;
-    output r0 as test_one.aleo/S.public;
-",
-    )
-    .unwrap();
-
-    // Deploy the first program.
-    let deployment_one = vm.deploy(&caller_private_key, &program_one, None, 0, None, rng).unwrap();
-    let block = sample_next_block(&vm, &caller_private_key, &[deployment_one], rng).unwrap();
-    assert_eq!(block.transactions().num_accepted(), 1);
-    assert_eq!(block.transactions().num_rejected(), 0);
-    assert_eq!(block.aborted_transaction_ids().len(), 0);
-    vm.add_next_block(&block).unwrap();
-
-    // Deploy the second program.
-    let deployment_two = vm.deploy(&caller_private_key, &program_two, None, 0, None, rng).unwrap();
-    sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap()
-}
-
 // This test verifies that a program with a mapping containing a missing struct can be deployed on
 // consensus version 12.
 #[test]
@@ -221,6 +139,10 @@ constructor:
 
     // Deploy the second program.
     let deployment_two = vm.deploy(&caller_private_key, &program_two, None, 0, None, rng).unwrap();
+
+    // Return the block but don't try to add it to the VM. We're really just interested in
+    // inspecting the transactions in the block to see if they are accepted, rejected, or aborted,
+    // likely depending on the conesnsus version.
     sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap()
 }
 
@@ -505,7 +427,6 @@ constructor:
     vm.add_next_block(&block).unwrap();
 
     // Execute the child function to verify runtime validation also works.
-    use console::program::Value;
     let execution = vm
         .execute(
             &caller_private_key,
@@ -520,4 +441,492 @@ constructor:
     let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
     assert_eq!(block.transactions().num_accepted(), 1, "Execution should succeed");
     assert_eq!(block.aborted_transaction_ids().len(), 0);
+}
+
+struct ExecutionTest<'a> {
+    program: &'a str,
+    function: &'a str,
+    inputs: Vec<Value<CurrentNetwork>>,
+}
+
+/// Deploys two programs sequentially on a VM at a given consensus version and optionally executes a function post-deploy.
+///
+/// # Parameters
+/// - `consensus_version`: The consensus version at which to deploy the programs.
+/// - `program_one`: The first program to deploy; expected to always succeed.
+/// - `program_two`: The second program to deploy; success or failure depends on the consensus rules.
+/// - `execution_test`: Describes a function to execute post-deploy (only runs on V13).
+///   Includes the program name, function name, and input values.
+///
+/// # Behavior
+/// - Always deploys `program_one` and asserts that the deployment succeeds.
+/// - Deploys `program_two` and asserts expected behavior according to `assert_pre_post_v13`.
+/// - On V13, commits the second block and executes the function described in `execution_test`.
+///   The execution results are asserted to succeed.
+///
+/// # Panics
+/// Panics if:
+/// - Either program fails to deploy.
+/// - Any internal assertions fail (e.g., number of accepted or aborted transactions).
+/// - Execution on V13 fails.
+///
+/// # Notes
+/// This helper abstracts VM initialization, block creation, deployment, and optional execution logic
+/// to reduce boilerplate in multiple tests and ensure consistent pre-/post-V13 behavior.
+fn deploy_two_programs_and_execute_v132(
+    consensus_version: ConsensusVersion,
+    program_one: &Program<CurrentNetwork>,
+    program_two: &Program<CurrentNetwork>,
+    execution_test: ExecutionTest,
+) {
+    let rng = &mut TestRng::default();
+
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
+
+    // ── Deploy first program (should always succeed)
+    let deployment_one = vm.deploy(&caller_private_key, program_one, None, 0, None, rng).unwrap();
+
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment_one], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+
+    vm.add_next_block(&block).unwrap();
+
+    // ── Deploy second program (version-dependent)
+    let deployment_two = vm.deploy(&caller_private_key, program_two, None, 0, None, rng).unwrap();
+
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap();
+
+    // Assert deploy semantics
+    assert_pre_post_v13(block.clone(), consensus_version);
+
+    // ── Post-V13 only: add next block + execute
+    if consensus_version == ConsensusVersion::V13 {
+        vm.add_next_block(&block).unwrap();
+
+        let ExecutionTest { program, function, inputs } = execution_test;
+
+        let execution =
+            vm.execute(&caller_private_key, (program, function), inputs.into_iter(), None, 0, None, rng).unwrap();
+
+        let exec_block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+
+        assert_eq!(exec_block.transactions().num_accepted(), 1, "Execution should succeed on V13");
+        assert_eq!(exec_block.aborted_transaction_ids().len(), 0);
+    }
+}
+
+/// Asserts that a block's transaction outcomes match the expected behavior
+/// for pre-V13 and V13 consensus versions.
+///
+/// # Parameters
+/// - `block`: The block whose transactions will be inspected.
+/// - `consensus_version`: The consensus version at which the block was produced.
+///
+/// # Panics
+/// Panics if the number of accepted, rejected, or aborted transactions does
+/// not match the expected rules for the given consensus version.
+///
+/// # Behavior
+/// - For pre V13, all transactions are expected to aborted (pre-V13 rules).
+/// - For `V13`, the transaction is expected to be accepted with no aborted
+///   transactions.
+fn assert_pre_post_v13(block: Block<CurrentNetwork>, consensus_version: ConsensusVersion) {
+    match consensus_version {
+        ConsensusVersion::V11 | ConsensusVersion::V12 => {
+            assert_eq!(block.transactions().num_accepted(), 0);
+            assert_eq!(block.transactions().num_rejected(), 0);
+            assert_eq!(block.aborted_transaction_ids().len(), 1);
+        }
+        ConsensusVersion::V13 => {
+            assert_eq!(block.transactions().num_accepted(), 1);
+            assert_eq!(block.transactions().num_rejected(), 0);
+            assert_eq!(block.aborted_transaction_ids().len(), 0);
+        }
+        _ => unreachable!("unexpected consensus version"),
+    }
+}
+
+#[test]
+fn test_deploy_external_structs_pre_and_post_v13() {
+    let program_one = Program::from_str(
+        r"
+program test_one.aleo;
+
+constructor:
+    assert.eq true true;
+
+struct S:
+    x as field;
+
+function make_s:
+    cast 0field into r0 as S;
+    output r0 as S.public;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import test_one.aleo;
+
+program test_two.aleo;
+
+constructor:
+    assert.eq true true;
+
+function second:
+    call test_one.aleo/make_s into r0;
+    output r0 as test_one.aleo/S.public;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "test_two.aleo",
+            function: "second",
+            inputs: vec![],
+        });
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_in_external_future() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Foo:
+    x as u32;
+
+function main:
+    cast 42u32 into r0 as Foo;
+    async main r0 into r1;
+    output r1 as child.aleo/main.future;
+
+finalize main:
+    input r0 as Foo.public;
+    assert.eq true true;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program external_future.aleo;
+
+function main:
+    call child.aleo/main into r0;
+    async main r0 into r1;
+    output r1 as external_future.aleo/main.future;
+
+finalize main:
+    input r0 as child.aleo/main.future;
+    await r0;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "external_future.aleo",
+            function: "main",
+            inputs: vec![],
+        });
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_in_array_in_external_future() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Foo:
+    x as u32;
+
+function main:
+    cast 42u32 into r0 as Foo;
+    cast r0 r0 into r1 as [Foo; 2u32];
+    async main r1 into r2;
+    output r2 as child.aleo/main.future;
+
+finalize main:
+    input r0 as [Foo; 2u32].public;
+    assert.eq true true;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program external_future.aleo;
+
+function main:
+    call child.aleo/main into r0;
+    async main r0 into r1;
+    output r1 as external_future.aleo/main.future;
+
+finalize main:
+    input r0 as child.aleo/main.future;
+    await r0;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "external_future.aleo",
+            function: "main",
+            inputs: vec![],
+        });
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_in_external_record_from_call() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Woo:
+    a as u32;
+    b as u32;
+
+record BooHoo:
+    owner as address.private;
+    woo as Woo.private;
+
+record Foo:
+    owner as address.private;
+    x as u32.private;
+
+function wrapper:
+    cast 1u32 2u32 into r0 as Woo;
+    cast self.signer r0 into r1 as BooHoo.record;
+    output r1 as BooHoo.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program parent.aleo;
+
+function omega_wrapper:
+    call child.aleo/wrapper into r0;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "parent.aleo",
+            function: "omega_wrapper",
+            inputs: vec![],
+        });
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_in_external_record_input() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Woo:
+    a as u32;
+    b as u32;
+
+record BooHoo:
+    owner as address.private;
+    woo as Woo.private;
+
+record Foo:
+    owner as address.private;
+    x as u32.private;
+
+function wrapper:
+    cast 1u32 2u32 into r0 as Woo;
+    cast self.signer r0 into r1 as BooHoo.record;
+    output r1 as BooHoo.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program parent.aleo;
+
+function omega_wrapper:
+    input r0 as child.aleo/BooHoo.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "parent.aleo",
+            function: "omega_wrapper",
+            inputs: vec![Value::from_str(
+                "{ owner: aleo1j2hfs6yru47h2nvsjdefwtw6nwaj0y4zcl02juyy29txm7nt6y9qln7uhp.private, woo: { a: 0u32.private, b: 0u32.private }, _nonce: 0group.public }"
+            ).unwrap()],
+        });
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_in_array_in_external_record_input() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Foo:
+    x as u32;
+
+record R:
+    owner as address.private;
+    a as [Foo; 2u32].private;
+
+function main:
+    input r0 as address.private;
+    cast 42u32 into r1 as Foo;
+    cast r1 r1 into r2 as [Foo; 2u32];
+    cast r0 r2 into r3 as R.record;
+    output r3 as R.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+program test.aleo;
+
+function main:
+    input r0 as child.aleo/R.record;
+    output r0 as child.aleo/R.record;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "test.aleo",
+            function: "main",
+            inputs: vec![Value::from_str(
+                "{ owner: aleo1j2hfs6yru47h2nvsjdefwtw6nwaj0y4zcl02juyy29txm7nt6y9qln7uhp.private, a: [ { x: 0u32.private } , { x: 0u32.private } ], _nonce: 0group.public }",
+            ).unwrap()],
+        });
+    }
+}
+
+#[test]
+fn test_nonlocal_struct_access_from_external_future() {
+    let program_one = Program::from_str(
+        r"
+program child.aleo;
+
+struct Params:
+    amount as u64;
+
+mapping store:
+    key as u8.public;
+    value as u64.public;
+
+function compute:
+    input r0 as u64.public;
+    cast r0 into r1 as Params;
+    async compute r1 into r2;
+    output r2 as child.aleo/compute.future;
+
+finalize compute:
+    input r0 as Params.public;
+    set r0.amount into store[0u8];
+
+constructor:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    let program_two = Program::from_str(
+        r"
+import child.aleo;
+
+program parent.aleo;
+
+mapping results:
+    key as u8.public;
+    value as u64.public;
+
+function relay:
+    input r0 as u64.public;
+    call child.aleo/compute r0 into r1;
+    async relay r1 into r2;
+    output r2 as parent.aleo/relay.future;
+
+finalize relay:
+    input r0 as child.aleo/compute.future;
+    set r0[0u32].amount into results[0u8];
+    await r0;
+
+constructor:
+    assert.eq true true;
+",
+    )
+    .unwrap();
+
+    // Use V11 rather than V12 to make sure we still won't be on V13
+    for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "parent.aleo",
+            function: "relay",
+            inputs: vec![Value::from_str("0u64").unwrap()],
+        });
+    }
 }
