@@ -36,7 +36,6 @@ use snarkvm_console_network_environment::prelude::*;
 pub struct IdentifierLiteral<E: Environment> {
     /// The 31 bytes of the identifier (null-padded).
     bytes: [u8; 31],
-    /// PhantomData.
     _phantom: core::marker::PhantomData<E>,
 }
 
