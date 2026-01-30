@@ -48,6 +48,7 @@ commands:
             $ErrorActionPreference = "Stop"
             $ProgressPreference = "SilentlyContinue"
 
+            # Ensure rustup is installed
             if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
                 Write-Host "rustup not found, installing..."
                 $rustupPath = "$env:TEMP\rustup-init.exe"
@@ -60,8 +61,11 @@ commands:
 
             # Put cargo/rustup first in PATH for this step and subsequent steps
             $Env:Path = "$Env:USERPROFILE\.cargo\bin;$Env:Path"
+
+			# Select the toolchain
             rustup default 1.88.0-x86_64-pc-windows-msvc
 
+            # Verify the installation.
             cargo --version --verbose
             rustc --version | Out-File -FilePath "rust-version"
 
@@ -93,14 +97,19 @@ commands:
       - run:
           name: Prepare environment variables and install dependencies
           command: |
+		    # Make sure our local bin and cargo bin are on PATH
             echo 'export PATH="$HOME/.cargo/bin:$CIRCLE_WORKING_DIRECTORY/.bin:$PATH"' >> "$BASH_ENV"
-
+			
+            # sccache settings
             echo 'export SCCACHE_DIR="$HOME/.cache/sccache"' >> "$BASH_ENV"
             echo 'export SCCACHE_CACHE_SIZE="20000M"' >> "$BASH_ENV"
             echo 'export SCCACHE_IDLE_TIMEOUT=0' >> "$BASH_ENV"
             echo 'export SCCACHE_LOG=info' >> "$BASH_ENV"
 
+            # Disable incremental builds so sccache behaves nicely
             echo 'export CARGO_INCREMENTAL=0' >> "$BASH_ENV"
+
+			# Use sccache for *all* Rust compile commands
             echo 'export RUSTC_WRAPPER="sccache"' >> "$BASH_ENV"
       - run:
           name: Install sccache
@@ -270,8 +279,10 @@ commands:
               echo "[debug] sccache disabled for this run"
             fi
 
+            # Create artifact + nextest output directories
             mkdir -p artifacts target/nextest/ci
 
+            # Create artifact + nextest output directories
             OUT="artifacts/<< parameters.workspace_member >>-nextest.txt"
             CSV="artifacts/<< parameters.workspace_member >>-test-times.csv"
             TOP="artifacts/<< parameters.workspace_member >>-slow-tests-top30.csv"
@@ -292,8 +303,11 @@ commands:
             fi
 
             WSM="<< parameters.workspace_member >>"
+
+			# Config-driven exclusion list (space-separated tokens)
             EXCLUDED_LIST="<< pipeline.parameters.excluded_run_ignored_all_workspaces >>"
 
+            # Check if WSM is in the excluded list (exact token match)
             IS_EXCLUDED=0
             if printf '%s\n' " $EXCLUDED_LIST " | grep -Fq " $WSM "; then
               IS_EXCLUDED=1
@@ -312,6 +326,7 @@ commands:
               fi
             fi
 
+            # Remove any --test target flags,they cause nextest build errors
             BUILD_FLAGS_SANITIZED="$(printf '%s' "$BUILD_FLAGS" \
               | sed -E "s/(^|[[:space:]])--test[[:space:]]+'[^']*'([[:space:]]|$)/ /g" \
               | sed -E 's/(^|[[:space:]])--test[[:space:]]+\"[^\"]*\"([[:space:]]|$)/ /g' \
@@ -319,16 +334,19 @@ commands:
               | tr -s ' ' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
             )"
 
+            # Detect wildcard integration selection: `--test '*'` (with or without quotes)
             HAS_TEST_WILDCARD=0
             if printf '%s\n' "$BUILD_FLAGS" | grep -Eq -- '--test[[:space:]]+("\*"|'\''\*'\''|\*)'; then
               HAS_TEST_WILDCARD=1
             fi
 
+            # Build nextest filter expression from any --skip <pattern> arguments
             FILTER_EXPR=""
             if [ "$WSM" = "snarkvm-synthesizer" ] && [ "$HAS_TEST_WILDCARD" -eq 1 ]; then
               FILTER_EXPR='test(/test_command_parse/)+test(/test_instruction_parse/)+test(/test_process_execute/)+test(/test_program_parse/)+test(/test_vm_execute_and_finalize/)'
             fi
 
+            # Build nextest filter expression from any --skip <pattern> arguments
             if [ -z "$FILTER_EXPR" ] && [ -n "$RIGHT_OF_SEP" ]; then
               SKIPS="$(printf '%s\n' "$RIGHT_OF_SEP" \
                 | sed -E 's/[[:space:]]+/ /g' \
@@ -355,6 +373,7 @@ commands:
               fi
             fi
 
+            # Detect and extract --test-threads value (used to set JOBS)
             TEST_THREADS=""
             if [ -n "$RIGHT_OF_SEP" ]; then
               TEST_THREADS="$(printf '%s\n' "$RIGHT_OF_SEP" | sed -nE 's/.*--test-threads=([0-9]+).*/\1/p' | head -n1)"
@@ -369,6 +388,7 @@ commands:
               JOBS="$TEST_THREADS"
             fi
 
+            # Create nextest config (disable fail-fast, add slow-timeout + JUnit output)
             SLOW_PERIOD="${NEXTEST_SLOW_PERIOD:-60s}"
             CFG_ARGS=()
             TMPD="$(mktemp -d)"
@@ -385,12 +405,15 @@ commands:
             } > "$TMPD/nextest-override.toml"
             CFG_ARGS+=(--config-file "$TMPD/nextest-override.toml")
 
+            # Print configuration summary for debugging
             echo "==> nextest package: << parameters.workspace_member >>"
             echo "==> build flags (sanitized): '${BUILD_FLAGS_SANITIZED}'"
             echo "==> filter-expr: ${FILTER_EXPR:-<none>}  (right-of-sep: ${RIGHT_OF_SEP:-<none>})"
             echo "==> test-threads override: ${TEST_THREADS:-<none>}"
             echo "==> jobs: ${JOBS}"
 
+            # Use plain cargo test if --no-run was requested
+            # Otherwise, run tests with cargo nextest
             if printf '%s' " $BUILD_FLAGS_SANITIZED " | grep -q ' --no-run '; then
               RUST_MIN_STACK=67108864 cargo test --package="<< parameters.workspace_member >>" $BUILD_FLAGS_SANITIZED | tee "$OUT"
               : > "$CSV"; : > "$TOP"
