@@ -211,6 +211,7 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
         E::assert_eq(b7, Boolean::<E>::constant(false)).expect("Identifier literal high bit must be zero");
 
         // Step 2: Compute category selectors from (b6, b5).
+
         // sel_00 = (1-b6)*(1-b5) -> null category (0x00).
         let not_b6 = b6.not();
         let not_b5 = b5.not();
@@ -223,6 +224,7 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
         let sel_11 = b6 & b5;
 
         // Step 3: Compute shared intermediates.
+
         // u1 = b4*b3.
         let u1 = b4 & b3;
         // b1b0 = b1*b0.
@@ -242,12 +244,14 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
         let all_zero_5 = &z3 & &not_b0;
 
         // Step 4: Null case (b6=0, b5=0 -> byte must be 0x00).
+
         // sel_00 AND NOT(all bits zero) = false.
         let any_low5 = all_zero_5.clone().not();
         let null_violation = &sel_00 & &any_low5;
         E::assert_eq(&null_violation, Boolean::<E>::constant(false)).expect("Identifier literal null byte violation");
 
         // Step 5: Digit case (b6=0, b5=1 -> 0x30-0x39, i.e. b4=1 and low4 <= 9).
+
         // sel_01 * (1-b4) = 0 -> b4 must be 1.
         let digit_b4_violation = &sel_01 & &not_b4;
         E::assert_eq(&digit_b4_violation, Boolean::<E>::constant(false))
@@ -264,10 +268,12 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
             .expect("Identifier literal digit range violation");
 
         // Step 6: Uppercase/underscore case (b6=1, b5=0 -> 0x41-0x5A or 0x5F).
-        // Valid offsets: 1-26 (A-Z) and 31 (_). Invalid: 0 and 27-30.
-        // Offsets 27-30 have b4&b3=1 and b2 XOR (b1&b0) = 1.
-        // XOR(b2, b1&b0): true for offsets {27=011,28=100,29=101,30=110},
-        //                  false for offsets {24=000,25=001,26=010,31=111}.
+
+        // Valid offsets: 1-26 (A-Z) and 31 (_).
+        // Invalid offsets: 0 and 27-30.
+        // XOR(b2, b1&b0):
+        // - true for offsets {27=011,28=100,29=101,30=110},
+        // - false for offsets {24=000,25=001,26=010,31=111}.
         let not_b1b0 = b1b0.clone().not();
         let xor_case_a = b2 & &not_b1b0;
         let xor_case_b = &not_b2 & &b1b0;
@@ -280,7 +286,9 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
         E::assert_eq(&upper_violation, Boolean::<E>::constant(false)).expect("Identifier literal uppercase violation");
 
         // Step 7: Lowercase case (b6=1, b5=1 -> 0x61-0x7A).
-        // Valid offsets: 1-26 (a-z). Invalid: 0 and 27-31.
+
+        // Valid offsets: 1-26 (a-z).
+        // Invalid: 0 and 27-31.
         // Offsets 27-31 have u1=1 and (b2 OR b1&b0) = 1.
         // Offsets 24-26 have u1=1 but (b2 OR b1&b0) = 0, so they pass.
         let b2_or_b1b0 = b2 | &b1b0;
@@ -290,6 +298,7 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
         E::assert_eq(&lower_violation, Boolean::<E>::constant(false)).expect("Identifier literal lowercase violation");
 
         // Step 8: First byte must be a letter (not digit, underscore, or null).
+
         // sel_10 includes both uppercase letters (A-Z, offsets 1-26) and underscore (offset 31).
         // We need to exclude underscore from the "letter" classification.
         // Underscore has offset 31 = 0b11111: u1=1, b1b0=1, b2=1.
@@ -305,6 +314,7 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
     }
 
     // Step 9: Enforce trailing nulls.
+
     // Once a null byte appears, all subsequent bytes must also be null.
     // For each consecutive pair: null_flags[i-1] * (1 - null_flags[i]) = 0.
     for i in 1..size_in_bytes {

@@ -38,6 +38,8 @@ See @CONTRIBUTING.md for detailed memory and performance guidelines.
 
 ## Validation
 
+**BLOCKING**: All checks must pass before considering any task complete. Fix failures before proceeding.
+
 Run in order:
 ```bash
 cargo check -p <crate>
@@ -47,6 +49,14 @@ cargo test -p <crate>
 ```
 
 Clippy warnings are errors. Formatting requires nightly (`cargo +nightly fmt --all` to fix).
+
+**Pre-commit hook** runs workspace-wide checks:
+```bash
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo +nightly fmt --all -- --check
+```
+
+If you modified multiple crates or are unsure, run the workspace-wide commands before completing.
 
 ## Git
 - Never commit unless explicitly asked.

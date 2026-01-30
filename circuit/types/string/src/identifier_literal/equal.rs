@@ -62,8 +62,6 @@ mod tests {
             Circuit::scope(format!("is_equal {mode} (same)"), || {
                 let candidate = circuit_a.is_equal(&circuit_a2);
                 assert!(candidate.eject_value());
-                // Verify equivalence with console.
-                assert_eq!(true, candidate.eject_value());
                 assert_scope!(num_constants, num_public, num_private, num_constraints);
             });
 
@@ -111,8 +109,6 @@ mod tests {
             Circuit::scope(format!("is_not_equal {mode} (same)"), || {
                 let candidate = circuit_a.is_not_equal(&circuit_a2);
                 assert!(!candidate.eject_value());
-                // Verify equivalence with console.
-                assert_eq!(false, candidate.eject_value());
                 assert_scope!(num_constants, num_public, num_private, num_constraints);
             });
 
