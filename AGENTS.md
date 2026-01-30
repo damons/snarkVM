@@ -64,17 +64,60 @@ Clippy warnings are errors. Formatting requires nightly (`cargo +nightly fmt --a
 
 ## Review Checklist
 
-**Correctness**
-- Logic traced step-by-step.
-- Boundary conditions handled: zero, empty, max.
-- Error handling correct; no panics possible.
-- No race conditions.
+### Correctness
+- [ ] Logic traced step-by-step — can you walk through execution mentally?
+- [ ] Boundary conditions handled: zero, empty, max, off-by-one
+- [ ] Error handling correct; no panics possible in production paths
+- [ ] No race conditions or ordering assumptions
+- [ ] State transitions valid from all reachable states
 
-**Crypto**
-- Field operations safe (no overflow, proper modular arithmetic).
-- Checked arithmetic used.
-- Randomness sourced appropriately.
-- No timing side-channels.
+### Crypto
+- [ ] Field operations safe (no overflow, proper modular arithmetic)
+- [ ] Checked arithmetic used where needed
+- [ ] Randomness sourced appropriately (not predictable, sufficient entropy)
+- [ ] No timing side-channels (constant-time where required)
+- [ ] Circuit constraints deterministic and complete
 
-**Performance**
-- See Code and Patterns above.
+### Memory & Performance
+- [ ] No unnecessary allocations in hot paths
+- [ ] Pre-allocation with `with_capacity` where size known
+- [ ] No unnecessary `.clone()` — prefer references
+- [ ] Iterators used efficiently; no intermediate collections
+- [ ] No O(n²) or worse hidden in loops
+
+### Security
+- [ ] Input validation at trust boundaries
+- [ ] No information leakage in error messages
+- [ ] Fail-closed (reject on uncertainty)
+- [ ] Backwards compatible (no consensus forks)
+
+## Deep Analysis Techniques
+
+When reviewing complex changes:
+
+### Trace Data Flow
+1. Identify all inputs (function args, global state, config)
+2. Follow each input through transformations
+3. Verify constraints are checked before use
+4. Verify outputs match expected invariants
+
+### Enumerate Failure Modes
+For each operation, ask:
+- What if this is zero/empty/max?
+- What if this fails/returns error?
+- What if this is called twice? Out of order?
+- What if an attacker controls this input?
+
+### Check Boundaries
+- [ ] Array/slice indices always in bounds
+- [ ] Arithmetic never overflows (or overflow is intentional)
+- [ ] Casts don't truncate unexpectedly
+- [ ] Loop bounds can't be manipulated
+
+### Verify Invariants
+Identify what must always be true:
+- Before function entry
+- After function exit
+- Between related data structures
+
+If an invariant can be violated, it's a bug.

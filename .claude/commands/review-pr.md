@@ -5,58 +5,71 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task
 
 # Review: $ARGUMENTS
 
-Assume there is a bug. Your job is to find it. Think very hard.
+Assume there is a bug. Find it.
 
-## 1. Gather
+```bash
+PR=$ARGUMENTS
+WS=".claude/workspace"
+```
 
-- [ ] `gh pr view $ARGUMENTS --json title,body,state,headRefName,baseRefName`
-- [ ] `gh pr diff $ARGUMENTS`
-- [ ] Fetch all review threads:
-  ```bash
-  gh api graphql -f query='
-  {
-    repository(owner: "ProvableHQ", name: "snarkVM") {
-      pullRequest(number: $ARGUMENTS) {
-        reviewThreads(first: 100) {
-          nodes {
-            isResolved
-            comments(first: 10) {
-              nodes { path line body author { login } }
-            }
-          }
-        }
-      }
-    }
-  }'
-  ```
-- [ ] Read full files (not just diff) for all modified code
-- [ ] Read files that import/are imported by modified files
-- [ ] Identify affected crates: `gh pr diff $ARGUMENTS --name-only`
+## 1. Context
 
-## 2. Understand
+If missing/stale: run `/fetch pr $PR` first.
 
-- [ ] What problem is this solving?
-- [ ] What is the approach?
-- [ ] Write down your understanding before proceeding
+Read state and files:
+```bash
+cat "$WS/state-pr-$PR.md"
+cat "$WS/files-pr-$PR.txt"
+```
 
-## 3. Analyze
+## 2. Triage
 
-For each change, apply the **Review Checklist** from AGENTS.md (correctness, crypto, memory & performance).
+Categorize files by risk:
+- **High**: consensus/, synthesizer/vm/, circuit/, crypto, validation
+- **Medium**: synthesizer/, core types, serialization
+- **Low**: tests, docs
 
-## 4. Verify
+Update `$WS/state-pr-$PR.md` with risk levels. For large PRs (30+ files), focus on high-risk areas.
 
-- [ ] Run tests on affected crates
-- [ ] If you cannot prove correctness, it's a bug
+## 3. Understand
 
-## 5. Report
+Before code analysis, answer:
+- What problem does this solve?
+- What invariants must hold?
+- What could go wrong?
 
-**Format:** `[SEVERITY] file:line — Issue. Suggested fix.`
+## 4. Analyze
 
-**Severities:** BLOCKER > BUG > ISSUE > NIT
+For each file:
+1. Read full file (not just diff) for context
+2. Trace logic step-by-step
+3. Check boundaries (zero, empty, max)
+4. **Write findings to state file immediately**
+5. Move on (previous content no longer needed)
 
-| Severity | Location | Issue |
-|----------|----------|-------|
+Fetch diffs selectively: `gh pr diff $PR -- path/to/file.rs`
 
-**Recommendation:** Approve / Request changes / Reject
+Apply AGENTS.md checklists: Correctness, Crypto, Memory, Security.
 
-Do not commit.
+## 5. Verify
+
+```bash
+cargo check -p <crate>
+cargo clippy -p <crate> -- -D warnings
+cargo test -p <crate>
+```
+
+## 6. Report
+
+Re-read `$WS/state-pr-$PR.md`, then output:
+
+| Sev | Location | Issue | Fix |
+|-----|----------|-------|-----|
+
+**Severities**: BLOCKER (must fix) / BUG (should fix) / ISSUE (quality) / NIT (style)
+
+**Recommendation**: Approve / Request changes / Needs discussion
+
+## 7. Handoff (if needed)
+
+Write `$WS/handoff-pr-$PR.md` with required fixes for `/fix-pr`.

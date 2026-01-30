@@ -16,19 +16,19 @@
 mod equal;
 mod helpers;
 
-#[cfg(test)]
-use snarkvm_circuit_environment::assert_scope;
-
 use snarkvm_circuit_environment::prelude::*;
 use snarkvm_circuit_types_boolean::Boolean;
 use snarkvm_circuit_types_field::Field;
 use snarkvm_circuit_types_integers::U8;
 
+#[cfg(test)]
+use snarkvm_circuit_environment::assert_scope;
+
 /// A circuit identifier literal storing an ASCII string (up to 31 bytes) as a byte array.
 ///
-/// When injected in non-constant mode, the circuit validates that every byte
-/// is a valid identifier character (`[a-zA-Z0-9_\0]`), that the first byte is
-/// a letter, and that null bytes appear only as trailing padding.
+/// The circuit validates that every byte is a valid identifier character
+/// (`[a-zA-Z0-9_\0]`), that the first byte is a letter, and that null bytes
+/// appear only as trailing padding.
 #[derive(Clone)]
 pub struct IdentifierLiteral<E: Environment> {
     /// The bytes of the identifier literal.
@@ -40,6 +40,26 @@ impl<E: Environment> IdentifierLiteral<E> {
     pub const fn size_in_bits() -> usize {
         console::IdentifierLiteral::<E::Network>::SIZE_IN_BITS
     }
+
+    /// Constructs an identifier literal from circuit bytes, validating the contents.
+    ///
+    /// For constants, validation is performed via the console type (no circuit overhead).
+    /// For non-constants, validation is performed via circuit constraints.
+    fn from_bytes(bytes: [U8<E>; 31]) -> Self {
+        let mode = bytes[0].eject_mode();
+        if mode.is_constant() {
+            // For constants, validate via the console type.
+            let mut raw_bytes = [0u8; 31];
+            for (i, byte) in bytes.iter().enumerate() {
+                raw_bytes[i] = *byte.eject_value();
+            }
+            console::IdentifierLiteral::<E::Network>::from_bytes_array(raw_bytes).expect("Invalid identifier literal");
+        } else {
+            // For non-constants, validate via circuit constraints.
+            validate_identifier_bytes::<E>(&bytes);
+        }
+        Self { bytes }
+    }
 }
 
 impl<E: Environment> Inject for IdentifierLiteral<E> {
@@ -50,18 +70,9 @@ impl<E: Environment> Inject for IdentifierLiteral<E> {
         // Access the raw bytes from the console identifier literal.
         let raw_bytes = value.bytes();
         // Inject each byte into the circuit.
-        let mut bytes_vec = Vec::with_capacity(raw_bytes.len());
-        for &byte in raw_bytes.iter() {
-            bytes_vec.push(U8::new(mode, console::Integer::new(byte)));
-        }
-        // Convert the Vec to a fixed-size array.
-        // Safety: max_bytes is always 31, matching the array size.
-        let bytes: [U8<E>; 31] = bytes_vec.try_into().unwrap_or_else(|_| E::halt("Failed to convert to byte array"));
-
-        // Validate the character set in the circuit.
-        validate_identifier_bytes::<E>(&bytes);
-
-        Self { bytes }
+        let bytes: [U8<E>; 31] = std::array::from_fn(|i| U8::new(mode, console::Integer::new(raw_bytes[i])));
+        // Validate and construct.
+        Self::from_bytes(bytes)
     }
 }
 
@@ -141,18 +152,12 @@ impl<E: Environment> Display for IdentifierLiteral<E> {
 ///
 /// Each of the 31 bytes must be in `[a-zA-Z0-9_\0]` (null bytes must be trailing-only).
 /// The first byte must be a letter (not digit, underscore, or null).
-/// This function converts bytes to bits and delegates to `validate_identifier_bits`,
-/// which also checks that padding bits (248..252) are zero.
+/// This function converts bytes to bits and delegates to `validate_identifier_bits`.
 fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
     // Collect all 248 bits from the 31 bytes.
     let mut bits = Vec::with_capacity(248);
     for byte in bytes.iter() {
         byte.write_bits_le(&mut bits);
-    }
-    // Pad to field size for validate_identifier_bits (it checks padding bits too).
-    let field_bits = console::Field::<E::Network>::size_in_bits();
-    while bits.len() < field_bits {
-        bits.push(Boolean::constant(false));
     }
     // Validate the bits.
     validate_identifier_bits::<E>(&bits);
@@ -162,7 +167,7 @@ fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
 ///
 /// Each of the 31 bytes must be in `[a-zA-Z0-9_\0]` (null bytes must be trailing-only).
 /// The first byte must be a letter (uppercase or lowercase).
-/// The remaining high bits (248..252) must be zero.
+/// If more than 248 bits are provided, the remaining high bits must be zero.
 ///
 /// # Circuit Approach
 ///
@@ -181,16 +186,16 @@ fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
 ///     4-7. Validate each category's allowed character range
 ///     8. Enforce first byte is a letter (not digit, underscore, or null)
 ///     9. Enforce null bytes appear only as trailing padding
-///     10. Check padding bits (248..252) are zero
+///     10. If extra bits provided, check they are zero
 fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
     // The maximum number of bytes in an identifier literal.
-    let max_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
+    let size_in_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
 
     // Null flags per byte, collected for trailing-null enforcement in Step 9.
-    let mut null_flags: Vec<Boolean<E>> = Vec::with_capacity(max_bytes);
+    let mut null_flags: Vec<Boolean<E>> = Vec::with_capacity(size_in_bytes);
 
     // Validate each of the 31 bytes.
-    for byte_idx in 0..max_bytes {
+    for byte_idx in 0..size_in_bytes {
         let offset = byte_idx * 8;
         // Extract the 8 bits for this byte: b0 (LSB) through b7 (MSB).
         let b0 = &bits[offset];
@@ -302,15 +307,14 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
     // Step 9: Enforce trailing nulls.
     // Once a null byte appears, all subsequent bytes must also be null.
     // For each consecutive pair: null_flags[i-1] * (1 - null_flags[i]) = 0.
-    for i in 1..max_bytes {
+    for i in 1..size_in_bytes {
         let not_null = null_flags[i].clone().not();
         E::enforce(|| (&null_flags[i - 1], &not_null, E::zero())).expect("Identifier literal trailing null violation");
     }
 
-    // Validate that the padding bits (248..252) are zero.
-    let data_bits = max_bytes * 8;
-    let field_bits = bits.len();
-    for bit in bits.iter().take(field_bits).skip(data_bits) {
+    // Step 10: If extra bits are provided (e.g., from a field), assert they are zero.
+    let data_bits = size_in_bytes * 8;
+    for bit in bits.iter().skip(data_bits) {
         E::assert_eq(bit, Boolean::<E>::constant(false)).expect("Identifier literal padding bit must be zero");
     }
 }
@@ -319,11 +323,11 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
 mod tests {
     use super::*;
     use snarkvm_circuit_environment::Circuit;
+    use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
 
-    /// Test strings covering various identifier patterns.
-    const TEST_STRINGS: &[&str] = &["a", "hello", "hello_world", "Test123", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"];
+    const ITERATIONS: usize = 10;
 
     fn check_new(
         mode: Mode,
@@ -332,10 +336,11 @@ mod tests {
         num_private: u64,
         num_constraints: u64,
     ) -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             Circuit::scope(format!("new {mode}"), || {
                 // Inject the identifier literal into the circuit.
@@ -364,6 +369,27 @@ mod tests {
     #[test]
     fn test_new_private() -> Result<()> {
         check_new(Mode::Private, 0, 0, 1058, 1275)
+    }
+
+    #[test]
+    fn test_new_max_length_identifier() -> Result<()> {
+        // Test the maximally large identifier (31 characters, no null padding).
+        let max_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde";
+        assert_eq!(
+            max_str.len(),
+            console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::SIZE_IN_BYTES
+        );
+
+        let expected =
+            console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(max_str).unwrap();
+
+        Circuit::scope("new max length", || {
+            let candidate = IdentifierLiteral::<CurrentEnvironment>::new(Mode::Private, expected);
+            assert_eq!(expected, candidate.eject_value());
+            assert!(Circuit::is_satisfied());
+        });
+        Circuit::reset();
+        Ok(())
     }
 
     #[test]
@@ -447,11 +473,13 @@ mod tests {
 
             // Only a-z and A-Z should satisfy the circuit.
             let expected_valid = byte.is_ascii_alphabetic();
-            assert_eq!(
-                Circuit::is_satisfied(),
-                expected_valid,
-                "First byte {byte}: expected satisfied={expected_valid}"
-            );
+            // Check positive case: valid bytes should satisfy the circuit.
+            if expected_valid {
+                assert!(Circuit::is_satisfied(), "First byte {byte}: expected circuit to be satisfied");
+            } else {
+                // Check negative case: invalid bytes should NOT satisfy the circuit.
+                assert!(!Circuit::is_satisfied(), "First byte {byte}: expected circuit to be unsatisfied");
+            }
             Circuit::reset();
         }
 
@@ -470,11 +498,13 @@ mod tests {
 
             // a-z, A-Z, 0-9, _, and null should satisfy the circuit.
             let expected_valid = byte.is_ascii_alphanumeric() || byte == b'_' || byte == 0;
-            assert_eq!(
-                Circuit::is_satisfied(),
-                expected_valid,
-                "Second byte {byte}: expected satisfied={expected_valid}"
-            );
+            // Check positive case: valid bytes should satisfy the circuit.
+            if expected_valid {
+                assert!(Circuit::is_satisfied(), "Second byte {byte}: expected circuit to be satisfied");
+            } else {
+                // Check negative case: invalid bytes should NOT satisfy the circuit.
+                assert!(!Circuit::is_satisfied(), "Second byte {byte}: expected circuit to be unsatisfied");
+            }
             Circuit::reset();
         }
     }

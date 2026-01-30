@@ -36,6 +36,8 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
+    const ITERATIONS: u64 = 1000;
+
     #[test]
     fn test_to_bits_length() {
         let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
@@ -45,20 +47,28 @@ mod tests {
 
     #[test]
     fn test_to_bits_le_roundtrip() {
-        let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
-        let bits_le = literal.to_bits_le();
-        // The field should be recoverable from the bits.
-        let recovered_field = Field::<CurrentEnvironment>::from_bits_le(&bits_le).unwrap();
-        assert_eq!(literal.to_field().unwrap(), recovered_field);
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            let literal = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let bits_le = literal.to_bits_le();
+            // The field should be recoverable from the bits.
+            let recovered_field = Field::<CurrentEnvironment>::from_bits_le(&bits_le).unwrap();
+            assert_eq!(literal.to_field().unwrap(), recovered_field);
+        }
     }
 
     #[test]
     fn test_to_bits_be_roundtrip() {
-        let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
-        let bits_be = literal.to_bits_be();
-        // Reverse to get LE and reconstruct.
-        let bits_le: Vec<bool> = bits_be.iter().rev().copied().collect();
-        let recovered_field = Field::<CurrentEnvironment>::from_bits_le(&bits_le).unwrap();
-        assert_eq!(literal.to_field().unwrap(), recovered_field);
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            let literal = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let bits_be = literal.to_bits_be();
+            // Reverse to get LE and reconstruct.
+            let bits_le: Vec<bool> = bits_be.iter().rev().copied().collect();
+            let recovered_field = Field::<CurrentEnvironment>::from_bits_le(&bits_le).unwrap();
+            assert_eq!(literal.to_field().unwrap(), recovered_field);
+        }
     }
 }

@@ -35,17 +35,19 @@ mod tests {
     use super::*;
     use console::ToField as _;
     use snarkvm_circuit_environment::Circuit;
+    use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
 
-    /// Test strings covering various identifier patterns.
-    const TEST_STRINGS: &[&str] = &["a", "hello", "hello_world", "Test123", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"];
+    const ITERATIONS: usize = 10;
 
     fn check_to_field(mode: Mode, num_constants: u64, num_public: u64, num_private: u64, num_constraints: u64) {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
             let console_value =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Inject the identifier literal.
             let candidate = IdentifierLiteral::<CurrentEnvironment>::new(mode, console_value);
@@ -54,7 +56,7 @@ mod tests {
                 // Perform the conversion.
                 let result = candidate.to_field();
 
-                // Verify the field value matches.
+                // Verify the field value matches the console implementation (equivalence test).
                 let expected_field = console_value.to_field().unwrap();
                 assert_eq!(expected_field, result.eject_value());
 

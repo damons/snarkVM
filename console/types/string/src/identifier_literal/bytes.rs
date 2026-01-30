@@ -17,7 +17,6 @@ use super::*;
 
 impl<E: Environment> FromBytes for IdentifierLiteral<E> {
     /// Reads the identifier literal from a buffer.
-    /// Format: length-prefixed (num_bytes as u8, then content bytes).
     #[inline]
     fn read_le<R: Read>(mut reader: R) -> IoResult<Self> {
         // Read the number of content bytes.
@@ -27,7 +26,6 @@ impl<E: Environment> FromBytes for IdentifierLiteral<E> {
             return Err(error("Invalid identifier literal length"));
         }
         // Read directly into a 31-byte array (remaining bytes stay zero).
-        // Note: Using 31 directly because Rust doesn't support associated constants in array sizes.
         let mut bytes = [0u8; 31];
         reader.read_exact(&mut bytes[..num_bytes])?;
         // Validate and construct the identifier literal.
@@ -37,13 +35,12 @@ impl<E: Environment> FromBytes for IdentifierLiteral<E> {
 
 impl<E: Environment> ToBytes for IdentifierLiteral<E> {
     /// Writes the identifier literal to a buffer.
-    /// Format: length-prefixed (num_bytes as u8, then content bytes).
     #[inline]
     fn write_le<W: Write>(&self, mut writer: W) -> IoResult<()> {
         // Write the length.
         let length = self.length();
         length.write_le(&mut writer)?;
-        // Write only the content bytes.
+        // Write the content bytes.
         writer.write_all(&self.bytes[..length as usize])
     }
 }

@@ -112,8 +112,10 @@ impl<N: Network> PlaintextType<N> {
     pub fn contains_identifier_type(&self) -> bool {
         match self {
             Self::Literal(LiteralType::Identifier) => true,
+            Self::Literal(_) => false,
             Self::Array(array_type) => array_type.contains_identifier_type(),
-            _ => false, // Structs are checked in their definition.
+            // Structs are checked in their definition.
+            Self::Struct(_) | Self::ExternalStruct(_) => false,
         }
     }
 

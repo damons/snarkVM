@@ -22,12 +22,12 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
     ///
     /// - If more than 248 bits are provided, upper bits are asserted to be zero.
     /// - If fewer than 248 bits are provided, the input is zero-padded.
-    /// - Validates the identifier format (character set, first char is letter, trailing nulls).
+    /// - Validates the identifier format (character set, first char is a letter, trailing nulls).
     fn from_bits_le(bits_le: &[Self::Boolean]) -> Self {
         let size_in_bits = Self::size_in_bits();
         let size_in_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
 
-        // If more bits than needed, assert upper bits are zero.
+        // If there are more bits than needed, assert upper bits are zero.
         if bits_le.len() > size_in_bits {
             Boolean::assert_bits_are_zero(&bits_le[size_in_bits..]);
         }
@@ -36,32 +36,16 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
         let mut padded = bits_le.iter().take(size_in_bits).cloned().collect::<Vec<_>>();
         padded.resize(size_in_bits, Boolean::constant(false));
 
-        // Convert bits to bytes.
+        // Convert bits to bytes using chunks.
         let mut bytes_vec = Vec::with_capacity(size_in_bytes);
-        for i in 0..size_in_bytes {
-            let chunk = &padded[i * 8..(i + 1) * 8];
+        for chunk in padded.chunks(8) {
             bytes_vec.push(U8::from_bits_le(chunk));
         }
-        // Safety: max_bytes is always 31, matching the array size.
+        // Safety: size_in_bytes is always 31, matching the array size.
         let bytes: [U8<E>; 31] = bytes_vec.try_into().unwrap_or_else(|_| E::halt("Failed to convert to byte array"));
 
-        // Determine mode from the first bit.
-        let mode = bits_le.first().map(|b| b.eject_mode()).unwrap_or(Mode::Constant);
-
-        // Validate the identifier.
-        if mode.is_constant() {
-            // For constants, validate via the console type.
-            let mut raw_bytes = [0u8; 31];
-            for (i, byte) in bytes.iter().enumerate() {
-                raw_bytes[i] = *byte.eject_value();
-            }
-            console::IdentifierLiteral::<E::Network>::from_bytes_array(raw_bytes).expect("Invalid identifier literal");
-        } else {
-            // For non-constants, validate via circuit constraints.
-            validate_identifier_bytes::<E>(&bytes);
-        }
-
-        Self { bytes }
+        // Validate and construct using the shared helper.
+        Self::from_bytes(bytes)
     }
 
     /// Creates an identifier literal from a list of big-endian bits.
@@ -76,11 +60,11 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
 mod tests {
     use super::*;
     use snarkvm_circuit_environment::Circuit;
+    use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
 
-    /// Test strings covering various identifier patterns.
-    const TEST_STRINGS: &[&str] = &["a", "hello", "hello_world", "Test123", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"];
+    const ITERATIONS: usize = 10;
 
     fn check_from_bits_le(
         mode: Mode,
@@ -89,10 +73,11 @@ mod tests {
         num_private: u64,
         num_constraints: u64,
     ) -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Get the bits from a circuit representation.
             let injected = IdentifierLiteral::<CurrentEnvironment>::new(mode, expected);
@@ -121,10 +106,11 @@ mod tests {
         num_private: u64,
         num_constraints: u64,
     ) -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Get the bits from a circuit representation.
             let injected = IdentifierLiteral::<CurrentEnvironment>::new(mode, expected);

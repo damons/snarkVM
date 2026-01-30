@@ -1061,31 +1061,34 @@ impl<N: Network> ProgramCore<N> {
             }
         }
 
-        // Determine if any function instructions contain the new syntax.
-        let function_contains = cfg_iter!(self.functions())
-            .flat_map(|(_, function)| function.instructions())
-            .any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand));
+        // Check functions: instructions, finalize commands, and type declarations in one pass.
+        let function_contains = cfg_iter!(self.functions()).any(|(_, function)| {
+            function.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand))
+                || function
+                    .finalize_logic()
+                    .map(|finalize| finalize.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)))
+                    .unwrap_or(false)
+                || function.contains_identifier_type()
+        });
 
-        // Determine if any closure instructions contain the new syntax.
-        let closure_contains = cfg_iter!(self.closures())
-            .flat_map(|(_, closure)| closure.instructions())
-            .any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand));
+        // Check closures: instructions and type declarations in one pass.
+        let closure_contains = cfg_iter!(self.closures()).any(|(_, closure)| {
+            closure.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand))
+                || closure.contains_identifier_type()
+        });
 
-        // Determine if any finalize commands or constructor commands contain the new syntax.
-        let command_contains = cfg_iter!(self.functions())
-            .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
-            .flatten()
-            .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
-            .any(|command| cfg_iter!(command.operands()).any(is_v14_operand));
+        // Check constructor commands.
+        let constructor_contains = self
+            .constructor
+            .iter()
+            .any(|constructor| constructor.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)));
 
-        // Check for identifier type declarations in type definitions.
-        let type_declarations_contain = self.mappings.values().any(|mapping| mapping.contains_identifier_type())
+        // Check remaining type definitions: mappings, structs, records.
+        let type_definitions_contain = self.mappings.values().any(|mapping| mapping.contains_identifier_type())
             || self.structs.values().any(|struct_type| struct_type.contains_identifier_type())
-            || self.records.values().any(|record_type| record_type.contains_identifier_type())
-            || self.closures.values().any(|closure| closure.contains_identifier_type())
-            || self.functions.values().any(|function| function.contains_identifier_type());
+            || self.records.values().any(|record_type| record_type.contains_identifier_type());
 
-        function_contains || closure_contains || command_contains || type_declarations_contain
+        function_contains || closure_contains || constructor_contains || type_definitions_contain
     }
 
     /// Returns `true` if a program contains any string type.

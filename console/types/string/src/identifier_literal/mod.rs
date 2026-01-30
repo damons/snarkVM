@@ -31,7 +31,7 @@ use snarkvm_console_network_environment::prelude::*;
 /// The string content is stored as null-padded bytes in little-endian order.
 ///
 /// Syntax: `'hello_world'` (single-quoted, no type suffix).
-/// Allowed characters: `[a-zA-Z][a-zA-Z0-9_]*`.
+/// The allowed characters are: `[a-zA-Z][a-zA-Z0-9_]*`.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct IdentifierLiteral<E: Environment> {
     /// The 31 bytes of the identifier (null-padded).
@@ -76,7 +76,7 @@ impl<E: Environment> IdentifierLiteral<E> {
     /// Returns the length of the identifier (number of non-null bytes).
     pub fn length(&self) -> u8 {
         // Find the first null byte, or return SIZE_IN_BYTES if no null is found.
-        // Safety: SIZE_IN_BYTES is 31, which always fits in u8.
+        // Note that `SIZE_IN_BYTES` is 31, which always fits in u8.
         #[allow(clippy::cast_possible_truncation)]
         let length = self.bytes.iter().position(|&b| b == 0).unwrap_or(Self::SIZE_IN_BYTES) as u8;
         length
@@ -211,12 +211,21 @@ mod tests {
             bytes[0] = byte;
             let result = IdentifierLiteral::<CurrentEnvironment>::from_bytes_array(bytes);
             let expected_valid = byte.is_ascii_alphabetic();
-            assert_eq!(
-                result.is_ok(),
-                expected_valid,
-                "First byte {byte} ('{}'): expected valid={expected_valid}",
-                if byte.is_ascii_graphic() { byte as char } else { '?' }
-            );
+            // Check positive case: valid bytes should succeed.
+            if expected_valid {
+                assert!(
+                    result.is_ok(),
+                    "First byte {byte} ('{}'): expected valid but got error",
+                    if byte.is_ascii_graphic() { byte as char } else { '?' }
+                );
+            } else {
+                // Check negative case: invalid bytes should fail.
+                assert!(
+                    result.is_err(),
+                    "First byte {byte} ('{}'): expected error but got success",
+                    if byte.is_ascii_graphic() { byte as char } else { '?' }
+                );
+            }
         }
 
         // Test subsequent bytes: a-z, A-Z, 0-9, _ should be valid (plus null for padding).
@@ -226,12 +235,21 @@ mod tests {
             bytes[1] = byte;
             let result = IdentifierLiteral::<CurrentEnvironment>::from_bytes_array(bytes);
             let expected_valid = byte.is_ascii_alphanumeric() || byte == b'_' || byte == 0;
-            assert_eq!(
-                result.is_ok(),
-                expected_valid,
-                "Subsequent byte {byte} ('{}'): expected valid={expected_valid}",
-                if byte.is_ascii_graphic() { byte as char } else { '?' }
-            );
+            // Check positive case: valid bytes should succeed.
+            if expected_valid {
+                assert!(
+                    result.is_ok(),
+                    "Subsequent byte {byte} ('{}'): expected valid but got error",
+                    if byte.is_ascii_graphic() { byte as char } else { '?' }
+                );
+            } else {
+                // Check negative case: invalid bytes should fail.
+                assert!(
+                    result.is_err(),
+                    "Subsequent byte {byte} ('{}'): expected error but got success",
+                    if byte.is_ascii_graphic() { byte as char } else { '?' }
+                );
+            }
         }
     }
 }

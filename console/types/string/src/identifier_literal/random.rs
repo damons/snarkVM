@@ -56,7 +56,7 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
-    const ITERATIONS: usize = 100;
+    const ITERATIONS: usize = 1000;
 
     #[test]
     fn test_random() {

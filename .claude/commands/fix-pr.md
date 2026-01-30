@@ -1,69 +1,70 @@
 ---
-description: Fix PR based on review feedback with TDD and security focus
+description: Fix PR review feedback with TDD
 allowed-tools: Bash, Read, Write, Grep, Glob, Task, AskUserQuestion
 ---
 
 # Fix PR: $ARGUMENTS
 
-Follow CLAUDE.md for validation commands and code patterns.
+```bash
+PR=$ARGUMENTS
+WS=".claude/workspace"
+```
 
-## 1. Gather
+## 1. Context
 
-- [ ] `gh pr view $ARGUMENTS --json title,body,state,headRefName,baseRefName`
-- [ ] `gh pr diff $ARGUMENTS`
-- [ ] Fetch all review threads:
-  ```bash
-  gh api graphql -f query='
-  {
-    repository(owner: "ProvableHQ", name: "snarkVM") {
-      pullRequest(number: $ARGUMENTS) {
-        reviewThreads(first: 100) {
-          nodes {
-            isResolved
-            comments(first: 10) {
-              nodes { path line body author { login } }
-            }
-          }
-        }
-      }
-    }
-  }'
-  ```
-- [ ] Read complete files affected by comments
-- [ ] Search codebase for related patterns
+If missing/stale: run `/fetch pr $PR` first.
+
+```bash
+cat "$WS/state-pr-$PR.md"
+cat "$WS/unresolved-pr-$PR.json" | jq -r '.[] | "- \(.path):\(.line) [\(.reviewer)]: \(.comment[0:100])..."'
+[ -f "$WS/handoff-pr-$PR.md" ] && cat "$WS/handoff-pr-$PR.md"
+```
 
 ## 2. Analyze
 
 For each unresolved comment:
-- [ ] What is the reviewer asking for?
-- [ ] What is the underlying concern (correctness, performance, security)?
-- [ ] What are the possible solutions and tradeoffs?
-- [ ] What could break? Any downstream dependencies?
+1. What is the request?
+2. What's the concern? (Correctness / Performance / Security / Style)
+3. What could break?
+4. Risk level?
 
-Think very hard.
+Update `$WS/state-pr-$PR.md` with analysis.
+
+**Think hard. Do not proceed until you understand each request.**
 
 ## 3. Plan (APPROVAL REQUIRED)
 
-Present for each comment:
+Present plan:
+| # | Location | Request | Fix | Risk |
+|---|----------|---------|-----|------|
 
-| # | Location | Request | Proposed Fix | Risk |
-|---|----------|---------|--------------|------|
-| 1 | file:line | ... | ... | Low/Med/High |
-
-Use **AskUserQuestion** to get approval before proceeding.
+**Use AskUserQuestion to get approval.**
 
 ## 4. Implement
 
-For each approved fix:
-- [ ] Baseline: all validation passes before changes
-- [ ] Write or update test first
-- [ ] Make minimal change
-- [ ] Verify: all validation passes
+Baseline first:
+```bash
+cargo check -p <crate> && cargo clippy -p <crate> -- -D warnings && cargo test -p <crate> --lib
+```
 
-## 5. Report
+For each fix:
+1. Write/update test (should fail)
+2. Make minimal change (match existing style)
+3. Verify: `cargo check && cargo clippy && cargo test`
+4. Log to state file
 
-| # | Comment | Resolution | Verification |
-|---|---------|------------|--------------|
-| 1 | ... | Implemented / Skipped | Tests pass |
+## 5. Final
 
-Do not commit.
+```bash
+cargo check -p <crate>
+cargo clippy -p <crate> -- -D warnings
+cargo +nightly fmt --check
+cargo test -p <crate>
+```
+
+## 6. Report
+
+| # | Comment | Resolution | Verified |
+|---|---------|------------|----------|
+
+Do not commit unless asked.

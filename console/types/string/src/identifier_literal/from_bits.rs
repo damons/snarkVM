@@ -57,21 +57,31 @@ mod tests {
 
     type CurrentEnvironment = Console;
 
+    const ITERATIONS: u64 = 1000;
+
     #[test]
     fn test_from_bits_le_roundtrip() -> Result<()> {
-        let original = IdentifierLiteral::<CurrentEnvironment>::new("hello_world")?;
-        let bits = original.to_bits_le();
-        let recovered = IdentifierLiteral::<CurrentEnvironment>::from_bits_le(&bits)?;
-        assert_eq!(original, recovered);
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            let original = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let bits = original.to_bits_le();
+            let recovered = IdentifierLiteral::<CurrentEnvironment>::from_bits_le(&bits)?;
+            assert_eq!(original, recovered);
+        }
         Ok(())
     }
 
     #[test]
     fn test_from_bits_be_roundtrip() -> Result<()> {
-        let original = IdentifierLiteral::<CurrentEnvironment>::new("hello_world")?;
-        let bits = original.to_bits_be();
-        let recovered = IdentifierLiteral::<CurrentEnvironment>::from_bits_be(&bits)?;
-        assert_eq!(original, recovered);
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            let original = IdentifierLiteral::<CurrentEnvironment>::rand(&mut rng);
+            let bits = original.to_bits_be();
+            let recovered = IdentifierLiteral::<CurrentEnvironment>::from_bits_be(&bits)?;
+            assert_eq!(original, recovered);
+        }
         Ok(())
     }
 }

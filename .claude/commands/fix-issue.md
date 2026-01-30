@@ -1,57 +1,77 @@
 ---
-description: Fix issue with TDD and security focus
+description: Fix GitHub issue with TDD
 allowed-tools: Bash, Read, Write, Grep, Glob, Task, AskUserQuestion
 ---
 
 # Fix: $ARGUMENTS
 
-Follow CLAUDE.md for validation commands and code patterns.
+```bash
+ISSUE=$ARGUMENTS
+WS=".claude/workspace"
+```
 
-## 1. Gather
+## 1. Context
 
-- [ ] Fetch issue details:
-  ```bash
-  gh api graphql -f query='
-  {
-    repository(owner: "ProvableHQ", name: "snarkVM") {
-      issue(number: $ARGUMENTS) {
-        title
-        body
-        comments(first: 50) {
-          nodes { body author { login } }
-        }
-      }
-    }
-  }'
-  ```
-- [ ] Identify affected crate(s)
-- [ ] Locate relevant code
-- [ ] Articulate root cause
+If missing/stale: run `/fetch issue $ISSUE` first.
 
-Think very hard. Do not proceed until you can explain the root cause.
+```bash
+cat "$WS/state-issue-$ISSUE.md"
+cat "$WS/comments-issue-$ISSUE.jsonl" | jq -r '"[\(.author.login)]: \(.body[0:150])..."' | head -10
+```
 
-## 2. Plan (APPROVAL REQUIRED)
+## 2. Investigate
+
+Search for related code:
+```bash
+git grep -n "relevant_term" -- "*.rs" | head -30
+```
+
+Answer:
+- Can you reproduce?
+- Expected vs actual behavior?
+- Where does the code path go wrong?
+
+Update `$WS/state-issue-$ISSUE.md` with root cause and evidence.
+
+**Think hard. Do not proceed until you can explain the root cause.**
+
+## 3. Plan (APPROVAL REQUIRED)
 
 Present:
-- **Root cause:** ...
-- **Proposed fix:** ...
-- **Files to modify:** ...
-- **Tests to add:** ...
+- **Root cause**: [specific]
+- **Fix**: [specific changes]
+- **Files**: path/to/file.rs — change X to Y
+- **Tests**: test_name — verifies Z
+- **Risk**: Low/Med/High
 
-Use **AskUserQuestion** to get approval before proceeding.
+**Use AskUserQuestion to get approval.**
 
-## 3. Implement
+## 4. Implement
 
-- [ ] Baseline: all validation passes before changes
-- [ ] Write failing test that reproduces the bug
-- [ ] Make smallest change that makes test pass
-- [ ] Verify: all validation passes
+Baseline first:
+```bash
+cargo check -p <crate> && cargo clippy -p <crate> -- -D warnings && cargo test -p <crate> --lib
+```
 
-## 4. Report
+1. Write failing test
+2. Make minimal fix (match existing style)
+3. Verify test passes
+4. Log to state file
 
-- Root cause
-- What changed
-- Test added
-- All checks pass
+## 5. Final
 
-Do not commit.
+```bash
+cargo check -p <crate>
+cargo clippy -p <crate> -- -D warnings
+cargo +nightly fmt --check
+cargo test -p <crate>
+```
+
+## 6. Report
+
+**Issue**: #$ISSUE — [title]
+**Root cause**: [brief]
+**Fix**: [what changed]
+**Test**: [what it verifies]
+
+Do not commit unless asked.

@@ -38,17 +38,18 @@ impl<E: Environment> ToBits for IdentifierLiteral<E> {
 mod tests {
     use super::*;
     use snarkvm_circuit_environment::Circuit;
+    use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
 
-    /// Test strings covering various identifier patterns.
-    const TEST_STRINGS: &[&str] = &["a", "hello", "hello_world", "Test123", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"];
+    const ITERATIONS: usize = 10;
 
     fn check_to_bits_le(mode: Mode) -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Inject into the circuit (outside the scope).
             let candidate = IdentifierLiteral::<CurrentEnvironment>::new(mode, expected);
@@ -75,10 +76,11 @@ mod tests {
     }
 
     fn check_to_bits_be(mode: Mode) -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Inject into the circuit (outside the scope).
             let candidate = IdentifierLiteral::<CurrentEnvironment>::new(mode, expected);

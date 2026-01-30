@@ -95,7 +95,8 @@ impl<N: Network> RegisterType<N> {
     pub fn contains_identifier_type(&self) -> bool {
         match self {
             Self::Plaintext(plaintext_type) => plaintext_type.contains_identifier_type(),
-            _ => false, // Record, external record, and future types are checked elsewhere.
+            // Record, external record, and future types are checked elsewhere.
+            Self::Record(_) | Self::ExternalRecord(_) | Self::Future(_) => false,
         }
     }
 

@@ -33,11 +33,11 @@ mod tests {
     use super::*;
     use console::ToField as _;
     use snarkvm_circuit_environment::Circuit;
+    use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
 
-    /// Test strings covering various identifier patterns.
-    const TEST_STRINGS: &[&str] = &["a", "hello", "hello_world", "Test123", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcde"];
+    const ITERATIONS: usize = 10;
 
     fn check_from_field(
         mode: Mode,
@@ -46,10 +46,11 @@ mod tests {
         num_private: u64,
         num_constraints: u64,
     ) -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Get the field representation.
             let expected_field = expected.to_field().unwrap();
@@ -90,10 +91,11 @@ mod tests {
 
     #[test]
     fn test_from_field_round_trip() -> Result<()> {
-        for string in TEST_STRINGS {
-            // Construct a console identifier literal.
-            let expected =
-                console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new(string).unwrap();
+        let mut rng = TestRng::default();
+
+        for _ in 0..ITERATIONS {
+            // Construct a random console identifier literal.
+            let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
             // Inject, convert to field, then back.
             let injected = IdentifierLiteral::<CurrentEnvironment>::new(Mode::Private, expected);

@@ -33,8 +33,11 @@ impl<E: Environment> Equal<Self> for IdentifierLiteral<E> {
 mod tests {
     use super::*;
     use snarkvm_circuit_environment::Circuit;
+    use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
+
+    const ITERATIONS: usize = 10;
 
     fn check_is_equal(
         mode: Mode,
@@ -43,30 +46,37 @@ mod tests {
         num_private: u64,
         num_constraints: u64,
     ) -> Result<()> {
-        // Construct two distinct console identifier literals.
-        let value_a = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new("hello").unwrap();
-        let value_b = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new("world").unwrap();
+        let mut rng = TestRng::default();
 
-        // Inject both into the circuit.
-        let circuit_a = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
-        let circuit_a2 = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
-        let circuit_b = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_b);
+        for _ in 0..ITERATIONS {
+            // Construct two distinct random console identifier literals.
+            let value_a = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
+            let value_b = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
-        // Check: same value is equal to itself.
-        Circuit::scope(format!("is_equal {mode} (same)"), || {
-            let candidate = circuit_a.is_equal(&circuit_a2);
-            assert!(candidate.eject_value());
-            assert_scope!(num_constants, num_public, num_private, num_constraints);
-        });
+            // Inject both into the circuit.
+            let circuit_a = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
+            let circuit_a2 = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
+            let circuit_b = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_b);
 
-        // Check: different values are not equal.
-        Circuit::scope(format!("is_equal {mode} (different)"), || {
-            let candidate = circuit_a.is_equal(&circuit_b);
-            assert!(!candidate.eject_value());
-            assert_scope!(num_constants, num_public, num_private, num_constraints);
-        });
+            // Check: same value is equal to itself.
+            Circuit::scope(format!("is_equal {mode} (same)"), || {
+                let candidate = circuit_a.is_equal(&circuit_a2);
+                assert!(candidate.eject_value());
+                // Verify equivalence with console.
+                assert_eq!(true, candidate.eject_value());
+                assert_scope!(num_constants, num_public, num_private, num_constraints);
+            });
 
-        Circuit::reset();
+            // Check: different values are not equal.
+            Circuit::scope(format!("is_equal {mode} (different)"), || {
+                let candidate = circuit_a.is_equal(&circuit_b);
+                // Verify equivalence with console.
+                assert_eq!(value_a == value_b, candidate.eject_value());
+                assert_scope!(num_constants, num_public, num_private, num_constraints);
+            });
+
+            Circuit::reset();
+        }
         Ok(())
     }
 
@@ -77,30 +87,37 @@ mod tests {
         num_private: u64,
         num_constraints: u64,
     ) -> Result<()> {
-        // Construct two distinct console identifier literals.
-        let value_a = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new("hello").unwrap();
-        let value_b = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::new("world").unwrap();
+        let mut rng = TestRng::default();
 
-        // Inject both into the circuit.
-        let circuit_a = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
-        let circuit_a2 = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
-        let circuit_b = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_b);
+        for _ in 0..ITERATIONS {
+            // Construct two distinct random console identifier literals.
+            let value_a = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
+            let value_b = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
-        // Check: different values are not equal.
-        Circuit::scope(format!("is_not_equal {mode} (different)"), || {
-            let candidate = circuit_a.is_not_equal(&circuit_b);
-            assert!(candidate.eject_value());
-            assert_scope!(num_constants, num_public, num_private, num_constraints);
-        });
+            // Inject both into the circuit.
+            let circuit_a = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
+            let circuit_a2 = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_a);
+            let circuit_b = IdentifierLiteral::<CurrentEnvironment>::new(mode, value_b);
 
-        // Check: same value is not not-equal.
-        Circuit::scope(format!("is_not_equal {mode} (same)"), || {
-            let candidate = circuit_a.is_not_equal(&circuit_a2);
-            assert!(!candidate.eject_value());
-            assert_scope!(num_constants, num_public, num_private, num_constraints);
-        });
+            // Check: different values are not equal.
+            Circuit::scope(format!("is_not_equal {mode} (different)"), || {
+                let candidate = circuit_a.is_not_equal(&circuit_b);
+                // Verify equivalence with console.
+                assert_eq!(value_a != value_b, candidate.eject_value());
+                assert_scope!(num_constants, num_public, num_private, num_constraints);
+            });
 
-        Circuit::reset();
+            // Check: same value is not not-equal.
+            Circuit::scope(format!("is_not_equal {mode} (same)"), || {
+                let candidate = circuit_a.is_not_equal(&circuit_a2);
+                assert!(!candidate.eject_value());
+                // Verify equivalence with console.
+                assert_eq!(false, candidate.eject_value());
+                assert_scope!(num_constants, num_public, num_private, num_constraints);
+            });
+
+            Circuit::reset();
+        }
         Ok(())
     }
 
