@@ -28,7 +28,6 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
         }
 
         // Reconstruct bytes from the first SIZE_IN_BITS bits.
-        // Note: Using 31 directly because Rust doesn't support associated constants in array sizes.
         let mut bytes = [0u8; 31];
         for (i, chunk) in bits_le[..Self::SIZE_IN_BITS].chunks(8).enumerate() {
             for (j, &bit) in chunk.iter().enumerate() {
