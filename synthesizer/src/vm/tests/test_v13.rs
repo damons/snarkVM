@@ -427,7 +427,6 @@ constructor:
     vm.add_next_block(&block).unwrap();
 
     // Execute the child function to verify runtime validation also works.
-    use console::program::Value;
     let execution = vm
         .execute(
             &caller_private_key,
@@ -444,27 +443,42 @@ constructor:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
 }
 
-/// Deploys two programs sequentially on a VM at a given consensus version.
+struct ExecutionTest<'a> {
+    program: &'a str,
+    function: &'a str,
+    inputs: Vec<Value<CurrentNetwork>>,
+}
+
+/// Deploys two programs sequentially on a VM at a given consensus version and optionally executes a function post-deploy.
 ///
 /// # Parameters
 /// - `consensus_version`: The consensus version at which to deploy the programs.
 /// - `program_one`: The first program to deploy; expected to always succeed.
 /// - `program_two`: The second program to deploy; success or failure depends on the consensus rules.
+/// - `execution_test`: Describes a function to execute post-deploy (only runs on V13).
+///   Includes the program name, function name, and input values.
 ///
-/// # Returns
-/// The `Block<CurrentNetwork>` produced by deploying the second program.
+/// # Behavior
+/// - Always deploys `program_one` and asserts that the deployment succeeds.
+/// - Deploys `program_two` and asserts expected behavior according to `assert_pre_post_v13`.
+/// - On V13, commits the second block and executes the function described in `execution_test`.
+///   The execution results are asserted to succeed.
 ///
 /// # Panics
-/// Panics if the first program fails to deploy or if any internal assertions fail.
+/// Panics if:
+/// - Either program fails to deploy.
+/// - Any internal assertions fail (e.g., number of accepted or aborted transactions).
+/// - Execution on V13 fails.
 ///
 /// # Notes
-/// This helper abstracts VM initialization, block creation, and deployment logic
-/// to reduce boilerplate in multiple tests.
-fn run_deploy_test(
+/// This helper abstracts VM initialization, block creation, deployment, and optional execution logic
+/// to reduce boilerplate in multiple tests and ensure consistent pre-/post-V13 behavior.
+fn deploy_two_programs_and_execute_v132(
     consensus_version: ConsensusVersion,
     program_one: &Program<CurrentNetwork>,
     program_two: &Program<CurrentNetwork>,
-) -> Block<CurrentNetwork> {
+    execution_test: ExecutionTest,
+) {
     let rng = &mut TestRng::default();
 
     let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
@@ -472,20 +486,37 @@ fn run_deploy_test(
     let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
     let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
 
-    // Deploy first program (always expected to succeed).
+    // ── Deploy first program (should always succeed)
     let deployment_one = vm.deploy(&caller_private_key, program_one, None, 0, None, rng).unwrap();
 
     let block = sample_next_block(&vm, &caller_private_key, &[deployment_one], rng).unwrap();
     assert_eq!(block.transactions().num_accepted(), 1);
-    assert_eq!(block.transactions().num_rejected(), 0);
     assert_eq!(block.aborted_transaction_ids().len(), 0);
 
     vm.add_next_block(&block).unwrap();
 
-    // Deploy second program (behavior depends on consensus version).
+    // ── Deploy second program (version-dependent)
     let deployment_two = vm.deploy(&caller_private_key, program_two, None, 0, None, rng).unwrap();
 
-    sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap()
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment_two], rng).unwrap();
+
+    // Assert deploy semantics
+    assert_pre_post_v13(block.clone(), consensus_version);
+
+    // ── Post-V13 only: add next block + execute
+    if consensus_version == ConsensusVersion::V13 {
+        vm.add_next_block(&block).unwrap();
+
+        let ExecutionTest { program, function, inputs } = execution_test;
+
+        let execution =
+            vm.execute(&caller_private_key, (program, function), inputs.into_iter(), None, 0, None, rng).unwrap();
+
+        let exec_block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+
+        assert_eq!(exec_block.transactions().num_accepted(), 1, "Execution should succeed on V13");
+        assert_eq!(exec_block.aborted_transaction_ids().len(), 0);
+    }
 }
 
 /// Asserts that a block's transaction outcomes match the expected behavior
@@ -556,8 +587,11 @@ function second:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "test_two.aleo",
+            function: "second",
+            inputs: vec![],
+        });
     }
 }
 
@@ -607,8 +641,11 @@ constructor:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "external_future.aleo",
+            function: "main",
+            inputs: vec![],
+        });
     }
 }
 
@@ -659,8 +696,11 @@ constructor:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "external_future.aleo",
+            function: "main",
+            inputs: vec![],
+        });
     }
 }
 
@@ -709,8 +749,11 @@ constructor:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "parent.aleo",
+            function: "omega_wrapper",
+            inputs: vec![],
+        });
     }
 }
 
@@ -759,8 +802,13 @@ constructor:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "parent.aleo",
+            function: "omega_wrapper",
+            inputs: vec![Value::from_str(
+                "{ owner: aleo1j2hfs6yru47h2nvsjdefwtw6nwaj0y4zcl02juyy29txm7nt6y9qln7uhp.private, woo: { a: 0u32.private, b: 0u32.private }, _nonce: 0group.public }"
+            ).unwrap()],
+        });
     }
 }
 
@@ -807,8 +855,13 @@ constructor:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "test.aleo",
+            function: "main",
+            inputs: vec![Value::from_str(
+                "{ owner: aleo1j2hfs6yru47h2nvsjdefwtw6nwaj0y4zcl02juyy29txm7nt6y9qln7uhp.private, a: [ { x: 0u32.private } , { x: 0u32.private } ], _nonce: 0group.public }",
+            ).unwrap()],
+        });
     }
 }
 
@@ -870,7 +923,10 @@ constructor:
 
     // Use V11 rather than V12 to make sure we still won't be on V13
     for consensus_version in [ConsensusVersion::V11, ConsensusVersion::V13] {
-        let block = run_deploy_test(consensus_version, &program_one, &program_two);
-        assert_pre_post_v13(block, consensus_version);
+        deploy_two_programs_and_execute_v132(consensus_version, &program_one, &program_two, ExecutionTest {
+            program: "parent.aleo",
+            function: "relay",
+            inputs: vec![Value::from_str("0u64").unwrap()],
+        });
     }
 }
