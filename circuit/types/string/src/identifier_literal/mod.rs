@@ -46,7 +46,7 @@ impl<E: Environment> IdentifierLiteral<E> {
     /// For constants, validation is performed via the console type (no circuit overhead).
     /// For non-constants, validation is performed via circuit constraints.
     fn from_bytes(bytes: [U8<E>; 31]) -> Self {
-        let mode = bytes[0].eject_mode();
+        let mode = bytes.eject_mode();
         if mode.is_constant() {
             // For constants, validate via the console type.
             let mut raw_bytes = [0u8; 31];
@@ -81,7 +81,7 @@ impl<E: Environment> Eject for IdentifierLiteral<E> {
 
     /// Ejects the mode of the identifier literal.
     fn eject_mode(&self) -> Mode {
-        self.bytes[0].eject_mode()
+        self.bytes.eject_mode()
     }
 
     /// Ejects the identifier literal as a primitive.
