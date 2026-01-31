@@ -11,22 +11,26 @@ Usage: `/fetch pr <number>` or `/fetch issue <number>`
 
 ```bash
 TYPE=$(echo "$ARGUMENTS" | awk '{print $1}')
-NUM=$(echo "$ARGUMENTS" | awk '{print $2}')
 OWNER="ProvableHQ"
 REPO="snarkVM"
 WS=".claude/workspace"
 mkdir -p "$WS"
 
-[ -z "$TYPE" ] || [ -z "$NUM" ] && echo "Usage: /fetch pr|issue <number>" && exit 1
+# Parse --force flag.
+FORCE=0
+case "$ARGUMENTS" in *--force*|*-f*) FORCE=1 ;; esac
+NUM=$(echo "$ARGUMENTS" | sed 's/--force//g; s/-f//g' | awk '{print $2}')
+
+[ -z "$TYPE" ] || [ -z "$NUM" ] && echo "Usage: /fetch pr|issue <number> [--force]" && exit 1
 [ "$TYPE" != "pr" ] && [ "$TYPE" != "issue" ] && echo "Unknown type: $TYPE. Use pr or issue." && exit 1
 ```
 
 ## Skip if fresh
 
 ```bash
-[ -f "$WS/context-$TYPE-$NUM.json" ] && \
+[ "$FORCE" = "0" ] && [ -f "$WS/context-$TYPE-$NUM.json" ] && \
   [ $(( $(date +%s) - $(stat -f %m "$WS/context-$TYPE-$NUM.json" 2>/dev/null || stat -c %Y "$WS/context-$TYPE-$NUM.json") )) -lt 3600 ] && \
-  echo "Context fresh. Delete $WS/*$TYPE*$NUM* to refresh." && exit 0
+  echo "Context fresh (use --force to bypass). Delete $WS/*$TYPE*$NUM* to refresh." && exit 0
 ```
 
 ## Fetch PR
@@ -70,14 +74,23 @@ if [ "$TYPE" = "pr" ]; then
   # Extract unresolved
   jq -s '[.[] | select(.isResolved==false) | {path, line, reviewer: .comments.nodes[0].author.login, comment: .comments.nodes[0].body[0:200]}]' "$WS/threads-pr-$NUM.jsonl" > "$WS/unresolved-pr-$NUM.json"
 
+  # Extract resolved
+  jq -s '[.[] | select(.isResolved==true) | {path, line, reviewer: .comments.nodes[0].author.login, comment: .comments.nodes[0].body[0:200]}]' "$WS/threads-pr-$NUM.jsonl" > "$WS/resolved-pr-$NUM.json"
+
   # Linked issues (parse from body)
   jq -r '.body // ""' "$WS/context-pr-$NUM.json" | grep -oE '#[0-9]+|issues/[0-9]+|ProvableHQ/snarkVM/issues/[0-9]+' | grep -oE '[0-9]+' | sort -u > "$WS/linked-issues-pr-$NUM.txt"
+
+  # Compute review counts
+  TOTAL_THREADS=$(jq -s 'length' "$WS/threads-pr-$NUM.jsonl")
+  UNRESOLVED=$(jq 'length' "$WS/unresolved-pr-$NUM.json")
+  RESOLVED=$(jq 'length' "$WS/resolved-pr-$NUM.json")
 
   # State file
   cat > "$WS/state-pr-$NUM.md" << EOF
 # PR $NUM — $(jq -r .title "$WS/context-pr-$NUM.json")
 **Author:** $(jq -r .author.login "$WS/context-pr-$NUM.json") | **Branch:** $(jq -r .headRefName "$WS/context-pr-$NUM.json")
 **Stats:** $(jq -r '"\(.additions)+/\(.deletions)-/\(.changedFiles) files"' "$WS/context-pr-$NUM.json")
+**Review:** $UNRESOLVED unresolved / $TOTAL_THREADS total ($RESOLVED resolved)
 **CI:** $(jq -r 'if length == 0 then "none" else [.[] | "\(.name):\(.conclusion // .state)"] | join(", ") end' "$WS/checks-pr-$NUM.json")
 
 ## Findings
@@ -164,6 +177,6 @@ echo "=== $TYPE $NUM ready ==="
 ls -la "$WS"/*$TYPE*$NUM* 2>/dev/null
 echo ""
 echo "Files fetched:"
-[ "$TYPE" = "pr" ] && echo "  - context, files, commits, comments, checks, threads, unresolved, linked-issues, state"
+[ "$TYPE" = "pr" ] && echo "  - context, files, commits, comments, checks, threads, unresolved, resolved, linked-issues, state"
 [ "$TYPE" = "issue" ] && echo "  - context, comments, timeline, linked-prs, state"
 ```

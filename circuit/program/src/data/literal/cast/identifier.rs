@@ -25,6 +25,11 @@ impl<E: Environment> Cast<Address<E>> for IdentifierLiteral<E> {
 
 impl<E: Environment> Cast<Boolean<E>> for IdentifierLiteral<E> {
     /// Casts an `IdentifierLiteral` to a `Boolean`.
+    ///
+    /// Note: This cast always fails because valid identifier literals cannot map
+    /// to boolean values (0x00 or 0x01). The byte 0x00 is null and 0x01 (SOH) is
+    /// not a valid identifier character. This implementation exists for uniformity
+    /// with the `impl_cast_body!` macro used by all literal types.
     #[inline]
     fn cast(&self) -> Boolean<E> {
         self.to_field().cast()

@@ -8,11 +8,44 @@ allowed-tools: Bash, Read, Write, Grep, Glob, Task, AskUserQuestion
 ```bash
 PR=$ARGUMENTS
 WS=".claude/workspace"
+OWNER="ProvableHQ"
+REPO="snarkVM"
 ```
 
 ## 1. Context
 
-If missing/stale: run `/fetch pr $PR` first.
+If missing: run `/fetch pr $PR` first.
+
+Quick-refresh threads to get latest resolved status (faster than full fetch):
+
+```bash
+refresh_threads() {
+  CURSOR=""
+  > "$WS/threads-pr-$PR.jsonl"
+  while true; do
+    RESP=$(gh api graphql -f query='{
+      repository(owner: "'"$OWNER"'", name: "'"$REPO"'") {
+        pullRequest(number: '"$PR"') {
+          reviewThreads(first: 100'"${CURSOR:+, after: \"$CURSOR\"}"') {
+            pageInfo { hasNextPage endCursor }
+            nodes { isResolved path line comments(first: 100) { nodes { body author { login } } } }
+          }
+        }
+      }
+    }')
+    echo "$RESP" | jq -c '.data.repository.pullRequest.reviewThreads.nodes[]' >> "$WS/threads-pr-$PR.jsonl"
+    [ "$(echo "$RESP" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')" != "true" ] && break
+    CURSOR=$(echo "$RESP" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+  done
+  jq -s '[.[] | select(.isResolved==false) | {path, line, reviewer: .comments.nodes[0].author.login, comment: .comments.nodes[0].body[0:200]}]' "$WS/threads-pr-$PR.jsonl" > "$WS/unresolved-pr-$PR.json"
+  jq -s '[.[] | select(.isResolved==true) | {path, line, reviewer: .comments.nodes[0].author.login, comment: .comments.nodes[0].body[0:200]}]' "$WS/threads-pr-$PR.jsonl" > "$WS/resolved-pr-$PR.json"
+  TOTAL=$(jq -s 'length' "$WS/threads-pr-$PR.jsonl")
+  UNRESOLVED=$(jq 'length' "$WS/unresolved-pr-$PR.json")
+  RESOLVED=$(jq 'length' "$WS/resolved-pr-$PR.json")
+  echo "Review: $UNRESOLVED unresolved / $TOTAL total ($RESOLVED resolved)"
+}
+refresh_threads
+```
 
 ```bash
 cat "$WS/state-pr-$PR.md"
