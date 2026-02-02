@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::error::*;
+use snarkvm_synthesizer_error::*;
 
 use std::sync::OnceLock;
 

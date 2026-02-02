@@ -49,7 +49,8 @@ pub enum ConsensusVersion {
     V12 = 12,
     /// V13: Introduces external structs.
     V13 = 13,
-    /// V14: Introduces `aleo::GENERATOR` and `aleo::GENERATOR_POWERS` opcodes.
+    /// V14: Increase the program size limit to 512 kB and transaction size limit to 540 kB.
+    ///      Introduces `aleo::GENERATOR` and `aleo::GENERATOR_POWERS` opcodes.
     ///      Increase array size limit to 2048 and introduce snark.verify opcode.
     V14 = 14,
 }
@@ -323,6 +324,16 @@ mod tests {
             assert!(*version > previous_version);
             previous_version = *version;
         }
+        let mut previous_version = N::MAX_PROGRAM_SIZE.first().unwrap().0;
+        for (version, _) in N::MAX_PROGRAM_SIZE.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
+        let mut previous_version = N::MAX_TRANSACTION_SIZE.first().unwrap().0;
+        for (version, _) in N::MAX_TRANSACTION_SIZE.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
     }
 
     /// Ensure that consensus *heights* are unique and incrementing.
@@ -358,6 +369,18 @@ mod tests {
             // Double-check that consensus_config_value returns the correct value.
             assert_eq!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, height).unwrap(), *value);
         }
+        for (version, value) in N::MAX_PROGRAM_SIZE.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_PROGRAM_SIZE, height).unwrap(), *value);
+        }
+        for (version, value) in N::MAX_TRANSACTION_SIZE.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, height).unwrap(), *value);
+        }
     }
 
     /// Ensure that consensus_config_value returns a valid value for all consensus versions.
@@ -366,6 +389,8 @@ mod tests {
             assert!(consensus_config_value!(N, MAX_CERTIFICATES, *height).is_some());
             assert!(consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, *height).is_some());
             assert!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_PROGRAM_SIZE, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, *height).is_some());
         }
     }
 
@@ -389,6 +414,22 @@ mod tests {
         }
     }
 
+    /// Ensure that `MAX_TRANSACTION_SIZE` is at least 28KB greater than `MAX_PROGRAM_SIZE` for all consensus versions.
+    /// This overhead accounts for proofs, signatures, and other transaction metadata.
+    fn transaction_size_exceeds_program_size<N: Network>() {
+        const MIN_OVERHEAD: usize = 28_000; // 28 kB minimum overhead
+
+        for (_, height) in N::CONSENSUS_VERSION_HEIGHTS().iter() {
+            let max_program_size = consensus_config_value!(N, MAX_PROGRAM_SIZE, *height).unwrap();
+            let max_transaction_size = consensus_config_value!(N, MAX_TRANSACTION_SIZE, *height).unwrap();
+
+            assert!(
+                max_transaction_size >= max_program_size + MIN_OVERHEAD,
+                "At height {height}: MAX_TRANSACTION_SIZE ({max_transaction_size}) must be at least {MIN_OVERHEAD} bytes greater than MAX_PROGRAM_SIZE ({max_program_size})"
+            );
+        }
+    }
+
     /// Ensure that the number of constant definitions is the same across networks.
     fn constants_equal_length<N1: Network, N2: Network, N3: Network>() {
         // If we can construct an array, that means the underlying types must be the same.
@@ -396,6 +437,19 @@ mod tests {
         let _ = [N1::MAX_CERTIFICATES, N2::MAX_CERTIFICATES, N3::MAX_CERTIFICATES];
         let _ = [N1::TRANSACTION_SPEND_LIMIT, N2::TRANSACTION_SPEND_LIMIT, N3::TRANSACTION_SPEND_LIMIT];
         let _ = [N1::MAX_ARRAY_ELEMENTS, N2::MAX_ARRAY_ELEMENTS, N3::MAX_ARRAY_ELEMENTS];
+        let _ = [N1::MAX_PROGRAM_SIZE, N2::MAX_PROGRAM_SIZE, N3::MAX_PROGRAM_SIZE];
+        let _ = [N1::MAX_TRANSACTION_SIZE, N2::MAX_TRANSACTION_SIZE, N3::MAX_TRANSACTION_SIZE];
+    }
+
+    /// Ensure that `LATEST_MAX_*` functions return valid values without panicking.
+    /// These functions use `.expect()` internally, so this test verifies the arrays are non-empty.
+    fn latest_max_functions_are_safe<N: Network>() {
+        // Verify LATEST_MAX_CERTIFICATES returns a positive value.
+        assert!(N::LATEST_MAX_CERTIFICATES() > 0, "LATEST_MAX_CERTIFICATES must be positive");
+        // Verify LATEST_MAX_PROGRAM_SIZE returns a positive value.
+        assert!(N::LATEST_MAX_PROGRAM_SIZE() > 0, "LATEST_MAX_PROGRAM_SIZE must be positive");
+        // Verify LATEST_MAX_TRANSACTION_SIZE returns a positive value.
+        assert!(N::LATEST_MAX_TRANSACTION_SIZE() > 0, "LATEST_MAX_TRANSACTION_SIZE must be positive");
     }
 
     #[test]
@@ -428,6 +482,14 @@ mod tests {
         max_array_elements_increasing::<MainnetV0>();
         max_array_elements_increasing::<TestnetV0>();
         max_array_elements_increasing::<CanaryV0>();
+
+        transaction_size_exceeds_program_size::<MainnetV0>();
+        transaction_size_exceeds_program_size::<TestnetV0>();
+        transaction_size_exceeds_program_size::<CanaryV0>();
+
+        latest_max_functions_are_safe::<MainnetV0>();
+        latest_max_functions_are_safe::<TestnetV0>();
+        latest_max_functions_are_safe::<CanaryV0>();
 
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
     }

@@ -75,12 +75,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     ) -> Result<()> {
         let timer = timer!("VM::check_transaction");
 
+        // Get the current block height for consensus version checks.
+        let current_block_height = self.block_store().current_block_height();
+
         /* Transaction */
 
+        // Get the maximum transaction size for the current consensus version.
+        let max_transaction_size = consensus_config_value!(N, MAX_TRANSACTION_SIZE, current_block_height)
+            .ok_or(anyhow!("Failed to fetch maximum transaction size"))?;
         // Allocate a buffer to write the transaction.
-        let mut buffer = Vec::with_capacity(N::MAX_TRANSACTION_SIZE);
+        let mut buffer = Vec::with_capacity(max_transaction_size);
         // Ensure that the transaction is well formed and does not exceed the maximum size.
-        if let Err(error) = transaction.write_le(LimitedWriter::new(&mut buffer, N::MAX_TRANSACTION_SIZE)) {
+        if let Err(error) = transaction.write_le(LimitedWriter::new(&mut buffer, max_transaction_size)) {
             bail!("Transaction '{}' is not well-formed: {error}", transaction.id())
         }
 
@@ -290,6 +296,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     !deployment.program().exceeds_max_array_size(u32::try_from(max_array_elements)?),
                     "Invalid deployment transaction '{id}' - program contains an array that exceeds the maximum allowed size of {max_array_elements} elements",
                 );
+
+                // Ensure the program size is bounded properly based on the current block height.
+                deployment.program().check_program_size(current_block_height)?;
+
+                // Ensure the program writes do not exceed the maximum allowed based on the current block height.
+                deployment.program().check_program_writes(current_block_height)?;
 
                 // If the program owner exists in the deployment, then verify that it matches the owner in the transaction.
                 if let Some(given_owner) = deployment.program_owner() {

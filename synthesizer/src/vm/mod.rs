@@ -16,9 +16,6 @@
 mod helpers;
 pub use helpers::*;
 
-mod error;
-pub use error::*;
-
 mod authorize;
 mod deploy;
 mod execute;
