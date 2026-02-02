@@ -1,9 +1,6 @@
 version: 2.1
 
 parameters:
-  excluded_run_ignored_all_workspaces:
-    type: string
-    default: "snarkvm snarkvm-parameters snarkvm-parameters snarkvm-circuit-types snarkvm-circuit-types-integers snarkvm-console-collections snarkvm-synthesizer snarkvm-synthesizer-process snarkvm-ledger snarkvm-ledger-puzzle snarkvm-ledger-store"
   small:
     type: string
     default: small
@@ -304,28 +301,6 @@ commands:
 
             WSM="<< parameters.workspace_member >>"
 
-			# Config-driven exclusion list (space-separated tokens)
-            EXCLUDED_LIST="<< pipeline.parameters.excluded_run_ignored_all_workspaces >>"
-
-            # Check if WSM is in the excluded list (exact token match)
-            IS_EXCLUDED=0
-            if printf '%s\n' " $EXCLUDED_LIST " | grep -Fq " $WSM "; then
-              IS_EXCLUDED=1
-            fi
-
-            HAS_RUN_IGNORED=0
-            if printf '%s\n' "$BUILD_FLAGS" | grep -Eq -- '(^|[[:space:]])--run-ignored([=[:space:]]|$)'; then
-              HAS_RUN_IGNORED=1
-            fi
-
-            if [ "$IS_EXCLUDED" -eq 0 ] && [ "$HAS_RUN_IGNORED" -eq 0 ]; then
-              if [ -n "$BUILD_FLAGS" ]; then
-                BUILD_FLAGS="$BUILD_FLAGS --run-ignored all"
-              else
-                BUILD_FLAGS="--run-ignored all"
-              fi
-            fi
-
             # Remove any --test target flags,they cause nextest build errors
             BUILD_FLAGS_SANITIZED="$(printf '%s' "$BUILD_FLAGS" \
               | sed -E "s/(^|[[:space:]])--test[[:space:]]+'[^']*'([[:space:]]|$)/ /g" \
@@ -483,15 +458,6 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-algorithms
-
-  algorithms-profiler:
-    executor: rust-docker
-    resource_class: << pipeline.parameters.medium >>
-    steps:
-      - run_test:
-          workspace_member: snarkvm-algorithms
-          flags: varuna::prove_and_verify_with_square_matrix --features profiler
-          cache_key_suffix: -profiler-test
 
   circuit:
     executor: rust-docker
@@ -760,7 +726,7 @@ jobs:
     steps:
       - run_test:
           workspace_member: snarkvm-ledger
-          cache_key_suffix: -with-vaild-solutions-prelease
+          cache_key_suffix: -with-vaild-solutions-prerelease
           flags: valid_solutions --features test --run-ignored ignored-only
 
   ledger-authority:
@@ -1271,6 +1237,7 @@ workflows:
 
   ledger-workflow:
     jobs:
+      - ledger
       - ledger-with-valid-solutions
       - ledger-authority
       - ledger-committee
@@ -1299,7 +1266,6 @@ workflows:
       - algorithms
       - curves
       - fields
-      - parameters
       - snarkvm
       - utilities
       - utilities-derives
@@ -1314,12 +1280,16 @@ workflows:
     jobs:
       - check-unused-dependencies # This can be cleaned up before releases
       - check-cargo-semver-checks # This can be cleaned up before releases
-      - synthesizer-test-partition1 # Often similar results as `synthesizer`
-      - synthesizer-test-partition2 # Often similar results as `synthesizer`
       - ledger-with-rocksdb-partition1 # Often similar results as `ledger`
       - ledger-with-rocksdb-partition2 # Often similar results as `ledger`
       - ledger-block # Very heavy and time taking run
+      - ledger-store-prerelease # Run the slowest ledger-store tests as pre-release
+      - ledger-with-valid-solutions-prerelease # Run the slowest ledger-with-valid-solution test as pre-release
+      - parameters # Infrastructure which often runs fine
+      - parameters-large # Infrastructure which often runs fine
+      - parameters-uncached # Infrastructure which often runs fine
       - synthesizer-integration # Very slow test taking over 30+ minutes to pass
+      - synthesizer-prerelease # Run the slowest synthesizer tests as pre-release
       - synthesizer-process-with-rocksdb # Often similar results as `synthesizer-process`
       - synthesizer-program-integration # Expensive, rarely impacted, duplicate test-runs with `synthesizer`
       - synthesizer-program-integration-keccak # Expensive and rarely impacted
@@ -1328,19 +1298,14 @@ workflows:
       - synthesizer-program-integration-instruction-is # Expensive and rarely impacted
       - synthesizer-program-integration-instruction-equal # Expensive and rarely impacted
       - synthesizer-program-integration-instruction-commit # Expensive and rarely impacted
+      - synthesizer-test-partition1 # Often similar results as `synthesizer`
+      - synthesizer-test-partition2 # Often similar results as `synthesizer`
 
   release-workflow:
     when: pipeline.git.branch == "canary"
       or pipeline.git.branch == "testnet"
       or pipeline.git.branch == "mainnet"
     jobs:
-      - algorithms-profiler # Just checks some non-critical profiling code
-      - parameters-large # Infrastructure which often runs fine
-      - parameters-uncached # Infrastructure which often runs fine
-      - synthesizer-prerelease # Run the slowest synthesizer tests as pre-release
-      - ledger-store-prerelease # Run the slowest ledger-store tests as pre-release
-      - ledger-with-valid-solutions-prerelease # Run the slowest ledger-with-valid-solution test as pre-release
-      - ledger # Time taking run
       - verify-windows: # Windows has never failed us when linux passed
           matrix:
             parameters:
