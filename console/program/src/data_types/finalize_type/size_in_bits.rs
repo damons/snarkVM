@@ -89,18 +89,24 @@ impl<N: Network> FinalizeType<N> {
                     // Account for the argument variant bit.
                     size = size.checked_add(1).ok_or(anyhow!("`size_in_bits` overflowed"))?;
 
-                    // Account for the size of the argument bits.
-                    size = size.checked_add(16).ok_or(anyhow!("`size_in_bits` overflowed"))?;
+                    // Calculate argument bits size.
+                    let argument_size_in_bits =
+                        argument.size_in_bits_internal(get_struct, get_external_struct, get_future, depth + 1)?;
+
+                    // Account for the size of the argument bits
+                    match argument_size_in_bits <= u16::MAX as usize {
+                        true => {
+                            // Account for the size of the argument bits (u16).
+                            size = size.checked_add(16).ok_or(anyhow!("`size_in_bits` overflowed"))?;
+                        }
+                        false => {
+                            // Account for the size of the argument bits (u32).
+                            size = size.checked_add(32).ok_or(anyhow!("`size_in_bits` overflowed"))?;
+                        }
+                    }
 
                     // Account for the argument bits.
-                    size = size
-                        .checked_add(argument.size_in_bits_internal(
-                            get_struct,
-                            get_external_struct,
-                            get_future,
-                            depth + 1,
-                        )?)
-                        .ok_or(anyhow!("`size_in_bits` overflowed"))?;
+                    size = size.checked_add(argument_size_in_bits).ok_or(anyhow!("`size_in_bits` overflowed"))?;
                 }
 
                 Ok(size)
