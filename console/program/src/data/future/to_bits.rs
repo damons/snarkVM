@@ -17,6 +17,7 @@ use super::*;
 
 impl<N: Network> ToBits for Future<N> {
     /// Returns the future as a list of **little-endian** bits.
+    // Note: Any updates to bit serialization will require updating `FinalizeType::future_size_in_bits`.
     #[inline]
     fn write_bits_le(&self, vec: &mut Vec<bool>) {
         // Write the bits for the program ID.
@@ -55,6 +56,7 @@ impl<N: Network> ToBits for Future<N> {
     }
 
     /// Returns the future as a list of **big-endian** bits.
+    // Note: Any updates to bit serialization will require updating `FinalizeType::future_size_in_bits`.
     #[inline]
     fn write_bits_be(&self, vec: &mut Vec<bool>) {
         // Write the bits for the program ID.
