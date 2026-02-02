@@ -65,9 +65,4 @@ impl<N: Network> Future<N> {
     pub fn arguments(&self) -> &[Argument<N>] {
         &self.arguments
     }
-
-    /// Returns true if the bit size of any argument exceeds `u16::MAX`.
-    pub fn argument_bit_size_exceeds_u16(&self) -> bool {
-        self.arguments.iter().any(|argument| argument.to_bits_le().len() > u16::MAX as usize)
-    }
 }

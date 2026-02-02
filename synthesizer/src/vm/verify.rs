@@ -290,12 +290,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 }
 
                 // Determine if any of the array types exceed the maximum array elements.
-                let max_array_elements = consensus_config_value!(N, MAX_ARRAY_ELEMENTS, current_block_height)
-                    .ok_or(anyhow!("Failed to retrieve the maximum array elements"))?;
-                ensure!(
-                    !deployment.program().exceeds_max_array_size(u32::try_from(max_array_elements)?),
-                    "Invalid deployment transaction '{id}' - program contains an array that exceeds the maximum allowed size of {max_array_elements} elements",
-                );
+                // Do not perform this check if the consensus version is beyond the latest version threshold for `MAX_ARRAY_ELEMENTS`.
+                if let Some((latest_version_threshold, _)) = N::MAX_ARRAY_ELEMENTS.last()
+                    && consensus_version < *latest_version_threshold
+                {
+                    let max_array_elements = consensus_config_value!(N, MAX_ARRAY_ELEMENTS, current_block_height)
+                        .ok_or_else(|| anyhow!("Missing consensus config value: MAX_ARRAY_ELEMENTS"))?;
+                    ensure!(
+                        !deployment.program().exceeds_max_array_size(u32::try_from(max_array_elements)?),
+                        "Invalid deployment transaction '{id}' - program contains an array that exceeds the maximum allowed size of {max_array_elements} elements",
+                    );
+                }
 
                 // Ensure the program size is bounded properly based on the current block height.
                 deployment.program().check_program_size(current_block_height)?;

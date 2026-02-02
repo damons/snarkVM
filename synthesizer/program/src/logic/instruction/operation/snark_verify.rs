@@ -403,7 +403,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
                 "Instruction '{}' expects the third input to be {}. Found input of type '{}'",
                 Self::opcode(),
                 expected_type,
-                &input_types[1]
+                &input_types[2]
             );
         }
 
