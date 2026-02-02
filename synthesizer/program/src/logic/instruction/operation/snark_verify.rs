@@ -415,13 +415,13 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
         );
         // Check that the number of circuit is properly bound.
         ensure!(
-            num_circuits < MAX_SNARK_VERIFY_CIRCUITS,
+            num_circuits <= MAX_SNARK_VERIFY_CIRCUITS,
             "Instruction '{}' supports a maximum of {MAX_SNARK_VERIFY_CIRCUITS} batched circuits, found {num_circuits} circuits.",
             Self::opcode()
         );
         // Check that the total number of instances/assignments is properly bound.
         ensure!(
-            num_instances < MAX_SNARK_VERIFY_INSTANCES,
+            num_instances <= MAX_SNARK_VERIFY_INSTANCES,
             "Instruction '{}' supports a maximum of {MAX_SNARK_VERIFY_INSTANCES} batched instances, found {num_instances} instances.",
             Self::opcode()
         );
@@ -436,7 +436,7 @@ impl<N: Network, const VARIANT: u8> SnarkVerification<N, VARIANT> {
             _ => bail!(
                 "Instruction '{}' expects the fourth input to be a byte array. Found input of type '{}'",
                 Self::opcode(),
-                input_types[2]
+                input_types[3]
             ),
         }
 

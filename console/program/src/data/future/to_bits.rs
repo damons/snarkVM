@@ -69,7 +69,7 @@ impl<N: Network> ToBits for Future<N> {
             .write_bits_be(vec);
         vec.extend_from_slice(&function_name_bits);
 
-        // Write the number of arguments.s
+        // Write the number of arguments.
         u8::try_from(self.arguments.len()).or_halt_with::<N>("arguments exceed u8::MAX").write_bits_be(vec);
 
         // Write the arguments.

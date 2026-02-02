@@ -39,6 +39,7 @@ impl SNARKMode for VarunaNonHidingMode {
 }
 
 /// The different Varuna Versions.
+#[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum VarunaVersion {
     V1 = 1,

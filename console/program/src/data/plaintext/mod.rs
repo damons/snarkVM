@@ -89,7 +89,7 @@ impl<N: Network> Plaintext<N> {
         }
     }
 
-    /// Returns the `Plaintext` as a `Vec<N::Field>`, if it is a u8 array.
+    /// Returns the `Plaintext` as a `Vec<N::Field>`, if it is a field array.
     pub fn as_field_array(&self) -> Result<Vec<Field<N>>> {
         match self {
             Self::Array(elements, _) => {
