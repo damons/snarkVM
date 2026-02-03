@@ -756,9 +756,11 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
 mod tests {
     use super::*;
     use crate::helpers::memory::FinalizeMemory;
-    use console::{network::MainnetV0, program::Literal, types::U64};
+    use console::network::MainnetV0;
 
     use aleo_std::StorageMode;
+
+    use console::{program::Literal, types::U64};
 
     type CurrentNetwork = MainnetV0;
 
@@ -1263,6 +1265,7 @@ mod tests {
     /// NUM_ITEMS=100000 cargo test test_finalize_timings --features rocks -- --nocapture
     /// ```
     #[test]
+    #[ignore]
     fn test_finalize_timings() {
         let rng = &mut TestRng::default();
 

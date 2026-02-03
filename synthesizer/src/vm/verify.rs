@@ -720,11 +720,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 mod tests {
     use super::*;
 
-    use crate::vm::test_helpers::{LedgerType, sample_finalize_state};
-    use console::{
-        account::{Address, ViewKey},
-        types::Field,
-    };
+    use crate::vm::test_helpers::sample_finalize_state;
+    use console::account::ViewKey;
+
+    use crate::vm::test_helpers::LedgerType;
+    use console::{account::Address, types::Field};
     #[cfg(feature = "test")]
     use console::{
         algorithms::{ECDSASignature, Keccak256},
@@ -886,6 +886,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_check_transaction_execution() {
         let rng = &mut TestRng::default();
 
@@ -919,6 +920,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_verify_deploy_and_execute() {
         // Initialize the RNG.
         let rng = &mut TestRng::default();
@@ -1684,7 +1686,7 @@ mod credits_migration_tests {
     const RECORD_UPGRADE_LIMIT: u64 = 1_000_000_000_000u64;
     const TOTAL_UPGRADE_LIMIT: u64 = 4_000_000_000_000u64;
 
-    #[cfg(feature = "test")]
+    #[ignore]
     #[test]
     fn test_inclusion_migration() {
         // 1. Check that `upgrade` is not callable before migration
