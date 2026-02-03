@@ -1291,6 +1291,7 @@ constructor:
             .unwrap();
 
         let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+        vm.add_next_block(&block).unwrap();
 
         match consensus_version {
             ConsensusVersion::V9 => {
