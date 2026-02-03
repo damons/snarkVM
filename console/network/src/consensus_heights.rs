@@ -334,6 +334,11 @@ mod tests {
             assert!(*version > previous_version);
             previous_version = *version;
         }
+        let mut previous_version = N::MAX_WRITES.first().unwrap().0;
+        for (version, _) in N::MAX_WRITES.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
     }
 
     /// Ensure that consensus *heights* are unique and incrementing.
@@ -381,6 +386,12 @@ mod tests {
             // Double-check that consensus_config_value returns the correct value.
             assert_eq!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, height).unwrap(), *value);
         }
+        for (version, value) in N::MAX_WRITES.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_WRITES, height).unwrap(), *value);
+        }
     }
 
     /// Ensure that consensus_config_value returns a valid value for all consensus versions.
@@ -391,6 +402,7 @@ mod tests {
             assert!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, *height).is_some());
             assert!(consensus_config_value!(N, MAX_PROGRAM_SIZE, *height).is_some());
             assert!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_WRITES, *height).is_some());
         }
     }
 
@@ -439,6 +451,7 @@ mod tests {
         let _ = [N1::MAX_ARRAY_ELEMENTS, N2::MAX_ARRAY_ELEMENTS, N3::MAX_ARRAY_ELEMENTS];
         let _ = [N1::MAX_PROGRAM_SIZE, N2::MAX_PROGRAM_SIZE, N3::MAX_PROGRAM_SIZE];
         let _ = [N1::MAX_TRANSACTION_SIZE, N2::MAX_TRANSACTION_SIZE, N3::MAX_TRANSACTION_SIZE];
+        let _ = [N1::MAX_WRITES, N2::MAX_WRITES, N3::MAX_WRITES];
     }
 
     /// Ensure that `LATEST_MAX_*` functions return valid values without panicking.
@@ -450,6 +463,8 @@ mod tests {
         assert!(N::LATEST_MAX_PROGRAM_SIZE() > 0, "LATEST_MAX_PROGRAM_SIZE must be positive");
         // Verify LATEST_MAX_TRANSACTION_SIZE returns a positive value.
         assert!(N::LATEST_MAX_TRANSACTION_SIZE() > 0, "LATEST_MAX_TRANSACTION_SIZE must be positive");
+        // Verify LATEST_MAX_WRITES returns a positive value.
+        assert!(N::LATEST_MAX_WRITES() > 0, "LATEST_MAX_WRITES must be positive");
     }
 
     #[test]
