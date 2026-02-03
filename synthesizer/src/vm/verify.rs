@@ -425,6 +425,27 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 if self.block_store().contains_rejected_deployment_or_execution_id(execution_id)? {
                     bail!("Transaction '{id}' contains a previously rejected execution")
                 }
+
+                // Ensure that the transaction does not exceed the maximum number of finalize operations.
+                // A transaction can include at most `2^FINALIZE_ID_DEPTH` finalize operations total (across *all* transitions).
+                // This check is needed because `MAX_WRITES * MAX_TRANSITIONS` can exceed that Merkle-tree capacity.
+                let max_finalize_operations = 2u16.saturating_pow(FINALIZE_ID_DEPTH as u32);
+                let total_writes = transaction
+                    .transitions()
+                    .map(|t| -> Result<u16> {
+                        let stack = self.process.read().get_stack(t.program_id())?;
+                        let program = stack.program();
+                        Ok(program
+                            .get_function(t.function_name())?
+                            .finalize_logic()
+                            .map_or(0, FinalizeCore::num_writes))
+                    })
+                    .try_fold(0u16, |acc, r| Ok::<u16, Error>(acc.saturating_add(r?)))?;
+                ensure!(
+                    total_writes <= max_finalize_operations,
+                    "Transaction '{id}' exceeds the maximum number of finalize operations: {total_writes} > {max_finalize_operations}"
+                );
+
                 // Verify the execution.
                 match try_vm_runtime!(|| self.check_execution_internal(execution, is_partially_verified)) {
                     Ok(result) => result?,
