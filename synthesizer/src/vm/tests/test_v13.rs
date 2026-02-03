@@ -1146,11 +1146,31 @@ constructor:
             .unwrap();
 
         let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+        vm.add_next_block(&block).unwrap();
 
         match consensus_version {
             ConsensusVersion::V9 => {
                 assert_eq!(block.transactions().num_accepted(), 0);
                 assert_eq!(block.transactions().num_rejected(), 1);
+                assert_eq!(block.aborted_transaction_ids().len(), 0);
+
+                // Now we try again after we've advanced to V13. The same transaction should now succeed.
+                let execution = vm
+                    .execute(
+                        &caller_private_key,
+                        ("test.aleo", "check_initialized"),
+                        Vec::<Value<_>>::new().into_iter(),
+                        None,
+                        0,
+                        None,
+                        rng,
+                    )
+                    .unwrap();
+
+                let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+                vm.add_next_block(&block).unwrap();
+                assert_eq!(block.transactions().num_accepted(), 1);
+                assert_eq!(block.transactions().num_rejected(), 0);
                 assert_eq!(block.aborted_transaction_ids().len(), 0);
             }
             ConsensusVersion::V13 => {
@@ -1276,6 +1296,25 @@ constructor:
             ConsensusVersion::V9 => {
                 assert_eq!(block.transactions().num_accepted(), 0);
                 assert_eq!(block.transactions().num_rejected(), 1);
+                assert_eq!(block.aborted_transaction_ids().len(), 0);
+
+                // Now we try again after we've advanced to V13. The same transaction should now succeed.
+                let execution = vm
+                    .execute(
+                        &caller_private_key,
+                        ("test.aleo", "check_initialized"),
+                        Vec::<Value<_>>::new().into_iter(),
+                        None,
+                        0,
+                        None,
+                        rng,
+                    )
+                    .unwrap();
+
+                let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
+                vm.add_next_block(&block).unwrap();
+                assert_eq!(block.transactions().num_accepted(), 1);
+                assert_eq!(block.transactions().num_rejected(), 0);
                 assert_eq!(block.aborted_transaction_ids().len(), 0);
             }
             ConsensusVersion::V13 => {

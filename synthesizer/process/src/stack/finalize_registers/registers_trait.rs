@@ -140,6 +140,9 @@ impl<N: Network> RegistersTrait<N> for FinalizeRegisters<N> {
                             // Pre-V13, the `ExternalStruct` type did not exist. If the type happens to be qualified in
                             // `get_type` above, we need to unqualify it (i.e. `ExternalStruct` becomes `Struct`) in order
                             // to obtain the same behavior we had pre-V13.
+                            //
+                            // Note: we don't need to rescursively check `Struct` definitions since external structs
+                            // were not allowed before V13.
                             plaintext_type = plaintext_type.unqualify();
                         }
                         stack.matches_plaintext(plaintext_value, &plaintext_type)?
