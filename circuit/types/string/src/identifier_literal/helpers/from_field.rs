@@ -19,11 +19,7 @@ impl<E: Environment> FromField for IdentifierLiteral<E> {
     type Field = Field<E>;
 
     /// Creates an identifier literal from a circuit field element.
-    ///
-    /// Delegates to `FromBits`, which handles validation and upper-bit checking.
     fn from_field(field: Field<E>) -> Self {
-        // Convert field to bits and delegate to FromBits.
-        // FromBits will assert that bits beyond 248 are zero and validate the identifier.
         Self::from_bits_le(&field.to_bits_le())
     }
 }
