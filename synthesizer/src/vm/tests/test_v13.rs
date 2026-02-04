@@ -1039,24 +1039,23 @@ constructor:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
 }
 
+/// This test verifies that using the `get` command to read from an external mapping fails on V12
+/// when the mapping value contains an external struct (i.e. a struct that is not local to the program
+/// containing the `get`). The same scenario should succeed on V13, where the underlying bug has
+/// been fixed.
 #[test]
 fn test_external_mapping_external_struct_runtime_pre_post_v13() {
-    // Run the same scenario under a pre-V13 and post-V13 consensus version.
-    // The behavior difference is expected only at execution time.
-    //
-    // Start at V9 to make sure we're still pre-V13 by the time we execute the last transaction
-    for consensus_version in [ConsensusVersion::V9, ConsensusVersion::V13] {
-        let rng = &mut TestRng::default();
+    let rng = &mut TestRng::default();
+    let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+    // Start the VM at consensus version V9 to ensure we're not at V13 by the time we get to the
+    // execution transaction that calls the second program.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
 
-        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
-
-        let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
-        let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
-
-        // child.aleo defines a local struct `Point` and stores it as the value of
-        // a mapping. This program is always valid across versions.
-        let program_child = Program::from_str(
-            r"
+    // child.aleo defines a local struct `Point` and stores it as the value of
+    // a mapping. This program is always valid across versions.
+    let program_child = Program::from_str(
+        r"
 program child.aleo;
 
 struct Point:
@@ -1078,13 +1077,13 @@ finalize initialize:
 constructor:
     assert.eq edition 0u16;
 ",
-        )
-        .unwrap();
+    )
+    .unwrap();
 
-        // test.aleo reads a value from an external mapping whose value type is
-        // an external struct. This is the operation under test.
-        let program_test = Program::from_str(
-            r"
+    // test.aleo reads a value from an external mapping whose value type is
+    // an external struct. This is the operation under test.
+    let program_test = Program::from_str(
+        r"
 import child.aleo;
 
 program test.aleo;
@@ -1099,108 +1098,90 @@ finalize check_initialized:
 constructor:
     assert.eq edition 0u16;
 ",
-        )
+    )
+    .unwrap();
+
+    // ── Deploy child.aleo (always succeeds)
+    let deployment_child = vm.deploy(&private_key, &program_child, None, 0, None, rng).unwrap();
+
+    let block = sample_next_block(&vm, &private_key, &[deployment_child], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    vm.add_next_block(&block).unwrap();
+
+    // ── Deploy test.aleo and execute child.initialize in the same block.
+    // This ensures the mapping is populated before it is read.
+    let deployment_test = vm.deploy(&private_key, &program_test, None, 0, None, rng).unwrap();
+    let execution = vm
+        .execute(&private_key, ("child.aleo", "initialize"), Vec::<Value<_>>::new().into_iter(), None, 0, None, rng)
         .unwrap();
 
-        // ── Deploy child.aleo (always succeeds)
-        let deployment_child = vm.deploy(&caller_private_key, &program_child, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &private_key, &[deployment_test, execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2);
+    vm.add_next_block(&block).unwrap();
 
-        let block = sample_next_block(&vm, &caller_private_key, &[deployment_child], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 1);
-        vm.add_next_block(&block).unwrap();
+    // ── Execute test.check_initialized.
+    //
+    // Pre-V13: rejected due to external struct usage in external mapping access.
+    let execution = vm
+        .execute(
+            &private_key,
+            ("test.aleo", "check_initialized"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
 
-        // ── Deploy test.aleo and execute child.initialize in the same block.
-        // This ensures the mapping is populated before it is read.
-        let deployment_test = vm.deploy(&caller_private_key, &program_test, None, 0, None, rng).unwrap();
-
-        let execution = vm
-            .execute(
-                &caller_private_key,
-                ("child.aleo", "initialize"),
-                Vec::<Value<_>>::new().into_iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-
-        let block = sample_next_block(&vm, &caller_private_key, &[deployment_test, execution], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 2);
-        vm.add_next_block(&block).unwrap();
-
-        // ── Execute test.check_initialized.
-        //
-        // Pre-V13: rejected due to external struct usage in external mapping access.
-        // V13: accepted.
-        let execution = vm
-            .execute(
-                &caller_private_key,
-                ("test.aleo", "check_initialized"),
-                Vec::<Value<_>>::new().into_iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-
-        let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
-        vm.add_next_block(&block).unwrap();
-
-        match consensus_version {
-            ConsensusVersion::V9 => {
-                assert_eq!(block.transactions().num_accepted(), 0);
-                assert_eq!(block.transactions().num_rejected(), 1);
-                assert_eq!(block.aborted_transaction_ids().len(), 0);
-
-                // Now we try again after we've advanced to V13. The same transaction should now succeed.
-                let execution = vm
-                    .execute(
-                        &caller_private_key,
-                        ("test.aleo", "check_initialized"),
-                        Vec::<Value<_>>::new().into_iter(),
-                        None,
-                        0,
-                        None,
-                        rng,
-                    )
-                    .unwrap();
-
-                let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
-                vm.add_next_block(&block).unwrap();
-                assert_eq!(block.transactions().num_accepted(), 1);
-                assert_eq!(block.transactions().num_rejected(), 0);
-                assert_eq!(block.aborted_transaction_ids().len(), 0);
-            }
-            ConsensusVersion::V13 => {
-                assert_eq!(block.transactions().num_accepted(), 1);
-                assert_eq!(block.transactions().num_rejected(), 0);
-                assert_eq!(block.aborted_transaction_ids().len(), 0);
-            }
-            _ => unreachable!(),
-        }
+    // Advance the ledger past ConsensusVersion::V13.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap() {
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
     }
+
+    // Now we try again after we've advanced to V13. The same execution transaction should now succeed.
+    let execution = vm
+        .execute(
+            &private_key,
+            ("test.aleo", "check_initialized"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
 }
 
+/// This test verifies that using the `get` command to read from an external mapping fails on V12
+/// when the mapping value contains an external struct (i.e. a struct that is not local to the program
+/// containing the `get`). The same scenario should succeed on V13, where the underlying bug has
+/// been fixed.
 #[test]
 fn test_external_mapping_external_struct_in_array_runtime_pre_post_v13() {
-    // Run the same scenario under a pre-V13 and post-V13 consensus version.
-    // The behavior difference is expected only at execution time.
-    //
-    // Start at V9 to make sure we're still pre-V13 by the time we execute the last transaction
-    for consensus_version in [ConsensusVersion::V9, ConsensusVersion::V13] {
-        let rng = &mut TestRng::default();
+    let rng = &mut TestRng::default();
+    let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+    // Start the VM at consensus version V9 to ensure we're not at V13 by the time we get to the
+    // execution transaction that calls the second program.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
 
-        let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
-
-        let height = CurrentNetwork::CONSENSUS_HEIGHT(consensus_version).unwrap();
-        let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
-
-        // child.aleo defines a local array of `Point`s and stores it as the value of
-        // a mapping. This program is always valid across versions.
-        let program_child = Program::from_str(
-            r"
+    // child.aleo defines a local array of `Point`s and stores it as the value of
+    // a mapping. This program is always valid across versions.
+    let program_child = Program::from_str(
+        r"
 program child.aleo;
 
 struct Point:
@@ -1223,13 +1204,13 @@ finalize initialize:
 constructor:
     assert.eq edition 0u16;
 ",
-        )
-        .unwrap();
+    )
+    .unwrap();
 
-        // test.aleo reads a value from an external mapping whose value type is
-        // an array of external structs. This is the operation under test.
-        let program_test = Program::from_str(
-            r"
+    // test.aleo reads a value from an external mapping whose value type is
+    // an array of external structs. This is the operation under test.
+    let program_test = Program::from_str(
+        r"
 import child.aleo;
 
 program test.aleo;
@@ -1244,86 +1225,69 @@ finalize check_initialized:
 constructor:
     assert.eq edition 0u16;
 ",
-        )
+    )
+    .unwrap();
+
+    // ── Deploy child.aleo (always succeeds)
+    let deployment_child = vm.deploy(&private_key, &program_child, None, 0, None, rng).unwrap();
+
+    let block = sample_next_block(&vm, &private_key, &[deployment_child], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    vm.add_next_block(&block).unwrap();
+
+    // ── Deploy test.aleo and execute child.initialize in the same block.
+    // This ensures the mapping is populated before it is read.
+    let deployment_test = vm.deploy(&private_key, &program_test, None, 0, None, rng).unwrap();
+    let execution = vm
+        .execute(&private_key, ("child.aleo", "initialize"), Vec::<Value<_>>::new().into_iter(), None, 0, None, rng)
         .unwrap();
 
-        // ── Deploy child.aleo (always succeeds)
-        let deployment_child = vm.deploy(&caller_private_key, &program_child, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &private_key, &[deployment_test, execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2);
+    vm.add_next_block(&block).unwrap();
 
-        let block = sample_next_block(&vm, &caller_private_key, &[deployment_child], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 1);
-        vm.add_next_block(&block).unwrap();
+    // ── Execute test.check_initialized.
+    //
+    // Pre-V13: rejected due to external struct usage in external mapping access.
+    let execution = vm
+        .execute(
+            &private_key,
+            ("test.aleo", "check_initialized"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.transactions().num_rejected(), 1);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
 
-        // ── Deploy test.aleo and execute child.initialize in the same block.
-        // This ensures the mapping is populated before it is read.
-        let deployment_test = vm.deploy(&caller_private_key, &program_test, None, 0, None, rng).unwrap();
-
-        let execution = vm
-            .execute(
-                &caller_private_key,
-                ("child.aleo", "initialize"),
-                Vec::<Value<_>>::new().into_iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-
-        let block = sample_next_block(&vm, &caller_private_key, &[deployment_test, execution], rng).unwrap();
-        assert_eq!(block.transactions().num_accepted(), 2);
-        vm.add_next_block(&block).unwrap();
-
-        // ── Execute test.check_initialized.
-        //
-        // Pre-V13: rejected due to external struct usage in external mapping access.
-        // V13: accepted.
-        let execution = vm
-            .execute(
-                &caller_private_key,
-                ("test.aleo", "check_initialized"),
-                Vec::<Value<_>>::new().into_iter(),
-                None,
-                0,
-                None,
-                rng,
-            )
-            .unwrap();
-
-        let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
-        vm.add_next_block(&block).unwrap();
-
-        match consensus_version {
-            ConsensusVersion::V9 => {
-                assert_eq!(block.transactions().num_accepted(), 0);
-                assert_eq!(block.transactions().num_rejected(), 1);
-                assert_eq!(block.aborted_transaction_ids().len(), 0);
-
-                // Now we try again after we've advanced to V13. The same transaction should now succeed.
-                let execution = vm
-                    .execute(
-                        &caller_private_key,
-                        ("test.aleo", "check_initialized"),
-                        Vec::<Value<_>>::new().into_iter(),
-                        None,
-                        0,
-                        None,
-                        rng,
-                    )
-                    .unwrap();
-
-                let block = sample_next_block(&vm, &caller_private_key, &[execution], rng).unwrap();
-                vm.add_next_block(&block).unwrap();
-                assert_eq!(block.transactions().num_accepted(), 1);
-                assert_eq!(block.transactions().num_rejected(), 0);
-                assert_eq!(block.aborted_transaction_ids().len(), 0);
-            }
-            ConsensusVersion::V13 => {
-                assert_eq!(block.transactions().num_accepted(), 1);
-                assert_eq!(block.transactions().num_rejected(), 0);
-                assert_eq!(block.aborted_transaction_ids().len(), 0);
-            }
-            _ => unreachable!(),
-        }
+    // Advance the ledger past ConsensusVersion::V13.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap() {
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
     }
+
+    // Now we try again after we've advanced to V13. The same execution transaction should now succeed.
+    let execution = vm
+        .execute(
+            &private_key,
+            ("test.aleo", "check_initialized"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
 }
