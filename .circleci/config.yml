@@ -1070,7 +1070,7 @@ jobs:
             
             # Install wasm-pack
             curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-	
+
             # Run the tests
             cd wasm && wasm-pack test --node
       - clear_environment:
