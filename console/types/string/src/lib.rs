@@ -17,7 +17,7 @@
 #![warn(clippy::cast_possible_truncation)]
 
 pub mod identifier_literal;
-pub use identifier_literal::IdentifierLiteral;
+pub use identifier_literal::{IdentifierLiteral, SIZE_IN_BITS, SIZE_IN_BYTES};
 
 mod bitwise;
 mod bytes;

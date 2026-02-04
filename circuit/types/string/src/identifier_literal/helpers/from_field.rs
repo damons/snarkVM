@@ -28,7 +28,7 @@ impl<E: Environment> FromField for IdentifierLiteral<E> {
 mod tests {
     use super::*;
     use console::ToField as _;
-    use snarkvm_circuit_environment::Circuit;
+    use snarkvm_circuit_environment::{Circuit, assert_scope_fails};
     use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
@@ -69,19 +69,16 @@ mod tests {
 
     #[test]
     fn test_from_field_constant() -> Result<()> {
-        // Constant: field to_bits_le produces constant bits, FromBits validates via console.
         check_from_field(Mode::Constant, 253, 0, 0, 0)
     }
 
     #[test]
     fn test_from_field_public() -> Result<()> {
-        // Non-constant: field to_bits_le + FromBits validation constraints.
         check_from_field(Mode::Public, 0, 0, 1315, 1535)
     }
 
     #[test]
     fn test_from_field_private() -> Result<()> {
-        // Non-constant: field to_bits_le + FromBits validation constraints.
         check_from_field(Mode::Private, 0, 0, 1315, 1535)
     }
 
@@ -121,6 +118,7 @@ mod tests {
         Circuit::scope("test_from_field_invalid", || {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+            assert_scope_fails!(0, 0, 1316, 1535);
         });
 
         // The circuit must be unsatisfied due to the trailing-null violation.

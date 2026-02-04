@@ -25,8 +25,8 @@ impl<E: Environment> FromBytes for IdentifierLiteral<E> {
         if num_bytes == 0 || num_bytes > Self::SIZE_IN_BYTES {
             return Err(error("Invalid identifier literal length"));
         }
-        // Read directly into a 31-byte array (remaining bytes stay zero).
-        let mut bytes = [0u8; 31];
+        // Read directly into the byte array (remaining bytes stay zero).
+        let mut bytes = [0u8; SIZE_IN_BYTES];
         reader.read_exact(&mut bytes[..num_bytes])?;
         // Validate and construct the identifier literal.
         Self::from_bytes_array(bytes).map_err(|e| error(e.to_string()))

@@ -28,7 +28,7 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
         }
 
         // Reconstruct bytes from the first SIZE_IN_BITS bits.
-        let mut bytes = [0u8; 31];
+        let mut bytes = [0u8; SIZE_IN_BYTES];
         for (i, chunk) in bits_le[..Self::SIZE_IN_BITS].chunks(8).enumerate() {
             for (j, &bit) in chunk.iter().enumerate() {
                 if bit {

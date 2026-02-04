@@ -60,7 +60,6 @@ mod tests {
                 let expected_field = console_value.to_field().unwrap();
                 assert_eq!(expected_field, result.eject_value());
 
-                // ToField is pure bit packing, no additional constraints.
                 assert_scope!(num_constants, num_public, num_private, num_constraints);
             });
 

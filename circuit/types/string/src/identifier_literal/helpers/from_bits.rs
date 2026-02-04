@@ -20,29 +20,27 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
 
     /// Creates an identifier literal from a list of little-endian bits.
     ///
-    /// - If more than 248 bits are provided, upper bits are asserted to be zero.
-    /// - If fewer than 248 bits are provided, the input is zero-padded.
+    /// - If more than SIZE_IN_BITS bits are provided, upper bits are asserted to be zero.
+    /// - If fewer than SIZE_IN_BITS bits are provided, the input is zero-padded.
     /// - Validates the identifier format (character set, first char is a letter, trailing nulls).
     fn from_bits_le(bits_le: &[Self::Boolean]) -> Self {
-        let size_in_bits = Self::size_in_bits();
-        let size_in_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
-
         // If there are more bits than needed, assert upper bits are zero.
-        if bits_le.len() > size_in_bits {
-            Boolean::assert_bits_are_zero(&bits_le[size_in_bits..]);
+        if bits_le.len() > SIZE_IN_BITS {
+            Boolean::assert_bits_are_zero(&bits_le[SIZE_IN_BITS..]);
         }
 
-        // Extract/pad to exactly 248 bits.
-        let mut padded = bits_le.iter().take(size_in_bits).cloned().collect::<Vec<_>>();
-        padded.resize(size_in_bits, Boolean::constant(false));
+        // Extract/pad to exactly SIZE_IN_BITS bits.
+        let mut padded = bits_le.iter().take(SIZE_IN_BITS).cloned().collect::<Vec<_>>();
+        padded.resize(SIZE_IN_BITS, Boolean::constant(false));
 
         // Convert bits to bytes using chunks.
-        let mut bytes_vec = Vec::with_capacity(size_in_bytes);
+        let mut bytes_vec = Vec::with_capacity(SIZE_IN_BYTES);
         for chunk in padded.chunks(8) {
             bytes_vec.push(U8::from_bits_le(chunk));
         }
-        // Safety: size_in_bytes is always 31, matching the array size.
-        let bytes: [U8<E>; 31] = bytes_vec.try_into().unwrap_or_else(|_| E::halt("Failed to convert to byte array"));
+        // Safety: size_in_bytes matches SIZE_IN_BYTES.
+        let bytes: [U8<E>; SIZE_IN_BYTES] =
+            bytes_vec.try_into().unwrap_or_else(|_| E::halt("Failed to convert to byte array"));
 
         // Validate and construct using the shared helper.
         Self::from_bytes(bytes)
@@ -59,7 +57,7 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use snarkvm_circuit_environment::Circuit;
+    use snarkvm_circuit_environment::{Circuit, assert_scope_fails};
     use snarkvm_utilities::{TestRng, Uniform};
 
     type CurrentEnvironment = Circuit;
@@ -134,19 +132,16 @@ mod tests {
 
     #[test]
     fn test_from_bits_le_constant() -> Result<()> {
-        // Constants: no circuit constraints, validation is done via console.
         check_from_bits_le(Mode::Constant, 0, 0, 0, 0)
     }
 
     #[test]
     fn test_from_bits_le_public() -> Result<()> {
-        // Non-constants: validation constraints.
         check_from_bits_le(Mode::Public, 0, 0, 810, 1027)
     }
 
     #[test]
     fn test_from_bits_le_private() -> Result<()> {
-        // Non-constants: validation constraints.
         check_from_bits_le(Mode::Private, 0, 0, 810, 1027)
     }
 
@@ -183,6 +178,7 @@ mod tests {
             let candidate = IdentifierLiteral::<CurrentEnvironment>::from_bits_le(&bits);
             assert_eq!(expected, candidate.eject_value());
             assert!(Circuit::is_satisfied());
+            assert_scope!(0, 0, 810, 1028);
         });
 
         Circuit::reset();
@@ -203,6 +199,7 @@ mod tests {
 
         Circuit::scope("from_bits_le with excess one", || {
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_bits_le(&bits);
+            assert_scope_fails!(0, 0, 810, 1028);
         });
 
         // Circuit should be unsatisfied.

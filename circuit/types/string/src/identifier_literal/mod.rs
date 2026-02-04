@@ -22,9 +22,12 @@ use snarkvm_circuit_types_field::Field;
 use snarkvm_circuit_types_integers::U8;
 
 #[cfg(test)]
-use snarkvm_circuit_environment::assert_scope;
+use snarkvm_circuit_environment::{assert_scope, assert_scope_fails};
 
-/// A circuit identifier literal storing an ASCII string (up to 31 bytes) as a byte array.
+// Re-export size constants from console layer.
+use console::{SIZE_IN_BITS, SIZE_IN_BYTES};
+
+/// A circuit identifier literal storing an ASCII string (up to SIZE_IN_BYTES) as a byte array.
 ///
 /// The circuit validates that every byte is a valid identifier character
 /// (`[a-zA-Z0-9_\0]`), that the first byte is a letter, and that null bytes
@@ -32,17 +35,17 @@ use snarkvm_circuit_environment::assert_scope;
 #[derive(Clone)]
 pub struct IdentifierLiteral<E: Environment> {
     /// The bytes of the identifier literal.
-    bytes: [U8<E>; 31],
+    bytes: [U8<E>; SIZE_IN_BYTES],
 }
 
 impl<E: Environment> IdentifierLiteral<E> {
-    /// Returns the number of bits in an identifier literal (248 = 31 bytes * 8 bits).
+    /// Returns the number of bits in an identifier literal.
     pub const fn size_in_bits() -> usize {
-        console::IdentifierLiteral::<E::Network>::SIZE_IN_BITS
+        SIZE_IN_BITS
     }
 
     /// Constructs an identifier literal from circuit bytes, validating the contents.
-    fn from_bytes(bytes: [U8<E>; 31]) -> Self {
+    fn from_bytes(bytes: [U8<E>; SIZE_IN_BYTES]) -> Self {
         // Validate the bytes.
         validate_identifier_bytes::<E>(&bytes);
 
@@ -58,7 +61,7 @@ impl<E: Environment> Inject for IdentifierLiteral<E> {
         // Access the raw bytes from the console identifier literal.
         let raw_bytes = value.bytes();
         // Inject each byte into the circuit.
-        let bytes: [U8<E>; 31] = std::array::from_fn(|i| U8::new(mode, console::Integer::new(raw_bytes[i])));
+        let bytes: [U8<E>; SIZE_IN_BYTES] = std::array::from_fn(|i| U8::new(mode, console::Integer::new(raw_bytes[i])));
         // Validate and construct.
         Self::from_bytes(bytes)
     }
@@ -141,7 +144,7 @@ impl<E: Environment> Display for IdentifierLiteral<E> {
 /// Each of the 31 bytes must be in `[a-zA-Z0-9_\0]` (null bytes must be trailing-only).
 /// The first byte must be a letter (not digit, underscore, or null).
 /// This function converts bytes to bits and delegates to `validate_identifier_bits`.
-fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
+fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; SIZE_IN_BYTES]) {
     // Collect all 248 bits from the 31 bytes.
     let mut bits = Vec::with_capacity(248);
     for byte in bytes.iter() {
@@ -153,23 +156,20 @@ fn validate_identifier_bytes<E: Environment>(bytes: &[U8<E>; 31]) {
 
 /// Validates that the bits represent a valid identifier literal.
 ///
-/// Expects exactly 248 bits (31 bytes). Each byte must be in `[a-zA-Z0-9_\0]`.
+/// Expects exactly SIZE_IN_BITS bits. Each byte must be in `[a-zA-Z0-9_\0]`.
 /// The first byte must be a letter. Null bytes must be trailing-only.
 fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
-    let size_in_bytes = console::IdentifierLiteral::<E::Network>::SIZE_IN_BYTES;
-    let size_in_bits = size_in_bytes * 8;
-
     // Sanity check: requires exactly SIZE_IN_BITS bits.
     assert_eq!(
         bits.len(),
-        size_in_bits,
-        "validate_identifier_bits requires exactly {size_in_bits} bits, got {}",
+        SIZE_IN_BITS,
+        "validate_identifier_bits requires exactly {SIZE_IN_BITS} bits, got {}",
         bits.len()
     );
 
     // Validate each byte and collect null flags.
-    let mut null_flags: Vec<Boolean<E>> = Vec::with_capacity(size_in_bytes);
-    for byte_idx in 0..size_in_bytes {
+    let mut null_flags: Vec<Boolean<E>> = Vec::with_capacity(SIZE_IN_BYTES);
+    for byte_idx in 0..SIZE_IN_BYTES {
         let offset = byte_idx * 8;
         // Convert the slice to a fixed-size array reference.
         // Safety: always succeeds since we iterate in 8-bit chunks within bounds.
@@ -470,13 +470,11 @@ mod tests {
 
     #[test]
     fn test_new_public() -> Result<()> {
-        // 248 public bits + 810 private intermediates, 1275 constraints.
         check_new(Mode::Public, 0, 248, 810, 1275)
     }
 
     #[test]
     fn test_new_private() -> Result<()> {
-        // 248 private bits + 810 private intermediates = 1058 private, 1275 constraints.
         check_new(Mode::Private, 0, 0, 1058, 1275)
     }
 
@@ -495,7 +493,7 @@ mod tests {
         Circuit::scope("new max length", || {
             let candidate = IdentifierLiteral::<CurrentEnvironment>::new(Mode::Private, expected);
             assert_eq!(expected, candidate.eject_value());
-            assert!(Circuit::is_satisfied());
+            assert_scope!(0, 0, 1058, 1275);
         });
         Circuit::reset();
         Ok(())
@@ -516,6 +514,8 @@ mod tests {
         Circuit::scope("test_non_trailing_null", || {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+            // Constraint counts are deterministic regardless of satisfaction.
+            assert_scope_fails!(0, 0, 1316, 1535);
         });
         // The circuit must be unsatisfied due to the trailing-null violation.
         assert!(!Circuit::is_satisfied());
@@ -537,6 +537,8 @@ mod tests {
         Circuit::scope("test_first_char_digit", || {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+            // Constraint counts are deterministic regardless of satisfaction.
+            assert_scope_fails!(0, 0, 1316, 1535);
         });
         // The circuit must be unsatisfied due to first character not being a letter.
         assert!(!Circuit::is_satisfied());
@@ -553,6 +555,8 @@ mod tests {
         Circuit::scope("test_first_char_underscore", || {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+            // Constraint counts are deterministic regardless of satisfaction.
+            assert_scope_fails!(0, 0, 1316, 1535);
         });
         // The circuit must be unsatisfied due to first character not being a letter.
         assert!(!Circuit::is_satisfied());
@@ -561,7 +565,18 @@ mod tests {
 
     #[test]
     fn test_size_in_bits() {
-        assert_eq!(IdentifierLiteral::<CurrentEnvironment>::size_in_bits(), 248);
+        assert_eq!(IdentifierLiteral::<CurrentEnvironment>::size_in_bits(), SIZE_IN_BITS);
+        assert_eq!(SIZE_IN_BITS, 248);
+    }
+
+    #[test]
+    fn test_size_in_bytes_matches_console() {
+        // Verify the circuit layer's SIZE_IN_BYTES matches the console layer's value.
+        assert_eq!(
+            SIZE_IN_BYTES,
+            console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::SIZE_IN_BYTES
+        );
+        assert_eq!(SIZE_IN_BYTES, 31);
     }
 
     #[test]
@@ -575,13 +590,19 @@ mod tests {
             let field_value = console::Field::<<CurrentEnvironment as Environment>::Network>::from_bytes_le(&raw_bytes)
                 .expect("Failed to construct field");
 
+            // Only a-z and A-Z should satisfy the circuit.
+            let expected_valid = byte.is_ascii_alphabetic();
+
             Circuit::scope(format!("first_byte_{byte}"), || {
                 let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
                 let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+                // Constraint counts are deterministic regardless of satisfaction.
+                if expected_valid {
+                    assert_scope!(0, 0, 1316, 1535);
+                } else {
+                    assert_scope_fails!(0, 0, 1316, 1535);
+                }
             });
-
-            // Only a-z and A-Z should satisfy the circuit.
-            let expected_valid = byte.is_ascii_alphabetic();
             // Check positive case: valid bytes should satisfy the circuit.
             if expected_valid {
                 assert!(Circuit::is_satisfied(), "First byte {byte}: expected circuit to be satisfied");
@@ -600,13 +621,19 @@ mod tests {
             let field_value = console::Field::<<CurrentEnvironment as Environment>::Network>::from_bytes_le(&raw_bytes)
                 .expect("Failed to construct field");
 
+            // a-z, A-Z, 0-9, _, and null should satisfy the circuit.
+            let expected_valid = byte.is_ascii_alphanumeric() || byte == b'_' || byte == 0;
+
             Circuit::scope(format!("second_byte_{byte}"), || {
                 let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
                 let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+                // Constraint counts are deterministic regardless of satisfaction.
+                if expected_valid {
+                    assert_scope!(0, 0, 1316, 1535);
+                } else {
+                    assert_scope_fails!(0, 0, 1316, 1535);
+                }
             });
-
-            // a-z, A-Z, 0-9, _, and null should satisfy the circuit.
-            let expected_valid = byte.is_ascii_alphanumeric() || byte == b'_' || byte == 0;
             // Check positive case: valid bytes should satisfy the circuit.
             if expected_valid {
                 assert!(Circuit::is_satisfied(), "Second byte {byte}: expected circuit to be satisfied");
@@ -644,8 +671,6 @@ mod tests {
 
     #[test]
     fn test_validate_byte_constraint_counts() {
-        // Verify constraint counts for validate_byte.
-        // First byte (with is_letter check): 8 private inputs + 30 intermediates = 38 private, 45 constraints.
         Circuit::scope("validate_byte_first", || {
             let bits = byte_to_bits(b'a', Mode::Private);
             let _null_flag = validate_byte::<CurrentEnvironment>(&bits, true);
@@ -653,7 +678,6 @@ mod tests {
         });
         Circuit::reset();
 
-        // Non-first byte (without is_letter check): 8 private inputs + 26 intermediates = 34 private, 40 constraints.
         Circuit::scope("validate_byte_non_first", || {
             let bits = byte_to_bits(b'a', Mode::Private);
             let _null_flag = validate_byte::<CurrentEnvironment>(&bits, false);
@@ -664,14 +688,10 @@ mod tests {
 
     #[test]
     fn test_validate_trailing_nulls_constraint_counts() {
-        // Verify constraint counts for validate_trailing_nulls.
-        // For n flags, we have n-1 constraints (one per consecutive pair), plus n-1 intermediates for not().
-        // However, E::enforce adds additional constraints.
         Circuit::scope("trailing_nulls_3", || {
             let null_flags: Vec<Boolean<CurrentEnvironment>> =
                 [false, false, true].iter().map(|&b| Boolean::new(Mode::Private, b)).collect();
             validate_trailing_nulls::<CurrentEnvironment>(&null_flags);
-            // 3 private inputs, 5 constraints (E::enforce adds more than just 1 per pair).
             assert_scope!(0, 0, 3, 5);
         });
         Circuit::reset();
@@ -680,7 +700,6 @@ mod tests {
             let null_flags: Vec<Boolean<CurrentEnvironment>> =
                 (0..31).map(|_| Boolean::new(Mode::Private, false)).collect();
             validate_trailing_nulls::<CurrentEnvironment>(&null_flags);
-            // 31 private inputs, 61 constraints.
             assert_scope!(0, 0, 31, 61);
         });
         Circuit::reset();
@@ -688,12 +707,9 @@ mod tests {
 
     #[test]
     fn test_validate_padding_bits_constraint_counts() {
-        // Verify constraint counts for validate_padding_bits.
-        // Each padding bit beyond data_bits adds constraints via assert_eq.
         Circuit::scope("padding_2_bits", || {
             let bits: Vec<Boolean<CurrentEnvironment>> = (0..10).map(|_| Boolean::new(Mode::Private, false)).collect();
             validate_padding_bits(&bits, 8);
-            // 10 private inputs, 12 constraints.
             assert_scope!(0, 0, 10, 12);
         });
         Circuit::reset();
@@ -701,19 +717,10 @@ mod tests {
 
     #[test]
     fn test_validate_identifier_bits_constraint_counts() {
-        // Verify total constraint counts.
-        // Using ByteValidationData struct to share intermediates saves ~300 constraints:
-        // - First byte: 38 private, 45 constraints (includes is_letter check).
-        // - Non-first bytes (30): 34 private each = 1020 private, 40 constraints each = 1200 constraints.
-        // - Trailing nulls (30 pairs): ~30 intermediates, 61 constraints.
-        // Total: 248 bits + 810 intermediates = 1058 private, 1275 constraints.
         Circuit::scope("validate_identifier_bits", || {
-            // Create 248 bits (31 bytes) representing a valid identifier "a" followed by nulls.
-            let mut bits: Vec<Boolean<CurrentEnvironment>> = Vec::with_capacity(248);
-            // First byte: 'a' = 0x61 = 0b01100001.
+            let mut bits: Vec<Boolean<CurrentEnvironment>> = Vec::with_capacity(SIZE_IN_BITS);
             bits.extend(byte_to_bits(b'a', Mode::Private));
-            // Remaining 30 bytes: null (0x00).
-            for _ in 1..31 {
+            for _ in 1..SIZE_IN_BYTES {
                 bits.extend(byte_to_bits(0x00, Mode::Private));
             }
             validate_identifier_bits::<CurrentEnvironment>(&bits);
@@ -798,6 +805,7 @@ mod tests {
                 let null_flags: Vec<Boolean<CurrentEnvironment>> =
                     pattern.iter().map(|&b| Boolean::new(Mode::Private, b)).collect();
                 validate_trailing_nulls::<CurrentEnvironment>(&null_flags);
+                assert_scope!(0, 0, 3, 5);
             });
             assert!(Circuit::is_satisfied(), "Pattern {pattern:?} should be valid");
             Circuit::reset();
@@ -819,6 +827,7 @@ mod tests {
                 let null_flags: Vec<Boolean<CurrentEnvironment>> =
                     pattern.iter().map(|&b| Boolean::new(Mode::Private, b)).collect();
                 validate_trailing_nulls::<CurrentEnvironment>(&null_flags);
+                assert_scope_fails!(0, 0, 3, 5);
             });
             assert!(!Circuit::is_satisfied(), "Pattern {pattern:?} should be invalid");
             Circuit::reset();
@@ -834,6 +843,7 @@ mod tests {
                 (0..10).map(|_| Boolean::new(Mode::Private, false)).collect();
             bits[0] = Boolean::new(Mode::Private, true); // Data bits can be anything.
             validate_padding_bits(&bits, 8);
+            assert_scope!(0, 0, 11, 13);
         });
         assert!(Circuit::is_satisfied());
         Circuit::reset();
@@ -847,6 +857,8 @@ mod tests {
                 (0..10).map(|_| Boolean::new(Mode::Private, false)).collect();
             bits[9] = Boolean::new(Mode::Private, true); // Padding bit is 1.
             validate_padding_bits(&bits, 8);
+            // Constraint counts are deterministic regardless of satisfaction.
+            assert_scope_fails!(0, 0, 11, 13);
         });
         assert!(!Circuit::is_satisfied());
         Circuit::reset();
@@ -870,6 +882,17 @@ mod tests {
                 Circuit::scope(format!("byte_{byte_value}_first_{is_first}"), || {
                     let bits = byte_to_bits(byte_value, Mode::Private);
                     let _null_flag = validate_byte::<CurrentEnvironment>(&bits, is_first);
+                    if expected_valid {
+                        if is_first {
+                            assert_scope!(0, 0, 38, 45);
+                        } else {
+                            assert_scope!(0, 0, 34, 40);
+                        }
+                    } else if is_first {
+                        assert_scope_fails!(0, 0, 38, 45);
+                    } else {
+                        assert_scope_fails!(0, 0, 34, 40);
+                    }
                 });
 
                 assert_eq!(
@@ -911,6 +934,11 @@ mod tests {
                     let flags: Vec<Boolean<CurrentEnvironment>> =
                         null_flags.iter().map(|&b| Boolean::new(Mode::Private, b)).collect();
                     validate_trailing_nulls::<CurrentEnvironment>(&flags);
+                    if expected_valid {
+                        assert_scope!(0, 0, n as u64, (2 * n - 1) as u64);
+                    } else {
+                        assert_scope_fails!(0, 0, n as u64, (2 * n - 1) as u64);
+                    }
                 });
 
                 assert_eq!(
@@ -947,6 +975,7 @@ mod tests {
                     expected_invalid,
                     "nibble={nibble}: expected is_invalid={expected_invalid}"
                 );
+                assert_scope!(0, 0, 6, 6);
             });
             assert!(Circuit::is_satisfied(), "Circuit should be satisfied for nibble={nibble}");
             Circuit::reset();
@@ -980,6 +1009,7 @@ mod tests {
                     expected_invalid,
                     "offset={offset}: expected is_invalid={expected_invalid}"
                 );
+                assert_scope!(0, 0, 16, 16);
             });
             assert!(Circuit::is_satisfied(), "Circuit should be satisfied for offset={offset}");
             Circuit::reset();
@@ -1013,6 +1043,7 @@ mod tests {
                     expected_invalid,
                     "offset={offset}: expected is_invalid={expected_invalid}"
                 );
+                assert_scope!(0, 0, 14, 14);
             });
             assert!(Circuit::is_satisfied(), "Circuit should be satisfied for offset={offset}");
             Circuit::reset();

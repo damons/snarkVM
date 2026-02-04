@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_from_field_rejects_digit_start() {
         // Create a field with first byte = '1' (digit).
-        let mut bytes = [0u8; 31];
+        let mut bytes = [0u8; SIZE_IN_BYTES];
         bytes[0] = b'1';
         // Pack as field.
         let field = Field::<CurrentEnvironment>::from_bits_le(&bytes.to_bits_le()).unwrap();
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_from_field_rejects_underscore_start() {
         // Create a field with first byte = '_' (underscore).
-        let mut bytes = [0u8; 31];
+        let mut bytes = [0u8; SIZE_IN_BYTES];
         bytes[0] = b'_';
         // Pack as field.
         let field = Field::<CurrentEnvironment>::from_bits_le(&bytes.to_bits_le()).unwrap();
@@ -109,8 +109,8 @@ mod tests {
 
     #[test]
     fn test_from_field_max_length() {
-        // 31-character identifier should succeed.
-        let max_str = "a".repeat(31);
+        // SIZE_IN_BYTES-character identifier should succeed.
+        let max_str = "a".repeat(SIZE_IN_BYTES);
         let original = IdentifierLiteral::<CurrentEnvironment>::new(&max_str).unwrap();
         let field = original.to_field().unwrap();
         let recovered = IdentifierLiteral::<CurrentEnvironment>::from_field(&field).unwrap();
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_from_field_rejects_invalid_mid_chars() {
         // Space character (0x20) in middle position should fail.
-        let mut bytes = [0u8; 31];
+        let mut bytes = [0u8; SIZE_IN_BYTES];
         bytes[0] = b'a';
         bytes[1] = b' '; // Invalid: space is not a valid identifier character.
         let field = Field::<CurrentEnvironment>::from_bits_le(&bytes.to_bits_le()).unwrap();

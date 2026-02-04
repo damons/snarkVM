@@ -26,7 +26,13 @@ mod to_fields;
 use crate::{Boolean, Field};
 use snarkvm_console_network_environment::prelude::*;
 
-/// An identifier literal is an ASCII string (up to 31 bytes) stored as a byte array.
+/// The number of bytes in an identifier literal, derived from the field's data capacity.
+/// For BLS12-377, this is 254 / 8 = 31 bytes.
+pub const SIZE_IN_BYTES: usize = Field::<Console>::SIZE_IN_DATA_BITS / 8;
+/// The number of bits in an identifier literal.
+pub const SIZE_IN_BITS: usize = SIZE_IN_BYTES * 8;
+
+/// An identifier literal is an ASCII string (up to SIZE_IN_BYTES bytes) stored as a byte array.
 ///
 /// The string content is stored as null-padded bytes in little-endian order.
 ///
@@ -34,16 +40,16 @@ use snarkvm_console_network_environment::prelude::*;
 /// The allowed characters are: `[a-zA-Z][a-zA-Z0-9_]*`.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct IdentifierLiteral<E: Environment> {
-    /// The 31 bytes of the identifier (null-padded).
-    bytes: [u8; 31],
+    /// The bytes of the identifier (null-padded).
+    bytes: [u8; SIZE_IN_BYTES],
     _phantom: core::marker::PhantomData<E>,
 }
 
 impl<E: Environment> IdentifierLiteral<E> {
     /// The number of bits in an identifier literal.
-    pub const SIZE_IN_BITS: usize = Self::SIZE_IN_BYTES * 8;
+    pub const SIZE_IN_BITS: usize = SIZE_IN_BITS;
     /// The number of bytes in an identifier literal.
-    pub const SIZE_IN_BYTES: usize = Field::<E>::SIZE_IN_DATA_BITS / 8;
+    pub const SIZE_IN_BYTES: usize = SIZE_IN_BYTES;
 
     /// Creates a new identifier literal from a string.
     /// Allowed characters: `[a-zA-Z][a-zA-Z0-9_]*`.
@@ -52,8 +58,8 @@ impl<E: Environment> IdentifierLiteral<E> {
         ensure!(!string.is_empty(), "Identifier literal cannot be empty");
         // Ensure the string does not exceed the maximum length.
         ensure!(string.len() <= Self::SIZE_IN_BYTES, "Identifier literal exceeds {} bytes", Self::SIZE_IN_BYTES);
-        // Copy the string bytes into a 31-byte array.
-        let mut bytes = [0u8; 31];
+        // Copy the string bytes into the byte array.
+        let mut bytes = [0u8; SIZE_IN_BYTES];
         bytes[..string.len()].copy_from_slice(string.as_bytes());
         // Validate the identifier bytes.
         validate_identifier_bytes(&bytes)?;
@@ -62,13 +68,13 @@ impl<E: Environment> IdentifierLiteral<E> {
     }
 
     /// Creates an identifier literal from a byte array, validating the contents.
-    pub fn from_bytes_array(bytes: [u8; 31]) -> Result<Self> {
+    pub fn from_bytes_array(bytes: [u8; SIZE_IN_BYTES]) -> Result<Self> {
         validate_identifier_bytes(&bytes)?;
         Ok(Self { bytes, _phantom: core::marker::PhantomData })
     }
 
     /// Returns the bytes of the identifier literal.
-    pub fn bytes(&self) -> &[u8; 31] {
+    pub fn bytes(&self) -> &[u8; SIZE_IN_BYTES] {
         &self.bytes
     }
 
@@ -120,9 +126,9 @@ impl<E: Environment> SizeInBytes for IdentifierLiteral<E> {
 
 /// Validates that the byte array is a valid identifier.
 /// Returns the number of string bytes (before first null).
-fn validate_identifier_bytes(bytes: &[u8; 31]) -> Result<u8> {
+fn validate_identifier_bytes(bytes: &[u8; SIZE_IN_BYTES]) -> Result<u8> {
     // Find the number of content bytes (before the first null).
-    let num_bytes = bytes.iter().position(|&b| b == 0).unwrap_or(31);
+    let num_bytes = bytes.iter().position(|&b| b == 0).unwrap_or(SIZE_IN_BYTES);
     // Ensure the identifier is not empty.
     ensure!(num_bytes > 0, "Identifier literal cannot be empty");
     // Ensure all bytes after the content are zero (canonical null-padding).
@@ -206,7 +212,7 @@ mod tests {
     fn test_validate_identifier_bytes_all_ascii() {
         // Test first byte: only a-z and A-Z should be valid.
         for byte in 0u8..=255 {
-            let mut bytes = [0u8; 31];
+            let mut bytes = [0u8; SIZE_IN_BYTES];
             bytes[0] = byte;
             let result = IdentifierLiteral::<CurrentEnvironment>::from_bytes_array(bytes);
             let expected_valid = byte.is_ascii_alphabetic();
@@ -229,7 +235,7 @@ mod tests {
 
         // Test subsequent bytes: a-z, A-Z, 0-9, _ should be valid (plus null for padding).
         for byte in 0u8..=255 {
-            let mut bytes = [0u8; 31];
+            let mut bytes = [0u8; SIZE_IN_BYTES];
             bytes[0] = b'a'; // Valid first byte.
             bytes[1] = byte;
             let result = IdentifierLiteral::<CurrentEnvironment>::from_bytes_array(bytes);
