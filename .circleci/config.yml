@@ -198,7 +198,7 @@ commands:
               clang llvm-dev llvm lld pkg-config xz-utils make libssl-dev
 
       - run:
-          name: No-cache mode: clean + disable sccache
+          name: "No-cache mode: clean + disable sccache"
           command: |
             set -euo pipefail
             USE_CACHE="<< parameters.use_cache >>"
