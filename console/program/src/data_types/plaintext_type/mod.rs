@@ -61,6 +61,24 @@ impl<N: Network> PlaintextType<N> {
             }
         }
     }
+
+    /// Removes all program qualification from struct types.
+    pub fn unqualify(self) -> Self {
+        match self {
+            // Already-unqualified or unaffected
+            PlaintextType::Literal(..) | PlaintextType::Struct(..) => self,
+
+            // Drop the program qualification unconditionally
+            PlaintextType::ExternalStruct(locator) => PlaintextType::Struct(*locator.name()),
+
+            // Recurse into arrays
+            PlaintextType::Array(array_type) => {
+                let element_type = array_type.next_element_type().clone().unqualify();
+
+                PlaintextType::Array(ArrayType::new(element_type, vec![*array_type.length()]).unwrap())
+            }
+        }
+    }
 }
 
 impl<N: Network> From<LiteralType> for PlaintextType<N> {
