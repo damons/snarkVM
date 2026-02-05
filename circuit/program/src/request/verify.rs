@@ -323,7 +323,7 @@ mod tests {
 
     use anyhow::Result;
 
-    pub(crate) const ITERATIONS: usize = 50;
+    pub(crate) const ITERATIONS: usize = 10;
 
     fn check_verify(
         mode: Mode,

@@ -13,13 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CallStack, Registers, Stack, error::*, stack::Address};
+use crate::{CallStack, Registers, Stack, stack::Address};
 use aleo_std::prelude::{finish, lap, timer};
 use console::{
     account::Field,
     network::prelude::*,
     program::{Register, Request, Value, ValueType},
 };
+use snarkvm_synthesizer_error::*;
 use snarkvm_synthesizer_program::{
     Call,
     CallOperator,

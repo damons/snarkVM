@@ -13,9 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod error;
-pub use error::*;
-
 mod opcode;
 pub use opcode::*;
 
@@ -56,6 +53,7 @@ use console::{
     },
     program::{Register, RegisterType},
 };
+use snarkvm_synthesizer_error::*;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Instruction<N: Network> {

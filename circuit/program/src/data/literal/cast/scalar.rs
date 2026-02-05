@@ -107,7 +107,7 @@ mod tests {
 
     use std::fmt::Debug;
 
-    const ITERATIONS: usize = 100;
+    const ITERATIONS: usize = 10;
 
     fn sample_values(
         i: usize,

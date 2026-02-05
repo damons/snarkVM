@@ -103,7 +103,7 @@ use console::{
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
     types::U8,
 };
-use snarkvm_utilities::cfg_iter;
+use snarkvm_utilities::{cfg_find_map, cfg_iter};
 
 use indexmap::{IndexMap, IndexSet};
 use std::collections::BTreeSet;
@@ -1070,17 +1070,22 @@ impl<N: Network> ProgramCore<N> {
             .ok_or(anyhow!("Failed to fetch maximum program size"))?;
 
         // Check if the constructor exceeds the maximum number of writes.
-        let constructor_exceeds =
-            self.constructor().is_some_and(|constructor| constructor.num_writes() > max_num_writes);
-
-        // Check if any finalize logic exceeds the maximum number of writes.
-        let finalize_exceeds = cfg_iter!(self.functions()).any(|(_, function)| {
-            function.finalize_logic().is_some_and(|finalize| finalize.num_writes() > max_num_writes)
-        });
-
-        if constructor_exceeds || finalize_exceeds {
+        if self.constructor().is_some_and(|constructor| constructor.num_writes() > max_num_writes) {
             bail!(
-                "Program writes exceed the maximum allowed writes of {max_num_writes} for the current height {block_height} (consensus version {}).",
+                "Program constructor exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
+                N::CONSENSUS_VERSION(block_height)?
+            );
+        }
+
+        // Find the first function whose finalize logic exceeds the maximum writes.
+        if let Some(name) = cfg_find_map!(self.functions(), |function| {
+            function
+                .finalize_logic()
+                .is_some_and(|finalize| finalize.num_writes() > max_num_writes)
+                .then(|| *function.name())
+        }) {
+            bail!(
+                "Program function '{name}' exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
                 N::CONSENSUS_VERSION(block_height)?
             );
         }
