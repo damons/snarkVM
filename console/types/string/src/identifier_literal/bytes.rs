@@ -75,4 +75,23 @@ mod tests {
         assert_eq!(expected, recovered);
         Ok(())
     }
+
+    #[test]
+    fn test_bytes_length_zero() {
+        // A length prefix of 0 should be rejected.
+        let bytes = [0u8];
+        let result = IdentifierLiteral::<CurrentEnvironment>::read_le(&bytes[..]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bytes_length_exceeds_max() {
+        // A length prefix exceeding SIZE_IN_BYTES should be rejected.
+        let length =
+            u8::try_from(IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BYTES).expect("SIZE_IN_BYTES fits in u8") + 1;
+        let mut bytes = vec![length];
+        bytes.resize(length as usize + 1, b'a');
+        let result = IdentifierLiteral::<CurrentEnvironment>::read_le(&bytes[..]);
+        assert!(result.is_err());
+    }
 }
