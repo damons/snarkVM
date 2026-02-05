@@ -106,7 +106,7 @@ commands:
             # Disable incremental builds so sccache behaves nicely
             echo 'export CARGO_INCREMENTAL=0' >> "$BASH_ENV"
 
-            # Use sccache for *all* Rust compile commands
+            # Use sccache for *all* Rust compile commands.
             echo 'export RUSTC_WRAPPER="sccache"' >> "$BASH_ENV"
       - run:
           name: Install sccache

@@ -70,9 +70,6 @@ version = "1"
 workspace = true
 features = [ "preserve_order" ]
 
-[dependencies.thiserror]
-workspace = true
-
 [dependencies.tiny-keccak]
 version = "2"
 features = [ "sha3" ]
