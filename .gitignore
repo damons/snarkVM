@@ -21,7 +21,6 @@ artifacts
 !.claude/AGENTS.md
 !.claude/CLAUDE.md
 !.claude/skills/
-!.claude/commands/
 
 # Ignore auto-generated CLAUDE.md files outside .claude/
 **/CLAUDE.md
