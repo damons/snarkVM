@@ -1,133 +1,37 @@
 # snarkVM
 
-## Before Writing Code
-- Search for existing implementations.
-- Read the target module and match its patterns exactly.
-- Scope out necessary tests ahead of time.
-- If uncertain, ask.
-- Think very hard in your planning process.
-- New files, crates, dependencies, abstractions, traits, or error types require approval.
+## Rules
+- All changes must be backwards compatible — no consensus forks.
+- New files, crates, dependencies, abstractions, or traits require approval.
+- `unwrap`s must have a comment justifying why they can't panic.
 
-## Architecture
-- All changes must be backwards compatible and must not introduce forks.
-- New features may be gated by `ConsensusVersion` if needed.
-- Validation logic should exist in one place per layer.
-- Trait impls (ToBits, FromBits, ToField, FromField) should follow existing patterns.
+## Crate-Specific
+- **console / circuit**: Must stay in sync. Same structure, same API. When modifying one, check the other. Test circuit equivalence by comparing constraint counts.
+- **synthesizer**: Tests are slow — run only the specific test function. Use `--features test,dev_println` for integration tests.
 
-## Crates
-
-**console / circuit**
-- These layers must stay in sync — same structure, same API surface.
-- Circuits must be deterministic.
-- Test circuit equivalence by comparing constraint counts.
-- When modifying one layer, check if the other needs the same change.
-
-**synthesizer**
-- Tests are slow. Run only the relevant test module or function.
-- Use `--features test,dev_println` for integration tests.
-
-## Code and Patterns
-- Test-driven development: write failing tests first.
-- `unwrap`s must be commented with justification.
+## Patterns
+- Prefer `zip_eq` over `zip` when lengths must match.
 - Pre-allocate with `with_capacity` when final size is known.
-- Prefer arrays/slices over `Vec` when size is known at compile time.
-- Use iterators; avoid intermediate vectors and unnecessary `.collect()`.
-- Prefer references and `into_iter()` over `.clone()` and `iter().cloned()`.
+- Prefer `into_iter()` over `iter().cloned()`. Prefer references over `.clone()`.
+- Use iterators; avoid intermediate `.collect()` when a single pass follows.
+- Trait impls (ToBits, FromBits, ToField, FromField) should follow existing patterns in the same file.
+- See @CONTRIBUTING.md for full memory/performance guidelines.
 
-See @CONTRIBUTING.md for detailed memory and performance guidelines.
-
-## Validation
-
-**BLOCKING**: All checks must pass before considering any task complete. Fix failures before proceeding.
-
-Run in order:
+## Validation (BLOCKING)
+All must pass before any task is complete:
 ```bash
 cargo check -p <crate>
 cargo clippy -p <crate> -- -D warnings
-cargo +nightly fmt --check
+cargo +nightly fmt --check            # Requires nightly toolchain
 cargo test -p <crate>
 ```
-
-Clippy warnings are errors. Formatting requires nightly (`cargo +nightly fmt --all` to fix).
-
-**Pre-commit hook** runs workspace-wide checks:
-```bash
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo +nightly fmt --all -- --check
-```
-
-If you modified multiple crates or are unsure, run the workspace-wide commands before completing.
-
-## Git
-- Never commit unless explicitly asked.
-- Stage with `git add` only if requested.
-- Pre-commit hooks run fmt and clippy. Run `cargo +nightly fmt --all` before staging.
+Pre-commit hook runs workspace-wide: `cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo +nightly fmt --all -- --check`
 
 ## Style
-- One blank line between functions.
-- No trailing whitespace.
+- Match existing file patterns exactly. One blank line between functions. No trailing whitespace.
 - Imports: std first, external crates second, crate-local third.
-- Match existing file patterns exactly.
-- Comments must be concise, complete, punctuated sentences.
-- License header required (enforced by `build.rs`).
-- `#![forbid(unsafe_code)]` unless approved.
+- Comments: concise, complete, punctuated sentences.
+- License header required (enforced by `build.rs`). `#![forbid(unsafe_code)]` unless approved.
 
-## Review Checklist
-
-### Correctness
-- [ ] Logic traced step-by-step — can you walk through execution mentally?
-- [ ] Boundary conditions handled: zero, empty, max, off-by-one
-- [ ] Error handling correct; no panics possible in production paths
-- [ ] No race conditions or ordering assumptions
-- [ ] State transitions valid from all reachable states
-
-### Crypto
-- [ ] Field operations safe (no overflow, proper modular arithmetic)
-- [ ] Checked arithmetic used where needed
-- [ ] Randomness sourced appropriately (not predictable, sufficient entropy)
-- [ ] No timing side-channels (constant-time where required)
-- [ ] Circuit constraints deterministic and complete
-
-### Memory & Performance
-- [ ] No unnecessary allocations in hot paths
-- [ ] Pre-allocation with `with_capacity` where size known
-- [ ] No unnecessary `.clone()` — prefer references
-- [ ] Iterators used efficiently; no intermediate collections
-- [ ] No O(n²) or worse hidden in loops
-
-### Security
-- [ ] Input validation at trust boundaries
-- [ ] No information leakage in error messages
-- [ ] Fail-closed (reject on uncertainty)
-- [ ] Backwards compatible (no consensus forks)
-
-## Deep Analysis Techniques
-
-When reviewing complex changes:
-
-### Trace Data Flow
-1. Identify all inputs (function args, global state, config)
-2. Follow each input through transformations
-3. Verify constraints are checked before use
-4. Verify outputs match expected invariants
-
-### Enumerate Failure Modes
-For each operation, ask:
-- What if this is zero/empty/max?
-- What if this fails/returns error?
-- What if this is called twice? Out of order?
-- What if an attacker controls this input?
-
-### Check Boundaries
-- [ ] Array/slice indices always in bounds
-- [ ] Arithmetic never overflows (or overflow is intentional)
-- [ ] Casts don't truncate unexpectedly
-- [ ] Loop bounds can't be manipulated
-
-### Verify Invariants
-Identify what must always be true:
-- Before function entry
-- After function exit
-- Between related data structures
-
-If an invariant can be violated, it's a bug.
+## Git
+Never commit unless asked. Run `cargo +nightly fmt --all` before staging.
