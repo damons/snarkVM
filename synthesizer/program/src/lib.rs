@@ -1099,7 +1099,7 @@ impl<N: Network> ProgramCore<N> {
     /// closures, structs, mappings, and records.
     /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
     #[inline]
-    pub fn contains_v14_syntax(&self) -> bool {
+    pub fn contains_v14_syntax(&self) -> Result<bool> {
         /// Returns `true` if the operand is V14 syntax.
         fn is_v14_operand<N: Network>(operand: &Operand<N>) -> bool {
             match operand {
@@ -1110,33 +1110,59 @@ impl<N: Network> ProgramCore<N> {
         }
 
         // Check functions: instructions, finalize commands, and type declarations in one pass.
-        let function_contains = cfg_iter!(self.functions()).any(|(_, function)| {
-            function.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand))
-                || function
-                    .finalize_logic()
-                    .map(|finalize| finalize.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)))
-                    .unwrap_or(false)
-                || function.contains_identifier_type()
-        });
+        for (_, function) in self.functions() {
+            if function.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand)) {
+                return Ok(true);
+            }
+            if function
+                .finalize_logic()
+                .map(|finalize| finalize.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)))
+                .unwrap_or(false)
+            {
+                return Ok(true);
+            }
+            if function.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
 
         // Check closures: instructions and type declarations in one pass.
-        let closure_contains = cfg_iter!(self.closures()).any(|(_, closure)| {
-            closure.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand))
-                || closure.contains_identifier_type()
-        });
+        for (_, closure) in self.closures() {
+            if closure.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand)) {
+                return Ok(true);
+            }
+            if closure.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
 
         // Check constructor commands.
         let constructor_contains = self
             .constructor
             .iter()
             .any(|constructor| constructor.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)));
+        if constructor_contains {
+            return Ok(true);
+        }
 
         // Check remaining type definitions: mappings, structs, records.
-        let type_definitions_contain = self.mappings.values().any(|mapping| mapping.contains_identifier_type())
-            || self.structs.values().any(|struct_type| struct_type.contains_identifier_type())
-            || self.records.values().any(|record_type| record_type.contains_identifier_type());
+        for mapping in self.mappings.values() {
+            if mapping.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for struct_type in self.structs.values() {
+            if struct_type.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for record_type in self.records.values() {
+            if record_type.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
 
-        function_contains || closure_contains || constructor_contains || type_definitions_contain
+        Ok(false)
     }
 
     /// Returns `true` if a program contains any string type.

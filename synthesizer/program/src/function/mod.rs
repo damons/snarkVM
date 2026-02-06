@@ -113,10 +113,23 @@ impl<N: Network> FunctionCore<N> {
     }
 
     /// Returns `true` if the function contains an identifier type in its inputs/outputs.
-    pub fn contains_identifier_type(&self) -> bool {
-        self.input_types().iter().any(|input| input.contains_identifier_type())
-            || self.output_types().iter().any(|output| output.contains_identifier_type())
-            || self.finalize_logic.as_ref().map(|finalize| finalize.contains_identifier_type()).unwrap_or(false)
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        for input in self.input_types() {
+            if input.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for output in self.output_types() {
+            if output.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        if let Some(finalize) = &self.finalize_logic {
+            if finalize.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Returns `true` if the function scope contains an array type with a size that exceeds the given maximum.

@@ -65,8 +65,9 @@ impl<N: Network> Mapping<N> {
     }
 
     /// Returns `true` if the mapping contains an identifier type.
-    pub fn contains_identifier_type(&self) -> bool {
-        self.key.plaintext_type().contains_identifier_type() || self.value.plaintext_type().contains_identifier_type()
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        Ok(self.key.plaintext_type().contains_identifier_type()?
+            || self.value.plaintext_type().contains_identifier_type()?)
     }
 
     /// Returns `true` if the mapping contains an array type with a size that exceeds the given maximum.

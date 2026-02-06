@@ -96,10 +96,15 @@ impl<N: Network> FinalizeCore<N> {
     }
 
     /// Returns `true` if the finalize scope contains an identifier type in its inputs.
-    pub fn contains_identifier_type(&self) -> bool {
-        self.input_types().iter().any(|input_type| {
-            matches!(input_type, FinalizeType::Plaintext(plaintext_type) if plaintext_type.contains_identifier_type())
-        })
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        for input_type in self.input_types() {
+            if let FinalizeType::Plaintext(plaintext_type) = input_type {
+                if plaintext_type.contains_identifier_type()? {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
     }
 
     /// Returns `true` if the finalize scope contains an array type with a size that exceeds the given maximum.

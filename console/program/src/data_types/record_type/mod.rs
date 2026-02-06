@@ -62,8 +62,13 @@ impl<N: Network> RecordType<N> {
     }
 
     /// Returns `true` if the record contains an identifier type.
-    pub fn contains_identifier_type(&self) -> bool {
-        self.entries.values().any(|entry_type| entry_type.plaintext_type().contains_identifier_type())
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        for entry_type in self.entries.values() {
+            if entry_type.plaintext_type().contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Returns `true` if the record contains an array type with a size that exceeds the given maximum.

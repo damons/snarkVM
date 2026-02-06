@@ -279,7 +279,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 }
                 if consensus_version < ConsensusVersion::V14 {
                     ensure!(
-                        !deployment.program().contains_v14_syntax(),
+                        !deployment.program().contains_v14_syntax()?,
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V14`"
                     );
                 }
