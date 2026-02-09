@@ -203,15 +203,20 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         block: &Block<N>,
         rng: &mut R,
     ) -> Result<(), CheckBlockError<N>> {
-        let latest_block = self.current_block.read();
+        // Grab lock to the previous block here, to ensure it does not change mid-check.
+        let previous_block = self.current_block.read();
 
         // Ensure, again, that the ledger has not advanced yet. This prevents cryptic errors form appearing during the block check.
-        if block.height() != latest_block.height() + 1 {
-            return Err(CheckBlockError::InvalidHeight { expected: latest_block.height() + 1, actual: block.height() });
+        if block.height() != previous_block.height() + 1 {
+            return Err(CheckBlockError::InvalidHeight {
+                expected: previous_block.height() + 1,
+                actual: block.height(),
+            });
         }
+
         // Also ensure the round is valid, otherwise speculation on transactions will fail with a cryptic error.
-        if block.round() <= latest_block.round() {
-            return Err(CheckBlockError::InvalidRound { new: block.round(), previous: latest_block.round() });
+        if block.round() <= previous_block.round() {
+            return Err(CheckBlockError::InvalidRound { new: block.round(), previous: previous_block.round() });
         }
 
         // Ensure the solutions do not already exist.
@@ -235,7 +240,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         )?;
 
         // Ensure speculation over the unconfirmed transactions is correct and ensure each transaction is well-formed and unique.
-        let time_since_last_block = block.timestamp().saturating_sub(self.latest_timestamp());
+        let time_since_last_block = block.timestamp().saturating_sub(previous_block.timestamp());
         let ratified_finalize_operations = self.vm.check_speculate(
             state,
             time_since_last_block,
@@ -262,13 +267,13 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         // Get the latest epoch hash.
         let latest_epoch_hash = match self.current_epoch_hash.read().as_ref() {
             Some(epoch_hash) => *epoch_hash,
-            None => self.get_epoch_hash(latest_block.height())?,
+            None => self.get_epoch_hash(previous_block.height())?,
         };
 
         // Ensure the block is correct.
         let (expected_existing_solution_ids, expected_existing_transaction_ids) = block
             .verify(
-                &latest_block,
+                &previous_block,
                 self.latest_state_root(),
                 &previous_committee_lookback,
                 &committee_lookback,
@@ -286,7 +291,7 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
                 let prover_address = solution.address();
                 let num_accepted_solutions = *accepted_solutions.get(&prover_address).unwrap_or(&0);
                 // Check if the prover has reached their solution limit.
-                if self.is_solution_limit_reached(&prover_address, num_accepted_solutions) {
+                if self.is_solution_limit_reached_inner(&previous_block, &prover_address, num_accepted_solutions) {
                     return Err(CheckBlockError::SolutionLimitReached { prover_address });
                 }
                 // Track the already accepted solutions.
