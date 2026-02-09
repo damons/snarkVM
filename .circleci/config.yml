@@ -58,7 +58,7 @@ commands:
 
             # Put cargo/rustup first in PATH for this step and subsequent steps
             $Env:Path = "$Env:USERPROFILE\.cargo\bin;$Env:Path"
-            
+
             # Select the toolchain
             rustup default 1.88.0-x86_64-pc-windows-msvc
 
