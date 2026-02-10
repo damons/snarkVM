@@ -1095,11 +1095,12 @@ impl<N: Network> ProgramCore<N> {
     pub fn contains_v14_syntax(&self) -> Result<bool> {
         /// Returns `true` if the operand is V14 syntax.
         fn is_v14_operand<N: Network>(operand: &Operand<N>) -> bool {
-            match operand {
-                Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator => true,
-                Operand::Literal(literal) => literal.to_type() == console::program::LiteralType::Identifier,
-                _ => false,
-            }
+            matches!(
+                operand,
+                Operand::AleoGeneratorPowers(_)
+                    | Operand::AleoGenerator
+                    | Operand::Literal(console::program::Literal::Identifier(..))
+            )
         }
 
         // Check functions: instructions, finalize commands, and type declarations in one pass.
