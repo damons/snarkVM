@@ -28,6 +28,9 @@ default = [ ]
 serial = [ "snarkvm-console/serial" ]
 wasm = [ "snarkvm-console/wasm" ]
 
+[dependencies.snarkvm-algorithms]
+workspace = true
+
 [dependencies.snarkvm-circuit]
 workspace = true
 
@@ -36,6 +39,9 @@ workspace = true
 features = [ "account", "network", "program", "types" ]
 
 [dependencies.snarkvm-synthesizer-error]
+workspace = true
+
+[dependencies.snarkvm-synthesizer-snark]
 workspace = true
 
 [dependencies.snarkvm-utilities]
@@ -63,9 +69,6 @@ version = "1"
 [dependencies.serde_json]
 workspace = true
 features = [ "preserve_order" ]
-
-[dependencies.snarkvm-synthesizer-snark]
-workspace = true
 
 [dependencies.tiny-keccak]
 version = "2"

@@ -990,12 +990,8 @@ impl<N: Network> ProgramCore<N> {
     /// This includes:
     /// 1. `.raw` hash or signature verification variants
     /// 2. `ecdsa.verify.*` opcodes
-    /// 3. arrays that exceed the previous maximum length of 32.
     #[inline]
     pub fn contains_v11_syntax(&self) -> bool {
-        // The previous maximum array size before V11.
-        const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
-
         // Helper to check if any of the opcodes:
         // - start with `ecdsa.verify`, `serialize`, or `deserialize`
         // - end with `.raw` or `.native`
@@ -1024,10 +1020,7 @@ impl<N: Network> ProgramCore<N> {
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
-        // Determine if any of the array types exceed the previous maximum length of 32.
-        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
-
-        function_contains || closure_contains || command_contains || array_size_exceeds
+        function_contains || closure_contains || command_contains
     }
 
     /// Returns `true` if a program contains any V12 syntax.
@@ -1094,9 +1087,9 @@ impl<N: Network> ProgramCore<N> {
     }
 
     /// Returns `true` if a program contains any V14 syntax.
-    /// This includes `Operand::AleoGenerator`, `Operand::AleoGeneratorPowers`, or `Literal::Identifier`.
-    /// Also checks for identifier type declarations in function inputs/outputs, finalize inputs/outputs,
-    /// closures, structs, mappings, and records.
+    /// This includes `snark.verify.*` opcodes, `Operand::AleoGenerator`, `Operand::AleoGeneratorPowers`,
+    /// or `Literal::Identifier`. Also checks for identifier type declarations in function inputs/outputs,
+    /// finalize inputs/outputs, closures, structs, mappings, and records.
     /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
     #[inline]
     pub fn contains_v14_syntax(&self) -> Result<bool> {
@@ -1111,12 +1104,20 @@ impl<N: Network> ProgramCore<N> {
 
         // Check functions: instructions, finalize commands, and type declarations in one pass.
         for (_, function) in self.functions() {
-            if function.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand)) {
+            if function.instructions().iter().any(|instruction| {
+                instruction.opcode().starts_with("snark.verify")
+                    || cfg_iter!(instruction.operands()).any(is_v14_operand)
+            }) {
                 return Ok(true);
             }
             if function
                 .finalize_logic()
-                .map(|finalize| finalize.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)))
+                .map(|finalize| {
+                    finalize.commands().iter().any(|cmd| {
+                        matches!(cmd, Command::Instruction(instr) if instr.opcode().starts_with("snark.verify"))
+                            || cfg_iter!(cmd.operands()).any(is_v14_operand)
+                    })
+                })
                 .unwrap_or(false)
             {
                 return Ok(true);
@@ -1128,7 +1129,10 @@ impl<N: Network> ProgramCore<N> {
 
         // Check closures: instructions and type declarations in one pass.
         for (_, closure) in self.closures() {
-            if closure.instructions().iter().any(|instruction| cfg_iter!(instruction.operands()).any(is_v14_operand)) {
+            if closure.instructions().iter().any(|instruction| {
+                instruction.opcode().starts_with("snark.verify")
+                    || cfg_iter!(instruction.operands()).any(is_v14_operand)
+            }) {
                 return Ok(true);
             }
             if closure.contains_identifier_type()? {
@@ -1137,10 +1141,12 @@ impl<N: Network> ProgramCore<N> {
         }
 
         // Check constructor commands.
-        let constructor_contains = self
-            .constructor
-            .iter()
-            .any(|constructor| constructor.commands().iter().any(|cmd| cfg_iter!(cmd.operands()).any(is_v14_operand)));
+        let constructor_contains = self.constructor.iter().any(|constructor| {
+            constructor.commands().iter().any(|cmd| {
+                matches!(cmd, Command::Instruction(instr) if instr.opcode().starts_with("snark.verify"))
+                    || cfg_iter!(cmd.operands()).any(is_v14_operand)
+            })
+        });
         if constructor_contains {
             return Ok(true);
         }

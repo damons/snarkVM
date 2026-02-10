@@ -49,8 +49,10 @@ pub enum ConsensusVersion {
     V12 = 12,
     /// V13: Introduces external structs.
     V13 = 13,
-    /// V14: Increase the program size limit to 512 kB and transaction size limit to 540 kB.
-    ///      Introduces `aleo::GENERATOR` and `aleo::GENERATOR_POWERS` opcodes.
+    /// V14: Increase the program size limit to 512 kB, the transaction size limit to 540 kB,
+    ///      the array size limit to 2048, and the `Future` argument bit size to 32 bits.
+    ///      Introduces `aleo::GENERATOR`, `aleo::GENERATOR_POWERS`, `snark.verify` opcodes,
+    ///      and identifier literal types.
     V14 = 14,
 }
 
@@ -318,6 +320,11 @@ mod tests {
             assert!(*version > previous_version);
             previous_version = *version;
         }
+        let mut previous_version = N::MAX_ARRAY_ELEMENTS.first().unwrap().0;
+        for (version, _) in N::MAX_ARRAY_ELEMENTS.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
         let mut previous_version = N::MAX_PROGRAM_SIZE.first().unwrap().0;
         for (version, _) in N::MAX_PROGRAM_SIZE.iter().skip(1) {
             assert!(*version > previous_version);
@@ -362,6 +369,12 @@ mod tests {
             // Double-check that consensus_config_value returns the correct value.
             assert_eq!(consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, height).unwrap(), *value);
         }
+        for (version, value) in N::MAX_ARRAY_ELEMENTS.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, height).unwrap(), *value);
+        }
         for (version, value) in N::MAX_PROGRAM_SIZE.iter() {
             // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
             let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
@@ -387,6 +400,7 @@ mod tests {
         for (_, height) in N::CONSENSUS_VERSION_HEIGHTS().iter() {
             assert!(consensus_config_value!(N, MAX_CERTIFICATES, *height).is_some());
             assert!(consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, *height).is_some());
             assert!(consensus_config_value!(N, MAX_PROGRAM_SIZE, *height).is_some());
             assert!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, *height).is_some());
             assert!(consensus_config_value!(N, MAX_WRITES, *height).is_some());
@@ -398,6 +412,16 @@ mod tests {
     fn max_certificates_increasing<N: Network>() {
         let mut previous_value = N::MAX_CERTIFICATES.first().unwrap().1;
         for (_, value) in N::MAX_CERTIFICATES.iter().skip(1) {
+            assert!(*value >= previous_value);
+            previous_value = *value;
+        }
+    }
+
+    /// Ensure that `MAX_ARRAY_ELEMENTS` increases and is correctly defined.
+    /// See the constant declaration for an explanation why.
+    fn max_array_elements_increasing<N: Network>() {
+        let mut previous_value = N::MAX_ARRAY_ELEMENTS.first().unwrap().1;
+        for (_, value) in N::MAX_ARRAY_ELEMENTS.iter().skip(1) {
             assert!(*value >= previous_value);
             previous_value = *value;
         }
@@ -425,6 +449,7 @@ mod tests {
         let _ = [N1::CONSENSUS_VERSION_HEIGHTS, N2::CONSENSUS_VERSION_HEIGHTS, N3::CONSENSUS_VERSION_HEIGHTS];
         let _ = [N1::MAX_CERTIFICATES, N2::MAX_CERTIFICATES, N3::MAX_CERTIFICATES];
         let _ = [N1::TRANSACTION_SPEND_LIMIT, N2::TRANSACTION_SPEND_LIMIT, N3::TRANSACTION_SPEND_LIMIT];
+        let _ = [N1::MAX_ARRAY_ELEMENTS, N2::MAX_ARRAY_ELEMENTS, N3::MAX_ARRAY_ELEMENTS];
         let _ = [N1::MAX_PROGRAM_SIZE, N2::MAX_PROGRAM_SIZE, N3::MAX_PROGRAM_SIZE];
         let _ = [N1::MAX_TRANSACTION_SIZE, N2::MAX_TRANSACTION_SIZE, N3::MAX_TRANSACTION_SIZE];
         let _ = [N1::MAX_WRITES, N2::MAX_WRITES, N3::MAX_WRITES];
@@ -469,6 +494,10 @@ mod tests {
         max_certificates_increasing::<MainnetV0>();
         max_certificates_increasing::<TestnetV0>();
         max_certificates_increasing::<CanaryV0>();
+
+        max_array_elements_increasing::<MainnetV0>();
+        max_array_elements_increasing::<TestnetV0>();
+        max_array_elements_increasing::<CanaryV0>();
 
         transaction_size_exceeds_program_size::<MainnetV0>();
         transaction_size_exceeds_program_size::<TestnetV0>();

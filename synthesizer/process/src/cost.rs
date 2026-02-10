@@ -399,6 +399,9 @@ const HASH_PSD_PER_BYTE_COST: u64 = 75;
 const ECDSA_VERIFY_BASE_COST: u64 = 60_000;
 const ECDSA_VERIFY_ETH_BASE_COST: u64 = 75_000;
 
+const SNARK_VERIFY_BASE_COST: u64 = 100_000;
+const SNARK_VERIFY_PER_BYTE_COST: u64 = 50;
+
 #[derive(Copy, Clone)]
 pub enum ConsensusFeeVersion {
     V1,
@@ -814,6 +817,12 @@ pub fn cost_per_command<N: Network>(
         Command::Instruction(Instruction::ShlWrapped(_)) => Ok(500),
         Command::Instruction(Instruction::Shr(_)) => Ok(500),
         Command::Instruction(Instruction::ShrWrapped(_)) => Ok(500),
+        Command::Instruction(Instruction::SnarkVerify(snark)) => {
+            cost_in_size(stack, finalize_types, snark.operands(), SNARK_VERIFY_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
+        }
+        Command::Instruction(Instruction::SnarkVerifyBatch(snark)) => {
+            cost_in_size(stack, finalize_types, snark.operands(), SNARK_VERIFY_PER_BYTE_COST, SNARK_VERIFY_BASE_COST)
+        }
         Command::Instruction(Instruction::Square(_)) => Ok(500),
         Command::Instruction(Instruction::SquareRoot(_)) => Ok(2_500),
         Command::Instruction(Instruction::Sub(_)) => Ok(500),

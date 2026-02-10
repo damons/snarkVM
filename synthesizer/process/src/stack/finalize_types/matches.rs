@@ -108,8 +108,8 @@ impl<N: Network> FinalizeTypes<N> {
             bail!("'{array_type}' must have at least {} operand(s)", N::MIN_ARRAY_ELEMENTS)
         }
         // Ensure the number of elements not exceed the maximum.
-        if operands.len() > N::MAX_ARRAY_ELEMENTS {
-            bail!("'{array_type}' cannot exceed {} elements", N::MAX_ARRAY_ELEMENTS)
+        if operands.len() > N::LATEST_MAX_ARRAY_ELEMENTS() {
+            bail!("'{array_type}' cannot exceed {} elements", N::LATEST_MAX_ARRAY_ELEMENTS())
         }
 
         // Ensure the number of operands matches the length of the array.
