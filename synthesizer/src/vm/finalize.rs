@@ -156,8 +156,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Ensure the transactions after speculation match.
         let confirmed_transactions = confirmed_transactions.into_iter().collect();
         if transactions != &confirmed_transactions {
+            let confirmed_transaction_ids = confirmed_transactions.transaction_ids().collect::<Vec<_>>();
             bail!(
-                "The transactions after speculation do not match the transactions in the block: {confirmed_transactions:?}"
+                "The transactions after speculation do not match the transactions in the block. IDs: {confirmed_transaction_ids:?} - Transactions:{transactions:?}"
             );
         }
         // Ensure there are no aborted transaction IDs from this speculation.
