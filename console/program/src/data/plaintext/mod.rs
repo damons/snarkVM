@@ -33,7 +33,10 @@ use snarkvm_console_network::Network;
 use snarkvm_console_types::prelude::*;
 
 use indexmap::IndexMap;
-use std::sync::OnceLock;
+use std::{
+    hash::{Hash, Hasher},
+    sync::OnceLock,
+};
 
 #[derive(Clone)]
 pub enum Plaintext<N: Network> {
@@ -118,6 +121,25 @@ impl<N: Network> From<&Literal<N>> for Plaintext<N> {
     /// Returns a new `Plaintext` from a `&Literal`.
     fn from(literal: &Literal<N>) -> Self {
         Self::Literal(literal.clone(), OnceLock::new())
+    }
+}
+
+impl<N: Network> Hash for Plaintext<N> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Literal(literal, _bits) => {
+                literal.hash(state);
+            }
+            Self::Struct(fields, _bits) => {
+                for (name, value) in fields {
+                    name.hash(state);
+                    value.hash(state);
+                }
+            }
+            Self::Array(array, _bits) => {
+                array.hash(state);
+            }
+        }
     }
 }
 
