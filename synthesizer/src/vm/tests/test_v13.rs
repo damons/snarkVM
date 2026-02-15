@@ -1291,3 +1291,139 @@ constructor:
     assert_eq!(block.aborted_transaction_ids().len(), 0);
     vm.add_next_block(&block).unwrap();
 }
+
+// This test verifies that runtime validation works correctly when an external function's finalize
+// block takes a local struct as a parameter but that local struct is also copied in the primary
+// program. This should pass on both V12 and V13.
+#[test]
+fn test_external_mapping_external_struct_copied_locally_pre_post_v13() {
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    // Initialize the VM at V9 height. This ensures we're still on pre-V13 by the time we get to
+    // the execution transaction we want to test.
+    let height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V9).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(height, rng);
+
+    // Define the parent program with a function that has a finalize block taking a local struct.
+    let program_parent = Program::from_str(
+        r"
+program veru_oracle_data_v3.aleo;
+
+struct AttestedData:
+    data as u128;
+    attestation_timestamp as u128;
+
+mapping sgx_attested_data:
+    key as u128.public;
+    value as AttestedData.public;
+
+function foo:
+    async foo into r0;
+    output r0 as veru_oracle_data_v3.aleo/foo.future;
+finalize foo:
+    cast 0u128 0u128 into r0 as AttestedData;
+    set r0 into sgx_attested_data[0u128];
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Define the child program that calls the parent function.
+    let program_child = Program::from_str(
+        r"
+import veru_oracle_data_v3.aleo;
+program amm_oracle_v1.aleo;
+
+struct AttestedData:
+    data as u128;
+    attestation_timestamp as u128;
+
+function set_price_paleo:
+    input r0 as [u128; 2u32].private;
+    async set_price_paleo r0 into r1;
+    output r1 as amm_oracle_v1.aleo/set_price_paleo.future;
+finalize set_price_paleo:
+    input r0 as [u128; 2u32].public;
+    cast 0u128 0u128 into r1 as AttestedData;
+    get veru_oracle_data_v3.aleo/sgx_attested_data[r0[0u32]] into r2;
+
+constructor:
+    assert.eq edition 0u16;
+",
+    )
+    .unwrap();
+
+    // Deploy the parent program.
+    let deployment_parent = vm.deploy(&private_key, &program_parent, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &private_key, &[deployment_parent], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    vm.add_next_block(&block).unwrap();
+
+    // Deploy the child program.
+    let deployment_child = vm.deploy(&private_key, &program_child, None, 0, None, rng).unwrap();
+    let execution = vm
+        .execute(
+            &private_key,
+            ("veru_oracle_data_v3.aleo", "foo"),
+            Vec::<Value<_>>::new().into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+
+    let block = sample_next_block(&vm, &private_key, &[deployment_child, execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 2, "Child program deployment should succeed and init should pass");
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Execute the child function to verify runtime validation works in pre-V13 because the
+    // external struct `AttestedData` is also copied locally.
+    let execution = vm
+        .execute(
+            &private_key,
+            ("amm_oracle_v1.aleo", "set_price_paleo"),
+            vec![Value::from_str("[0u128, 1u128]")].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1, "Execution should succeed");
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+
+    // Advance the ledger past ConsensusVersion::V13.
+    let transactions: [Transaction<CurrentNetwork>; 0] = [];
+    while vm.block_store().current_block_height() < CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V13).unwrap() {
+        let next_block = sample_next_block(&vm, &private_key, &transactions, rng).unwrap();
+        vm.add_next_block(&next_block).unwrap();
+    }
+
+    // Now we try again after we've advanced to V13. The same execution transaction should also succeed.
+    let execution = vm
+        .execute(
+            &private_key,
+            ("amm_oracle_v1.aleo", "set_price_paleo"),
+            vec![Value::from_str("[0u128, 1u128]")].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+    let block = sample_next_block(&vm, &private_key, &[execution], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+}
