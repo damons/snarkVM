@@ -16,7 +16,6 @@
 use super::*;
 
 // Getters for `Ledger`.
-#[deny(missing_docs)]
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Returns the committee for the given `block height`.
     pub fn get_committee(&self, block_height: u32) -> Result<Option<Committee<N>>> {
