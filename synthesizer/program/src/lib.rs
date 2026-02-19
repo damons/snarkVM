@@ -103,7 +103,7 @@ use console::{
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
     types::U8,
 };
-use snarkvm_utilities::cfg_iter;
+use snarkvm_utilities::{cfg_find_map, cfg_iter};
 
 use indexmap::{IndexMap, IndexSet};
 use std::collections::BTreeSet;
@@ -989,12 +989,8 @@ impl<N: Network> ProgramCore<N> {
     /// This includes:
     /// 1. `.raw` hash or signature verification variants
     /// 2. `ecdsa.verify.*` opcodes
-    /// 3. arrays that exceed the previous maximum length of 32.
     #[inline]
     pub fn contains_v11_syntax(&self) -> bool {
-        // The previous maximum array size before V11.
-        const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
-
         // Helper to check if any of the opcodes:
         // - start with `ecdsa.verify`, `serialize`, or `deserialize`
         // - end with `.raw` or `.native`
@@ -1023,10 +1019,7 @@ impl<N: Network> ProgramCore<N> {
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
-        // Determine if any of the array types exceed the previous maximum length of 32.
-        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
-
-        function_contains || closure_contains || command_contains || array_size_exceeds
+        function_contains || closure_contains || command_contains
     }
 
     /// Returns `true` if a program contains any V12 syntax.
@@ -1069,17 +1062,22 @@ impl<N: Network> ProgramCore<N> {
             .ok_or(anyhow!("Failed to fetch maximum program size"))?;
 
         // Check if the constructor exceeds the maximum number of writes.
-        let constructor_exceeds =
-            self.constructor().is_some_and(|constructor| constructor.num_writes() > max_num_writes);
-
-        // Check if any finalize logic exceeds the maximum number of writes.
-        let finalize_exceeds = cfg_iter!(self.functions()).any(|(_, function)| {
-            function.finalize_logic().is_some_and(|finalize| finalize.num_writes() > max_num_writes)
-        });
-
-        if constructor_exceeds || finalize_exceeds {
+        if self.constructor().is_some_and(|constructor| constructor.num_writes() > max_num_writes) {
             bail!(
-                "Program writes exceed the maximum allowed writes of {max_num_writes} for the current height {block_height} (consensus version {}).",
+                "Program constructor exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
+                N::CONSENSUS_VERSION(block_height)?
+            );
+        }
+
+        // Find the first function whose finalize logic exceeds the maximum writes.
+        if let Some(name) = cfg_find_map!(self.functions(), |function| {
+            function
+                .finalize_logic()
+                .is_some_and(|finalize| finalize.num_writes() > max_num_writes)
+                .then(|| *function.name())
+        }) {
+            bail!(
+                "Program function '{name}' exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
                 N::CONSENSUS_VERSION(block_height)?
             );
         }
@@ -1088,33 +1086,31 @@ impl<N: Network> ProgramCore<N> {
     }
 
     /// Returns `true` if a program contains any V14 syntax.
-    /// This includes `Operand::AleoGenerator` or `Operand::AleoGeneratorPowers.
-    /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
+    /// This includes:
+    /// 1. `snark.verify.*` opcodes
+    /// 2. `Operand::AleoGenerator` or `Operand::AleoGeneratorPowers`.
     #[inline]
     pub fn contains_v14_syntax(&self) -> bool {
+        // Helper to check if any of the opcodes start with `snark.verify` or uses AleoGenerator/AleoGeneratorPowers operands
+        let has_op = |instr: &Instruction<N>| {
+            instr.opcode().starts_with("snark.verify")
+                || cfg_iter!(instr.operands())
+                    .any(|operand| matches!(operand, Operand::AleoGenerator | Operand::AleoGeneratorPowers(_)))
+        };
+
         // Determine if any function instructions contain the new syntax.
         let function_contains =
-            cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(|instruction| {
-                cfg_iter!(instruction.operands())
-                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
-            });
+            cfg_iter!(self.functions()).flat_map(|(_, function)| function.instructions()).any(has_op);
 
         // Determine if any closure instructions contain the new syntax.
-        let closure_contains =
-            cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(|instruction| {
-                cfg_iter!(instruction.operands())
-                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
-            });
+        let closure_contains = cfg_iter!(self.closures()).flat_map(|(_, closure)| closure.instructions()).any(has_op);
 
         // Determine if any finalize commands or constructor commands contain the new syntax.
         let command_contains = cfg_iter!(self.functions())
             .flat_map(|(_, function)| function.finalize_logic().map(|finalize| finalize.commands()))
             .flatten()
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
-            .any(|command| {
-                cfg_iter!(command.operands())
-                    .any(|operand| matches!(operand, Operand::AleoGeneratorPowers(_) | Operand::AleoGenerator))
-            });
+            .any(|command| matches!(command, Command::Instruction(instruction) if has_op(instruction)));
 
         function_contains || closure_contains || command_contains
     }

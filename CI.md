@@ -1,13 +1,19 @@
-# CI
+# CI overview
 
-## PR Workflows (on PR open)
-5 CircleCI workflows: `cargo-workflow`, `circuit-workflow`, `console-workflow`, `ledger-workflow`, `synthesizer-workflow`. Each targets 15 min max runtime.
+snarkVM makes use of [CircleCI](.circleci) and [Github Actions](.github/workflows).
 
-## Merge Workflow (on PR merge)
-Runs slow/ignored tests and parameter downloads.
+When a PR is opened from a feature branch, several CircleCI workflows are
+triggered. Tests are spread across workflows for readability in Github's UI, and
+are targeting a 15 minute max runtime.
+- `cargo-workflow`
+- `circuit-workflow`
+- `console-workflow`
+- `ledger-workflow`
+- `synthesizer-workflow`
 
-## Release Workflow (canary/testnet/mainnet branches)
-Includes Windows testing.
+When a PR is merged, `merge-workflow` runs additional expensive or slow tests,
+e.g. those marked as `ignore` or which download paramters. Moreover, benchmarks
+are run from github actions.s
 
-## GitHub Actions
-Benchmarks run separately via GitHub Actions.
+When a PR is opened from a release branch (`canary`,`testnet`,`mainnet`), the
+`release-workflow` is ran which tests windows.
