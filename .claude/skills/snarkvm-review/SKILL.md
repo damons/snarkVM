@@ -8,13 +8,14 @@ description: |
   (use snarkvm-github), or fixing issues (use snarkvm-fix).
 context: fork
 agent: general-purpose
+model: opus
 allowed-tools: Bash, Read, Write, Grep, Glob, Task
 disable-model-invocation: true
 ---
 
 # Security-Focused PR Review
 
-**Mindset: Assume there is a bug. Find it.**
+**Mindset: Assume there is a bug. Find it. Ultrathink.**
 
 This skill runs in a forked context to keep exploration out of your main conversation.
 

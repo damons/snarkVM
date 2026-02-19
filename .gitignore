@@ -21,3 +21,4 @@ artifacts
 !.claude/CLAUDE.md
 !.claude/.gitignore
 !.claude/skills/
+.claude/skills/**/CLAUDE.md

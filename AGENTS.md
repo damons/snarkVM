@@ -32,6 +32,9 @@ snarkVM is a virtual machine for zero-knowledge proof execution on the Aleo bloc
 - New files, crates, dependencies, abstractions, or traits require approval.
 - `unwrap`s must have a comment justifying why they can't panic.
 
+### Forking Risk
+There are deployed versions of this software in the wild. Changes that alter consensus behavior (same inputs producing different outputs) will fork the network. All changes must either be backwards compatible or gated behind a consensus version so they can be rolled in at the appropriate time. Not all code has been released publicly, so if you are unsure whether a change is safe on a PR, ask before proceeding.
+
 ## Code and Patterns
 - Test-driven development: write failing tests first.
 - `unwrap`s must be commented with justification.
