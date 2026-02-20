@@ -88,7 +88,7 @@ impl<N: Network> ClosureCore<N> {
         self.instructions.iter().any(|instruction| instruction.contains_string_type())
     }
 
-    /// Returns `true` if the closure contains an identifier type in its inputs/outputs.
+    /// Returns `true` if the closure contains an identifier type in its inputs, outputs, or instructions.
     pub fn contains_identifier_type(&self) -> Result<bool> {
         for input in &self.inputs {
             if input.register_type().contains_identifier_type()? {
@@ -97,6 +97,12 @@ impl<N: Network> ClosureCore<N> {
         }
         for output in &self.outputs {
             if output.register_type().contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        // Check instruction-level types (e.g., cast destination types).
+        for instruction in &self.instructions {
+            if instruction.contains_identifier_type()? {
                 return Ok(true);
             }
         }

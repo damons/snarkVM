@@ -90,13 +90,20 @@ mod tests {
             // Construct a random console identifier literal.
             let expected = console::IdentifierLiteral::<<CurrentEnvironment as Environment>::Network>::rand(&mut rng);
 
-            // Inject, convert to field, then back.
+            // Inject outside the scope so that injection costs are not counted.
             let injected = IdentifierLiteral::<CurrentEnvironment>::new(Mode::Private, expected);
-            let field = injected.to_field();
-            let recovered = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
 
-            // Verify round-trip.
-            assert_eq!(expected, recovered.eject_value());
+            Circuit::scope("from_field_round_trip", || {
+                // Convert to field, then back.
+                let field = injected.to_field();
+                let recovered = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
+
+                // Verify round-trip.
+                assert_eq!(expected, recovered.eject_value());
+
+                // Verify constraint counts for to_field + from_field (injection is outside scope).
+                assert_scope!(0, 0, 810, 1027);
+            });
 
             Circuit::reset();
         }
@@ -114,11 +121,13 @@ mod tests {
         let field_value = console::Field::<<CurrentEnvironment as Environment>::Network>::from_bytes_le(&bad_bytes)
             .expect("Failed to construct field from bytes");
 
-        // Inject the field and validate in a scope.
+        // Inject the field outside the scope for consistent private variable counts.
+        let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
+
+        // Validate in a scope.
         Circuit::scope("test_from_field_invalid", || {
-            let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
-            assert_scope_fails!(0, 0, 1316, 1535);
+            assert_scope_fails!(0, 0, 1315, 1535);
         });
 
         // The circuit must be unsatisfied due to the trailing-null violation.

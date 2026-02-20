@@ -25,6 +25,11 @@ impl<N: Network> Cast<Address<N>> for IdentifierLiteral<N> {
 
 impl<N: Network> Cast<Boolean<N>> for IdentifierLiteral<N> {
     /// Casts an `IdentifierLiteral` to a `Boolean`.
+    ///
+    /// Note: This cast always fails because valid identifier literals start with
+    /// a letter (first byte >= 0x41), which cannot represent a boolean field value
+    /// (0 or 1). This implementation exists for uniformity with the `impl_cast_body!`
+    /// macro used by all literal types.
     #[inline]
     fn cast(&self) -> Result<Boolean<N>> {
         self.to_field()?.cast()

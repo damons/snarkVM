@@ -1152,6 +1152,13 @@ impl<N: Network> ProgramCore<N> {
             return Ok(true);
         }
 
+        // Check constructor for identifier types in cast destinations and type declarations.
+        if let Some(constructor) = &self.constructor {
+            if constructor.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
         // Check remaining type definitions: mappings, structs, records.
         for mapping in self.mappings.values() {
             if mapping.contains_identifier_type()? {

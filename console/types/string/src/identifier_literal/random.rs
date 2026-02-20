@@ -18,8 +18,8 @@ use super::*;
 impl<E: Environment> Distribution<IdentifierLiteral<E>> for Standard {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> IdentifierLiteral<E> {
-        // Sample a random length between 1 and half the maximum bytes.
-        let num_bytes = rng.gen_range(1..=IdentifierLiteral::<E>::SIZE_IN_BYTES);
+        // Sample a random length between 1 and the maximum bytes.
+        let num_bytes = rng.gen_range(1..=SIZE_IN_BYTES);
         // Generate a random string: first character is alphabetic, rest are alphanumeric or underscore.
         let first_char = if rng.gen_bool(0.5) {
             // Uppercase letter.

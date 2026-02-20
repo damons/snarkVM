@@ -50,7 +50,7 @@ mod tests {
 
             // Ensure all identifier bits match with the expected result.
             let expected_bits = expected.to_bits_le();
-            let size_in_bits = IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BITS;
+            let size_in_bits = SIZE_IN_BITS;
             for (i, (expected_bit, candidate_bit)) in
                 expected_bits.iter().zip(&candidate_bits_le[..size_in_bits]).enumerate()
             {

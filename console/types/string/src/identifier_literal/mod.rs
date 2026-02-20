@@ -46,22 +46,17 @@ pub struct IdentifierLiteral<E: Environment> {
 }
 
 impl<E: Environment> IdentifierLiteral<E> {
-    /// The number of bits in an identifier literal.
-    pub const SIZE_IN_BITS: usize = SIZE_IN_BITS;
-    /// The number of bytes in an identifier literal.
-    pub const SIZE_IN_BYTES: usize = SIZE_IN_BYTES;
-
     /// Creates a new identifier literal from a string.
     /// Allowed characters: `[a-zA-Z][a-zA-Z0-9_]*`.
     pub fn new(string: &str) -> Result<Self> {
         // Ensure the string is not empty.
         ensure!(!string.is_empty(), "Identifier literal cannot be empty");
         // Ensure the string does not exceed the maximum length.
-        ensure!(string.len() <= Self::SIZE_IN_BYTES, "Identifier literal exceeds {} bytes", Self::SIZE_IN_BYTES);
+        ensure!(string.len() <= SIZE_IN_BYTES, "Identifier literal exceeds {SIZE_IN_BYTES} bytes");
         // Copy the string bytes into the byte array.
         let mut bytes = [0u8; SIZE_IN_BYTES];
         bytes[..string.len()].copy_from_slice(string.as_bytes());
-        // Validate the identifier bytes.
+        // Validate the identifier bytes (enforces ASCII character set).
         validate_identifier_bytes(&bytes)?;
         // Return the identifier literal.
         Ok(Self { bytes, _phantom: core::marker::PhantomData })
@@ -83,7 +78,7 @@ impl<E: Environment> IdentifierLiteral<E> {
         // Find the first null byte, or return SIZE_IN_BYTES if no null is found.
         // Note that `SIZE_IN_BYTES` is 31, which always fits in u8.
         #[allow(clippy::cast_possible_truncation)]
-        let length = self.bytes.iter().position(|&b| b == 0).unwrap_or(Self::SIZE_IN_BYTES) as u8;
+        let length = self.bytes.iter().position(|&b| b == 0).unwrap_or(SIZE_IN_BYTES) as u8;
         length
     }
 }
@@ -113,14 +108,14 @@ impl<E: Environment> Equal for IdentifierLiteral<E> {
 impl<E: Environment> SizeInBits for IdentifierLiteral<E> {
     /// Returns the size in bits of the identifier literal.
     fn size_in_bits() -> usize {
-        Self::SIZE_IN_BITS
+        SIZE_IN_BITS
     }
 }
 
 impl<E: Environment> SizeInBytes for IdentifierLiteral<E> {
     /// Returns the size in bytes of the identifier literal.
     fn size_in_bytes() -> usize {
-        Self::SIZE_IN_BYTES
+        SIZE_IN_BYTES
     }
 }
 
@@ -161,7 +156,7 @@ mod tests {
         // With underscores and digits.
         assert!(IdentifierLiteral::<CurrentEnvironment>::new("hello_world_42").is_ok());
         // Maximum length (31 bytes).
-        let max_str = "a".repeat(IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BYTES);
+        let max_str = "a".repeat(SIZE_IN_BYTES);
         assert!(IdentifierLiteral::<CurrentEnvironment>::new(&max_str).is_ok());
     }
 
@@ -172,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_new_too_long_fails() {
-        let long_str = "a".repeat(IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BYTES + 1);
+        let long_str = "a".repeat(SIZE_IN_BYTES + 1);
         assert!(IdentifierLiteral::<CurrentEnvironment>::new(&long_str).is_err());
     }
 

@@ -22,7 +22,7 @@ impl<E: Environment> FromBytes for IdentifierLiteral<E> {
         // Read the number of content bytes.
         let num_bytes = u8::read_le(&mut reader)? as usize;
         // Validate the length.
-        if num_bytes == 0 || num_bytes > Self::SIZE_IN_BYTES {
+        if num_bytes == 0 || num_bytes > SIZE_IN_BYTES {
             return Err(error("Invalid identifier literal length"));
         }
         // Read directly into the byte array (remaining bytes stay zero).
@@ -87,8 +87,7 @@ mod tests {
     #[test]
     fn test_bytes_length_exceeds_max() {
         // A length prefix exceeding SIZE_IN_BYTES should be rejected.
-        let length =
-            u8::try_from(IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BYTES).expect("SIZE_IN_BYTES fits in u8") + 1;
+        let length = u8::try_from(SIZE_IN_BYTES).expect("SIZE_IN_BYTES fits in u8") + 1;
         let mut bytes = vec![length];
         bytes.resize(length as usize + 1, b'a');
         let result = IdentifierLiteral::<CurrentEnvironment>::read_le(&bytes[..]);

@@ -20,8 +20,13 @@ impl<E: Environment> ToField for IdentifierLiteral<E> {
 
     /// Returns the identifier literal as a field element.
     fn to_field(&self) -> Field<E> {
-        // Collect all 248 bits (31 bytes) in little-endian order.
-        let mut bits = Vec::with_capacity(248);
+        // Note: We are reconstituting the identifier as a base field.
+        // This is safe as the number of bits in the identifier is less than the base field modulus,
+        // and thus will always fit within a single base field element.
+        debug_assert!(SIZE_IN_BITS < E::BaseField::size_in_bits());
+
+        // Collect all SIZE_IN_BITS bits in little-endian order.
+        let mut bits = Vec::with_capacity(SIZE_IN_BITS);
         for byte in self.bytes.iter() {
             byte.write_bits_le(&mut bits);
         }

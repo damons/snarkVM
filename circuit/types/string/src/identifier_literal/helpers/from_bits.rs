@@ -29,8 +29,8 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
             Boolean::assert_bits_are_zero(&bits_le[SIZE_IN_BITS..]);
         }
 
-        // Extract/pad to exactly SIZE_IN_BITS bits.
-        let mut padded = bits_le.iter().take(SIZE_IN_BITS).cloned().collect::<Vec<_>>();
+        // Resize to exactly SIZE_IN_BITS: truncates if longer, zero-pads if shorter.
+        let mut padded = bits_le.to_vec();
         padded.resize(SIZE_IN_BITS, Boolean::constant(false));
 
         // Convert bits to bytes using chunks.

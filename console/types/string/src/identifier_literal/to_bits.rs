@@ -42,7 +42,7 @@ mod tests {
     fn test_to_bits_length() {
         let literal = IdentifierLiteral::<CurrentEnvironment>::new("hello").unwrap();
         let bits = literal.to_bits_le();
-        assert_eq!(bits.len(), IdentifierLiteral::<CurrentEnvironment>::SIZE_IN_BITS);
+        assert_eq!(bits.len(), SIZE_IN_BITS);
     }
 
     #[test]

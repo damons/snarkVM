@@ -19,22 +19,18 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
     /// Initializes an identifier literal from a list of little-endian bits.
     fn from_bits_le(bits_le: &[bool]) -> Result<Self> {
         // Ensure there are enough bits.
-        ensure!(bits_le.len() >= Self::SIZE_IN_BITS, "Not enough bits for identifier literal");
+        ensure!(bits_le.len() >= SIZE_IN_BITS, "Not enough bits for identifier literal");
 
         // If there are excess bits, ensure they are all zero.
-        if bits_le.len() > Self::SIZE_IN_BITS {
-            let has_nonzero = bits_le[Self::SIZE_IN_BITS..].iter().any(|&b| b);
+        if bits_le.len() > SIZE_IN_BITS {
+            let has_nonzero = bits_le[SIZE_IN_BITS..].iter().any(|&b| b);
             ensure!(!has_nonzero, "Excess bits are not zero");
         }
 
-        // Reconstruct bytes from the first SIZE_IN_BITS bits.
+        // Reconstruct bytes from the first SIZE_IN_BITS bits directly into a fixed-size array.
         let mut bytes = [0u8; SIZE_IN_BYTES];
-        for (i, chunk) in bits_le[..Self::SIZE_IN_BITS].chunks(8).enumerate() {
-            for (j, &bit) in chunk.iter().enumerate() {
-                if bit {
-                    bytes[i] |= 1 << j;
-                }
-            }
+        for (i, chunk) in bits_le[..SIZE_IN_BITS].chunks(8).enumerate() {
+            bytes[i] = u8::from_bits_le(chunk)?;
         }
 
         // Validate and construct the identifier literal.
