@@ -17,8 +17,9 @@
 artifacts
 
 # Claude Code
+**/CLAUDE.md
+!.claude/CLAUDE.md
 .claude/*
 !.claude/CLAUDE.md
 !.claude/.gitignore
 !.claude/skills/
-.claude/skills/**/CLAUDE.md
