@@ -1301,6 +1301,109 @@ fn test_identifier_literal_migration() {
     assert_eq!(next_block.transactions().num_accepted(), 1);
 }
 
+// This test verifies that identifier literals can be used with cast, serialize.bits, and deserialize.bits.
+#[test]
+fn test_identifier_literal_cast_serialize_deserialize() {
+    // Define the program.
+    let program = Program::from_str(
+        r"
+program identifier_ops_test.aleo;
+
+function test_cast:
+    input r0 as identifier.public;
+    cast r0 into r1 as field;
+    cast r1 into r2 as identifier;
+    is.eq r0 r2 into r3;
+    output r3 as boolean.public;
+
+function test_serialize:
+    input r0 as identifier.public;
+    serialize.bits r0 (identifier) into r1 ([boolean; 274u32]);
+    deserialize.bits r1 ([boolean; 274u32]) into r2 (identifier);
+    is.eq r0 r2 into r3;
+    output r3 as boolean.public;
+
+function test_serialize_raw:
+    input r0 as identifier.public;
+    serialize.bits.raw r0 (identifier) into r1 ([boolean; 248u32]);
+    deserialize.bits.raw r1 ([boolean; 248u32]) into r2 (identifier);
+    is.eq r0 r2 into r3;
+    output r3 as boolean.public;
+
+constructor:
+    assert.eq true true;
+    ",
+    )
+    .unwrap();
+
+    // Initialize an RNG.
+    let rng = &mut TestRng::default();
+
+    // Initialize a new caller.
+    let caller_private_key = crate::vm::test_helpers::sample_genesis_private_key(rng);
+
+    // Initialize the VM at one block before V14.
+    let v14_height = CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V14).unwrap();
+    let vm = crate::vm::test_helpers::sample_vm_at_height(v14_height - 1, rng);
+
+    // Deploy the program before V14 and ensure it is aborted.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 1);
+    vm.add_next_block(&block).unwrap();
+
+    // Verify that we are now at V14.
+    assert_eq!(vm.block_store().current_block_height(), v14_height);
+
+    // Deploy the program after V14 and ensure it succeeds.
+    let deployment = vm.deploy(&caller_private_key, &program, None, 0, None, rng).unwrap();
+    let block = sample_next_block(&vm, &caller_private_key, &[deployment], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 1);
+    vm.add_next_block(&block).unwrap();
+
+    // Execute the cast round-trip function.
+    let input = Value::<CurrentNetwork>::from_str("'hello'").unwrap();
+    let cast_tx = vm
+        .execute(&caller_private_key, (program.id().to_string(), "test_cast"), [input].into_iter(), None, 0, None, rng)
+        .unwrap();
+
+    // Execute the serialize/deserialize round-trip function.
+    let input = Value::<CurrentNetwork>::from_str("'hello'").unwrap();
+    let serde_tx = vm
+        .execute(
+            &caller_private_key,
+            (program.id().to_string(), "test_serialize"),
+            [input].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+
+    // Execute the raw serialize/deserialize round-trip function.
+    let input = Value::<CurrentNetwork>::from_str("'hello'").unwrap();
+    let serde_raw_tx = vm
+        .execute(
+            &caller_private_key,
+            (program.id().to_string(), "test_serialize_raw"),
+            [input].into_iter(),
+            None,
+            0,
+            None,
+            rng,
+        )
+        .unwrap();
+
+    // Construct a block with all executions and ensure they are all accepted.
+    let block = sample_next_block(&vm, &caller_private_key, &[cast_tx, serde_tx, serde_raw_tx], rng).unwrap();
+    assert_eq!(block.transactions().num_accepted(), 3);
+    assert_eq!(block.transactions().num_rejected(), 0);
+    assert_eq!(block.aborted_transaction_ids().len(), 0);
+    vm.add_next_block(&block).unwrap();
+}
+
 #[cfg(feature = "test")]
 #[test]
 fn test_aleo_generators_migration() {
