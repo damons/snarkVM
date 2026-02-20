@@ -269,11 +269,12 @@ impl<E: Environment> ByteValidationData<E> {
     }
 }
 
-/// Returns true if the digit range check fails (low nibble > 9).
+/// Returns true if the 4-bit offset represents an invalid digit character.
+/// Valid offsets: 0-9 ('0'-'9'). Invalid: 10-15.
 ///
-/// # Truth Table (b0 not needed since it doesn't affect whether nibble > 9)
+/// # Truth Table (b0 not needed since it doesn't affect whether offset > 9)
 ///
-/// | Value | b3 | b2 | b1 | b3&(b2|b1) | Valid (≤9)? |
+/// | Offset | b3 | b2 | b1 | b3&(b2|b1) | Valid (≤9)? |
 /// |--------|----|----|----| -----------|-------------|
 /// |  0-7   | 0  | *  | *  |     0      |    Yes      |
 /// |   8    | 1  | 0  | 0  |     0      |    Yes      |
@@ -281,7 +282,7 @@ impl<E: Environment> ByteValidationData<E> {
 /// | 10-15  | 1  | 1+ | *  |     1      |    No       |
 ///
 /// Note: 8=0b1000 and 9=0b1001 both have b3=1,b2=0,b1=0; they differ only in b0.
-fn is_invalid_digit_nibble<E: Environment>(b1: &Boolean<E>, b2: &Boolean<E>, b3: &Boolean<E>) -> Boolean<E> {
+fn is_invalid_digit_offset<E: Environment>(b1: &Boolean<E>, b2: &Boolean<E>, b3: &Boolean<E>) -> Boolean<E> {
     // (b3 & b2) implies that the value is either (12, 13, 14, 15).
     // (b3 & b1) implies that the value is either (10, 11, 14, 15).
     let d1 = b3 & b2;
@@ -383,8 +384,8 @@ fn validate_byte<E: Environment>(bits: &[Boolean<E>; 8], is_first_byte: bool) ->
     let digit_b4_violation = &cat.digit & &not_b4;
     E::assert_eq(&digit_b4_violation, Boolean::<E>::constant(false))
         .expect("Identifier literal digit byte must have b4=1 (valid range: '0'-'9', 0x30-0x39)");
-    let bad_digit_nibble = is_invalid_digit_nibble::<E>(b1, b2, b3);
-    let digit_range_violation = &cat.digit & &bad_digit_nibble;
+    let invalid_digit = is_invalid_digit_offset::<E>(b1, b2, b3);
+    let digit_range_violation = &cat.digit & &invalid_digit;
     E::assert_eq(&digit_range_violation, Boolean::<E>::constant(false))
         .expect("Identifier literal digit range violation");
 
@@ -944,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_invalid_digit_nibble_exhaustive() {
+    fn test_is_invalid_digit_offset_exhaustive() {
         // Test all 16 nibble values (0-15).
         // The function uses only b1, b2, b3 (not b0), but we test all nibbles for clarity.
         for nibble in 0u8..16 {
@@ -959,7 +960,7 @@ mod tests {
                 let b1_circuit = Boolean::new(Mode::Private, b1);
                 let b2_circuit = Boolean::new(Mode::Private, b2);
                 let b3_circuit = Boolean::new(Mode::Private, b3);
-                let result = is_invalid_digit_nibble::<CurrentEnvironment>(&b1_circuit, &b2_circuit, &b3_circuit);
+                let result = is_invalid_digit_offset::<CurrentEnvironment>(&b1_circuit, &b2_circuit, &b3_circuit);
                 assert_eq!(
                     result.eject_value(),
                     expected_invalid,

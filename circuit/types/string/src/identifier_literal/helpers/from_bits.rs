@@ -38,7 +38,7 @@ impl<E: Environment> FromBits for IdentifierLiteral<E> {
         for chunk in padded.chunks(8) {
             bytes_vec.push(U8::from_bits_le(chunk));
         }
-        // Safety: size_in_bytes matches SIZE_IN_BYTES.
+        // Note. This unwrap is safe since the length of `bytes_vec` matches SIZE_IN_BYTES.
         let bytes: [U8<E>; SIZE_IN_BYTES] =
             bytes_vec.try_into().unwrap_or_else(|_| E::halt("Failed to convert to byte array"));
 
