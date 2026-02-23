@@ -98,7 +98,7 @@ commands:
 
             # sccache settings
             echo 'export SCCACHE_DIR="$HOME/.cache/sccache"' >> "$BASH_ENV"
-            echo 'export SCCACHE_CACHE_SIZE="20000M"' >> "$BASH_ENV"
+            echo 'export SCCACHE_CACHE_SIZE="2000M"' >> "$BASH_ENV"
             echo 'export SCCACHE_IDLE_TIMEOUT=0' >> "$BASH_ENV"
             echo 'export SCCACHE_LOG=info' >> "$BASH_ENV"
 
