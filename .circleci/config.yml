@@ -37,7 +37,6 @@ commands:
       - restore_cache:
           keys:
             - cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - cargo-cache-{{ arch }}-
       - run:
           name: "Install Rust"
           no_output_timeout: 15m
@@ -148,7 +147,7 @@ commands:
     steps:
       - run: set +e
       - save_cache:
-          key: v4.2.0-rust-1.88.0-deps-{{ checksum "Cargo.lock" }}-{{ epoch }}
+          key: v4.2.0-rust-1.88.0-deps-{{ checksum "Cargo.lock" }}
           paths:
             - /home/circleci/.cache/sccache
             - /home/circleci/.cargo/registry
