@@ -968,7 +968,7 @@ jobs:
 
   synthesizer-program-integration-keccak:
     executor: rust-docker
-    resource_class: << pipeline.parameters.xlarge >>
+    resource_class: << pipeline.parameters.twoxlarge >>
     steps:
       - run_test:
           workspace_member: snarkvm-synthesizer-program
