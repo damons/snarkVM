@@ -141,8 +141,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         lap!(timer, "Check for duplicate elements");
 
         // Get the consensus version.
-        let current_block_height = self.block_store().current_block_height();
-        let consensus_version = N::CONSENSUS_VERSION(self.block_store().current_block_height())?;
+        let consensus_version = N::CONSENSUS_VERSION(current_block_height)?;
 
         // Construct the transaction checksum.
         let checksum = Data::<Transaction<N>>::Buffer(transaction.to_bytes_le()?.into()).to_checksum::<N>()?;
