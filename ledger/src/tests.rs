@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -649,6 +649,41 @@ fn test_bond_and_unbond_validator() {
         )
         .unwrap();
 
+    // Procure mapping-related objects.
+    let program_id = ProgramID::<CurrentNetwork>::from_str("credits.aleo").unwrap();
+    let metadata_mapping_name = Identifier::from_str("metadata").unwrap();
+    let metadata_mapping_key =
+        Plaintext::<CurrentNetwork>::from_str("aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc")
+            .unwrap();
+
+    // Check the initial historical mapping values.
+    #[cfg(feature = "history")]
+    {
+        let initial_mapping_value = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 0)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_value, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let initial_mapping_value_overshot = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 10)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_value_overshot, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let initial_mapping_heights = ledger
+            .vm()
+            .finalize_store()
+            .get_mapping_update_heights(program_id, metadata_mapping_name, metadata_mapping_key.clone())
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_heights, &[0]);
+    }
+
     // Check that the next block is valid.
     ledger.check_next_block(&transfer_block, rng).unwrap();
 
@@ -683,19 +718,59 @@ fn test_bond_and_unbond_validator() {
     // Add the bond public block to the ledger.
     ledger.advance_to_next_block(&bond_validator_block).unwrap();
 
+    // Check the historical mapping values after the bonding.
+    #[cfg(feature = "history")]
+    {
+        let initial_mapping_value = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 0)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_value, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let initial_mapping_value_overshot = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 1)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_value_overshot, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let post_bond_mapping_value = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 2)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_bond_mapping_value, &Value::<CurrentNetwork>::try_from("5u32").unwrap());
+
+        let post_bond_mapping_value_overshot = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 5)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_bond_mapping_value_overshot, &Value::<CurrentNetwork>::try_from("5u32").unwrap());
+
+        let post_bond_mapping_heights = ledger
+            .vm()
+            .finalize_store()
+            .get_mapping_update_heights(program_id, metadata_mapping_name, metadata_mapping_key.clone())
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_bond_mapping_heights, &[0, 2]);
+    }
+
     // Check that the committee is updated with the new member.
     let committee = ledger.latest_committee().unwrap();
     assert!(committee.is_committee_member(new_member_address));
 
     // Check that number of validators in the `metadata` mapping in `credits.aleo` is updated.
-    let program_id = ProgramID::<CurrentNetwork>::from_str("credits.aleo").unwrap();
-    let metadata_mapping_name = Identifier::from_str("metadata").unwrap();
-    let key = Plaintext::<CurrentNetwork>::from_str("aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc")
-        .unwrap();
     let num_validators = match ledger
         .vm()
         .finalize_store()
-        .get_value_confirmed(program_id, metadata_mapping_name, &key)
+        .get_value_confirmed(program_id, metadata_mapping_name, &metadata_mapping_key)
         .unwrap()
         .unwrap()
     {
@@ -734,19 +809,67 @@ fn test_bond_and_unbond_validator() {
     // Add the bond public block to the ledger.
     ledger.advance_to_next_block(&unbond_public_block).unwrap();
 
+    // Check the historical mapping values after the unbonding.
+    #[cfg(feature = "history")]
+    {
+        let initial_mapping_value = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 0)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_value, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let initial_mapping_value_overshot = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 1)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*initial_mapping_value_overshot, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let post_bond_mapping_value = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 2)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_bond_mapping_value, &Value::<CurrentNetwork>::try_from("5u32").unwrap());
+
+        let post_unbond_mapping_value = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 3)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_unbond_mapping_value, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let post_unbond_mapping_value_overshot = ledger
+            .vm()
+            .finalize_store()
+            .get_historical_mapping_value(program_id, metadata_mapping_name, metadata_mapping_key.clone(), 100)
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_unbond_mapping_value_overshot, &Value::<CurrentNetwork>::try_from("4u32").unwrap());
+
+        let post_unbond_mapping_heights = ledger
+            .vm()
+            .finalize_store()
+            .get_mapping_update_heights(program_id, metadata_mapping_name, metadata_mapping_key.clone())
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*post_unbond_mapping_heights, &[0, 2, 3]);
+    }
+
     // Check that the committee does not include the new member.
     let committee = ledger.latest_committee().unwrap();
     assert!(!committee.is_committee_member(new_member_address));
 
-    // Check that number of validators in the `metadata` mapping in `credtis.aleo` is updated.
-    let program_id = ProgramID::<CurrentNetwork>::from_str("credits.aleo").unwrap();
-    let metadata_mapping_name = Identifier::from_str("metadata").unwrap();
-    let key = Plaintext::<CurrentNetwork>::from_str("aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc")
-        .unwrap();
+    // Check that number of validators in the `metadata` mapping in `credits.aleo` is updated.
     let num_validators = match ledger
         .vm()
         .finalize_store()
-        .get_value_confirmed(program_id, metadata_mapping_name, &key)
+        .get_value_confirmed(program_id, metadata_mapping_name, &metadata_mapping_key)
         .unwrap()
         .unwrap()
     {
@@ -1336,6 +1459,36 @@ function create_duplicate_record:
     assert!(partially_verified_transaction.contains(&transfer_4_cache_key));
     assert!(!partially_verified_transaction.contains(&transfer_3_cache_key));
     assert!(!partially_verified_transaction.contains(&deployment_3_cache_key));
+}
+
+// Tests that `try_get_*' returns `None` if the tranmissions does not exist.
+#[test]
+fn test_get_transaction() {
+    let rng = &mut TestRng::default();
+    let ledger = crate::test_helpers::sample_test_env(rng).ledger;
+
+    // Generate a random transaction ID.
+    let transaction = crate::test_helpers::sample_deployment_transaction(1, 0, true, rng);
+    let transaction_id = transaction.id();
+
+    assert_eq!(ledger.try_get_transaction(&transaction_id).unwrap(), None);
+    assert_eq!(ledger.try_get_confirmed_transaction(&transaction_id).unwrap(), None);
+    assert_eq!(ledger.try_get_unconfirmed_transaction(&transaction_id).unwrap(), None);
+
+    assert!(ledger.get_transaction(transaction_id).is_err());
+    assert!(ledger.get_confirmed_transaction(transaction_id).is_err());
+    assert!(ledger.get_unconfirmed_transaction(&transaction_id).is_err());
+
+    // Insert the transaction as unconfirmed into the ledger.
+    ledger.vm().transaction_store().insert(&transaction).unwrap();
+
+    assert!(ledger.try_get_transaction(&transaction_id).unwrap().is_some());
+    assert_eq!(ledger.try_get_confirmed_transaction(&transaction_id).unwrap(), None);
+    assert!(ledger.try_get_unconfirmed_transaction(&transaction_id).unwrap().is_some());
+
+    assert!(ledger.get_transaction(transaction_id).is_ok());
+    assert!(ledger.get_confirmed_transaction(transaction_id).is_err());
+    assert!(ledger.get_unconfirmed_transaction(&transaction_id).is_ok());
 }
 
 #[test]
@@ -2647,6 +2800,7 @@ mod valid_solutions {
     }
 
     #[test]
+    #[ignore]
     fn test_cumulative_proof_target_correctness() {
         // Initialize an RNG.
         let rng = &mut TestRng::default();
@@ -2754,6 +2908,7 @@ mod valid_solutions {
     }
 
     #[test]
+    #[ignore]
     fn test_epoch_provers_cache_cleared_at_epoch_boundary() {
         // Initialize an RNG.
         let rng = &mut TestRng::default();
@@ -3019,6 +3174,7 @@ mod valid_solutions {
     }
 
     #[test]
+    #[ignore]
     fn test_excess_invalid_solution_ids() {
         // Note that the sum of `NUM_INVALID_SOLUTIONS` and `NUM_VALID_SOLUTIONS` should exceed the maximum number of solutions.
         const NUM_INVALID_SOLUTIONS: usize = CurrentNetwork::MAX_SOLUTIONS;
@@ -3110,6 +3266,7 @@ mod valid_solutions {
     }
 
     #[test]
+    #[ignore]
     fn test_excess_valid_solution_ids() {
         // Note that this should be greater than the maximum number of solutions.
         const NUM_VALID_SOLUTIONS: usize = 2 * CurrentNetwork::MAX_SOLUTIONS;

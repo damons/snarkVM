@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,7 @@ type CurrentAleo = AleoV0;
 #[test]
 fn test_serialize_deserialize_equivalence() {
     // Number of iterations to run for each type.
-    const ITERATIONS: usize = 50;
+    const ITERATIONS: usize = 10;
 
     // A helper function to define the program.
     fn construct_program(

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -418,8 +418,8 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
                     bail!("Casting to an array requires at least {} operand(s)", N::MIN_ARRAY_ELEMENTS)
                 }
                 // Ensure the number of elements does not exceed the maximum.
-                if inputs.len() > N::MAX_ARRAY_ELEMENTS {
-                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::MAX_ARRAY_ELEMENTS)
+                if inputs.len() > N::LATEST_MAX_ARRAY_ELEMENTS() {
+                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::LATEST_MAX_ARRAY_ELEMENTS())
                 }
 
                 // Ensure that the number of operands is equal to the number of array entries.
@@ -722,8 +722,8 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
                     bail!("Casting to an array requires at least {} operand(s)", N::MIN_ARRAY_ELEMENTS)
                 }
                 // Ensure the number of elements does not exceed the maximum.
-                if input_types.len() > N::MAX_ARRAY_ELEMENTS {
-                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::MAX_ARRAY_ELEMENTS)
+                if input_types.len() > N::LATEST_MAX_ARRAY_ELEMENTS() {
+                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::LATEST_MAX_ARRAY_ELEMENTS())
                 }
 
                 // Ensure that the number of input types is equal to the number of array entries.
@@ -1023,7 +1023,7 @@ impl<N: Network, const VARIANT: u8> Parser for CastOperation<N, VARIANT> {
             | CastType::GroupYCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         match !operands.is_empty() && (operands.len() <= max_operands) {
@@ -1071,7 +1071,7 @@ impl<N: Network, const VARIANT: u8> Display for CastOperation<N, VARIANT> {
             | CastType::GroupXCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         if self.operands.is_empty() || self.operands.len() > max_operands {
@@ -1097,8 +1097,11 @@ impl<N: Network, const VARIANT: u8> FromBytes for CastOperation<N, VARIANT> {
         // Ensure that the number of operands does not exceed the upper bound.
         // Note: Although a similar check is performed later, this check is performed to ensure that an exceedingly large number of operands is not allocated.
         // Note: This check is purely a sanity check, as it is not type-aware.
-        if num_operands.is_zero() || num_operands > N::MAX_ARRAY_ELEMENTS {
-            return Err(error(format!("The number of operands must be nonzero and <= {}", N::MAX_ARRAY_ELEMENTS)));
+        if num_operands.is_zero() || num_operands > N::LATEST_MAX_ARRAY_ELEMENTS() {
+            return Err(error(format!(
+                "The number of operands must be nonzero and <= {}",
+                N::LATEST_MAX_ARRAY_ELEMENTS()
+            )));
         }
 
         // Initialize the vector for the operands.
@@ -1120,7 +1123,7 @@ impl<N: Network, const VARIANT: u8> FromBytes for CastOperation<N, VARIANT> {
             | CastType::GroupXCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         if num_operands.is_zero() || num_operands > max_operands {
@@ -1141,7 +1144,7 @@ impl<N: Network, const VARIANT: u8> ToBytes for CastOperation<N, VARIANT> {
             | CastType::GroupXCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         if self.operands.is_empty() || self.operands.len() > max_operands {
