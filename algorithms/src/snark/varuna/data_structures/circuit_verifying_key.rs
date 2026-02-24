@@ -72,29 +72,29 @@ impl<E: PairingEngine> CanonicalDeserialize for CircuitVerifyingKey<E> {
     ) -> Result<Self, SerializationError> {
         // Deserialize circuit_info
         let circuit_info = CircuitInfo::deserialize_with_mode(&mut reader, compress, validate)?;
-        
+
         // Deserialize the length of circuit_commitments
         let len = u64::deserialize_with_mode(&mut reader, compress, validate)?;
-        
+
         // Bound check: Maximum of 12 commitments (3 matrices × 4 polynomials each)
         const MAX_CIRCUIT_COMMITMENTS: u64 = 12;
         if len > MAX_CIRCUIT_COMMITMENTS {
             return Err(SerializationError::InvalidData);
         }
-        
+
         // Deserialize circuit_commitments
         let mut circuit_commitments = Vec::with_capacity(len as usize);
         for _ in 0..len {
             circuit_commitments.push(sonic_pc::Commitment::deserialize_with_mode(&mut reader, compress, Validate::No)?);
         }
-        
+
         if let Validate::Yes = validate {
             sonic_pc::Commitment::<E>::batch_check(circuit_commitments.iter())?;
         }
-        
+
         // Deserialize id
         let id = CircuitId::deserialize_with_mode(&mut reader, compress, validate)?;
-        
+
         Ok(CircuitVerifyingKey { circuit_info, circuit_commitments, id })
     }
 }
