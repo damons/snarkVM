@@ -4,7 +4,7 @@ description: |
   Security-focused PR review for snarkVM codebase.
   WHEN: User says "review PR", "audit PR", "security review", "check PR changes",
   or wants thorough analysis of PR changes for bugs/vulnerabilities.
-  WHEN NOT: Fixing review feedback (use snarkvm-fix-pr), fetching context only
+  WHEN NOT: Fixing review feedback (use snarkvm-fix pr), fetching context only
   (use snarkvm-github), or fixing issues (use snarkvm-fix).
 context: fork
 agent: general-purpose
@@ -88,7 +88,7 @@ Update `$WS/state-pr-$PR.md` with findings:
 
 ## 7. Handoff
 
-If requesting changes, create handoff for `/snarkvm-fix-pr`:
+If requesting changes, create handoff for `/snarkvm-fix pr`:
 
 ```bash
 sed -e "s/{{NUM}}/$PR/g" "$SKILL_DIR/templates/handoff.md" > "$WS/handoff-pr-$PR.md"

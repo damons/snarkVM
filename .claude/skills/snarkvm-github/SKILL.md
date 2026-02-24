@@ -58,4 +58,4 @@ Context is cached for 1 hour. Use `--force` to bypass.
 
 ## Integration
 
-This skill provides context for **snarkvm-review**, **snarkvm-fix-pr**, and **snarkvm-fix**. Those skills auto-fetch if context is missing.
+This skill provides context for **snarkvm-review**, **snarkvm-fix pr**, and **snarkvm-fix**. Those skills auto-fetch if context is missing.

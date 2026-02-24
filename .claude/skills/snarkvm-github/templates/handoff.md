@@ -17,4 +17,4 @@
 
 ## Instructions
 
-Run `/snarkvm-fix-pr {{NUM}}` to address these items.
+Run `/snarkvm-fix pr {{NUM}}` to address these items.
