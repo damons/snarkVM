@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,6 +52,15 @@ impl<N: Network> ValueType<N> {
             ValueType::Future(..) => 5,
         }
     }
+
+    /// Returns whether this type references an external struct.
+    pub fn contains_external_struct(&self) -> bool {
+        use ValueType::*;
+        matches!(
+            self,
+            Constant(plaintext) | Public(plaintext) | Private(plaintext) if plaintext.contains_external_struct()
+        )
+    }
 }
 
 impl<N: Network> From<EntryType<N>> for ValueType<N> {
@@ -61,5 +70,26 @@ impl<N: Network> From<EntryType<N>> for ValueType<N> {
             EntryType::Public(plaintext) => ValueType::Public(plaintext),
             EntryType::Private(private) => ValueType::Private(private),
         }
+    }
+}
+
+impl<N: Network> ValueType<N> {
+    /// Returns `true` if the value type contains a string type.
+    /// Record, external record, and future types are checked elsewhere.
+    pub fn contains_string_type(&self) -> bool {
+        use ValueType::*;
+        matches!(
+            self,
+            Constant(plaintext) | Public(plaintext) | Private(plaintext) if plaintext.contains_string_type()
+        )
+    }
+
+    /// Returns `true` if the value type is an array and the size exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        use ValueType::*;
+        matches!(
+            self,
+            Constant(plaintext) | Public(plaintext) | Private(plaintext) if plaintext.exceeds_max_array_size(max_array_size)
+        )
     }
 }

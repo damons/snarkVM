@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,6 +68,31 @@ impl<N: Network> ClosureCore<N> {
     /// Returns the closure outputs.
     pub const fn outputs(&self) -> &IndexSet<Output<N>> {
         &self.outputs
+    }
+
+    /// Returns the closure output types.
+    pub fn output_types(&self) -> Vec<RegisterType<N>> {
+        self.outputs.iter().map(|output| output.register_type()).cloned().collect()
+    }
+
+    /// Returns whether the closure refers to an external struct.
+    pub fn contains_external_struct(&self) -> bool {
+        self.inputs.iter().any(|input| input.register_type().contains_external_struct())
+            || self.outputs.iter().any(|output| output.register_type().contains_external_struct())
+            || self.instructions.iter().any(|instruction| instruction.contains_external_struct())
+    }
+
+    /// Returns `true` if the closure instructions contain a string type.
+    /// Note that input and output types don't have to be checked if we are sure the broader function doesn't contain a string type.
+    pub fn contains_string_type(&self) -> bool {
+        self.instructions.iter().any(|instruction| instruction.contains_string_type())
+    }
+
+    /// Returns `true` if the closure contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        self.inputs.iter().any(|input| input.register_type().exceeds_max_array_size(max_array_size))
+            || self.outputs.iter().any(|output| output.register_type().exceeds_max_array_size(max_array_size))
+            || self.instructions.iter().any(|instruction| instruction.exceeds_max_array_size(max_array_size))
     }
 }
 

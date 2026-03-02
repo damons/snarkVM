@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,20 +16,10 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::cast_possible_truncation)]
 
-extern crate snarkvm_console as console;
-
-#[cfg_attr(feature = "async", macro_use)]
-extern crate async_trait;
-
 #[cfg(feature = "query")]
 mod query;
 #[cfg(feature = "query")]
 pub use query::*;
-
-#[cfg(feature = "query")]
-mod static_query;
-#[cfg(feature = "query")]
-pub use static_query::*;
 
 mod traits;
 pub use traits::*;

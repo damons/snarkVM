@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@ use console::network::prelude::*;
 /// The `Opcode` enum stores the mnemonic for the instruction.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Opcode {
-    /// The opcode is for a assert operation (i.e. `assert`).
+    /// The opcode is for an assert operation (i.e. `assert`).
     Assert(&'static str),
     /// The opcode is for an async call operation (i.e. `async`).
     Async,
@@ -30,14 +30,22 @@ pub enum Opcode {
     Command(&'static str),
     /// The opcode is for a commit operation (i.e. `commit.psd4`).
     Commit(&'static str),
+    /// The opcdode is a for a deserialize operation (i.e. `deserialize.bytes.raw`).
+    Deserialize(&'static str),
+    /// The opcode is for ECDSA signature verification (i.e. `ecdsa.verify.keccak`).
+    ECDSA(&'static str),
     /// The opcode is for a hash operation (i.e. `hash.psd4`).
     Hash(&'static str),
     /// The opcode is for an 'is' operation (i.e. `is.eq`).
     Is(&'static str),
     /// The opcode is for a literal operation (i.e. `add`).
     Literal(&'static str),
+    /// The opcode is for a serialize operation. (i.e. `serialize.bytes.raw`).
+    Serialize(&'static str),
     /// The opcode is for signature verification (i.e. `sign.verify`).
-    Sign,
+    Sign(&'static str),
+    /// The opcode is for snark verification (i.e. `snark.verify`).
+    Snark(&'static str),
 }
 
 impl Deref for Opcode {
@@ -52,10 +60,14 @@ impl Deref for Opcode {
             Opcode::Cast(opcode) => opcode,
             Opcode::Command(opcode) => opcode,
             Opcode::Commit(opcode) => opcode,
+            Opcode::Deserialize(opcode) => opcode,
+            Opcode::ECDSA(opcode) => opcode,
             Opcode::Hash(opcode) => opcode,
             Opcode::Is(opcode) => opcode,
             Opcode::Literal(opcode) => opcode,
-            Opcode::Sign => &"sign.verify",
+            Opcode::Serialize(opcode) => opcode,
+            Opcode::Sign(opcode) => opcode,
+            Opcode::Snark(opcode) => opcode,
         }
     }
 }
@@ -77,10 +89,14 @@ impl Display for Opcode {
             Self::Cast(opcode) => write!(f, "{opcode}"),
             Self::Command(opcode) => write!(f, "{opcode}"),
             Self::Commit(opcode) => write!(f, "{opcode}"),
+            Self::Deserialize(opcode) => write!(f, "{opcode}"),
+            Self::ECDSA(opcode) => write!(f, "{opcode}"),
             Self::Hash(opcode) => write!(f, "{opcode}"),
             Self::Is(opcode) => write!(f, "{opcode}"),
             Self::Literal(opcode) => write!(f, "{opcode}"),
-            Self::Sign => write!(f, "{}", self.deref()),
+            Self::Serialize(opcode) => write!(f, "{opcode}"),
+            Self::Sign(opcode) => write!(f, "{opcode}"),
+            Self::Snark(opcode) => write!(f, "{opcode}"),
         }
     }
 }

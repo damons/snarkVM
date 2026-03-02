@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use super::*;
+
+use snarkvm_utilities::flatten_error;
 
 impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
     /// Returns the block height that contains the given `state root`.
@@ -128,8 +130,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
             match commitment {
                 Ok(Some(commitment)) => Some((commitment, record)),
                 Ok(None) => None,
-                Err(e) => {
-                    warn!("Failed to process 'find_record_ciphertexts({:?})': {e}", filter);
+                Err(err) => {
+                    warn!("{}", &flatten_error(err.context("Failed to process 'find_record_ciphertexts({filter:?})'")));
                     None
                 }
             }
@@ -146,8 +148,8 @@ impl<N: Network, C: ConsensusStorage<N>> Ledger<N, C> {
         self.find_record_ciphertexts(view_key, filter).map(|iter| {
             iter.flat_map(|(commitment, record)| match record.decrypt(view_key) {
                 Ok(record) => Some((commitment, record)),
-                Err(e) => {
-                    warn!("Failed to decrypt the record: {e}");
+                Err(err) => {
+                    warn!("{}", &flatten_error(err.context("Failed to decrypt record")));
                     None
                 }
             })

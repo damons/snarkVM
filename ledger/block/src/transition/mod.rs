@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -145,7 +145,7 @@ impl<N: Network> Transition<N> {
                         Ok(Input::Record(*serial_number, *tag))
                     }
                     (InputID::ExternalRecord(input_hash), Value::Record(..)) => Ok(Input::ExternalRecord(*input_hash)),
-                    _ => bail!("Malformed request input: {:?}, {input}", input_id),
+                    _ => bail!("Malformed request input: {input_id:?}, {input}"),
                 }
             })
             .collect::<Result<Vec<_>>>()?;

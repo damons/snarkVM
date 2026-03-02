@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -254,9 +254,7 @@ impl<N: Network> RegisterTypes<N> {
     fn check_input(&mut self, stack: &Stack<N>, register: &Register<N>, register_type: &RegisterType<N>) -> Result<()> {
         // Ensure the register type is defined in the program.
         match register_type {
-            RegisterType::Plaintext(PlaintextType::Literal(..)) => (),
-            RegisterType::Plaintext(PlaintextType::Struct(struct_name)) => Self::check_struct(stack, struct_name)?,
-            RegisterType::Plaintext(PlaintextType::Array(array_type)) => Self::check_array(stack, array_type)?,
+            RegisterType::Plaintext(plaintext_type) => Self::check_plaintext_type(stack, plaintext_type)?,
             RegisterType::Record(identifier) => {
                 // Ensure the record type is defined in the program.
                 if !stack.program().contains_record(identifier) {
@@ -285,7 +283,6 @@ impl<N: Network> RegisterTypes<N> {
     }
 
     /// Ensure the given output register is well-formed.
-    #[inline]
     fn check_output(&self, stack: &Stack<N>, operand: &Operand<N>, register_type: &RegisterType<N>) -> Result<()> {
         match operand {
             // Inform the user the output operand is an input register, to ensure this is intended behavior.
@@ -305,9 +302,7 @@ impl<N: Network> RegisterTypes<N> {
 
         // Ensure the register type is defined in the program.
         match register_type {
-            RegisterType::Plaintext(PlaintextType::Literal(..)) => (),
-            RegisterType::Plaintext(PlaintextType::Struct(struct_name)) => Self::check_struct(stack, struct_name)?,
-            RegisterType::Plaintext(PlaintextType::Array(array_type)) => Self::check_array(stack, array_type)?,
+            RegisterType::Plaintext(plaintext_type) => Self::check_plaintext_type(stack, plaintext_type)?,
             RegisterType::Record(identifier) => {
                 // Ensure the record type is defined in the program.
                 if !stack.program().contains_record(identifier) {
@@ -334,11 +329,10 @@ impl<N: Network> RegisterTypes<N> {
         };
 
         // Ensure the operand type and the output type match.
-        if *register_type != self.get_type_from_operand(stack, operand)? {
+        let operand_type = self.get_type_from_operand(stack, operand)?;
+        if !register_types_equivalent(stack, register_type, stack, &operand_type)? {
             bail!(
-                "Output '{operand}' does not match the expected output operand type: expected '{}', found '{}'",
-                self.get_type_from_operand(stack, operand)?,
-                register_type
+                "Output '{operand}' does not match the expected output operand type: expected '{operand_type}', found '{register_type}'",
             )
         }
         Ok(())
@@ -380,7 +374,6 @@ impl<N: Network> RegisterTypes<N> {
 
     /// Ensures the opcode is a valid opcode and corresponds to the correct instruction.
     /// This method is called when adding a new closure or function to the program.
-    #[inline]
     fn check_instruction_opcode(
         &self,
         stack: &Stack<N>,
@@ -512,19 +505,27 @@ impl<N: Network> RegisterTypes<N> {
                         | CastType::Plaintext(PlaintextType::Literal(..)) => {
                             ensure!(instruction.operands().len() == 1, "Expected 1 operand.");
                         }
-                        CastType::Plaintext(PlaintextType::Struct(struct_name)) => {
-                            // Ensure the struct name exists in the program.
-                            if !stack.program().contains_struct(struct_name) {
-                                bail!("Struct '{struct_name}' is not defined.")
-                            }
+                        CastType::Plaintext(plaintext @ PlaintextType::Struct(struct_name)) => {
+                            // Ensure the type is valid.
+                            Self::check_plaintext_type(stack, plaintext)?;
                             // Retrieve the struct.
                             let struct_ = stack.program().get_struct(struct_name)?;
                             // Ensure the operand types match the struct.
-                            self.matches_struct(stack, instruction.operands(), struct_)?;
+                            self.matches_struct(stack, stack, instruction.operands(), struct_)?;
                         }
-                        CastType::Plaintext(PlaintextType::Array(array_type)) => {
-                            // Ensure that the array type is valid.
-                            RegisterTypes::check_array(stack, array_type)?;
+                        CastType::Plaintext(plaintext @ PlaintextType::ExternalStruct(locator)) => {
+                            // Ensure the type is valid.
+                            Self::check_plaintext_type(stack, plaintext)?;
+                            let external_stack = stack.get_external_stack(locator.program_id())?;
+                            let struct_name = locator.resource();
+                            // Retrieve the struct.
+                            let struct_ = external_stack.program().get_struct(struct_name)?;
+                            // Ensure the operand types match the struct.
+                            self.matches_struct(stack, &*external_stack, instruction.operands(), struct_)?;
+                        }
+                        CastType::Plaintext(plaintext @ PlaintextType::Array(array_type)) => {
+                            // Ensure the type is valid.
+                            Self::check_plaintext_type(stack, plaintext)?;
                             // Ensure the operand types match the element type.
                             self.matches_array(stack, instruction.operands(), array_type)?;
                         }
@@ -570,6 +571,10 @@ impl<N: Network> RegisterTypes<N> {
                 bail!("Forbidden operation: Instruction '{instruction}' cannot invoke command '{opcode}'.");
             }
             Opcode::Commit(opcode) => Self::check_commit_opcode(opcode, instruction)?,
+            Opcode::Deserialize(opcode) => Self::check_deserialize_opcode(opcode, instruction)?,
+            Opcode::ECDSA(opcode) => {
+                bail!("Forbidden operation: Instruction '{instruction}' cannot invoke command '{opcode}'.")
+            }
             Opcode::Hash(opcode) => Self::check_hash_opcode(opcode, instruction)?,
             Opcode::Is(opcode) => match opcode {
                 "is.eq" => ensure!(
@@ -582,12 +587,16 @@ impl<N: Network> RegisterTypes<N> {
                 ),
                 _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
             },
-            Opcode::Sign => {
+            Opcode::Serialize(opcode) => Self::check_serialize_opcode(opcode, instruction)?,
+            Opcode::Sign(_) => {
                 // Ensure the instruction has one destination register.
                 ensure!(
                     instruction.destinations().len() == 1,
                     "Instruction '{instruction}' has multiple destinations."
                 );
+            }
+            Opcode::Snark(opcode) => {
+                bail!("Forbidden operation: Instruction '{instruction}' cannot invoke command '{opcode}'.")
             }
         }
         Ok(())
@@ -642,34 +651,24 @@ impl<N: Network> RegisterTypes<N> {
     //     Ok(())
     // }
 
-    /// Ensures the struct exists in the program, and recursively-checks for array members.
-    pub(crate) fn check_struct(stack: &Stack<N>, struct_name: &Identifier<N>) -> Result<()> {
-        // Retrieve the struct from the program.
-        let Ok(struct_) = stack.program().get_struct(struct_name) else {
-            bail!("Struct '{struct_name}' in '{}' is not defined.", stack.program_id())
-        };
-
-        // If the struct contains arrays, ensure their base element types are defined in the program.
-        for member in struct_.members().values() {
-            match member {
-                PlaintextType::Literal(..) => (),
-                PlaintextType::Struct(struct_name) => Self::check_struct(stack, struct_name)?,
-                PlaintextType::Array(array_type) => Self::check_array(stack, array_type)?,
+    /// Ensure any struct referenced directly or otherwise exists.
+    pub fn check_plaintext_type(stack: &Stack<N>, type_: &PlaintextType<N>) -> Result<()> {
+        match type_ {
+            PlaintextType::Literal(..) => Ok(()),
+            PlaintextType::Struct(struct_name) => {
+                // Retrieve the struct from the program.
+                let Ok(struct_) = stack.program().get_struct(struct_name) else {
+                    bail!("Struct '{struct_name}' in '{}' is not defined.", stack.program_id())
+                };
+                struct_.members().values().try_for_each(|member| Self::check_plaintext_type(stack, member))
             }
-        }
-        Ok(())
-    }
-
-    /// Ensure the base element type of the array is defined in the program.
-    pub(crate) fn check_array(stack: &Stack<N>, array_type: &ArrayType<N>) -> Result<()> {
-        // If the base element type is a struct, check that it is defined in the program.
-        if let PlaintextType::Struct(struct_name) = array_type.base_element_type() {
-            // Ensure the struct is defined in the program.
-            if !stack.program().contains_struct(struct_name) {
-                bail!("Struct '{struct_name}' in '{}' is not defined.", stack.program_id())
+            PlaintextType::ExternalStruct(locator) => {
+                let external_stack = stack.get_external_stack(locator.program_id())?;
+                let struct_type = PlaintextType::Struct(*locator.resource());
+                Self::check_plaintext_type(&*external_stack, &struct_type)
             }
+            PlaintextType::Array(array_type) => Self::check_plaintext_type(stack, array_type.base_element_type()),
         }
-        Ok(())
     }
 
     /// Ensures the opcode is a valid opcode and corresponds to the `commit` instruction.
@@ -781,6 +780,250 @@ impl<N: Network> RegisterTypes<N> {
             ),
             "hash_many.psd8" => ensure!(
                 matches!(instruction, Instruction::HashManyPSD8(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp256.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp512.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp768.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP768Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.bhp1024.raw" => ensure!(
+                matches!(instruction, Instruction::HashBHP1024Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak256.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak384.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak512.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.ped64.raw" => ensure!(
+                matches!(instruction, Instruction::HashPED64Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.ped128.raw" => ensure!(
+                matches!(instruction, Instruction::HashPED128Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.psd2.raw" => ensure!(
+                matches!(instruction, Instruction::HashPSD2Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.psd4.raw" => ensure!(
+                matches!(instruction, Instruction::HashPSD4Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.psd8.raw" => ensure!(
+                matches!(instruction, Instruction::HashPSD8Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_256.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_384.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_512.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak256.native" => ensure!(
+                matches!(instruction, Instruction::HashKeccak256Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak256.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak256NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak384.native" => ensure!(
+                matches!(instruction, Instruction::HashKeccak384Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak384.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak384NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak512.native" => ensure!(
+                matches!(instruction, Instruction::HashKeccak512Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.keccak512.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashKeccak512NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_256.native" => ensure!(
+                matches!(instruction, Instruction::HashSha3_256Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_256.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_256NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_384.native" => ensure!(
+                matches!(instruction, Instruction::HashSha3_384Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_384.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_384NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_512.native" => ensure!(
+                matches!(instruction, Instruction::HashSha3_512Native(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "hash.sha3_512.native.raw" => ensure!(
+                matches!(instruction, Instruction::HashSha3_512NativeRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
+        }
+        Ok(())
+    }
+
+    /// Ensures the opcode is a valid opcode and corresponds to the `ecdsa.verify` instruction.
+    #[inline]
+    pub(crate) fn check_ecdsa_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+        // Ensure the instruction has one destination register.
+        ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
+        // Ensure the instruction is the correct one.
+        match opcode {
+            "ecdsa.verify.digest" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyDigest(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.digest.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyDigestEth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak256" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak256.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak256.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak256Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak384.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak384Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.keccak512.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifyKeccak512Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_256.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_256Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_384.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_384Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512.raw" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512Raw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "ecdsa.verify.sha3_512.eth" => ensure!(
+                matches!(instruction, Instruction::ECDSAVerifySha3_512Eth(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
+        }
+        Ok(())
+    }
+
+    /// Ensures the opcode is a valid opcode and corresponds to the `serialize` instruction.
+    #[inline]
+    pub(crate) fn check_serialize_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+        // Ensure that the instruction has exactly one operand register.
+        ensure!(instruction.operands().len() == 1, "Instruction '{instruction}' must have exactly one operand.");
+        // Ensure the instruction has one destination register.
+        ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
+        // Ensure the instruction is the correct one.
+        match opcode {
+            "serialize.bits" => ensure!(
+                matches!(instruction, Instruction::SerializeBits(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "serialize.bits.raw" => ensure!(
+                matches!(instruction, Instruction::SerializeBitsRaw(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),
+        }
+        Ok(())
+    }
+
+    /// Ensures the opcode is a valid opcode and corresponds to the `deserialize` instruction.
+    #[inline]
+    pub(crate) fn check_deserialize_opcode(opcode: &str, instruction: &Instruction<N>) -> Result<()> {
+        // Ensure that the instruction has exactly one operand register.
+        ensure!(instruction.operands().len() == 1, "Instruction '{instruction}' must have exactly one operand.");
+        // Ensure the instruction has one destination register.
+        ensure!(instruction.destinations().len() == 1, "Instruction '{instruction}' has multiple destinations.");
+        // Ensure the instruction is the correct one.
+        match opcode {
+            "deserialize.bits" => ensure!(
+                matches!(instruction, Instruction::DeserializeBits(..)),
+                "Instruction '{instruction}' is not for opcode '{opcode}'."
+            ),
+            "deserialize.bits.raw" => ensure!(
+                matches!(instruction, Instruction::DeserializeBitsRaw(..)),
                 "Instruction '{instruction}' is not for opcode '{opcode}'."
             ),
             _ => bail!("Instruction '{instruction}' is not for opcode '{opcode}'."),

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use console::{network::Network, prelude::Result, program::StatePath, types::Field};
+use snarkvm_console::{network::Network, prelude::Result, program::StatePath, types::Field};
 
-#[cfg_attr(feature = "async", async_trait(?Send))]
+#[cfg_attr(feature = "async", async_trait::async_trait(?Send))]
 pub trait QueryTrait<N: Network> {
     /// Returns the current state root.
     fn current_state_root(&self) -> Result<N::StateRoot>;

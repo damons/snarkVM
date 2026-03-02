@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,10 +64,18 @@ impl<N: Network> Stack<N> {
     ) -> Result<()> {
         let timer = timer!("Stack::verify_deployment");
 
+        // NOTE: As developer, you will likely still want to confirm that your
+        // deployment is within R1CS constraint and variable limits using
+        // targeted and parallelized synthesis.
+        if cfg!(all(feature = "dev_skip_checks", feature = "test_consensus_heights")) {
+            return Ok(());
+        }
+
         // Sanity Checks //
 
         // Ensure the deployment is ordered.
         deployment.check_is_ordered()?;
+
         // Ensure the program in the stack and deployment matches.
         ensure!(&self.program == deployment.program(), "The stack program does not match the deployment program");
         // If the deployment contains a checksum, ensure it matches the one computed by the stack.
@@ -139,9 +147,13 @@ impl<N: Network> Stack<N> {
                         // Retrieve the external stack.
                         let stack = self.get_external_stack(locator.program_id())?;
                         // Sample the input.
-                        stack.sample_value(&burner_address, &ValueType::Record(*locator.resource()), &mut seeded_rng)
+                        stack.sample_value(
+                            &burner_address,
+                            &ValueType::Record(*locator.resource()).into(),
+                            &mut seeded_rng,
+                        )
                     }
-                    _ => self.sample_value(&burner_address, input_type, &mut seeded_rng),
+                    _ => self.sample_value(&burner_address, &input_type.into(), &mut seeded_rng),
                 })
                 .collect::<Result<Vec<_>>>()?;
             lap!(timer, "Sample the inputs");

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,8 @@
 
 use super::*;
 use crate::helpers::{Map, MapRead};
+
+use snarkvm_utilities::{bytes::unchecked_deserialize, flatten_error};
 
 use core::{fmt, fmt::Debug, hash::Hash, mem};
 use indexmap::IndexMap;
@@ -57,7 +59,7 @@ impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> InnerData
 
 impl<
     'a,
-    K: 'a + Copy + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
+    K: 'a + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
     V: 'a + Clone + Serialize + DeserializeOwned + Send + Sync,
 > Map<'a, K, V> for DataMap<K, V>
 {
@@ -91,7 +93,7 @@ impl<
         match self.is_atomic_in_progress() {
             // If a batch is in progress, add the key to the batch.
             true => {
-                self.atomic_batch.lock().push((*key, None));
+                self.atomic_batch.lock().push((key.clone(), None));
             }
             // Otherwise, remove the key-value pair directly from the map.
             false => {
@@ -115,11 +117,17 @@ impl<
         self.database.atomic_depth.fetch_add(1, Ordering::SeqCst);
 
         // Ensure that the atomic batch is empty.
-        assert!(self.atomic_batch.lock().is_empty());
+        assert!(
+            self.atomic_batch.lock().is_empty(),
+            "Cannot start an atomic batch operation while another one is already in progress"
+        );
         // Ensure that the database atomic batch is empty; skip this check if the atomic
         // writes are paused, as there may be pending operations.
         if !self.database.are_atomic_writes_paused() {
-            assert!(self.database.atomic_batch.lock().is_empty());
+            assert!(
+                self.database.atomic_batch.lock().is_empty(),
+                "Cannot start a database atomic batch operation while another one is already in progress"
+            );
         }
     }
 
@@ -227,7 +235,10 @@ impl<
 
         // Ensure that the value of `atomic_depth` doesn't overflow, meaning that all the
         // calls to `start_atomic` have corresponding calls to `finish_atomic`.
-        assert!(previous_atomic_depth != 0);
+        assert_ne!(
+            previous_atomic_depth, 0,
+            "Atomic depth underflow: finish_atomic called without corresponding start_atomic"
+        );
 
         // If we're at depth 0, it is the final call to `finish_atomic` and the
         // atomic write batch can be physically executed. This is skipped if the
@@ -238,7 +249,10 @@ impl<
             // Execute all the operations atomically.
             self.database.rocksdb.write(batch)?;
             // Ensure that the database atomic batch is empty.
-            assert!(self.database.atomic_batch.lock().is_empty());
+            assert!(
+                self.database.atomic_batch.lock().is_empty(),
+                "The database atomic batch must be empty when finishing a write batch operation"
+            );
         }
 
         Ok(())
@@ -264,7 +278,7 @@ impl<
 
 impl<
     'a,
-    K: 'a + Copy + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
+    K: 'a + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
     V: 'a + Clone + Serialize + DeserializeOwned + Send + Sync,
 > MapRead<'a, K, V> for DataMap<K, V>
 {
@@ -349,7 +363,7 @@ impl<
         Q: PartialEq + Eq + Hash + Serialize + ?Sized,
     {
         match self.get_raw(key) {
-            Ok(Some(bytes)) => Ok(Some(Cow::Owned(bincode::deserialize(&bytes)?))),
+            Ok(Some(bytes)) => Ok(Some(Cow::Owned(unchecked_deserialize(&bytes)?))),
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
@@ -441,14 +455,16 @@ impl<
         let (key, value) = self.db_iter.item()?;
 
         // Deserialize the key and value.
-        let key = bincode::deserialize(&key[PREFIX_LEN..])
-            .map_err(|e| {
-                error!("RocksDB Iter deserialize(key) error: {e}");
+        let key = unchecked_deserialize(&key[PREFIX_LEN..])
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Iter deserialize(key) error")));
             })
             .ok()?;
-        let value = bincode::deserialize(value)
-            .map_err(|e| {
-                error!("RocksDB Iter deserialize(value) error: {e}");
+        let value = unchecked_deserialize(value)
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Iter deserialize(value) error")));
             })
             .ok()?;
 
@@ -479,9 +495,10 @@ impl<'a, K: 'a + Clone + Debug + PartialEq + Eq + Hash + Serialize + Deserialize
         }
 
         // Deserialize the key.
-        let key = bincode::deserialize(&self.db_iter.key()?[PREFIX_LEN..])
-            .map_err(|e| {
-                error!("RocksDB Keys deserialize(key) error: {e}");
+        let key = unchecked_deserialize(&self.db_iter.key()?[PREFIX_LEN..])
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Keys deserialize(key) error")));
             })
             .ok()?;
 
@@ -512,9 +529,10 @@ impl<'a, V: 'a + Clone + Serialize + DeserializeOwned> Iterator for Values<'a, V
         }
 
         // Deserialize the value.
-        let value = bincode::deserialize(self.db_iter.value()?)
-            .map_err(|e| {
-                error!("RocksDB Values deserialize(value) error: {e}");
+        let value = unchecked_deserialize(self.db_iter.value()?)
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Values deserialize(value) error")));
             })
             .ok()?;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,11 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{FromBytes, ToBytes, io_error};
+
 use enum_iterator::{Sequence, last};
+use std::io;
 
 /// The different consensus versions.
 /// If you need the version active for a specific height, see: `N::CONSENSUS_VERSION`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Sequence)]
+#[repr(u16)]
 pub enum ConsensusVersion {
     /// V1: The initial genesis consensus version.
     V1 = 1,
@@ -39,8 +43,45 @@ pub enum ConsensusVersion {
     V9 = 9,
     /// V10: Lower fees, appropriate record output type checking.
     V10 = 10,
-    /// V11: Support for external structs.
+    /// V11: Expand array size limit to 512 and introduce ECDSA signature verification opcodes.
     V11 = 11,
+    /// V12: Prevent connection to forked nodes, disable StringType, enable block timestamp.
+    V12 = 12,
+    /// V13: Introduces external structs.
+    V13 = 13,
+    /// V14: Increase the program size limit to 512 kB, the transaction size limit to 540 kB,
+    ///      the array size limit to 2048, and the `Future` argument bit size to 32 bits.
+    ///      Introduces `aleo::GENERATOR`, `aleo::GENERATOR_POWERS`, and `snark.verify` opcodes.
+    V14 = 14,
+}
+
+impl ToBytes for ConsensusVersion {
+    fn write_le<W: io::Write>(&self, writer: W) -> io::Result<()> {
+        (*self as u16).write_le(writer)
+    }
+}
+
+impl FromBytes for ConsensusVersion {
+    fn read_le<R: io::Read>(reader: R) -> io::Result<Self> {
+        match u16::read_le(reader)? {
+            0 => Err(io_error("Zero is not a valid consensus version")),
+            1 => Ok(Self::V1),
+            2 => Ok(Self::V2),
+            3 => Ok(Self::V3),
+            4 => Ok(Self::V4),
+            5 => Ok(Self::V5),
+            6 => Ok(Self::V6),
+            7 => Ok(Self::V7),
+            8 => Ok(Self::V8),
+            9 => Ok(Self::V9),
+            10 => Ok(Self::V10),
+            11 => Ok(Self::V11),
+            12 => Ok(Self::V12),
+            13 => Ok(Self::V13),
+            14 => Ok(Self::V14),
+            _ => Err(io_error("Invalid consensus version")),
+        }
+    }
 }
 
 impl ConsensusVersion {
@@ -49,8 +90,15 @@ impl ConsensusVersion {
     }
 }
 
+impl std::fmt::Display for ConsensusVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Use Debug formatting for Display.
+        write!(f, "{self:?}")
+    }
+}
+
 /// The number of consensus versions.
-pub(crate) const NUM_CONSENSUS_VERSIONS: usize = 11;
+pub(crate) const NUM_CONSENSUS_VERSIONS: usize = enum_iterator::cardinality::<ConsensusVersion>();
 
 /// The consensus version height for `CanaryV0`.
 pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] = [
@@ -64,7 +112,10 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CON
     (ConsensusVersion::V8, 7_565_000),
     (ConsensusVersion::V9, 8_028_000),
     (ConsensusVersion::V10, 8_600_000),
-    (ConsensusVersion::V11, 10_235_000),
+    (ConsensusVersion::V11, 9_510_000),
+    (ConsensusVersion::V12, 10_030_000),
+    (ConsensusVersion::V13, u32::MAX - 1),
+    (ConsensusVersion::V14, u32::MAX),
 ];
 
 /// The consensus version height for `MainnetV0`.
@@ -79,7 +130,10 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_430_000),
     (ConsensusVersion::V9, 10_272_000),
     (ConsensusVersion::V10, 11_205_000),
-    (ConsensusVersion::V11, 13_575_000),
+    (ConsensusVersion::V11, 12_870_000),
+    (ConsensusVersion::V12, 13_815_000),
+    (ConsensusVersion::V13, u32::MAX - 1),
+    (ConsensusVersion::V14, u32::MAX),
 ];
 
 /// The consensus version heights for `TestnetV0`.
@@ -94,7 +148,10 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V8, 9_173_000),
     (ConsensusVersion::V9, 9_800_000),
     (ConsensusVersion::V10, 10_525_000),
-    (ConsensusVersion::V11, 12_660_000),
+    (ConsensusVersion::V11, 11_952_000),
+    (ConsensusVersion::V12, 12_669_000),
+    (ConsensusVersion::V13, u32::MAX - 1),
+    (ConsensusVersion::V14, u32::MAX),
 ];
 
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
@@ -110,10 +167,21 @@ pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSU
     (ConsensusVersion::V9, 12),
     (ConsensusVersion::V10, 13),
     (ConsensusVersion::V11, 14),
+    (ConsensusVersion::V12, 15),
+    (ConsensusVersion::V13, 16),
+    (ConsensusVersion::V14, 17),
 ];
 
 #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]
 pub fn load_test_consensus_heights() -> [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
+    // Attempt to read the test consensus heights from the environment variable.
+    load_test_consensus_heights_inner(std::env::var("CONSENSUS_VERSION_HEIGHTS").ok())
+}
+
+#[cfg(any(test, feature = "test", feature = "test_consensus_heights", feature = "wasm"))]
+pub(crate) fn load_test_consensus_heights_inner(
+    consensus_version_heights: Option<String>,
+) -> [(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS] {
     // Define a closure to verify the consensus heights.
     let verify_consensus_heights = |heights: &[(ConsensusVersion, u32); NUM_CONSENSUS_VERSIONS]| {
         // Assert that the genesis height is 0.
@@ -129,9 +197,9 @@ pub fn load_test_consensus_heights() -> [(ConsensusVersion, u32); NUM_CONSENSUS_
     // Define consensus version heights container used for testing.
     let mut test_consensus_heights = TEST_CONSENSUS_VERSION_HEIGHTS;
 
-    // Check if we can read the heights from an environment variable.
-    match std::env::var("CONSENSUS_VERSION_HEIGHTS") {
-        Ok(height_string) => {
+    // If version heights have been specified, verify and return them.
+    match consensus_version_heights {
+        Some(height_string) => {
             let parsing_error = format!("Expected exactly {NUM_CONSENSUS_VERSIONS} ConsensusVersion heights.");
             // Parse the heights from the environment variable.
             let parsed_test_consensus_heights: [u32; NUM_CONSENSUS_VERSIONS] = height_string
@@ -149,7 +217,7 @@ pub fn load_test_consensus_heights() -> [(ConsensusVersion, u32); NUM_CONSENSUS_
             verify_consensus_heights(&test_consensus_heights);
             test_consensus_heights
         }
-        Err(_) => {
+        None => {
             // Verify and return the default test consensus heights.
             verify_consensus_heights(&test_consensus_heights);
             test_consensus_heights
@@ -169,6 +237,7 @@ macro_rules! consensus_config_value {
         // Search the consensus version enacted at the specified height.
         $network::CONSENSUS_VERSION($seek_height).map_or(None, |seek_version| {
             // Search the consensus value for the specified version.
+            // NOTE: calling `consensus_config_value_by_version!` here would require callers to import both macros.
             match $network::$constant.binary_search_by(|(version, _)| version.cmp(&seek_version)) {
                 // If a value was found for this consensus version, return it.
                 Ok(index) => Some($network::$constant[index].1),
@@ -184,6 +253,33 @@ macro_rules! consensus_config_value {
                 }
             }
         })
+    };
+}
+
+/// Returns the consensus configuration value for the specified ConsensusVersion.
+///
+/// Arguments:
+/// - `$network`: The network to use the constant of.
+/// - `$constant`: The constant to search a value of.
+/// - `$seek_version`: The ConsensusVersion to search the value for.
+#[macro_export]
+macro_rules! consensus_config_value_by_version {
+    ($network:ident, $constant:ident, $seek_version:expr) => {
+        // Search the consensus value for the specified version.
+        match $network::$constant.binary_search_by(|(version, _)| version.cmp(&$seek_version)) {
+            // If a value was found for this consensus version, return it.
+            Ok(index) => Some($network::$constant[index].1),
+            // If the specified version was not found exactly, determine whether to return an appropriate value anyway.
+            Err(index) => {
+                // This constant is not yet in effect at this consensus version.
+                if index == 0 {
+                    None
+                // Return the appropriate value belonging to the consensus version *lower* than the sought version.
+                } else {
+                    Some($network::$constant[index - 1].1)
+                }
+            }
+        }
     };
 }
 
@@ -223,6 +319,26 @@ mod tests {
             assert!(*version > previous_version);
             previous_version = *version;
         }
+        let mut previous_version = N::MAX_ARRAY_ELEMENTS.first().unwrap().0;
+        for (version, _) in N::MAX_ARRAY_ELEMENTS.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
+        let mut previous_version = N::MAX_PROGRAM_SIZE.first().unwrap().0;
+        for (version, _) in N::MAX_PROGRAM_SIZE.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
+        let mut previous_version = N::MAX_TRANSACTION_SIZE.first().unwrap().0;
+        for (version, _) in N::MAX_TRANSACTION_SIZE.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
+        let mut previous_version = N::MAX_WRITES.first().unwrap().0;
+        for (version, _) in N::MAX_WRITES.iter().skip(1) {
+            assert!(*version > previous_version);
+            previous_version = *version;
+        }
     }
 
     /// Ensure that consensus *heights* are unique and incrementing.
@@ -252,6 +368,30 @@ mod tests {
             // Double-check that consensus_config_value returns the correct value.
             assert_eq!(consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, height).unwrap(), *value);
         }
+        for (version, value) in N::MAX_ARRAY_ELEMENTS.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, height).unwrap(), *value);
+        }
+        for (version, value) in N::MAX_PROGRAM_SIZE.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_PROGRAM_SIZE, height).unwrap(), *value);
+        }
+        for (version, value) in N::MAX_TRANSACTION_SIZE.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, height).unwrap(), *value);
+        }
+        for (version, value) in N::MAX_WRITES.iter() {
+            // Ensure that the height at which an update occurs are present in CONSENSUS_VERSION_HEIGHTS.
+            let height = N::CONSENSUS_VERSION_HEIGHTS().iter().find(|(c_version, _)| *c_version == *version).unwrap().1;
+            // Double-check that consensus_config_value returns the correct value.
+            assert_eq!(consensus_config_value!(N, MAX_WRITES, height).unwrap(), *value);
+        }
     }
 
     /// Ensure that consensus_config_value returns a valid value for all consensus versions.
@@ -259,6 +399,10 @@ mod tests {
         for (_, height) in N::CONSENSUS_VERSION_HEIGHTS().iter() {
             assert!(consensus_config_value!(N, MAX_CERTIFICATES, *height).is_some());
             assert!(consensus_config_value!(N, TRANSACTION_SPEND_LIMIT, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_ARRAY_ELEMENTS, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_PROGRAM_SIZE, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_TRANSACTION_SIZE, *height).is_some());
+            assert!(consensus_config_value!(N, MAX_WRITES, *height).is_some());
         }
     }
 
@@ -272,12 +416,55 @@ mod tests {
         }
     }
 
+    /// Ensure that `MAX_ARRAY_ELEMENTS` increases and is correctly defined.
+    /// See the constant declaration for an explanation why.
+    fn max_array_elements_increasing<N: Network>() {
+        let mut previous_value = N::MAX_ARRAY_ELEMENTS.first().unwrap().1;
+        for (_, value) in N::MAX_ARRAY_ELEMENTS.iter().skip(1) {
+            assert!(*value >= previous_value);
+            previous_value = *value;
+        }
+    }
+
+    /// Ensure that `MAX_TRANSACTION_SIZE` is at least 28KB greater than `MAX_PROGRAM_SIZE` for all consensus versions.
+    /// This overhead accounts for proofs, signatures, and other transaction metadata.
+    fn transaction_size_exceeds_program_size<N: Network>() {
+        const MIN_OVERHEAD: usize = 28_000; // 28 kB minimum overhead
+
+        for (_, height) in N::CONSENSUS_VERSION_HEIGHTS().iter() {
+            let max_program_size = consensus_config_value!(N, MAX_PROGRAM_SIZE, *height).unwrap();
+            let max_transaction_size = consensus_config_value!(N, MAX_TRANSACTION_SIZE, *height).unwrap();
+
+            assert!(
+                max_transaction_size >= max_program_size + MIN_OVERHEAD,
+                "At height {height}: MAX_TRANSACTION_SIZE ({max_transaction_size}) must be at least {MIN_OVERHEAD} bytes greater than MAX_PROGRAM_SIZE ({max_program_size})"
+            );
+        }
+    }
+
     /// Ensure that the number of constant definitions is the same across networks.
     fn constants_equal_length<N1: Network, N2: Network, N3: Network>() {
         // If we can construct an array, that means the underlying types must be the same.
         let _ = [N1::CONSENSUS_VERSION_HEIGHTS, N2::CONSENSUS_VERSION_HEIGHTS, N3::CONSENSUS_VERSION_HEIGHTS];
         let _ = [N1::MAX_CERTIFICATES, N2::MAX_CERTIFICATES, N3::MAX_CERTIFICATES];
         let _ = [N1::TRANSACTION_SPEND_LIMIT, N2::TRANSACTION_SPEND_LIMIT, N3::TRANSACTION_SPEND_LIMIT];
+        let _ = [N1::MAX_ARRAY_ELEMENTS, N2::MAX_ARRAY_ELEMENTS, N3::MAX_ARRAY_ELEMENTS];
+        let _ = [N1::MAX_PROGRAM_SIZE, N2::MAX_PROGRAM_SIZE, N3::MAX_PROGRAM_SIZE];
+        let _ = [N1::MAX_TRANSACTION_SIZE, N2::MAX_TRANSACTION_SIZE, N3::MAX_TRANSACTION_SIZE];
+        let _ = [N1::MAX_WRITES, N2::MAX_WRITES, N3::MAX_WRITES];
+    }
+
+    /// Ensure that `LATEST_MAX_*` functions return valid values without panicking.
+    /// These functions use `.expect()` internally, so this test verifies the arrays are non-empty.
+    fn latest_max_functions_are_safe<N: Network>() {
+        // Verify LATEST_MAX_CERTIFICATES returns a positive value.
+        assert!(N::LATEST_MAX_CERTIFICATES() > 0, "LATEST_MAX_CERTIFICATES must be positive");
+        // Verify LATEST_MAX_PROGRAM_SIZE returns a positive value.
+        assert!(N::LATEST_MAX_PROGRAM_SIZE() > 0, "LATEST_MAX_PROGRAM_SIZE must be positive");
+        // Verify LATEST_MAX_TRANSACTION_SIZE returns a positive value.
+        assert!(N::LATEST_MAX_TRANSACTION_SIZE() > 0, "LATEST_MAX_TRANSACTION_SIZE must be positive");
+        // Verify LATEST_MAX_WRITES returns a positive value.
+        assert!(N::LATEST_MAX_WRITES() > 0, "LATEST_MAX_WRITES must be positive");
     }
 
     #[test]
@@ -307,6 +494,36 @@ mod tests {
         max_certificates_increasing::<TestnetV0>();
         max_certificates_increasing::<CanaryV0>();
 
+        max_array_elements_increasing::<MainnetV0>();
+        max_array_elements_increasing::<TestnetV0>();
+        max_array_elements_increasing::<CanaryV0>();
+
+        transaction_size_exceeds_program_size::<MainnetV0>();
+        transaction_size_exceeds_program_size::<TestnetV0>();
+        transaction_size_exceeds_program_size::<CanaryV0>();
+
+        latest_max_functions_are_safe::<MainnetV0>();
+        latest_max_functions_are_safe::<TestnetV0>();
+        latest_max_functions_are_safe::<CanaryV0>();
+
         constants_equal_length::<MainnetV0, TestnetV0, CanaryV0>();
+    }
+
+    /// Ensure (de-)serialization works correctly.
+    #[test]
+    fn test_to_bytes() {
+        let version = ConsensusVersion::V8;
+        let bytes = version.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
+        assert_eq!(result, version);
+
+        let version = ConsensusVersion::latest();
+        let bytes = version.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&bytes).unwrap();
+        assert_eq!(result, version);
+
+        let invalid_bytes = u16::MAX.to_bytes_le().unwrap();
+        let result = ConsensusVersion::from_bytes_le(&invalid_bytes);
+        assert!(result.is_err());
     }
 }

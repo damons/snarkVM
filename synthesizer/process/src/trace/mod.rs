@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,6 +30,8 @@ use snarkvm_ledger_query::QueryTrait;
 use snarkvm_synthesizer_snark::{Proof, ProvingKey, VerifyingKey};
 
 use std::{collections::HashMap, sync::OnceLock};
+
+use crate::Authorization;
 
 #[derive(Clone, Debug, Default)]
 pub struct Trace<N: Network> {
@@ -235,6 +237,9 @@ impl<N: Network> Trace<N> {
         verifier_inputs: Vec<(VerifyingKey<N>, Vec<Vec<N::Field>>)>,
         execution: &Execution<N>,
     ) -> Result<()> {
+        if cfg!(all(feature = "dev_skip_checks", feature = "test_consensus_heights")) {
+            return Ok(());
+        }
         // Retrieve the global state root.
         let global_state_root = execution.global_state_root();
         // Ensure the global state root is not zero.
@@ -266,6 +271,9 @@ impl<N: Network> Trace<N> {
         verifier_inputs: (VerifyingKey<N>, Vec<Vec<N::Field>>),
         fee: &Fee<N>,
     ) -> Result<()> {
+        if cfg!(all(feature = "dev_skip_checks", feature = "test_consensus_heights")) {
+            return Ok(());
+        }
         // Retrieve the global state root.
         let global_state_root = fee.global_state_root();
         // Ensure the global state root is not zero.
@@ -340,9 +348,20 @@ impl<N: Network> Trace<N> {
 
         if !batch_inclusions.is_empty() {
             // Fetch the inclusion proving key.
+            #[cfg(not(feature = "wasm"))]
             let proving_key = match inclusion_version {
                 Some(InclusionAssignmentWrapper::V0(..)) => ProvingKey::<N>::new(N::inclusion_v0_proving_key().clone()),
                 Some(InclusionAssignmentWrapper::V1(..)) => ProvingKey::<N>::new(N::inclusion_proving_key().clone()),
+                None => bail!("Invalid or missing inclusion version"),
+            };
+            #[cfg(feature = "wasm")]
+            let proving_key = match inclusion_version {
+                Some(InclusionAssignmentWrapper::V0(..)) => {
+                    ProvingKey::<N>::new(N::inclusion_v0_proving_key(None).clone())
+                }
+                Some(InclusionAssignmentWrapper::V1(..)) => {
+                    ProvingKey::<N>::new(N::inclusion_proving_key(None).clone())
+                }
                 None => bail!("Invalid or missing inclusion version"),
             };
             // Insert the inclusion proving key and assignments.
@@ -363,12 +382,21 @@ impl<N: Network> Trace<N> {
         inclusion_version: InclusionVersion,
         mut verifier_inputs: Vec<(VerifyingKey<N>, Vec<Vec<N::Field>>)>,
         global_state_root: N::StateRoot,
-        transitions: impl ExactSizeIterator<Item = &'a Transition<N>>,
+        transitions: impl ExactSizeIterator<Item = &'a Transition<N>> + Clone,
         proof: &Proof<N>,
     ) -> Result<()> {
         // Construct the batch of inclusion verifier inputs.
         let batch_inclusion_inputs =
-            Inclusion::prepare_verifier_inputs(global_state_root, inclusion_version, transitions)?;
+            Inclusion::prepare_verifier_inputs(global_state_root, inclusion_version, transitions.clone())?;
+
+        let expected_n_inclusions = Authorization::number_of_input_records(transitions);
+        ensure!(
+            batch_inclusion_inputs.len() == expected_n_inclusions,
+            "Unexpected number of inclusion inputs: {} instead of {}",
+            batch_inclusion_inputs.len(),
+            expected_n_inclusions
+        );
+
         // Insert the batch of inclusion verifier inputs to the verifier inputs.
         if !batch_inclusion_inputs.is_empty() {
             // Retrieve the inclusion verifying key depending on the inclusion version.

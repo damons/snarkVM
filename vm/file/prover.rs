@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +40,7 @@ impl<N: Network> ProverFile<N> {
         // Ensure the directory path exists.
         ensure!(directory.exists(), "The build directory does not exist: '{}'", directory.display());
         // Ensure the function name is valid.
-        ensure!(!Program::is_reserved_keyword(function_name), "Function name is invalid (reserved): {}", function_name);
+        ensure!(!Program::is_reserved_keyword(function_name), "Function name is invalid (reserved): {function_name}");
 
         // Create the candidate prover file.
         let prover_file = Self { function_name: *function_name, proving_key };

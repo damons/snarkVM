@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +17,9 @@
 
 use crate::helpers::{NestedMap, NestedMapRead};
 use console::network::prelude::*;
+use snarkvm_utilities::bytes::unchecked_deserialize;
 
-use core::hash::Hash;
+use anyhow::Context;
 #[cfg(feature = "locktick")]
 use locktick::parking_lot::{Mutex, RwLock};
 #[cfg(not(feature = "locktick"))]
@@ -26,6 +27,7 @@ use parking_lot::{Mutex, RwLock};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet, btree_map},
+    hash::Hash,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -150,7 +152,10 @@ impl<
         // Set the atomic batch flag to `true`.
         self.batch_in_progress.store(true, Ordering::SeqCst);
         // Ensure that the atomic batch is empty.
-        assert!(self.atomic_batch.lock().is_empty());
+        assert!(
+            self.atomic_batch.lock().is_empty(),
+            "Cannot start an atomic operation while another one is already in progress"
+        );
     }
 
     ///
@@ -282,9 +287,9 @@ impl<
     ///
     fn contains_key_confirmed(&self, map: &M, key: &K) -> Result<bool> {
         // Serialize 'm'.
-        let m = bincode::serialize(map)?;
+        let m = bincode::serialize(map).with_context(|| "Failed to serialize map")?;
         // Concatenate 'm' and 'k' with a 0-byte separator.
-        let mk = to_map_key(&m, &bincode::serialize(key)?);
+        let mk = to_map_key(&m, &bincode::serialize(key).with_context(|| "Failed to serialize map key")?);
         // Return whether the concatenated key exists in the map.
         Ok(self.map_inner.read().contains_key(&mk))
     }
@@ -336,7 +341,7 @@ impl<
             .into_iter()
             .map(|k| {
                 // Deserialize 'k'.
-                let key: K = bincode::deserialize(&k).unwrap();
+                let key: K = unchecked_deserialize(&k).unwrap();
                 // Concatenate 'm' and 'k' with a 0-byte separator.
                 let mk = to_map_key(&m, &k);
                 // Return the key-value pair.
@@ -464,11 +469,11 @@ impl<
                 // Acquire the read lock on 'map_inner'.
                 let map_inner = self.map_inner.read();
                 // Deserialize 'map'.
-                let m = bincode::deserialize(&map).unwrap();
+                let m = unchecked_deserialize(&map).unwrap();
                 // Return an iterator over each key.
                 keys.into_iter().map(move |k| {
                     // Deserialize 'k'.
-                    let key = bincode::deserialize(&k).unwrap();
+                    let key = unchecked_deserialize(&k).unwrap();
                     // Concatenate 'm' and 'k' with a 0-byte separator.
                     let mk = to_map_key(&map, &k);
                     // Return the map-key-value triple.
@@ -490,9 +495,9 @@ impl<
             .into_iter()
             .flat_map(|(map, keys)| {
                 // Deserialize 'map'.
-                let m: M = bincode::deserialize(&map).unwrap();
+                let m: M = unchecked_deserialize(&map).unwrap();
                 // Return an iterator over each key.
-                keys.into_iter().map(move |k| (Cow::Owned(m), Cow::Owned(bincode::deserialize(&k).unwrap())))
+                keys.into_iter().map(move |k| (Cow::Owned(m), Cow::Owned(unchecked_deserialize(&k).unwrap())))
             })
             .collect_vec()
             .into_iter()

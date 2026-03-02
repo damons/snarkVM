@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger-store"
-version = "4.2.1"
+version = "4.4.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A data store for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -18,8 +18,9 @@ edition = "2024"
 
 [features]
 default = [ "indexmap/rayon" ]
+history = [ ]
 locktick = [ "dep:locktick", "snarkvm-ledger-puzzle/locktick" ]
-rocks = [ "rocksdb", "smallvec", "tracing" ]
+rocks = [ "rocksdb", "smallvec" ]
 serial = [
   "snarkvm-console/serial",
   "snarkvm-ledger-block/serial",
@@ -62,6 +63,9 @@ workspace = true
 workspace = true
 
 [dependencies.snarkvm-synthesizer-snark]
+workspace = true
+
+[dependencies.snarkvm-utilities]
 workspace = true
 
 [dependencies.aleo-std-storage]
@@ -108,9 +112,11 @@ optional = true
 
 [dependencies.tracing]
 workspace = true
-optional = true
 
 [dev-dependencies.aleo-std]
+workspace = true
+
+[dev-dependencies.snarkvm-ledger-block]
 workspace = true
 
 [dev-dependencies.snarkvm-ledger-committee]
@@ -124,4 +130,7 @@ path = "../../ledger/test-helpers"
 workspace = true
 
 [dev-dependencies.tracing-test]
-version = "0.2.5"
+workspace = true
+
+[dev-dependencies.tracing]
+workspace = true

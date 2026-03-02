@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,7 +105,7 @@ impl<N: Network> BatchHeader<N> {
         );
         // Ensure that the number of previous certificate IDs is within bounds.
         ensure!(
-            previous_certificate_ids.len() <= N::LATEST_MAX_CERTIFICATES()? as usize,
+            previous_certificate_ids.len() <= N::LATEST_MAX_CERTIFICATES() as usize,
             "Invalid number of previous certificate IDs ({})",
             previous_certificate_ids.len()
         );
@@ -163,7 +163,7 @@ impl<N: Network> BatchHeader<N> {
         );
         // Ensure that the number of previous certificate IDs is within bounds.
         ensure!(
-            previous_certificate_ids.len() <= N::LATEST_MAX_CERTIFICATES()? as usize,
+            previous_certificate_ids.len() <= N::LATEST_MAX_CERTIFICATES() as usize,
             "Invalid number of previous certificate IDs ({})",
             previous_certificate_ids.len()
         );
@@ -182,7 +182,7 @@ impl<N: Network> BatchHeader<N> {
             bail!("Invalid signature for the batch header");
         }
         // Return the batch header.
-        Ok(Self {
+        Ok(Self::from_unchecked(
             author,
             batch_id,
             round,
@@ -191,7 +191,23 @@ impl<N: Network> BatchHeader<N> {
             transmission_ids,
             previous_certificate_ids,
             signature,
-        })
+        ))
+    }
+
+    /// Initializes a new batch header from the given data,
+    /// *without* checking it for correctness/consistency.
+    pub fn from_unchecked(
+        author: Address<N>,
+        batch_id: Field<N>,
+        round: u64,
+        timestamp: i64,
+        committee_id: Field<N>,
+        transmission_ids: IndexSet<TransmissionID<N>>,
+        previous_certificate_ids: IndexSet<Field<N>>,
+        signature: Signature<N>,
+    ) -> Self {
+        // Return the batch header.
+        Self { author, batch_id, round, timestamp, committee_id, transmission_ids, previous_certificate_ids, signature }
     }
 }
 

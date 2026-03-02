@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,7 +81,7 @@ impl<N: Network> Record<N, Ciphertext<N>> {
             };
             // Insert the decrypted entry.
             if decrypted_data.insert(*id, entry).is_some() {
-                bail!("Duplicate identifier in record: {}", id);
+                bail!("Duplicate identifier in record: {id}");
             }
             // Increment the index.
             index += num_randomizers;

@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-synthesizer"
-version = "4.2.1"
+version = "4.4.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "Synthesizer for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -33,7 +33,7 @@ locktick = [
 ]
 async = [ "snarkvm-ledger-query/async", "snarkvm-synthesizer-process/async" ]
 cuda = [ "snarkvm-algorithms/cuda" ]
-history = [ "serde" ]
+history = [ "snarkvm-ledger-store/history" ]
 rocks = [ "snarkvm-ledger-store/rocks" ]
 serial = [
   "snarkvm-console/serial",
@@ -59,6 +59,9 @@ wasm = [
   "snarkvm-synthesizer-snark/wasm"
 ]
 dev-print = [ "snarkvm-utilities/dev-print" ]
+dev_skip_checks = [ "snarkvm-synthesizer-process/dev_skip_checks" ]
+test_consensus_heights = [ "snarkvm-synthesizer-process/test_consensus_heights" ]
+memory-intensive = [ ]
 
 [[bench]]
 name = "kary_merkle_tree"
@@ -95,6 +98,9 @@ workspace = true
 features = [ "query" ]
 
 [dependencies.snarkvm-ledger-store]
+workspace = true
+
+[dependencies.snarkvm-synthesizer-error]
 workspace = true
 
 [dependencies.snarkvm-synthesizer-process]
@@ -139,13 +145,13 @@ workspace = true
 [dependencies.rayon]
 workspace = true
 
-[dependencies.serde]
-workspace = true
-optional = true
-
 [dependencies.serde_json]
 workspace = true
 features = [ "preserve_order" ]
+
+[dependencies.tokio]
+version = "1"
+features = [ "sync" ]
 
 [dependencies.tracing]
 workspace = true
@@ -158,6 +164,14 @@ workspace = true
 
 [dev-dependencies.criterion]
 workspace = true
+
+[dev-dependencies.hex]
+workspace = true
+
+[dev-dependencies.k256]
+version = "0.13"
+features = [ "digest", "ecdsa" ]
+default-features = false
 
 [dev-dependencies.snarkvm-console]
 workspace = true
@@ -174,6 +188,10 @@ features = [ "test-helpers" ]
 [dev-dependencies.snarkvm-synthesizer-process]
 workspace = true
 features = [ "test" ]
+
+[dev-dependencies.snarkvm-synthesizer-snark]
+workspace = true
+features = [ "test-helpers" ]
 
 [dev-dependencies.snarkvm-ledger-test-helpers]
 path = "../ledger/test-helpers"

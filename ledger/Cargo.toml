@@ -1,6 +1,6 @@
 [package]
 name = "snarkvm-ledger"
-version = "4.2.1"
+version = "4.4.0"
 authors = [ "The Aleo Team <hello@aleo.org>" ]
 description = "A node ledger for a decentralized virtual machine"
 homepage = "https://aleo.org"
@@ -16,15 +16,39 @@ categories = [ "cryptography", "web-programming" ]
 license = "Apache-2.0"
 edition = "2024"
 
+[[test]]
+name = "block-cache"
+path = "tests/block_cache.rs"
+required-features = [ "rocks" ]
+
 [[bench]]
 name = "block"
 path = "benches/block.rs"
 harness = false
+required-features = [ "test-helpers", "rocks" ]
 
 [[bench]]
 name = "bonded_mapping"
 path = "benches/bonded_mapping.rs"
 harness = false
+
+[[bench]]
+name = "store"
+path = "benches/store.rs"
+harness = false
+required-features = [ "test-helpers", "rocks" ]
+
+[[bench]]
+name = "advance"
+path = "benches/advance.rs"
+harness = false
+required-features = [ "test-helpers", "rocks" ]
+
+[[bench]]
+name = "dag"
+path = "benches/dag.rs"
+harness = false
+required-features = ["test-helpers"]
 
 [[bench]]
 name = "transaction"
@@ -37,6 +61,10 @@ async = [
   "snarkvm-ledger-narwhal/async",
   "snarkvm-ledger-query/async",
   "snarkvm-synthesizer/async"
+]
+history = [
+  "snarkvm-ledger-store/history",
+  "snarkvm-synthesizer/history",
 ]
 locktick = [
   "dep:locktick",
@@ -66,7 +94,8 @@ test = [
 test-helpers = [
   "snarkvm-ledger-test-helpers",
   "snarkvm-ledger-committee/test-helpers",
-  "snarkvm-ledger-narwhal/test-helpers"
+  "snarkvm-ledger-narwhal/test-helpers",
+  "dep:snarkvm-circuit"
 ]
 test_targets = [
   "snarkvm-console/test_targets",
@@ -84,6 +113,10 @@ workspace = true
 
 [dependencies.snarkvm-ledger-committee]
 workspace = true
+
+[dependencies.snarkvm-circuit]
+workspace = true
+optional = true
 
 [dependencies.snarkvm-ledger-narwhal]
 workspace = true
@@ -103,6 +136,12 @@ workspace = true
 optional = true
 
 [dependencies.snarkvm-synthesizer]
+workspace = true
+
+[dependencies.snarkvm-synthesizer-error]
+workspace = true
+
+[dependencies.snarkvm-utilities]
 workspace = true
 
 [dependencies.aleo-std]
@@ -130,7 +169,13 @@ workspace = true
 [dependencies.rand]
 workspace = true
 
+[dependencies.rand_chacha]
+workspace = true
+
 [dependencies.rayon]
+workspace = true
+
+[dependencies.thiserror]
 workspace = true
 
 [dependencies.time]
@@ -149,11 +194,18 @@ workspace = true
 workspace = true
 features = [ "filesystem" ]
 
+[dev-dependencies.snarkvm-ledger]
+path = "."
+features = [ "test-helpers" ]
+
 [dev-dependencies.snarkvm-ledger-block]
 workspace = true
 features = [ "test" ]
 
 [dev-dependencies.snarkvm-ledger-test-helpers]
+workspace = true
+
+[dev-dependencies.aleo-std-storage]
 workspace = true
 
 [dev-dependencies.serde_json]
@@ -163,9 +215,10 @@ features = [ "preserve_order" ]
 [dev-dependencies.snarkvm-circuit]
 workspace = true
 
-[dev-dependencies.snarkvm-utilities]
-workspace = true
-
 [dev-dependencies.snarkvm-synthesizer]
 workspace = true
 features = [ "test" ]
+
+[dev-dependencies.tracing-subscriber]
+version = "0.3"
+features = [ "env-filter", "std" ]
