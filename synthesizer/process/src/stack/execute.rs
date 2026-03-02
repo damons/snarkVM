@@ -59,6 +59,8 @@ impl<N: Network> Stack<N> {
         registers.set_caller(caller.eject_value());
         // Set the transition caller, as a circuit.
         registers.set_caller_circuit(caller);
+        // Set the transition view key.
+        registers.set_tvk(tvk.eject_value());
         // Set the transition view key, as a circuit.
         registers.set_tvk_circuit(tvk);
         lap!(timer, "Initialize the registers");
