@@ -18,6 +18,8 @@ use crate::{
     helpers::{Map, MapRead, NestedMap, NestedMapRead},
     program::{CommitteeStorage, CommitteeStore},
 };
+#[cfg(feature = "history")]
+use console::types::Address;
 use console::{
     network::prelude::*,
     program::{Identifier, Plaintext, ProgramID, Value},
@@ -87,6 +89,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
     /// The mapping of `(program ID, mapping name, key)` to [`height`].
     #[cfg(feature = "history")]
     type MappingUpdateHeightsMap: for<'a> Map<'a, (ProgramID<N>, Identifier<N>, Plaintext<N>), Vec<u32>>;
+    /// The mapping of `(staker address, height)` to `(validator address, block reward, new stake)`.
+    #[cfg(feature = "history")]
+    type StakingRewardsMap: for<'a> Map<'a, (Address<N>, u32), (Address<N>, u64, u64)>;
 
     /// Initializes the program state storage.
     fn open<S: Into<StorageMode>>(storage: S) -> Result<Self>;
@@ -103,6 +108,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
     /// Returns the historical mapping update heights map.
     #[cfg(feature = "history")]
     fn mapping_update_heights_map(&self) -> &Self::MappingUpdateHeightsMap;
+    /// Returns the historical staking rewards map.
+    #[cfg(feature = "history")]
+    fn staking_rewards_map(&self) -> &Self::StakingRewardsMap;
 
     /// Returns the storage mode.
     fn storage_mode(&self) -> &StorageMode;
@@ -116,6 +124,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().start_atomic();
             self.mapping_update_heights_map().start_atomic();
+            self.staking_rewards_map().start_atomic();
         }
     }
 
@@ -128,6 +137,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         let ret = {
             ret || self.mapping_update_map().is_atomic_in_progress()
                 || self.mapping_update_heights_map().is_atomic_in_progress()
+                || self.staking_rewards_map().is_atomic_in_progress()
         };
 
         ret
@@ -142,6 +152,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().atomic_checkpoint();
             self.mapping_update_heights_map().atomic_checkpoint();
+            self.staking_rewards_map().atomic_checkpoint();
         }
     }
 
@@ -154,6 +165,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().clear_latest_checkpoint();
             self.mapping_update_heights_map().clear_latest_checkpoint();
+            self.staking_rewards_map().clear_latest_checkpoint();
         }
     }
 
@@ -166,6 +178,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().atomic_rewind();
             self.mapping_update_heights_map().atomic_rewind();
+            self.staking_rewards_map().atomic_rewind();
         }
     }
 
@@ -178,6 +191,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().abort_atomic();
             self.mapping_update_heights_map().abort_atomic();
+            self.staking_rewards_map().abort_atomic();
         }
     }
 
@@ -190,6 +204,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().finish_atomic()?;
             self.mapping_update_heights_map().finish_atomic()?;
+            self.staking_rewards_map().finish_atomic()?;
         }
         Ok(())
     }
@@ -730,6 +745,12 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
         mapping_key: Plaintext<N>,
     ) -> Result<Option<Cow<'_, Vec<u32>>>, Error> {
         self.storage.mapping_update_heights_map().get_confirmed(&(program_id, mapping_name, mapping_key))
+    }
+
+    /// Returns the historical staking rewards map.
+    #[cfg(feature = "history")]
+    pub fn staking_rewards_map(&self) -> &P::StakingRewardsMap {
+        self.storage.staking_rewards_map()
     }
 }
 
