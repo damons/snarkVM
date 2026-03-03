@@ -21,7 +21,7 @@ use crate::{
     FinalizeStorage,
     helpers::rocksdb::{self, CommitteeMap, DataMap, Database, MapID, NestedDataMap, ProgramMap},
 };
-#[cfg(feature = "history")]
+#[cfg(feature = "history-staking-rewards")]
 use console::types::Address;
 use console::{
     prelude::*,
@@ -53,7 +53,7 @@ pub struct FinalizeDB<N: Network> {
     #[cfg(feature = "history")]
     block_height: Arc<AtomicU32>,
     /// The historical staking rewards map.
-    #[cfg(feature = "history")]
+    #[cfg(feature = "history-staking-rewards")]
     staking_rewards_map: DataMap<(Address<N>, u32), (Address<N>, u64, u64)>,
     /// The storage mode.
     storage_mode: StorageMode,
@@ -68,7 +68,7 @@ impl<N: Network> FinalizeStorage<N> for FinalizeDB<N> {
     type MappingUpdateMap = DataMap<(ProgramID<N>, Identifier<N>, Plaintext<N>, u32), Value<N>>;
     #[cfg(feature = "history")]
     type MappingUpdateHeightsMap = DataMap<(ProgramID<N>, Identifier<N>, Plaintext<N>), Vec<u32>>;
-    #[cfg(feature = "history")]
+    #[cfg(feature = "history-staking-rewards")]
     type StakingRewardsMap = DataMap<(Address<N>, u32), (Address<N>, u64, u64)>;
 
     /// Initializes the finalize storage.
@@ -87,7 +87,7 @@ impl<N: Network> FinalizeStorage<N> for FinalizeDB<N> {
             mapping_update_heights_map: rocksdb::RocksDB::open_map(N::ID, storage.clone(), MapID::Program(ProgramMap::MappingUpdateHeights))?,
             #[cfg(feature = "history")]
             block_height: Default::default(),
-            #[cfg(feature = "history")]
+            #[cfg(feature = "history-staking-rewards")]
             staking_rewards_map: rocksdb::RocksDB::open_map(N::ID, storage.clone(), MapID::Program(ProgramMap::StakingRewards))?,
             storage_mode: storage,
         })
@@ -120,7 +120,7 @@ impl<N: Network> FinalizeStorage<N> for FinalizeDB<N> {
     }
 
     /// Returns the historical staking rewards map.
-    #[cfg(feature = "history")]
+    #[cfg(feature = "history-staking-rewards")]
     fn staking_rewards_map(&self) -> &Self::StakingRewardsMap {
         &self.staking_rewards_map
     }

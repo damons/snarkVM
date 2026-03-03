@@ -18,7 +18,7 @@ use crate::{
     helpers::{Map, MapRead, NestedMap, NestedMapRead},
     program::{CommitteeStorage, CommitteeStore},
 };
-#[cfg(feature = "history")]
+#[cfg(feature = "history-staking-rewards")]
 use console::types::Address;
 use console::{
     network::prelude::*,
@@ -90,7 +90,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
     #[cfg(feature = "history")]
     type MappingUpdateHeightsMap: for<'a> Map<'a, (ProgramID<N>, Identifier<N>, Plaintext<N>), Vec<u32>>;
     /// The mapping of `(staker address, height)` to `(validator address, block reward, new stake)`.
-    #[cfg(feature = "history")]
+    #[cfg(feature = "history-staking-rewards")]
     type StakingRewardsMap: for<'a> Map<'a, (Address<N>, u32), (Address<N>, u64, u64)>;
 
     /// Initializes the program state storage.
@@ -109,7 +109,7 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
     #[cfg(feature = "history")]
     fn mapping_update_heights_map(&self) -> &Self::MappingUpdateHeightsMap;
     /// Returns the historical staking rewards map.
-    #[cfg(feature = "history")]
+    #[cfg(feature = "history-staking-rewards")]
     fn staking_rewards_map(&self) -> &Self::StakingRewardsMap;
 
     /// Returns the storage mode.
@@ -124,8 +124,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().start_atomic();
             self.mapping_update_heights_map().start_atomic();
-            self.staking_rewards_map().start_atomic();
         }
+        #[cfg(feature = "history-staking-rewards")]
+        self.staking_rewards_map().start_atomic();
     }
 
     /// Checks if an atomic batch is in progress.
@@ -134,11 +135,11 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
             || self.program_id_map().is_atomic_in_progress()
             || self.key_value_map().is_atomic_in_progress();
         #[cfg(feature = "history")]
-        let ret = {
-            ret || self.mapping_update_map().is_atomic_in_progress()
-                || self.mapping_update_heights_map().is_atomic_in_progress()
-                || self.staking_rewards_map().is_atomic_in_progress()
-        };
+        let ret = ret
+            || self.mapping_update_map().is_atomic_in_progress()
+            || self.mapping_update_heights_map().is_atomic_in_progress();
+        #[cfg(feature = "history-staking-rewards")]
+        let ret = ret || self.staking_rewards_map().is_atomic_in_progress();
 
         ret
     }
@@ -152,8 +153,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().atomic_checkpoint();
             self.mapping_update_heights_map().atomic_checkpoint();
-            self.staking_rewards_map().atomic_checkpoint();
         }
+        #[cfg(feature = "history-staking-rewards")]
+        self.staking_rewards_map().atomic_checkpoint();
     }
 
     /// Clears the latest atomic batch checkpoint.
@@ -165,8 +167,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().clear_latest_checkpoint();
             self.mapping_update_heights_map().clear_latest_checkpoint();
-            self.staking_rewards_map().clear_latest_checkpoint();
         }
+        #[cfg(feature = "history-staking-rewards")]
+        self.staking_rewards_map().clear_latest_checkpoint();
     }
 
     /// Rewinds the atomic batch to the previous checkpoint.
@@ -178,8 +181,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().atomic_rewind();
             self.mapping_update_heights_map().atomic_rewind();
-            self.staking_rewards_map().atomic_rewind();
         }
+        #[cfg(feature = "history-staking-rewards")]
+        self.staking_rewards_map().atomic_rewind();
     }
 
     /// Aborts an atomic batch write operation.
@@ -191,8 +195,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().abort_atomic();
             self.mapping_update_heights_map().abort_atomic();
-            self.staking_rewards_map().abort_atomic();
         }
+        #[cfg(feature = "history-staking-rewards")]
+        self.staking_rewards_map().abort_atomic();
     }
 
     /// Finishes an atomic batch write operation.
@@ -204,8 +209,9 @@ pub trait FinalizeStorage<N: Network>: 'static + Clone + Send + Sync {
         {
             self.mapping_update_map().finish_atomic()?;
             self.mapping_update_heights_map().finish_atomic()?;
-            self.staking_rewards_map().finish_atomic()?;
         }
+        #[cfg(feature = "history-staking-rewards")]
+        self.staking_rewards_map().finish_atomic()?;
         Ok(())
     }
 
@@ -748,7 +754,7 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
     }
 
     /// Returns the historical staking rewards map.
-    #[cfg(feature = "history")]
+    #[cfg(feature = "history-staking-rewards")]
     pub fn staking_rewards_map(&self) -> &P::StakingRewardsMap {
         self.storage.staking_rewards_map()
     }
