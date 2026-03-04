@@ -69,17 +69,17 @@ mod tests {
 
     #[test]
     fn test_from_field_constant() -> Result<()> {
-        check_from_field(Mode::Constant, 253, 0, 0, 0)
+        check_from_field(Mode::Constant, 284, 0, 0, 0)
     }
 
     #[test]
     fn test_from_field_public() -> Result<()> {
-        check_from_field(Mode::Public, 0, 0, 1315, 1535)
+        check_from_field(Mode::Public, 0, 0, 943, 1225)
     }
 
     #[test]
     fn test_from_field_private() -> Result<()> {
-        check_from_field(Mode::Private, 0, 0, 1315, 1535)
+        check_from_field(Mode::Private, 0, 0, 943, 1225)
     }
 
     #[test]
@@ -102,7 +102,7 @@ mod tests {
                 assert_eq!(expected, recovered.eject_value());
 
                 // Verify constraint counts for to_field + from_field (injection is outside scope).
-                assert_scope!(0, 0, 810, 1027);
+                assert_scope!(0, 0, 438, 717);
             });
 
             Circuit::reset();
@@ -127,7 +127,7 @@ mod tests {
         // Validate in a scope.
         Circuit::scope("test_from_field_invalid", || {
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
-            assert_scope_fails!(0, 0, 1315, 1535);
+            assert_scope_fails!(0, 0, 943, 1225);
         });
 
         // The circuit must be unsatisfied due to the trailing-null violation.
