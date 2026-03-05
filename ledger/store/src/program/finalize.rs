@@ -733,7 +733,7 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
         let Some(applicable_height) = (match update_heights.binary_search(&height) {
             Ok(_) => Some(height),
             Err(0) => None,
-            Err(idx) => None,
+            Err(_idx) => None,
         }) else {
             return Ok(None);
         };
