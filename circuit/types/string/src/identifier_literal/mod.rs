@@ -184,45 +184,6 @@ fn validate_identifier_bits<E: Environment>(bits: &[Boolean<E>]) {
     validate_trailing_nulls::<E>(&null_flags);
 }
 
-/// # Category Selection by bits b6 and b5
-///
-/// Bits 5 and 6 of an ASCII byte determine which of four 32-byte ranges the byte falls into.
-/// Each range has a subset of characters considered valid for this encoding.
-/// Note that bits are zero-indexed.
-///
-/// | b6 | b5 | ASCII Hex Range | Category           | Valid Characters (hex, decimal, binary)                          |
-/// |----|----|-----------------|--------------------|----------------------------------------------------------------|
-/// | 0  | 0  | 0x00-0x1F       | Control            | 0x00 / 0 / 0b0000_0000 (null)                                  |
-/// | 0  | 1  | 0x20-0x3F       | Symbols/Digits     | 0x30-0x39 / 48-57 / 0b0011_0000-0b0011_1001 ('0'-'9')          |
-/// | 1  | 0  | 0x40-0x5F       | Uppercase/Symbols  | 0x41-0x5A / 65-90 / 0b0100_0001-0b0101_1010 ('A'-'Z'),         |
-/// |    |    |                 |                    | 0x5F / 95 / 0b0101_1111 ('_')                                  |
-/// | 1  | 1  | 0x60-0x7F       | Lowercase/Symbols  | 0x61-0x7A / 97-122 / 0b0110_0001-0b0111_1010 ('a'-'z')         |
-///
-/// **How to read this table:**
-/// For any ASCII byte, extract bits 5 and 6 `(byte >> 5) & 0x3` to get a 2-bit category selector.
-/// The selector identifies the 32-byte ASCII range the byte belongs to.
-/// Not all bytes within a range are valid — the "Valid Characters" column lists
-/// which characters in each range are accepted.
-struct CategorySelectors<E: Environment> {
-    /// (0,0): Null/control category - only 0x00 is valid.
-    null: Boolean<E>,
-    /// (0,1): Digit category - only 0x30-0x39 valid.
-    digit: Boolean<E>,
-    /// (1,0): Uppercase category - A-Z and _ valid.
-    upper: Boolean<E>,
-    /// (1,1): Lowercase category - a-z valid.
-    lower: Boolean<E>,
-}
-
-impl<E: Environment> CategorySelectors<E> {
-    /// Computes category selectors from bits b5 and b6.
-    fn new(b5: &Boolean<E>, b6: &Boolean<E>) -> Self {
-        let not_b5 = b5.not();
-        let not_b6 = b6.not();
-        Self { null: &not_b6 & &not_b5, digit: &not_b6 & b5, upper: b6 & &not_b5, lower: b6 & b5 }
-    }
-}
-
 /// Precomputed intermediate values for byte validation.
 /// Sharing intermediates saves constraints compared to recomputing per-predicate.
 ///
@@ -292,16 +253,16 @@ fn is_invalid_digit_offset<E: Environment>(b1: &Boolean<E>, b2: &Boolean<E>, b3:
 ///
 /// # Truth Table for Offsets 24-31 (where b4=1, b3=1)
 ///
-/// | Offset | Binary  | b2 | b1&b0 | XOR(b2,b1&b0) | Char | Valid? |
-/// |--------|---------|----| ------|---------------|------|--------|
-/// |   24   | 11000   | 0  |   0   |      0        |  X   |  Yes   |
-/// |   25   | 11001   | 0  |   0   |      0        |  Y   |  Yes   |
-/// |   26   | 11010   | 0  |   0   |      0        |  Z   |  Yes   |
-/// |   27   | 11011   | 0  |   1   |      1        |  [   |  No    |
-/// |   28   | 11100   | 1  |   0   |      1        |  \   |  No    |
-/// |   29   | 11101   | 1  |   0   |      1        |  ]   |  No    |
-/// |   30   | 11110   | 1  |   0   |      1        |  ^   |  No    |
-/// |   31   | 11111   | 1  |   1   |      0        |  _   |  Yes   |
+/// | Offset | Binary | Decimal | Hex  | b2 | b1&b0 | XOR(b2,b1&b0) | Char | Valid? |
+/// |--------|--------|---------|------|----|-------|---------------|------|--------|
+/// |   24   | 11000  |   88    | 0x58 | 0  |   0   |      0        |  X   |  Yes   |
+/// |   25   | 11001  |   89    | 0x59 | 0  |   0   |      0        |  Y   |  Yes   |
+/// |   26   | 11010  |   90    | 0x5A | 0  |   0   |      0        |  Z   |  Yes   |
+/// |   27   | 11011  |   91    | 0x5B | 0  |   1   |      1        |  [   |  No    |
+/// |   28   | 11100  |   92    | 0x5C | 1  |   0   |      1        |  \   |  No    |
+/// |   29   | 11101  |   93    | 0x5D | 1  |   0   |      1        |  ]   |  No    |
+/// |   30   | 11110  |   94    | 0x5E | 1  |   0   |      1        |  ^   |  No    |
+/// |   31   | 11111  |   95    | 0x5F | 1  |   1   |      0        |  _   |  Yes   |
 ///
 /// Key insight: `(b4 & b3) & XOR(b2, b1&b0)` is true exactly for offsets 27-30.
 fn is_invalid_uppercase_offset<E: Environment>(data: &ByteValidationData<E>, b2: &Boolean<E>) -> Boolean<E> {
@@ -320,16 +281,16 @@ fn is_invalid_uppercase_offset<E: Environment>(data: &ByteValidationData<E>, b2:
 ///
 /// # Truth Table for Offsets 24-31 (where b4=1, b3=1)
 ///
-/// | Offset | Binary  | b2 | b1&b0 | b2|(b1&b0) | Char | Valid? |
-/// |--------|---------|----| ------|------------|------|--------|
-/// |   24   | 11000   | 0  |   0   |     0      |  x   |  Yes   |
-/// |   25   | 11001   | 0  |   0   |     0      |  y   |  Yes   |
-/// |   26   | 11010   | 0  |   0   |     0      |  z   |  Yes   |
-/// |   27   | 11011   | 0  |   1   |     1      |  {   |  No    |
-/// |   28   | 11100   | 1  |   0   |     1      |  |   |  No    |
-/// |   29   | 11101   | 1  |   0   |     1      |  }   |  No    |
-/// |   30   | 11110   | 1  |   0   |     1      |  ~   |  No    |
-/// |   31   | 11111   | 1  |   1   |     1      | DEL  |  No    |
+/// | Offset | Binary | Decimal | Hex  | b2 | b1&b0 | b2|(b1&b0) | Char | Valid? |
+/// |--------|--------|---------|------|----|-------|------------|------|--------|
+/// |   24   | 11000  |  120    | 0x78 | 0  |   0   |     0      |  x   |  Yes   |
+/// |   25   | 11001  |  121    | 0x79 | 0  |   0   |     0      |  y   |  Yes   |
+/// |   26   | 11010  |  122    | 0x7A | 0  |   0   |     0      |  z   |  Yes   |
+/// |   27   | 11011  |  123    | 0x7B | 0  |   1   |     1      |  {   |  No    |
+/// |   28   | 11100  |  124    | 0x7C | 1  |   0   |     1      |  |   |  No    |
+/// |   29   | 11101  |  125    | 0x7D | 1  |   0   |     1      |  }   |  No    |
+/// |   30   | 11110  |  126    | 0x7E | 1  |   0   |     1      |  ~   |  No    |
+/// |   31   | 11111  |  127    | 0x7F | 1  |   1   |     1      | DEL  |  No    |
 ///
 /// Key insight: `(b4 & b3) & (b2 | (b1&b0))` is true exactly for offsets 27-31.
 fn is_invalid_lowercase_offset<E: Environment>(data: &ByteValidationData<E>, b2: &Boolean<E>) -> Boolean<E> {
@@ -352,50 +313,68 @@ fn validate_byte<E: Environment>(bits: &[Boolean<E>; 8], is_first_byte: bool) ->
     // Assert b7 = 0 (ASCII high bit must be zero).
     E::assert_eq(b7, Boolean::<E>::constant(false)).expect("Identifier literal high bit must be zero");
 
-    // Compute category selectors from (b5, b6).
-    let cat = CategorySelectors::new(b5, b6);
-
     // Compute shared intermediates for offset validation.
     let data = ByteValidationData::new(b0, b1, b2, b3, b4);
 
+    // Bits b6 and b5 partition the byte into four 32-byte ASCII ranges:
+    //
+    // | b6 | b5 | ASCII Hex Range | Category          | Valid Characters                    |
+    // |----|----|-----------------|-------------------|-------------------------------------|
+    // | 0  | 0  | 0x00-0x1F       | Null/control      | 0x00 (null)                         |
+    // | 0  | 1  | 0x20-0x3F       | Symbols/Digits    | 0x30-0x39 ('0'-'9')                 |
+    // | 1  | 0  | 0x40-0x5F       | Uppercase/Symbols | 0x41-0x5A ('A'-'Z'), 0x5F ('_')     |
+    // | 1  | 1  | 0x60-0x7F       | Lowercase/Symbols | 0x61-0x7A ('a'-'z')                 |
+    //
+    // Only two AND gates are needed: `null = !b6 & !b5` (Boolean, returned as the null flag)
+    // and `lower = b6 & b5` (Boolean, used in the lowercase enforce). The other two categories
+    // are free linear combinations derived from `lower`:
+    // - `upper = b6 - lower = b6*(1-b5)` (free LC, no new witness)
+    // - `digit = b5 - lower = b5*(1-b6)` (free LC, no new witness)
+    // This saves 2 AND gates (2 private witnesses + 2 constraints) per byte vs computing all four.
+    let null = &b6.not() & &b5.not();
+    let lower = b6 & b5;
+    let upper_lc = E::zero() + &**b6 - &*lower; // b6*(1-b5), no new witness.
+    let digit_lc = E::zero() + &**b5 - &*lower; // b5*(1-b6), no new witness.
+
     // Validate null category: byte must be exactly 0x00.
-    // Enforces cat.null * (1 - all_zero_5) = 0.
+    // Enforces null * (1 - all_zero_5) = 0.
     let any_low5 = data.all_zero_5.clone().not();
-    E::enforce(|| (&cat.null, &any_low5, E::zero())).expect("Identifier literal null byte violation");
+    E::enforce(|| (&null, &any_low5, E::zero())).expect("Identifier literal null byte violation");
 
     // Validate digit category: must have b4=1 and low nibble <= 9.
-    // Enforces cat.digit * (1 - b4) = 0.
-    let not_b4 = b4.not();
-    E::enforce(|| (&cat.digit, &not_b4, E::zero()))
-        .expect("Identifier literal digit byte must have b4=1 (valid range: '0'-'9', 0x30-0x39)");
-    // Enforces cat.digit * invalid_digit = 0.
+    // Enforces digit * ((1-b4) + invalid_digit) = 0.
+    // Both terms are non-negative, so their sum is zero iff b4=1 AND invalid_digit=0.
     let invalid_digit = is_invalid_digit_offset::<E>(b1, b2, b3);
-    E::enforce(|| (&cat.digit, &invalid_digit, E::zero())).expect("Identifier literal digit range violation");
+    E::enforce(|| (digit_lc, E::one() - &**b4 + &*invalid_digit, E::zero()))
+        .expect("Identifier literal digit validation");
 
     // Validate uppercase category: offsets 1-26 (A-Z) and 31 (_) valid.
-    // Split into two constraints: reject offset 0 ('@') and offsets 27-30 ('[','\',']','^').
+    // all_zero_5 (offset 0 = '@') and bad_upper (offsets 27-30) are boolean and target disjoint
+    // offsets, so their sum is zero iff both are zero. Merges two constraints into one.
     let bad_upper = is_invalid_uppercase_offset::<E>(&data, b2);
-    E::enforce(|| (&cat.upper, &data.all_zero_5, E::zero()))
-        .expect("Identifier literal uppercase offset cannot be zero");
-    E::enforce(|| (&cat.upper, &bad_upper, E::zero())).expect("Identifier literal uppercase range violation");
+    E::enforce(|| (upper_lc, &*data.all_zero_5 + &*bad_upper, E::zero()))
+        .expect("Identifier literal uppercase validation");
 
     // Validate lowercase category: offsets 1-26 (a-z) valid.
-    // Split into two constraints: reject offset 0 ('`') and offsets 27-31 ('{','|','}','~',DEL).
+    // all_zero_5 (offset 0 = '`') and bad_lower (offsets 27-31) are boolean and target disjoint
+    // offsets, so their sum is zero iff both are zero. Merges two constraints into one.
     let bad_lower = is_invalid_lowercase_offset::<E>(&data, b2);
-    E::enforce(|| (&cat.lower, &data.all_zero_5, E::zero()))
-        .expect("Identifier literal lowercase offset cannot be zero");
-    E::enforce(|| (&cat.lower, &bad_lower, E::zero())).expect("Identifier literal lowercase range violation");
+    E::enforce(|| (&lower, &*data.all_zero_5 + &*bad_lower, E::zero()))
+        .expect("Identifier literal lowercase validation");
 
     // First byte must be a letter (not digit, underscore, or null).
+    // is_letter = b6 & !is_underscore_offset: b6=1 selects upper/lower range; the only non-letter
+    // in a valid-offset upper/lower byte is '_' (offset 31), caught by is_underscore_offset.
+    // Other invalid bytes (offset 0, bad_upper, bad_lower) are already rejected by the enforces.
     if is_first_byte {
-        let is_underscore_offset = &data.b4b3 & &data.b1b0 & b2;
-        let is_uppercase_letter = &cat.upper & &is_underscore_offset.not();
-        let is_letter = &is_uppercase_letter | &cat.lower;
+        let partial = &data.b4b3 & &data.b1b0;
+        let is_underscore_offset = &partial & b2;
+        let is_letter = b6 & &is_underscore_offset.not();
         E::assert(is_letter).expect("Identifier literal must start with a letter");
     }
 
     // Return the null flag for trailing-null enforcement.
-    cat.null
+    null
 }
 
 /// Enforces that once a null byte appears, all subsequent bytes must be null.
@@ -451,12 +430,12 @@ mod tests {
 
     #[test]
     fn test_new_public() -> Result<()> {
-        check_new(Mode::Public, 0, 248, 438, 965)
+        check_new(Mode::Public, 0, 248, 375, 809)
     }
 
     #[test]
     fn test_new_private() -> Result<()> {
-        check_new(Mode::Private, 0, 0, 686, 965)
+        check_new(Mode::Private, 0, 0, 623, 809)
     }
 
     #[test]
@@ -471,7 +450,7 @@ mod tests {
         Circuit::scope("new max length", || {
             let candidate = IdentifierLiteral::<CurrentEnvironment>::new(Mode::Private, expected);
             assert_eq!(expected, candidate.eject_value());
-            assert_scope!(0, 0, 686, 965);
+            assert_scope!(0, 0, 623, 809);
         });
         Circuit::reset();
         Ok(())
@@ -493,7 +472,7 @@ mod tests {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
             // Constraint counts are deterministic regardless of satisfaction.
-            assert_scope_fails!(0, 0, 944, 1225);
+            assert_scope_fails!(0, 0, 881, 1069);
         });
         // The circuit must be unsatisfied due to the trailing-null violation.
         assert!(!Circuit::is_satisfied());
@@ -516,7 +495,7 @@ mod tests {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
             // Constraint counts are deterministic regardless of satisfaction.
-            assert_scope_fails!(0, 0, 944, 1225);
+            assert_scope_fails!(0, 0, 881, 1069);
         });
         // The circuit must be unsatisfied due to first character not being a letter.
         assert!(!Circuit::is_satisfied());
@@ -534,7 +513,7 @@ mod tests {
             let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
             // Constraint counts are deterministic regardless of satisfaction.
-            assert_scope_fails!(0, 0, 944, 1225);
+            assert_scope_fails!(0, 0, 881, 1069);
         });
         // The circuit must be unsatisfied due to first character not being a letter.
         assert!(!Circuit::is_satisfied());
@@ -586,7 +565,7 @@ mod tests {
             Circuit::scope(format!("first_byte_{byte}"), || {
                 let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
                 let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
-                if expected_valid { assert_scope!(0, 0, 944, 1225) } else { assert_scope_fails!(0, 0, 944, 1225) }
+                if expected_valid { assert_scope!(0, 0, 881, 1069) } else { assert_scope_fails!(0, 0, 881, 1069) }
             });
             Circuit::reset();
         }
@@ -615,7 +594,7 @@ mod tests {
             Circuit::scope(format!("second_byte_{byte}"), || {
                 let field = Field::<CurrentEnvironment>::new(Mode::Private, field_value);
                 let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_field(field);
-                if expected_valid { assert_scope!(0, 0, 944, 1225) } else { assert_scope_fails!(0, 0, 944, 1225) }
+                if expected_valid { assert_scope!(0, 0, 881, 1069) } else { assert_scope_fails!(0, 0, 881, 1069) }
             });
             Circuit::reset();
         }
@@ -652,14 +631,14 @@ mod tests {
         Circuit::scope("validate_byte_first", || {
             let bits = byte_to_bits(b'a', Mode::Private);
             let _null_flag = validate_byte::<CurrentEnvironment>(&bits, true);
-            assert_scope!(0, 0, 26, 35);
+            assert_scope!(0, 0, 23, 29);
         });
         Circuit::reset();
 
         Circuit::scope("validate_byte_non_first", || {
             let bits = byte_to_bits(b'a', Mode::Private);
             let _null_flag = validate_byte::<CurrentEnvironment>(&bits, false);
-            assert_scope!(0, 0, 22, 30);
+            assert_scope!(0, 0, 20, 25);
         });
         Circuit::reset();
     }
@@ -702,7 +681,7 @@ mod tests {
                 bits.extend(byte_to_bits(0x00, Mode::Private));
             }
             validate_identifier_bits::<CurrentEnvironment>(&bits);
-            assert_scope!(0, 0, 686, 965);
+            assert_scope!(0, 0, 623, 809);
         });
         assert!(Circuit::is_satisfied());
         Circuit::reset();
@@ -862,14 +841,14 @@ mod tests {
                     let _null_flag = validate_byte::<CurrentEnvironment>(&bits, is_first);
                     if expected_valid {
                         if is_first {
-                            assert_scope!(0, 0, 26, 35);
+                            assert_scope!(0, 0, 23, 29);
                         } else {
-                            assert_scope!(0, 0, 22, 30);
+                            assert_scope!(0, 0, 20, 25);
                         }
                     } else if is_first {
-                        assert_scope_fails!(0, 0, 26, 35);
+                        assert_scope_fails!(0, 0, 23, 29);
                     } else {
-                        assert_scope_fails!(0, 0, 22, 30);
+                        assert_scope_fails!(0, 0, 20, 25);
                     }
                 });
 

@@ -137,12 +137,12 @@ mod tests {
 
     #[test]
     fn test_from_bits_le_public() -> Result<()> {
-        check_from_bits_le(Mode::Public, 0, 0, 438, 717)
+        check_from_bits_le(Mode::Public, 0, 0, 375, 561)
     }
 
     #[test]
     fn test_from_bits_le_private() -> Result<()> {
-        check_from_bits_le(Mode::Private, 0, 0, 438, 717)
+        check_from_bits_le(Mode::Private, 0, 0, 375, 561)
     }
 
     #[test]
@@ -152,12 +152,12 @@ mod tests {
 
     #[test]
     fn test_from_bits_be_public() -> Result<()> {
-        check_from_bits_be(Mode::Public, 0, 0, 438, 717)
+        check_from_bits_be(Mode::Public, 0, 0, 375, 561)
     }
 
     #[test]
     fn test_from_bits_be_private() -> Result<()> {
-        check_from_bits_be(Mode::Private, 0, 0, 438, 717)
+        check_from_bits_be(Mode::Private, 0, 0, 375, 561)
     }
 
     #[test]
@@ -178,7 +178,7 @@ mod tests {
             let candidate = IdentifierLiteral::<CurrentEnvironment>::from_bits_le(&bits);
             assert_eq!(expected, candidate.eject_value());
             assert!(Circuit::is_satisfied());
-            assert_scope!(0, 0, 438, 718);
+            assert_scope!(0, 0, 375, 562);
         });
 
         Circuit::reset();
@@ -199,7 +199,7 @@ mod tests {
 
         Circuit::scope("from_bits_le with excess one", || {
             let _candidate = IdentifierLiteral::<CurrentEnvironment>::from_bits_le(&bits);
-            assert_scope_fails!(0, 0, 438, 718);
+            assert_scope_fails!(0, 0, 375, 562);
         });
 
         // Circuit should be unsatisfied.
