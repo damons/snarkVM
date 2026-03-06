@@ -724,7 +724,7 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
         height: u32,
     ) -> Result<Option<Cow<'_, Value<N>>>, Error> {
         // Return nothing for future heights, as the mapping value might change by then.
-        if height > self.current_block_height() {
+        if height > self.current_block_height().load(Ordering::SeqCst) {
             return Ok(None);
         }
 
