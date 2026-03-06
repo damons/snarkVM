@@ -155,7 +155,10 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
                 rng,
             )
             .unwrap();
-        assert!(aborted_transaction_ids.is_empty());
+        if !aborted_transaction_ids.is_empty() {
+            println!("Aborted program deployment: {:?}", program.id());
+            assert!(aborted_transaction_ids.is_empty());
+        }
 
         let block = construct_next_block(
             &vm,
@@ -347,7 +350,10 @@ fn run_test(test: &ProgramTest) -> serde_yaml::Mapping {
                     return (serde_yaml::Value::Mapping(result), serde_yaml::Value::Mapping(Default::default()));
                 }
             };
-            assert!(aborted_transaction_ids.is_empty());
+            if !aborted_transaction_ids.is_empty() {
+                println!("Aborted call to {program_id}/{function_name}");
+                assert!(aborted_transaction_ids.is_empty());
+            }
 
             // Construct the next block.
             let block = construct_next_block(
