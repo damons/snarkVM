@@ -723,6 +723,11 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
         mapping_key: Plaintext<N>,
         height: u32,
     ) -> Result<Option<Cow<'_, Value<N>>>, Error> {
+        // Return nothing for future heights, as the mapping value might change by then.
+        if height > self.current_block_height() {
+            return Ok(None);
+        }
+
         // First, obtain the heights at which updates have happened.
         let Some(update_heights) = self.get_mapping_update_heights(program_id, mapping_name, mapping_key.clone())?
         else {
@@ -733,7 +738,7 @@ impl<N: Network, P: FinalizeStorage<N>> FinalizeStore<N, P> {
         let Some(applicable_height) = (match update_heights.binary_search(&height) {
             Ok(_) => Some(height),
             Err(0) => None,
-            Err(_idx) => None,
+            Err(idx) => update_heights.get(idx - 1).copied(),
         }) else {
             return Ok(None);
         };
