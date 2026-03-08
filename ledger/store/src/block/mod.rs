@@ -16,6 +16,9 @@
 pub mod confirmed_tx_type;
 pub use confirmed_tx_type::*;
 
+mod cache;
+use cache::BlockCache;
+
 use crate::{
     TransactionStorage,
     TransactionStore,
@@ -45,12 +48,16 @@ use snarkvm_ledger_puzzle::{Solution, SolutionID};
 use snarkvm_synthesizer_program::{FinalizeOperation, Program};
 
 use aleo_std_storage::StorageMode;
-use anyhow::Result;
+#[cfg(feature = "rocks")]
+use aleo_std_storage::aleo_ledger_dir;
+use anyhow::{Context, Result};
 #[cfg(feature = "locktick")]
-use locktick::parking_lot::RwLock;
+use locktick::{LockGuard, parking_lot::RwLock};
 #[cfg(not(feature = "locktick"))]
 use parking_lot::RwLock;
 use std::{borrow::Cow, sync::Arc};
+#[cfg(feature = "rocks")]
+use std::{fs, io::BufWriter};
 
 #[cfg(not(feature = "serial"))]
 use rayon::prelude::*;
@@ -987,38 +994,53 @@ pub trait BlockStorage<N: Network>: 'static + Clone + Send + Sync {
 
     #[cfg(feature = "rocks")]
     fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String>;
+
+    fn create_block_tree(&self) -> Result<BlockTree<N>>;
 }
 
-/// The block store.
+/// The `BlockStore` is the user facing API that either uses `BlockMemory` or `BlockDB` as its storae backend.
 #[derive(Clone)]
 pub struct BlockStore<N: Network, B: BlockStorage<N>> {
     /// The block storage.
     storage: B,
     /// The block tree.
     tree: Arc<RwLock<BlockTree<N>>>,
+    /// Cache of the most recent blocks.
+    block_cache: Arc<Option<RwLock<BlockCache<N>>>>,
 }
 
 impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
-    /// Initializes the block store.
+    /// Initializes the block storage and its cache.
     pub fn open<S: Into<StorageMode>>(storage: S) -> Result<Self> {
-        // Initialize the block storage.
         let storage = B::open(storage)?;
 
-        // Compute the block tree.
-        let tree = {
-            // Prepare an iterator over the block heights and prepare the leaves of the block tree.
-            let hashes = storage
-                .id_map()
-                .iter_confirmed()
-                .sorted_unstable_by(|(h1, _), (h2, _)| h1.cmp(h2))
-                .map(|(_, hash)| hash.to_bits_le())
-                .collect::<Vec<Vec<bool>>>();
-            // Construct the block tree.
-            Arc::new(RwLock::new(N::merkle_tree_bhp(&hashes)?))
-        };
+        let tree = storage.create_block_tree()?;
 
-        // Return the block store.
-        Ok(Self { storage, tree })
+        let mut initial_cache = Vec::new();
+        let cache_end_height = u32::try_from(tree.number_of_leaves())?;
+        let cache_start_height = cache_end_height.saturating_sub(BlockCache::<N>::BLOCK_CACHE_SIZE);
+
+        for height in cache_start_height..cache_end_height {
+            // Ignore genesis block.
+            if height == 0 {
+                continue;
+            }
+
+            // Get the hash for the next block to add to the cache.
+            let hash = storage.id_map().get_confirmed(&height)?.with_context(|| {
+                format!(
+                    "Block {height} exists in tree but not in storage;\
+                    perhaps you used a wrong block tree cache file?"
+                )
+            })?;
+
+            initial_cache.push(
+                storage.get_block(&hash)?.with_context(|| format!("Block {hash} exists in tree but not in storage"))?,
+            );
+        }
+
+        let block_cache = RwLock::new(BlockCache::new(initial_cache)?);
+        Ok(Self { storage, tree: Arc::new(RwLock::new(tree)), block_cache: Arc::new(Some(block_cache)) })
     }
 
     /// Stores the given block into storage.
@@ -1035,8 +1057,19 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
         self.storage.insert((*updated_tree.root()).into(), block)?;
         // Update the block tree.
         *tree = updated_tree;
+        // Add the block to the block cache (unless it is a genesis block).
+        if block.height() != 0
+            && let Some(block_cache) = &*self.block_cache
+        {
+            block_cache.write().insert(block.clone())?;
+        }
         // Return success.
         Ok(())
+    }
+
+    /// Returns the size of the block cache (or `None` if the block cache is not enabled).
+    pub fn cache_size(&self) -> Option<u32> {
+        if self.block_cache.is_none() { None } else { Some(BlockCache::<N>::BLOCK_CACHE_SIZE) }
     }
 
     /// Reverts the Merkle tree to its shape before the insertion of the last 'n' blocks.
@@ -1053,7 +1086,7 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
         Ok(())
     }
 
-    /// Removes the last 'n' blocks from storage.
+    /// Removes the last (most recent) `n` blocks from storage.
     pub fn remove_last_n(&self, n: u32) -> Result<()> {
         // Ensure 'n' is non-zero.
         ensure!(n > 0, "Cannot remove zero blocks");
@@ -1096,6 +1129,10 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
 
         // Update the block tree.
         *tree = updated_tree;
+        // Also remove the last n blocks from the cache.
+        if let Some(block_cache) = &*self.block_cache {
+            block_cache.write().remove_last_n(n)?;
+        }
         // Return success.
         Ok(())
     }
@@ -1160,9 +1197,39 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
         self.storage.unpause_atomic_writes::<DISCARD_BATCH>()
     }
 
+    /// Stores a database backup at the given location.
     #[cfg(feature = "rocks")]
     pub fn backup_database<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), String> {
         self.storage.backup_database(path)
+    }
+
+    /// Serializes and persists the current block tree.
+    #[cfg(feature = "rocks")]
+    pub fn cache_block_tree(&self) -> Result<()> {
+        // Prepare the path for the target file.
+        let mut path = aleo_ledger_dir(N::ID, self.storage.storage_mode());
+        path.push("block_tree");
+
+        // Create the target file.
+        let file = fs::File::create(path)?;
+        // The block tree can become quite large, so use a BufWriter in order to
+        // not have to keep the entire serialized tree in memory, and to reduce
+        // the number of syscalls involved with disk writes. 1MiB should provide
+        // a good balance between the CPU cache and maximum disk throughput.
+        let mut writer = BufWriter::with_capacity(1024 * 1024, file);
+        bincode::serialize_into(&mut writer, &&*self.tree.read())?;
+        writer.flush()?;
+        // TODO(ljedrz): this operation can already take ~2.5s, so we may want
+        // to perform chunking and parallel serialization. This may be useful
+        // for other applications, so it should be implemented as a common
+        // utility.
+
+        Ok(())
+    }
+
+    /// Returns the root of the block tree.
+    pub fn get_block_tree_root(&self) -> Field<N> {
+        *self.tree.read().root()
     }
 }
 
@@ -1184,6 +1251,23 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
 }
 
 impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
+    /// Returns the read-locked `BlockCache`.
+    ///
+    /// This may return `None` due to lock contention, even if the cache is enabled.
+    #[inline]
+    #[cfg(feature = "locktick")]
+    fn get_block_cache(&self) -> Option<LockGuard<parking_lot::RwLockReadGuard<'_, BlockCache<N>>>> {
+        // This uses `try_read` to avoid deadlocks or prologned blocking of a thread in rayon: https://github.com/rayon-rs/rayon/issues/1205
+        if let Some(cache) = &*self.block_cache { cache.try_read() } else { None }
+    }
+
+    #[inline]
+    #[cfg(not(feature = "locktick"))]
+    fn get_block_cache(&self) -> Option<parking_lot::RwLockReadGuard<'_, BlockCache<N>>> {
+        // This uses `try_read` to avoid deadlocks or prologned blocking of a thread in rayon: https://github.com/rayon-rs/rayon/issues/1205
+        if let Some(cache) = &*self.block_cache { cache.try_read() } else { None }
+    }
+
     /// Returns the current state root.
     pub fn current_state_root(&self) -> N::StateRoot {
         (*self.tree.read().root()).into()
@@ -1211,11 +1295,23 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
 
     /// Returns the previous block hash of the given `block height`.
     pub fn get_previous_block_hash(&self, height: u32) -> Result<Option<N::BlockHash>> {
+        if let Some(cache) = self.get_block_cache()
+            && let Some(block) = cache.get_block(height)
+        {
+            return Ok(Some(block.previous_hash()));
+        }
+
         self.storage.get_previous_block_hash(height)
     }
 
     /// Returns the block hash for the given `block height`.
     pub fn get_block_hash(&self, height: u32) -> Result<Option<N::BlockHash>> {
+        if let Some(cache) = self.get_block_cache()
+            && let Some(block) = cache.get_block(height)
+        {
+            return Ok(Some(block.hash()));
+        }
+
         self.storage.get_block_hash(height)
     }
 
@@ -1226,22 +1322,46 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
 
     /// Returns the block header for the given `block hash`.
     pub fn get_block_header(&self, block_hash: &N::BlockHash) -> Result<Option<Header<N>>> {
-        self.storage.get_block_header(block_hash)
+        if let Some(cache) = self.get_block_cache()
+            && let Some(block) = cache.get_block_by_hash(block_hash)
+        {
+            Ok(Some(*block.header()))
+        } else {
+            self.storage.get_block_header(block_hash)
+        }
     }
 
     /// Returns the block authority for the given `block hash`.
     pub fn get_block_authority(&self, block_hash: &N::BlockHash) -> Result<Option<Authority<N>>> {
-        self.storage.get_block_authority(block_hash)
+        if let Some(cache) = self.get_block_cache()
+            && let Some(block) = cache.get_block_by_hash(block_hash)
+        {
+            Ok(Some(block.authority().clone()))
+        } else {
+            self.storage.get_block_authority(block_hash)
+        }
     }
 
     /// Returns the block ratifications for the given `block hash`.
     pub fn get_block_ratifications(&self, block_hash: &N::BlockHash) -> Result<Option<Ratifications<N>>> {
-        self.storage.get_block_ratifications(block_hash)
+        if let Some(block_cache) = self.get_block_cache()
+            && let Some(block) = block_cache.get_block_by_hash(block_hash)
+        {
+            Ok(Some(block.ratifications().clone()))
+        } else {
+            self.storage.get_block_ratifications(block_hash)
+        }
     }
 
     /// Returns the block solutions for the given `block hash`.
     pub fn get_block_solutions(&self, block_hash: &N::BlockHash) -> Result<Solutions<N>> {
-        self.storage.get_block_solutions(block_hash)
+        if let Some(block_cache) = self.get_block_cache()
+            && let Some(block) = block_cache.get_block_by_hash(block_hash)
+        {
+            Ok(block.solutions().clone())
+        } else {
+            self.storage.get_block_solutions(block_hash)
+        }
     }
 
     /// Returns the prover solution for the given solution ID.
@@ -1286,7 +1406,13 @@ impl<N: Network, B: BlockStorage<N>> BlockStore<N, B> {
 
     /// Returns the block for the given `block hash`.
     pub fn get_block(&self, block_hash: &N::BlockHash) -> Result<Option<Block<N>>> {
-        self.storage.get_block(block_hash)
+        if let Some(cache) = self.block_cache.as_ref()
+            && let Some(block) = cache.read().get_block_by_hash(block_hash)
+        {
+            Ok(Some(block.clone()))
+        } else {
+            self.storage.get_block(block_hash)
+        }
     }
 
     /// Returns the latest edition for the given `program ID`.

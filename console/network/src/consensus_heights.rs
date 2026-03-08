@@ -47,6 +47,8 @@ pub enum ConsensusVersion {
     V11 = 11,
     /// V12: Prevent connection to forked nodes, disable StringType, enable block timestamp.
     V12 = 12,
+    /// V13: Introduces external structs.
+    V13 = 13,
 }
 
 impl ToBytes for ConsensusVersion {
@@ -71,6 +73,7 @@ impl FromBytes for ConsensusVersion {
             10 => Ok(Self::V10),
             11 => Ok(Self::V11),
             12 => Ok(Self::V12),
+            13 => Ok(Self::V13),
             _ => Err(io_error("Invalid consensus version")),
         }
     }
@@ -106,6 +109,7 @@ pub const CANARY_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CON
     (ConsensusVersion::V10, 8_600_000),
     (ConsensusVersion::V11, 9_510_000),
     (ConsensusVersion::V12, 10_030_000),
+    (ConsensusVersion::V13, 10_881_000),
 ];
 
 /// The consensus version height for `MainnetV0`.
@@ -122,6 +126,7 @@ pub const MAINNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V10, 11_205_000),
     (ConsensusVersion::V11, 12_870_000),
     (ConsensusVersion::V12, 13_815_000),
+    (ConsensusVersion::V13, 16_850_000),
 ];
 
 /// The consensus version heights for `TestnetV0`.
@@ -138,6 +143,7 @@ pub const TESTNET_V0_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CO
     (ConsensusVersion::V10, 10_525_000),
     (ConsensusVersion::V11, 11_952_000),
     (ConsensusVersion::V12, 12_669_000),
+    (ConsensusVersion::V13, 14_906_000),
 ];
 
 /// The consensus version heights when the `test_consensus_heights` feature is enabled.
@@ -154,6 +160,7 @@ pub const TEST_CONSENSUS_VERSION_HEIGHTS: [(ConsensusVersion, u32); NUM_CONSENSU
     (ConsensusVersion::V10, 13),
     (ConsensusVersion::V11, 14),
     (ConsensusVersion::V12, 15),
+    (ConsensusVersion::V13, 16),
 ];
 
 #[cfg(any(test, feature = "test", feature = "test_consensus_heights"))]

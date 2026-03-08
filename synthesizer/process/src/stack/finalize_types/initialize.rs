@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use snarkvm_synthesizer_program::types_equivalent;
+
 use super::*;
 
 impl<N: Network> FinalizeTypes<N> {
@@ -152,15 +154,10 @@ impl<N: Network> FinalizeTypes<N> {
 
 impl<N: Network> FinalizeTypes<N> {
     /// Ensure the given input register is well-formed.
-    #[inline]
     fn check_input(&mut self, stack: &Stack<N>, register: &Register<N>, finalize_type: &FinalizeType<N>) -> Result<()> {
         // Ensure the register type is defined in the program.
         match finalize_type {
-            FinalizeType::Plaintext(PlaintextType::Literal(..)) => (),
-            FinalizeType::Plaintext(PlaintextType::Struct(struct_name)) => {
-                RegisterTypes::check_struct(stack, struct_name)?
-            }
-            FinalizeType::Plaintext(PlaintextType::Array(array_type)) => RegisterTypes::check_array(stack, array_type)?,
+            FinalizeType::Plaintext(plaintext_type) => RegisterTypes::check_plaintext_type(stack, plaintext_type)?,
             FinalizeType::Future(locator) => {
                 ensure!(
                     stack.program().contains_import(locator.program_id()),
@@ -173,8 +170,8 @@ impl<N: Network> FinalizeTypes<N> {
         // Insert the input register.
         self.add_input(register.clone(), finalize_type.clone())?;
 
-        // Ensure the register type and the input type match.
-        if finalize_type != &self.get_type(stack, register)? {
+        // Ensure the register type and the input type are equivalent.
+        if !finalize_types_equivalent(stack, finalize_type, stack, &self.get_type(stack, register)?)? {
             bail!("Input '{register}' does not match the expected input register type.")
         }
 
@@ -262,9 +259,9 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used in a `branch` command"),
         };
-        // Check that the operands have the same type.
+        // Check that the operands have equivalent types.
         ensure!(
-            first_type == second_type,
+            types_equivalent(stack, &first_type, stack, &second_type)?,
             "Command '{}' expects operands of the same type. Found operands of type '{}' and '{}'",
             Branch::<N, VARIANT>::opcode(),
             first_type,
@@ -284,7 +281,7 @@ impl<N: Network> FinalizeTypes<N> {
     #[inline]
     fn check_contains(&mut self, stack: &Stack<N>, contains: &Contains<N>) -> Result<()> {
         // Retrieve the mapping.
-        let mapping = match contains.mapping() {
+        let (mapping, external_program) = match contains.mapping() {
             CallOperator::Locator(locator) => {
                 // Retrieve the program ID.
                 let program_id = locator.program_id();
@@ -307,7 +304,7 @@ impl<N: Network> FinalizeTypes<N> {
                     bail!("Mapping '{mapping_name}' in '{program_id}' is not defined.")
                 }
                 // Retrieve the mapping from the program.
-                external.get_mapping(mapping_name)?
+                (external.get_mapping(mapping_name)?, Some(program_id))
             }
             CallOperator::Resource(mapping_name) => {
                 // Ensure the declared mapping in `contains` is defined in the current program.
@@ -315,12 +312,17 @@ impl<N: Network> FinalizeTypes<N> {
                     bail!("Mapping '{mapping_name}' in '{}' is not defined.", stack.program_id())
                 }
                 // Retrieve the mapping from the program.
-                stack.program().get_mapping(mapping_name)?
+                (stack.program().get_mapping(mapping_name)?, None)
             }
         };
 
-        // Get the mapping key type.
-        let mapping_key_type = mapping.key().plaintext_type();
+        // Get the mapping key type. Qualify if necessary.
+        let mapping_key_type = if let Some(external_program) = external_program {
+            mapping.key().plaintext_type().clone().qualify(*external_program)
+        } else {
+            mapping.key().plaintext_type().clone()
+        };
+
         // Retrieve the register type of the key.
         let key_type = match self.get_type_from_operand(stack, contains.key())? {
             // If the register is a plaintext type, return it.
@@ -328,8 +330,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used as a key in a `contains` command"),
         };
-        // Check that the key type in the mapping matches the key type in the instruction.
-        if *mapping_key_type != key_type {
+        // Check that the key type in the mapping is equivalent to the key type in the instruction.
+        if !types_equivalent(stack, &mapping_key_type, stack, &key_type)? {
             bail!(
                 "Key type in `contains` '{key_type}' does not match the key type in the mapping '{mapping_key_type}'."
             )
@@ -347,7 +349,7 @@ impl<N: Network> FinalizeTypes<N> {
     #[inline]
     fn check_get(&mut self, stack: &Stack<N>, get: &Get<N>) -> Result<()> {
         // Retrieve the mapping.
-        let mapping = match get.mapping() {
+        let (mapping, external_program) = match get.mapping() {
             CallOperator::Locator(locator) => {
                 // Retrieve the program ID.
                 let program_id = locator.program_id();
@@ -370,7 +372,7 @@ impl<N: Network> FinalizeTypes<N> {
                     bail!("Mapping '{mapping_name}' in '{program_id}' is not defined.")
                 }
                 // Retrieve the mapping from the program.
-                external.get_mapping(mapping_name)?
+                (external.get_mapping(mapping_name)?, Some(program_id))
             }
             CallOperator::Resource(mapping_name) => {
                 // Ensure the declared mapping in `get` is defined in the current program.
@@ -378,14 +380,23 @@ impl<N: Network> FinalizeTypes<N> {
                     bail!("Mapping '{mapping_name}' in '{}' is not defined.", stack.program_id())
                 }
                 // Retrieve the mapping from the program.
-                stack.program().get_mapping(mapping_name)?
+                (stack.program().get_mapping(mapping_name)?, None)
             }
         };
 
-        // Get the mapping key type.
-        let mapping_key_type = mapping.key().plaintext_type();
-        // Get the mapping value type.
-        let mapping_value_type = mapping.value().plaintext_type();
+        // Get the mapping key type. Qualify if necessary.
+        let mapping_key_type = if let Some(external_program) = external_program {
+            mapping.key().plaintext_type().clone().qualify(*external_program)
+        } else {
+            mapping.key().plaintext_type().clone()
+        };
+        // Get the mapping value type. Qualify if necessary.
+        let mapping_value_type = if let Some(external_program) = external_program {
+            mapping.value().plaintext_type().clone().qualify(*external_program)
+        } else {
+            mapping.value().plaintext_type().clone()
+        };
+
         // Retrieve the register type of the key.
         let key_type = match self.get_type_from_operand(stack, get.key())? {
             // If the register is a plaintext type, return it.
@@ -393,8 +404,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used as a key in a `get` command"),
         };
-        // Check that the key type in the mapping matches the key type in the instruction.
-        if *mapping_key_type != key_type {
+        // Check that the key type in the mapping is equivalent to the key type in the instruction.
+        if !types_equivalent(stack, &mapping_key_type, stack, &key_type)? {
             bail!("Key type in `get` '{key_type}' does not match the key type in the mapping '{mapping_key_type}'.")
         }
         // Get the destination register.
@@ -410,7 +421,7 @@ impl<N: Network> FinalizeTypes<N> {
     #[inline]
     fn check_get_or_use(&mut self, stack: &Stack<N>, get_or_use: &GetOrUse<N>) -> Result<()> {
         // Retrieve the mapping.
-        let mapping = match get_or_use.mapping() {
+        let (mapping, external_program) = match get_or_use.mapping() {
             CallOperator::Locator(locator) => {
                 // Retrieve the program ID.
                 let program_id = locator.program_id();
@@ -433,7 +444,7 @@ impl<N: Network> FinalizeTypes<N> {
                     bail!("Mapping '{mapping_name}' in '{program_id}' is not defined.")
                 }
                 // Retrieve the mapping from the program.
-                external.get_mapping(mapping_name)?
+                (external.get_mapping(mapping_name)?, Some(program_id))
             }
             CallOperator::Resource(mapping_name) => {
                 // Ensure the declared mapping in `get.or_use` is defined in the current program.
@@ -441,14 +452,23 @@ impl<N: Network> FinalizeTypes<N> {
                     bail!("Mapping '{mapping_name}' in '{}' is not defined.", stack.program_id())
                 }
                 // Retrieve the mapping from the program.
-                stack.program().get_mapping(mapping_name)?
+                (stack.program().get_mapping(mapping_name)?, None)
             }
         };
 
-        // Get the mapping key type.
-        let mapping_key_type = mapping.key().plaintext_type();
-        // Get the mapping value type.
-        let mapping_value_type = mapping.value().plaintext_type();
+        // Get the mapping key type. Qualify if necessary.
+        let mapping_key_type = if let Some(external_program) = external_program {
+            mapping.key().plaintext_type().clone().qualify(*external_program)
+        } else {
+            mapping.key().plaintext_type().clone()
+        };
+        // Get the mapping value type. Qualify if necessary.
+        let mapping_value_type = if let Some(external_program) = external_program {
+            mapping.value().plaintext_type().clone().qualify(*external_program)
+        } else {
+            mapping.value().plaintext_type().clone()
+        };
+
         // Retrieve the register type of the key.
         let key_type = match self.get_type_from_operand(stack, get_or_use.key())? {
             // If the register is a plaintext type, return it.
@@ -456,8 +476,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used as a key in a `get.or_use` command"),
         };
-        // Check that the key type in the mapping matches the key type.
-        if *mapping_key_type != key_type {
+        // Check that the key type in the mapping is equivalent to the key type.
+        if !types_equivalent(stack, &mapping_key_type, stack, &key_type)? {
             bail!(
                 "Key type in `get.or_use` '{key_type}' does not match the key type in the mapping '{mapping_key_type}'."
             )
@@ -469,8 +489,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A default value cannot be a future"),
         };
-        // Check that the value type in the mapping matches the default value type.
-        if mapping_value_type != &default_value_type {
+        // Check that the value type in the mapping is equivalent to the default value type.
+        if !types_equivalent(stack, &mapping_value_type, stack, &default_value_type)? {
             bail!(
                 "Default value type in `get.or_use` '{default_value_type}' does not match the value type in the mapping '{mapping_value_type}'."
             )
@@ -531,8 +551,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used as a key in a `set` command"),
         };
-        // Check that the key type in the mapping matches the key type.
-        if *mapping_key_type != key_type {
+        // Check that the key type in the mapping is equivalent the key type.
+        if !types_equivalent(stack, mapping_key_type, stack, &key_type)? {
             bail!("Key type in `set` '{key_type}' does not match the key type in the mapping '{mapping_key_type}'.")
         }
         // Retrieve the type of the value.
@@ -542,8 +562,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used as a value in a `set` command"),
         };
-        // Check that the value type in the mapping matches the type of the value.
-        if mapping_value_type != &value_type {
+        // Check that the value type in the mapping is equivalent the type of the value.
+        if !types_equivalent(stack, mapping_value_type, stack, &value_type)? {
             bail!(
                 "Value type in `set` '{value_type}' does not match the value type in the mapping '{mapping_value_type}'."
             )
@@ -570,8 +590,8 @@ impl<N: Network> FinalizeTypes<N> {
             // If the register is a future, throw an error.
             FinalizeType::Future(..) => bail!("A future cannot be used as a key in a `remove` command"),
         };
-        // Check that the key type in the mapping matches the key type.
-        if *mapping_key_type != key_type {
+        // Check that the key type in the mapping is equivalent the key type.
+        if !types_equivalent(stack, mapping_key_type, stack, &key_type)? {
             bail!("Key type in `remove` '{key_type}' does not match the key type in the mapping '{mapping_key_type}'.")
         }
         Ok(())
@@ -666,19 +686,27 @@ impl<N: Network> FinalizeTypes<N> {
                         | CastType::Plaintext(PlaintextType::Literal(..)) => {
                             ensure!(instruction.operands().len() == 1, "Expected 1 operand.");
                         }
-                        CastType::Plaintext(PlaintextType::Struct(struct_name)) => {
-                            // Ensure the struct name exists in the program.
-                            if !stack.program().contains_struct(struct_name) {
-                                bail!("Struct '{struct_name}' is not defined.")
-                            }
+                        CastType::Plaintext(plaintext @ PlaintextType::Struct(struct_name)) => {
+                            // Ensure that the type is valid.
+                            RegisterTypes::check_plaintext_type(stack, plaintext)?;
                             // Retrieve the struct.
                             let struct_ = stack.program().get_struct(struct_name)?;
                             // Ensure the operand types match the struct.
                             self.matches_struct(stack, instruction.operands(), struct_)?;
                         }
-                        CastType::Plaintext(PlaintextType::Array(array_type)) => {
-                            // Ensure that the array type is valid.
-                            RegisterTypes::check_array(stack, array_type)?;
+                        CastType::Plaintext(plaintext @ PlaintextType::ExternalStruct(locator)) => {
+                            // Ensure that the type is valid.
+                            RegisterTypes::check_plaintext_type(stack, plaintext)?;
+                            let external_stack = stack.get_external_stack(locator.program_id())?;
+                            let struct_name = locator.resource();
+                            // Retrieve the struct.
+                            let struct_ = external_stack.program().get_struct(struct_name)?;
+                            // Ensure the operand types match the struct.
+                            self.matches_struct(&*external_stack, instruction.operands(), struct_)?;
+                        }
+                        CastType::Plaintext(plaintext @ PlaintextType::Array(array_type)) => {
+                            // Ensure that the type is valid.
+                            RegisterTypes::check_plaintext_type(stack, plaintext)?;
                             // Ensure the operand types match the element type.
                             self.matches_array(stack, instruction.operands(), array_type)?;
                         }

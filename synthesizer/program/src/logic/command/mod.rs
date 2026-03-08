@@ -195,6 +195,23 @@ impl<N: Network> Command<N> {
         }
     }
 
+    /// Returns whether this commands refers to an external struct.
+    pub fn contains_external_struct(&self) -> bool {
+        match self {
+            Command::Instruction(c) => c.contains_external_struct(),
+            Command::Await(c) => c.contains_external_struct(),
+            Command::Contains(c) => c.contains_external_struct(),
+            Command::Get(c) => c.contains_external_struct(),
+            Command::GetOrUse(c) => c.contains_external_struct(),
+            Command::RandChaCha(c) => c.contains_external_struct(),
+            Command::Remove(c) => c.contains_external_struct(),
+            Command::Set(c) => c.contains_external_struct(),
+            Command::BranchEq(c) => c.contains_external_struct(),
+            Command::BranchNeq(c) => c.contains_external_struct(),
+            Command::Position(c) => c.contains_external_struct(),
+        }
+    }
+
     /// Returns `true` if the command contains a string type.
     pub fn contains_string_type(&self) -> bool {
         self.operands().iter().any(|operand| operand.contains_string_type())
