@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@ use crate::FinalizeTypes;
 use console::{
     network::prelude::*,
     program::{Identifier, Literal, Plaintext, Register, Value},
-    types::{U16, U32},
+    types::{I64, U16, U32},
 };
 use snarkvm_synthesizer_program::{FinalizeGlobalState, FinalizeRegistersState, Operand, RegistersTrait, StackTrait};
 

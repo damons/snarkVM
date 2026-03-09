@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,6 +58,7 @@ mod to_checksum;
 use console::{
     network::{
         ConsensusVersion,
+        consensus_config_value,
         prelude::{
             Debug,
             Deserialize,
@@ -102,7 +103,7 @@ use console::{
     program::{Identifier, PlaintextType, ProgramID, RecordType, StructType},
     types::U8,
 };
-use snarkvm_utilities::cfg_iter;
+use snarkvm_utilities::{cfg_find_map, cfg_iter};
 
 use indexmap::{IndexMap, IndexSet};
 use std::collections::BTreeSet;
@@ -269,7 +270,8 @@ impl<N: Network> ProgramCore<N> {
     /// the keywords in the list should be restricted.
     #[rustfmt::skip]
     pub const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
-        (ConsensusVersion::V6, &["constructor"])
+        (ConsensusVersion::V6, &["constructor"]),
+        (ConsensusVersion::V14, &["identifier"])
     ];
 
     /// Initializes an empty program.
@@ -566,12 +568,32 @@ impl<N: Network> ProgramCore<N> {
                         bail!("'{member_identifier}' in struct '{struct_name}' is not defined.")
                     }
                 }
+                PlaintextType::ExternalStruct(locator) => {
+                    if !self.imports.contains_key(locator.program_id()) {
+                        bail!(
+                            "External program {} referenced in struct '{struct_name}' does not exist",
+                            locator.program_id()
+                        );
+                    }
+                }
                 PlaintextType::Array(array_type) => {
-                    if let PlaintextType::Struct(struct_name) = array_type.base_element_type() {
+                    match array_type.base_element_type() {
+                        PlaintextType::Struct(struct_name) =>
                         // Ensure the member struct name exists in the program.
-                        if !self.structs.contains_key(struct_name) {
-                            bail!("'{struct_name}' in array '{array_type}' is not defined.")
+                        {
+                            if !self.structs.contains_key(struct_name) {
+                                bail!("'{struct_name}' in array '{array_type}' is not defined.")
+                            }
                         }
+                        PlaintextType::ExternalStruct(locator) => {
+                            if !self.imports.contains_key(locator.program_id()) {
+                                bail!(
+                                    "External program {} in array '{array_type}' does not exist",
+                                    locator.program_id()
+                                );
+                            }
+                        }
+                        PlaintextType::Array(..) | PlaintextType::Literal(..) => {}
                     }
                 }
             }
@@ -623,12 +645,32 @@ impl<N: Network> ProgramCore<N> {
                         bail!("Struct '{identifier}' in record '{record_name}' is not defined.")
                     }
                 }
+                PlaintextType::ExternalStruct(locator) => {
+                    if !self.imports.contains_key(locator.program_id()) {
+                        bail!(
+                            "External program {} referenced in record '{record_name}' does not exist",
+                            locator.program_id()
+                        );
+                    }
+                }
                 PlaintextType::Array(array_type) => {
-                    if let PlaintextType::Struct(struct_name) = array_type.base_element_type() {
+                    match array_type.base_element_type() {
+                        PlaintextType::Struct(struct_name) =>
                         // Ensure the member struct name exists in the program.
-                        if !self.structs.contains_key(struct_name) {
-                            bail!("'{struct_name}' in array '{array_type}' is not defined.")
+                        {
+                            if !self.structs.contains_key(struct_name) {
+                                bail!("'{struct_name}' in array '{array_type}' is not defined.")
+                            }
                         }
+                        PlaintextType::ExternalStruct(locator) => {
+                            if !self.imports.contains_key(locator.program_id()) {
+                                bail!(
+                                    "External program {} in array '{array_type}' does not exist",
+                                    locator.program_id()
+                                );
+                            }
+                        }
+                        PlaintextType::Array(..) | PlaintextType::Literal(..) => {}
                     }
                 }
             }
@@ -913,6 +955,27 @@ impl<N: Network> ProgramCore<N> {
         false
     }
 
+    /// Returns whether this program explicitly refers to an external struct, like `other_program.aleo/StructType`?
+    ///
+    /// This function exists to check if programs to be deployed use external structs so they can be gated
+    /// by consensus version.
+    pub fn contains_external_struct(&self) -> bool {
+        self.mappings.values().any(|mapping| mapping.contains_external_struct())
+            || self
+                .structs
+                .values()
+                .flat_map(|struct_| struct_.members().values())
+                .any(|plaintext_type| plaintext_type.contains_external_struct())
+            || self
+                .records
+                .values()
+                .flat_map(|record| record.entries().values())
+                .any(|entry| entry.plaintext_type().contains_external_struct())
+            || self.closures.values().any(|closure| closure.contains_external_struct())
+            || self.functions.values().any(|function| function.contains_external_struct())
+            || self.constructor.iter().any(|constructor| constructor.contains_external_struct())
+    }
+
     /// Returns `true` if the program contains an array type with a size that exceeds the given maximum.
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         self.mappings.values().any(|mapping| mapping.exceeds_max_array_size(max_array_size))
@@ -927,12 +990,8 @@ impl<N: Network> ProgramCore<N> {
     /// This includes:
     /// 1. `.raw` hash or signature verification variants
     /// 2. `ecdsa.verify.*` opcodes
-    /// 3. arrays that exceed the previous maximum length of 32.
     #[inline]
     pub fn contains_v11_syntax(&self) -> bool {
-        // The previous maximum array size before V11.
-        const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
-
         // Helper to check if any of the opcodes:
         // - start with `ecdsa.verify`, `serialize`, or `deserialize`
         // - end with `.raw` or `.native`
@@ -961,10 +1020,176 @@ impl<N: Network> ProgramCore<N> {
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
-        // Determine if any of the array types exceed the previous maximum length of 32.
-        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
+        function_contains || closure_contains || command_contains
+    }
 
-        function_contains || closure_contains || command_contains || array_size_exceeds
+    /// Returns `true` if a program contains any V12 syntax.
+    /// This includes `Operand::BlockTimestamp`.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V12`.
+    #[inline]
+    pub fn contains_v12_syntax(&self) -> bool {
+        // Check each instruction and output in each function's finalize scope for the use of
+        // `Operand::BlockTimestamp`.
+        cfg_iter!(self.functions()).any(|(_, function)| {
+            function.finalize_logic().is_some_and(|finalize_logic| {
+                cfg_iter!(finalize_logic.commands()).any(|command| {
+                    cfg_iter!(command.operands()).any(|operand| matches!(operand, Operand::BlockTimestamp))
+                })
+            })
+        })
+    }
+
+    /// Checks that the program size does not exceed the maximum allowed size for the given block height.
+    pub fn check_program_size(&self, block_height: u32) -> Result<()> {
+        // Calculate the program size.
+        let program_size = self.to_string().len();
+        // Determine the maximum allowed program size for the current consensus version.
+        let maximum_allowed_program_size = consensus_config_value!(N, MAX_PROGRAM_SIZE, block_height)
+            .ok_or(anyhow!("Failed to fetch maximum program size"))?;
+
+        ensure!(
+            program_size <= maximum_allowed_program_size,
+            "Program size of {program_size} bytes exceeds the maximum allowed size of {maximum_allowed_program_size} bytes for the current height {block_height} (consensus version {}).",
+            N::CONSENSUS_VERSION(block_height)?
+        );
+
+        Ok(())
+    }
+
+    /// Checks that the program writes size does not exceed the maximum allowed size for the given block height.
+    pub fn check_program_writes(&self, block_height: u32) -> Result<()> {
+        // Determine the maximum allowed program size for the current consensus version.
+        let max_num_writes = consensus_config_value!(N, MAX_WRITES, block_height)
+            .ok_or(anyhow!("Failed to fetch maximum program size"))?;
+
+        // Check if the constructor exceeds the maximum number of writes.
+        if self.constructor().is_some_and(|constructor| constructor.num_writes() > max_num_writes) {
+            bail!(
+                "Program constructor exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
+                N::CONSENSUS_VERSION(block_height)?
+            );
+        }
+
+        // Find the first function whose finalize logic exceeds the maximum writes.
+        if let Some(name) = cfg_find_map!(self.functions(), |function| {
+            function
+                .finalize_logic()
+                .is_some_and(|finalize| finalize.num_writes() > max_num_writes)
+                .then(|| *function.name())
+        }) {
+            bail!(
+                "Program function '{name}' exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
+                N::CONSENSUS_VERSION(block_height)?
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Returns `true` if a program contains any V14 syntax.
+    /// This includes `snark.verify.*` opcodes, `Operand::AleoGenerator`, `Operand::AleoGeneratorPowers`,
+    /// or `Literal::Identifier`. Also checks for identifier type declarations in function inputs/outputs,
+    /// finalize inputs/outputs, closures, structs, mappings, and records.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
+    #[inline]
+    pub fn contains_v14_syntax(&self) -> Result<bool> {
+        /// Returns `true` if the operand is V14 syntax.
+        fn is_v14_operand<N: Network>(operand: &Operand<N>) -> bool {
+            matches!(
+                operand,
+                Operand::AleoGeneratorPowers(_)
+                    | Operand::AleoGenerator
+                    | Operand::Literal(console::program::Literal::Identifier(..))
+            )
+        }
+
+        // Check functions: instructions, finalize commands, and type declarations in one pass.
+        for (_, function) in self.functions() {
+            if function.instructions().iter().any(|instruction| {
+                instruction.opcode().starts_with("snark.verify")
+                    || cfg_iter!(instruction.operands()).any(is_v14_operand)
+            }) {
+                return Ok(true);
+            }
+            if function
+                .finalize_logic()
+                .map(|finalize| {
+                    finalize.commands().iter().any(|cmd| {
+                        matches!(cmd, Command::Instruction(instr) if instr.opcode().starts_with("snark.verify"))
+                            || cfg_iter!(cmd.operands()).any(is_v14_operand)
+                    })
+                })
+                .unwrap_or(false)
+            {
+                return Ok(true);
+            }
+            if function.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        // Check closures: instructions and type declarations in one pass.
+        for (_, closure) in self.closures() {
+            if closure.instructions().iter().any(|instruction| {
+                instruction.opcode().starts_with("snark.verify")
+                    || cfg_iter!(instruction.operands()).any(is_v14_operand)
+            }) {
+                return Ok(true);
+            }
+            if closure.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        // Check constructor commands.
+        let constructor_contains = self.constructor.iter().any(|constructor| {
+            constructor.commands().iter().any(|cmd| {
+                matches!(cmd, Command::Instruction(instr) if instr.opcode().starts_with("snark.verify"))
+                    || cfg_iter!(cmd.operands()).any(is_v14_operand)
+            })
+        });
+        if constructor_contains {
+            return Ok(true);
+        }
+
+        // Check constructor for identifier types in cast destinations and type declarations.
+        if let Some(constructor) = &self.constructor {
+            if constructor.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        // Check remaining type definitions: mappings, structs, records.
+        for mapping in self.mappings.values() {
+            if mapping.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for struct_type in self.structs.values() {
+            if struct_type.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for record_type in self.records.values() {
+            if record_type.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Returns `true` if a program contains any string type.
+    /// Before ConsensusVersion::V12, variable-length string sampling when using them as inputs caused deployment synthesis to be inconsistent and abort with probability 63/64.
+    /// After ConsensusVersion::V12, string types are disallowed.
+    #[inline]
+    pub fn contains_string_type(&self) -> bool {
+        self.mappings.values().any(|mapping| mapping.contains_string_type())
+            || self.structs.values().any(|struct_type| struct_type.contains_string_type())
+            || self.records.values().any(|record_type| record_type.contains_string_type())
+            || self.closures.values().any(|closure| closure.contains_string_type())
+            || self.functions.values().any(|function| function.contains_string_type())
+            || self.constructor.iter().any(|constructor| constructor.contains_string_type())
     }
 }
 

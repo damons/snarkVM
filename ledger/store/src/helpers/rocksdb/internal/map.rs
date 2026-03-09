@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,12 +18,13 @@
 use super::*;
 use crate::helpers::{Map, MapRead};
 
-use snarkvm_utilities::{LoggableError, bytes::unchecked_deserialize};
+use snarkvm_utilities::{bytes::unchecked_deserialize, flatten_error};
 
 use core::{fmt, fmt::Debug, hash::Hash, mem};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 use std::{borrow::Cow, ops::Deref, path::Path, sync::atomic::Ordering};
+use tracing::error;
 
 #[derive(Clone)]
 pub struct DataMap<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned>(
@@ -58,7 +59,7 @@ impl<K: Serialize + DeserializeOwned, V: Serialize + DeserializeOwned> InnerData
 
 impl<
     'a,
-    K: 'a + Copy + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
+    K: 'a + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
     V: 'a + Clone + Serialize + DeserializeOwned + Send + Sync,
 > Map<'a, K, V> for DataMap<K, V>
 {
@@ -92,7 +93,7 @@ impl<
         match self.is_atomic_in_progress() {
             // If a batch is in progress, add the key to the batch.
             true => {
-                self.atomic_batch.lock().push((*key, None));
+                self.atomic_batch.lock().push((key.clone(), None));
             }
             // Otherwise, remove the key-value pair directly from the map.
             false => {
@@ -277,7 +278,7 @@ impl<
 
 impl<
     'a,
-    K: 'a + Copy + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
+    K: 'a + Clone + Debug + PartialEq + Eq + Hash + Serialize + DeserializeOwned + Send + Sync,
     V: 'a + Clone + Serialize + DeserializeOwned + Send + Sync,
 > MapRead<'a, K, V> for DataMap<K, V>
 {
@@ -455,10 +456,17 @@ impl<
 
         // Deserialize the key and value.
         let key = unchecked_deserialize(&key[PREFIX_LEN..])
-            .map_err(|err| err.log_error("RocksDB Iter deserialize(key) error"))
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Iter deserialize(key) error")));
+            })
             .ok()?;
-        let value =
-            unchecked_deserialize(value).map_err(|err| err.log_error("RocksDB Iter deserialize(value) error")).ok()?;
+        let value = unchecked_deserialize(value)
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Iter deserialize(value) error")));
+            })
+            .ok()?;
 
         self.db_iter.next();
 
@@ -488,7 +496,10 @@ impl<'a, K: 'a + Clone + Debug + PartialEq + Eq + Hash + Serialize + Deserialize
 
         // Deserialize the key.
         let key = unchecked_deserialize(&self.db_iter.key()?[PREFIX_LEN..])
-            .map_err(|err| err.log_error("RocksDB Keys deserialize(key) error"))
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Keys deserialize(key) error")));
+            })
             .ok()?;
 
         self.db_iter.next();
@@ -519,7 +530,10 @@ impl<'a, V: 'a + Clone + Serialize + DeserializeOwned> Iterator for Values<'a, V
 
         // Deserialize the value.
         let value = unchecked_deserialize(self.db_iter.value()?)
-            .map_err(|err| err.log_error("RocksDB Values deserialize(value) error"))
+            .map_err(|err| {
+                let err: anyhow::Error = err.into();
+                error!("{}", &flatten_error(err.context("RocksDB Values deserialize(value) error")));
+            })
             .ok()?;
 
         self.db_iter.next();

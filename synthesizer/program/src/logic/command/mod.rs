@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -171,7 +171,9 @@ impl<N: Network> Command<N> {
     ) -> Result<Option<FinalizeOperation<N>>> {
         match self {
             // Finalize the instruction, and return no finalize operation.
-            Command::Instruction(instruction) => instruction.finalize(stack, registers).map(|_| None),
+            Command::Instruction(instruction) => {
+                instruction.finalize(stack, registers).map_err(Into::into).map(|_| None)
+            }
             // `await` commands are processed by the caller of this method.
             Command::Await(_) => bail!("`await` commands cannot be finalized directly."),
             // Finalize the 'contains' command, and return no finalize operation.
@@ -192,6 +194,44 @@ impl<N: Network> Command<N> {
             }
             // Finalize the `position` command, and return no finalize operation.
             Command::Position(position) => position.finalize().map(|_| None),
+        }
+    }
+
+    /// Returns whether this commands refers to an external struct.
+    pub fn contains_external_struct(&self) -> bool {
+        match self {
+            Command::Instruction(c) => c.contains_external_struct(),
+            Command::Await(c) => c.contains_external_struct(),
+            Command::Contains(c) => c.contains_external_struct(),
+            Command::Get(c) => c.contains_external_struct(),
+            Command::GetOrUse(c) => c.contains_external_struct(),
+            Command::RandChaCha(c) => c.contains_external_struct(),
+            Command::Remove(c) => c.contains_external_struct(),
+            Command::Set(c) => c.contains_external_struct(),
+            Command::BranchEq(c) => c.contains_external_struct(),
+            Command::BranchNeq(c) => c.contains_external_struct(),
+            Command::Position(c) => c.contains_external_struct(),
+        }
+    }
+
+    /// Returns `true` if the command contains a string type.
+    pub fn contains_string_type(&self) -> bool {
+        self.operands().iter().any(|operand| operand.contains_string_type())
+    }
+
+    /// Returns `true` if the command contains an identifier type in its cast type.
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        match self {
+            Command::Instruction(instruction) => instruction.contains_identifier_type(),
+            _ => Ok(false),
+        }
+    }
+
+    /// Returns `true` if the command contains an array type with a size that exceeds the given maximum.
+    pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
+        match self {
+            Command::Instruction(instruction) => instruction.exceeds_max_array_size(max_array_size),
+            _ => false,
         }
     }
 }

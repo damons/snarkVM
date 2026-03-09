@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ type CurrentAleo = AleoV0;
 
 /// Samples a new finalize state.
 pub fn sample_finalize_state(block_height: u32) -> FinalizeGlobalState {
-    FinalizeGlobalState::from(block_height as u64, block_height, [0u8; 32])
+    FinalizeGlobalState::from(block_height as u64, block_height, None, [0u8; 32])
 }
 
 /// Samples a valid fee for the given process, block store, and finalize store.

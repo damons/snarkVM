@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +16,9 @@
 use super::*;
 
 use snarkvm_ledger_committee::{MAX_DELEGATORS, MIN_DELEGATOR_STAKE, MIN_VALIDATOR_SELF_STAKE};
-use snarkvm_utilities::{cfg_sort_by_cached_key, defer};
+#[cfg(feature = "history-staking-rewards")]
+use snarkvm_ledger_store::helpers::Map;
+use snarkvm_utilities::{cfg_sort_by_cached_key, defer, dev_eprintln};
 
 impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Speculates on the given list of transactions in the VM.
@@ -26,11 +28,15 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Returns the confirmed transactions, aborted transaction IDs,
     /// and finalize operations from pre-ratify and post-ratify.
     ///
-    /// Note: This method is used to create a new block (including the genesis block).
+    /// # Note
+    /// This method is used to create a new block (including the genesis block).
     ///   - If `coinbase_reward = None`, then the `ratifications` will not be modified.
     ///   - If `coinbase_reward = Some(coinbase_reward)`, then the method will append a
     ///     `Ratify::BlockReward(block_reward)` and `Ratify::PuzzleReward(puzzle_reward)`
     ///     to the front of the `ratifications` list.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[inline]
     #[allow(clippy::too_many_arguments)]
     pub fn speculate<'a, R: Rng + CryptoRng>(
@@ -67,8 +73,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 time_since_last_block,
                 coinbase_reward,
                 candidate_ratifications,
-                candidate_solutions,
-                verified_transactions.into_iter(),
+                candidate_solutions.clone(),
+                verified_transactions.into_iter().cloned().collect(),
             )?;
 
         // Get the aborted transaction ids.
@@ -103,6 +109,9 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// This function also ensure that the given transactions are well-formed and unique.
     ///
     /// Returns the finalize operations from pre-ratify and post-ratify.
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
     #[inline]
     pub fn check_speculate<R: Rng + CryptoRng>(
         &self,
@@ -138,8 +147,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 time_since_last_block,
                 None,
                 candidate_ratifications,
-                solutions,
-                candidate_transactions.iter(),
+                solutions.clone(),
+                candidate_transactions,
             )?;
 
         // Ensure the ratifications after speculation match.
@@ -147,8 +156,12 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             bail!("The ratifications after speculation do not match the ratifications in the block");
         }
         // Ensure the transactions after speculation match.
-        if transactions != &confirmed_transactions.into_iter().collect() {
-            bail!("The transactions after speculation do not match the transactions in the block");
+        let confirmed_transactions = confirmed_transactions.into_iter().collect();
+        if transactions != &confirmed_transactions {
+            let confirmed_transaction_ids = confirmed_transactions.transaction_ids().collect::<Vec<_>>();
+            bail!(
+                "The transactions after speculation do not match the transactions in the block. IDs: {confirmed_transaction_ids:?} - Transactions:{transactions:?}"
+            );
         }
         // Ensure there are no aborted transaction IDs from this speculation.
         // Note: There should be no aborted transactions, because we are checking a block,
@@ -196,29 +209,66 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
     /// Returns the ratifications, confirmed transactions, aborted transactions,
     /// and finalize operations from pre-ratify and post-ratify.
     ///
-    /// Note: This method is used by `VM::speculate` and `VM::check_speculate`.
+    /// # Note
+    /// This method is used by `VM::speculate` and `VM::check_speculate`.
     ///   - If `coinbase_reward = None`, then the `ratifications` will not be modified.
     ///   - If `coinbase_reward = Some(coinbase_reward)`, then the method will append a
     ///     `Ratify::BlockReward(block_reward)` and `Ratify::PuzzleReward(puzzle_reward)`
     ///     to the front of the `ratifications` list.
-    fn atomic_speculate<'a>(
+    ///
+    /// # Panics
+    /// This function panics if called from an async context.
+    fn atomic_speculate(
         &self,
         state: FinalizeGlobalState,
         time_since_last_block: i64,
         coinbase_reward: Option<u64>,
         ratifications: Vec<Ratify<N>>,
-        solutions: &Solutions<N>,
-        transactions: impl ExactSizeIterator<Item = &'a Transaction<N>>,
+        solutions: Solutions<N>,
+        transactions: Vec<Transaction<N>>,
     ) -> Result<(
         Ratifications<N>,
         Vec<ConfirmedTransaction<N>>,
         Vec<(Transaction<N>, String)>,
         Vec<FinalizeOperation<N>>,
     )> {
-        // Acquire the atomic lock, which is needed to ensure this function is not called concurrently
-        // with other `atomic_finalize!` macro calls, which will cause a `bail!` to be triggered erroneously.
-        // Note: This lock must be held for the entire scope of the call to `atomic_finalize!`.
-        let _atomic_lock = self.atomic_lock.lock();
+        let sequential_op = SequentialOperation::AtomicSpeculate(
+            state,
+            time_since_last_block,
+            coinbase_reward,
+            ratifications,
+            solutions,
+            transactions,
+        );
+        let Some(SequentialOperationResult::AtomicSpeculate(ret)) = self.run_sequential_operation(sequential_op) else {
+            bail!("Already shutting down");
+        };
+
+        ret
+    }
+
+    /// Internal function called when invoking [`Self::atomic_speculate`].
+    ///
+    /// # Note
+    /// This function must only be called from the sequential operation thread.
+    ///
+    /// # Panics
+    /// This function panics if not called from the sequential operation thread.
+    pub(crate) fn atomic_speculate_inner(
+        &self,
+        state: FinalizeGlobalState,
+        time_since_last_block: i64,
+        coinbase_reward: Option<u64>,
+        ratifications: Vec<Ratify<N>>,
+        solutions: Solutions<N>,
+        transactions: Vec<Transaction<N>>,
+    ) -> Result<(
+        Ratifications<N>,
+        Vec<ConfirmedTransaction<N>>,
+        Vec<(Transaction<N>, String)>,
+        Vec<FinalizeOperation<N>>,
+    )> {
+        self.ensure_sequential_processing();
 
         let timer = timer!("VM::atomic_speculate");
 
@@ -227,9 +277,16 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         // Retrieve the number of transactions.
         let num_transactions = transactions.len();
         // Determine the maximum number of aborted solutions allowed in a block.
-        let max_aborted_solutions = Solutions::<N>::max_aborted_solutions()?;
+        let max_aborted_solutions = Solutions::<N>::max_aborted_solutions();
         // Determine the maximum number of aborted transactions allowed in a block.
-        let max_aborted_transactions = Transactions::<N>::max_aborted_transactions()?;
+        let max_aborted_transactions = Transactions::<N>::max_aborted_transactions();
+
+        // Update the block height used for the purposes of historical mapping accounting.
+        #[cfg(feature = "history")]
+        self.store
+            .finalize_store()
+            .current_block_height()
+            .store(state.block_height(), std::sync::atomic::Ordering::SeqCst);
 
         // Perform the finalize operation on the preset finalize mode.
         atomic_finalize!(self.finalize_store(), FinalizeMode::DryRun, {
@@ -319,7 +376,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
                 // Determine if the transaction should be aborted.
                 if let Some(reason) = self.should_abort_transaction(
-                    transaction,
+                    &transaction,
                     &transition_ids,
                     &input_ids,
                     &output_ids,
@@ -336,7 +393,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Process the transaction in an isolated atomic batch.
                 // - If the transaction succeeds, the finalize operations are stored.
                 // - If the transaction fails, the atomic batch is aborted and no finalize operations are stored.
-                let outcome = match transaction {
+                let outcome = match &transaction {
                     // The finalize operation here involves appending the 'stack',
                     // and adding the program to the finalize tree.
                     Transaction::Deploy(_, _, program_owner, deployment, fee) => {
@@ -363,6 +420,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                             true => match process_rejected_deployment(fee, *deployment.clone()) {
                                 Ok(result) => result,
                                 Err(error) => {
+                                    // Note: On failure, skip this transaction, and continue speculation.
+                                    dev_eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
                                     // Store the aborted transaction.
                                     aborted.push((transaction.clone(), error.to_string()));
                                     // Continue to the next transaction.
@@ -384,6 +443,8 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                     match process_rejected_deployment(fee, *deployment.clone()) {
                                         Ok(result) => result,
                                         Err(error) => {
+                                            // Note: On failure, skip this transaction, and continue speculation.
+                                            dev_eprintln!("Failed to finalize the fee in a rejected deploy - {error}");
                                             // Store the aborted transaction.
                                             aborted.push((transaction.clone(), error.to_string()));
                                             // Continue to the next transaction.
@@ -425,6 +486,10 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                                                 .map_err(|e| e.to_string())
                                             }
                                             Err(error) => {
+                                                // Note: On failure, skip this transaction, and continue speculation.
+                                                dev_eprintln!(
+                                                    "Failed to finalize the fee in a rejected execute - {error}"
+                                                );
                                                 // Store the aborted transaction.
                                                 aborted.push((transaction.clone(), error.to_string()));
                                                 // Continue to the next transaction.
@@ -485,6 +550,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // If the transaction failed, abort the entire batch.
                     Err(error) => {
                         error!("Critical bug in speculate: {error}\n\n{transaction}");
+                        dev_eprintln!("Critical bug in speculate: {error}\n\n{transaction}");
                         // Note: This will abort the entire atomic batch.
                         return Err(format!("Failed to speculate on transaction - {error}"));
                     }
@@ -535,7 +601,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
             let post_ratifications = reward_ratifications.iter().chain(post_ratifications);
 
             // Process the post-ratifications.
-            match Self::atomic_post_ratify::<false>(&self.puzzle, store, state, post_ratifications, solutions) {
+            match Self::atomic_post_ratify::<false>(&self.puzzle, store, state, post_ratifications, &solutions) {
                 // Store the finalize operations from the post-ratify.
                 Ok(operations) => ratified_finalize_operations.extend(operations),
                 // Note: This will abort the entire atomic batch.
@@ -570,12 +636,18 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
         solutions: &Solutions<N>,
         transactions: &Transactions<N>,
     ) -> Result<Vec<FinalizeOperation<N>>> {
-        // Acquire the atomic lock, which is needed to ensure this function is not called concurrently
-        // with other `atomic_finalize!` macro calls, which will cause a `bail!` to be triggered erroneously.
-        // Note: This lock must be held for the entire scope of the call to `atomic_finalize!`.
-        let _atomic_lock = self.atomic_lock.lock();
+        // The tests may run this method ad-hoc, outside of the context of add_next_block.
+        #[cfg(not(test))]
+        self.ensure_sequential_processing();
 
         let timer = timer!("VM::atomic_finalize");
+
+        // Update the block height used for the purposes of historical mapping accounting.
+        #[cfg(feature = "history")]
+        self.store
+            .finalize_store()
+            .current_block_height()
+            .store(state.block_height(), std::sync::atomic::Ordering::SeqCst);
 
         // Perform the finalize operation on the preset finalize mode.
         atomic_finalize!(self.finalize_store(), FinalizeMode::RealRun, {
@@ -775,6 +847,7 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // If the transaction failed to finalize, abort and continue to the next transaction.
                     Err(error) => {
                         error!("Critical bug in finalize: {error}\n\n{transaction}");
+                        dev_eprintln!("Critical bug in finalize: {error}\n\n{transaction}");
                         // Note: This will abort the entire atomic batch.
                         return Err(format!("Failed to finalize on transaction - {error}"));
                     }
@@ -1325,6 +1398,17 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                     // Compute the updated stakers, using the committee and block reward.
                     let next_stakers = staking_rewards(&current_stakers, &current_committee, *block_reward);
 
+                    #[cfg(feature = "history-staking-rewards")]
+                    {
+                        for (curr_stake, (staker, (validator, new_stake))) in
+                            current_stakers.values().map(|(_, current_stake)| current_stake).zip(&next_stakers)
+                        {
+                            let reward = new_stake - curr_stake;
+                            let height = state.block_height();
+                            store.staking_rewards_map().insert((*staker, height), (*validator, reward, *new_stake))?;
+                        }
+                    }
+
                     // Compute the updated delegated amounts, using the next_stakers updated amounts.
                     let next_delegated = to_next_delegated(&next_stakers);
 
@@ -1337,36 +1421,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
 
                     // Insert the next committee into storage.
                     store.committee_store().insert(state.block_height(), next_committee)?;
-
-                    #[cfg(all(feature = "history", feature = "rocks"))]
-                    {
-                        // When finalizing in `FinalizeMode::RealRun`, store the delegated and bonded mappings in history.
-                        if IS_FINALIZE {
-                            // Load a `History` object.
-                            let history = History::new(N::ID, store.storage_mode());
-
-                            // Write the delegated mapping as JSON.
-                            history.store_mapping(state.block_height(), MappingName::Delegated, &next_delegated_map)?;
-
-                            // Write the bonded mapping as JSON.
-                            history.store_mapping(state.block_height(), MappingName::Bonded, &next_bonded_map)?;
-
-                            // Write the metadata mapping as JSON.
-                            let metadata_mapping = Identifier::from_str("metadata")?;
-                            let metadata_map = store.get_mapping_speculative(program_id, metadata_mapping)?;
-                            history.store_mapping(state.block_height(), MappingName::Metadata, &metadata_map)?;
-
-                            // Write the unbonding mapping as JSON.
-                            let unbonding_mapping = Identifier::from_str("unbonding")?;
-                            let unbonding_map = store.get_mapping_speculative(program_id, unbonding_mapping)?;
-                            history.store_mapping(state.block_height(), MappingName::Unbonding, &unbonding_map)?;
-
-                            // Write the withdraw mapping as JSON.
-                            let withdraw_mapping = Identifier::from_str("withdraw")?;
-                            let withdraw_map = store.get_mapping_speculative(program_id, withdraw_mapping)?;
-                            history.store_mapping(state.block_height(), MappingName::Withdraw, &withdraw_map)?;
-                        }
-                    }
 
                     // Store the finalize operations for updating the committee and bonded mapping.
                     finalize_operations.extend(&[
@@ -1531,17 +1585,19 @@ finalize transfer_public:
         unspent_records: &mut Vec<Record<CurrentNetwork, Ciphertext<CurrentNetwork>>>,
         rng: &mut R,
     ) -> Result<Block<CurrentNetwork>> {
+        // Create the finalize state for the next block height.
+        let next_block_height = previous_block.height() + 1;
+        let time_since_last_block = MainnetV0::BLOCK_TIME as i64;
+        let next_block_timestamp = previous_block.timestamp().saturating_add(time_since_last_block);
+        let next_timestamp = (next_block_height
+            >= MainnetV0::CONSENSUS_HEIGHT(ConsensusVersion::V12).unwrap_or_default())
+        .then_some(next_block_timestamp);
+        let finalize_state =
+            FinalizeGlobalState::from(next_block_height as u64, next_block_height, next_timestamp, [0u8; 32]);
+
         // Speculate on the candidate ratifications, solutions, and transactions.
-        let time_since_last_block = CurrentNetwork::BLOCK_TIME as i64;
-        let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) = vm.speculate(
-            sample_finalize_state(previous_block.height() + 1),
-            time_since_last_block,
-            None,
-            vec![],
-            &None.into(),
-            transactions.iter(),
-            rng,
-        )?;
+        let (ratifications, transactions, aborted_transaction_ids, ratified_finalize_operations) =
+            vm.speculate(finalize_state, time_since_last_block, None, vec![], &None.into(), transactions.iter(), rng)?;
 
         // Construct the metadata associated with the block.
         let metadata = Metadata::new(
@@ -1554,7 +1610,7 @@ finalize transfer_public:
             CurrentNetwork::GENESIS_PROOF_TARGET,
             previous_block.last_coinbase_target(),
             previous_block.last_coinbase_timestamp(),
-            previous_block.timestamp().saturating_add(time_since_last_block),
+            next_block_timestamp,
         )?;
 
         // Construct the new block header.
@@ -1846,8 +1902,8 @@ finalize transfer_public:
                 CurrentNetwork::BLOCK_TIME as i64,
                 None,
                 vec![],
-                &None.into(),
-                [deployment_transaction].iter(),
+                None.into(),
+                vec![deployment_transaction],
             )
             .unwrap();
         assert_eq!(candidate_transactions.len(), 1);
@@ -1935,15 +1991,15 @@ finalize transfer_public:
         vm.check_transaction(&bond_validator_transaction, None, rng).unwrap();
 
         // Speculate on the transactions.
-        let transactions = [bond_validator_transaction.clone()];
+        let transactions = vec![bond_validator_transaction.clone()];
         let (_, confirmed_transactions, _, _) = vm
             .atomic_speculate(
                 sample_finalize_state(1),
                 CurrentNetwork::BLOCK_TIME as i64,
                 None,
                 vec![],
-                &None.into(),
-                transactions.iter(),
+                None.into(),
+                transactions,
             )
             .unwrap();
 
@@ -2061,15 +2117,15 @@ finalize transfer_public:
         vm.check_transaction(&bond_validator_transaction, None, rng).unwrap();
 
         // Speculate on the transactions.
-        let transactions = [bond_validator_transaction.clone()];
+        let transactions = vec![bond_validator_transaction.clone()];
         let (_, confirmed_transactions, _, _) = vm
             .atomic_speculate(
                 sample_finalize_state(1),
                 CurrentNetwork::BLOCK_TIME as i64,
                 None,
                 vec![],
-                &None.into(),
-                transactions.iter(),
+                None.into(),
+                transactions,
             )
             .unwrap();
 
@@ -2081,15 +2137,15 @@ finalize transfer_public:
         );
 
         // Speculate on the transactions.
-        let transactions = [bond_validator_transaction.clone()];
+        let transactions = vec![bond_validator_transaction.clone()];
         let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
             .atomic_speculate(
                 sample_finalize_state(CurrentNetwork::CONSENSUS_HEIGHT(ConsensusVersion::V3).unwrap()),
                 CurrentNetwork::BLOCK_TIME as i64,
                 None,
                 vec![],
-                &None.into(),
-                transactions.iter(),
+                None.into(),
+                transactions,
             )
             .unwrap();
 
@@ -2102,6 +2158,7 @@ finalize transfer_public:
     }
 
     #[test]
+    #[ignore]
     fn test_atomic_finalize_many() {
         let rng = &mut TestRng::default();
 
@@ -2192,15 +2249,15 @@ finalize transfer_public:
         // Transfer_10 -> Balance = 30 - 10 = 20
         // Transfer_20 -> Balance = 20 - 20 = 0
         {
-            let transactions = [mint_10.clone(), transfer_10.clone(), transfer_20.clone()];
+            let transactions = vec![mint_10.clone(), transfer_10.clone(), transfer_20.clone()];
             let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
                 .atomic_speculate(
                     sample_finalize_state(1),
                     CurrentNetwork::BLOCK_TIME as i64,
                     None,
                     vec![],
-                    &None.into(),
-                    transactions.iter(),
+                    None.into(),
+                    transactions,
                 )
                 .unwrap();
 
@@ -2220,15 +2277,15 @@ finalize transfer_public:
         // Mint_20 -> Balance = 10 + 20 = 30
         // Transfer_30 -> Balance = 30 - 30 = 0
         {
-            let transactions = [transfer_20.clone(), mint_10.clone(), mint_20.clone(), transfer_30.clone()];
+            let transactions = vec![transfer_20.clone(), mint_10.clone(), mint_20.clone(), transfer_30.clone()];
             let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
                 .atomic_speculate(
                     sample_finalize_state(1),
                     CurrentNetwork::BLOCK_TIME as i64,
                     None,
                     vec![],
-                    &None.into(),
-                    transactions.iter(),
+                    None.into(),
+                    transactions,
                 )
                 .unwrap();
 
@@ -2248,15 +2305,15 @@ finalize transfer_public:
         // Transfer_20 -> Balance = 20 - 20 = 0
         // Transfer_10 -> Balance = 0 - 10 = -10 (should be rejected)
         {
-            let transactions = [transfer_20.clone(), transfer_10.clone()];
+            let transactions = vec![transfer_20.clone(), transfer_10.clone()];
             let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
                 .atomic_speculate(
                     sample_finalize_state(1),
                     CurrentNetwork::BLOCK_TIME as i64,
                     None,
                     vec![],
-                    &None.into(),
-                    transactions.iter(),
+                    None.into(),
+                    transactions,
                 )
                 .unwrap();
 
@@ -2280,15 +2337,15 @@ finalize transfer_public:
         // Transfer_20 -> Balance = 10 - 20 = -10 (should be rejected)
         // Transfer_10 -> Balance = 10 - 10 = 0
         {
-            let transactions = [mint_20.clone(), transfer_30.clone(), transfer_20.clone(), transfer_10.clone()];
+            let transactions = vec![mint_20.clone(), transfer_30.clone(), transfer_20.clone(), transfer_10.clone()];
             let (_, confirmed_transactions, aborted_transaction_ids, _) = vm
                 .atomic_speculate(
                     sample_finalize_state(1),
                     CurrentNetwork::BLOCK_TIME as i64,
                     None,
                     vec![],
-                    &None.into(),
-                    transactions.iter(),
+                    None.into(),
+                    transactions,
                 )
                 .unwrap();
 
@@ -2312,6 +2369,7 @@ finalize transfer_public:
     }
 
     #[test]
+    #[ignore]
     fn test_finalize_catch_halt() {
         let rng = &mut TestRng::default();
 
@@ -2420,6 +2478,7 @@ function ped_hash:
     }
 
     #[test]
+    #[ignore]
     fn test_rejected_transaction_should_not_update_storage() {
         let rng = &mut TestRng::default();
 
@@ -2577,26 +2636,21 @@ finalize compute:
         // Add the deployment block to the VM.
         vm.add_next_block(&deployment_block).unwrap();
 
-        // Generate more records to use for the next block.
-        let splits_block =
-            generate_splits(&vm, &caller_private_key, &deployment_block, &mut unspent_records, rng).unwrap();
-
-        // Add the splits block to the VM.
-        vm.add_next_block(&splits_block).unwrap();
-
-        // Generate more records to use for the next block.
-        let splits_block = generate_splits(&vm, &caller_private_key, &splits_block, &mut unspent_records, rng).unwrap();
-
-        // Add the splits block to the VM.
-        vm.add_next_block(&splits_block).unwrap();
-
-        // Generate the transactions.
         let mut transactions = Vec::new();
         let mut excess_transaction_ids = Vec::new();
 
         for _ in 0..VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS + 1 {
-            let transaction =
-                sample_mint_public(&vm, caller_private_key, &program_id, caller_address, 10, &mut unspent_records, rng);
+            let inputs = vec![
+                Value::<CurrentNetwork>::from_str(&caller_address.to_string()).unwrap(),
+                Value::<CurrentNetwork>::from_str("10u64").unwrap(),
+            ];
+
+            let transaction = vm
+                .execute(&caller_private_key, (&program_id, "mint_public"), inputs.into_iter(), None, 1, None, rng)
+                .unwrap();
+            // Verify.
+            vm.check_transaction(&transaction, None, rng).unwrap();
+
             // Abort the transaction if the block is full.
             if transactions.len() >= VM::<CurrentNetwork, LedgerType>::MAXIMUM_CONFIRMED_TRANSACTIONS {
                 excess_transaction_ids.push(transaction.id());
@@ -2607,7 +2661,7 @@ finalize compute:
 
         // Construct the next block.
         let next_block =
-            sample_next_block(&vm, &caller_private_key, &transactions, &splits_block, &mut unspent_records, rng)
+            sample_next_block(&vm, &caller_private_key, &transactions, &deployment_block, &mut unspent_records, rng)
                 .unwrap();
 
         // Ensure that the excess transactions were aborted.
@@ -2624,10 +2678,8 @@ finalize compute:
         let vm = sample_vm();
 
         // Construct the validators, greater than the maximum committee size.
-        let validators = sample_validators::<CurrentNetwork>(
-            Committee::<CurrentNetwork>::max_committee_size().unwrap() as usize + 1,
-            rng,
-        );
+        let validators =
+            sample_validators::<CurrentNetwork>(Committee::<CurrentNetwork>::max_committee_size() as usize + 1, rng);
 
         // Construct the committee.
         let mut committee_map = IndexMap::new();

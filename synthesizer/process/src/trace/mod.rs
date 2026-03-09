@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -237,6 +237,9 @@ impl<N: Network> Trace<N> {
         verifier_inputs: Vec<(VerifyingKey<N>, Vec<Vec<N::Field>>)>,
         execution: &Execution<N>,
     ) -> Result<()> {
+        if cfg!(all(feature = "dev_skip_checks", feature = "test_consensus_heights")) {
+            return Ok(());
+        }
         // Retrieve the global state root.
         let global_state_root = execution.global_state_root();
         // Ensure the global state root is not zero.
@@ -268,6 +271,9 @@ impl<N: Network> Trace<N> {
         verifier_inputs: (VerifyingKey<N>, Vec<Vec<N::Field>>),
         fee: &Fee<N>,
     ) -> Result<()> {
+        if cfg!(all(feature = "dev_skip_checks", feature = "test_consensus_heights")) {
+            return Ok(());
+        }
         // Retrieve the global state root.
         let global_state_root = fee.global_state_root();
         // Ensure the global state root is not zero.

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -377,6 +377,11 @@ impl<E: PairingEngine> ToBytes for Proof<E> {
 impl<E: PairingEngine> FromBytes for Proof<E> {
     fn read_le<R: Read>(mut r: R) -> io::Result<Self> {
         Self::deserialize_compressed(&mut r)
+            .map_err(|err| into_io_error(anyhow::Error::from(err).context("could not deserialize Proof")))
+    }
+
+    fn read_le_unchecked<R: Read>(mut r: R) -> io::Result<Self> {
+        Self::deserialize_compressed_unchecked(&mut r)
             .map_err(|err| into_io_error(anyhow::Error::from(err).context("could not deserialize Proof")))
     }
 }
