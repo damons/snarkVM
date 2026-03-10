@@ -195,6 +195,11 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 // Verify the signature corresponds to the transaction ID.
                 ensure!(owner.verify(*deployment_id), "Invalid owner signature for deployment transaction '{id}'");
 
+                // Legacy checks for old consensus versions.
+                //
+                // These checks do not have any long term implications on verification time because they
+                // are skipped by the time we get to the latest consensus version.
+                //
                 // If the `CONSENSUS_VERSION` is less than `V8`, ensure that
                 //   - the deployment edition is zero.
                 // If the `CONSENSUS_VERSION` is less than `V9` ensure that
@@ -202,9 +207,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                 //   - the program checksum is **not** present in the deployment,
                 //   - the program owner is **not** present in the deployment
                 //   - the program does not use constructors, `Operand::Checksum`, `Operand::Edition`, or `Operand::ProgramOwner`
-                // If the `CONSENSUS_VERSION` is greater than or equal to `V9`, then verify that:
-                //   - the program checksum is present in the deployment
-                //   - the program owner is present in the deployment
                 // If the `CONSENSUS_VERSION` is less than `V11`, ensure that
                 //   - the program does not include V11 syntax
                 // If the `CONSENSUS_VERSION` is less than `V12`, ensure that
@@ -241,16 +243,6 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V9`"
                     );
                 }
-                if consensus_version >= ConsensusVersion::V9 {
-                    ensure!(
-                        deployment.program_checksum().is_some(),
-                        "Invalid deployment transaction '{id}' - missing program checksum"
-                    );
-                    ensure!(
-                        deployment.program_owner().is_some(),
-                        "Invalid deployment transaction '{id}' - missing program owner"
-                    );
-                }
                 if consensus_version < ConsensusVersion::V11 {
                     ensure!(
                         !deployment.program().contains_v11_syntax(),
@@ -263,16 +255,76 @@ impl<N: Network, C: ConsensusStorage<N>> VM<N, C> {
                         "Invalid deployment transaction '{id}' - program uses syntax that is not allowed before `ConsensusVersion::V12`"
                     );
                 }
+                if consensus_version < ConsensusVersion::V13 {
+                    let program = deployment.program();
+
+                    ensure!(
+                        !program.contains_external_struct(),
+                        "Invalid deployment transaction '{id}' - external structs may only be used beginning with `ConsensusVersion::V13`"
+                    );
+
+                    // Returns the external record that `locator` references.
+                    let get_external_record = |locator: &Locator<N>| {
+                        let external_stack = self.process.read().get_stack(locator.program_id())?;
+                        external_stack.program().get_record(locator.resource()).cloned()
+                    };
+                    // Returns the external function that `locator` references.
+                    let get_external_function = |locator: &Locator<N>| {
+                        let external_stack = self.process.read().get_stack(locator.program_id())?;
+                        external_stack.program().get_function(locator.resource())
+                    };
+                    // Returns the *external* finalize logic that `locator` references.
+                    let get_external_future = |locator: &Locator<N>| {
+                        if program.id() == locator.program_id() {
+                            anyhow::bail!("external finalize logic refers to the current program")
+                        }
+                        let external_stack = self.process.read().get_stack(locator.program_id())?;
+                        external_stack
+                            .program()
+                            .get_function_ref(locator.resource())?
+                            .finalize_logic()
+                            .cloned()
+                            .ok_or_else(|| anyhow::anyhow!("missing finalize logic for {locator}"))
+                    };
+                    // Does this program have this struct?
+                    let is_local_struct = |identifier: &Identifier<N>| program.structs().contains_key(identifier);
+
+                    ensure!(
+                        !program.violates_pre_v13_external_record_and_future_rules(
+                            &get_external_record,
+                            &get_external_function,
+                            &get_external_future,
+                            &is_local_struct,
+                        ),
+                        "Invalid deployment transaction '{id}' - program violates pre-V13 external record or future rules"
+                    );
+                }
+
+                // Checks required for current and future consensus versions (>= V9).
+                //
+                // These validations enforce rules introduced in newer consensus versions.
+                // Unlike legacy checks, they have lasting implications on verification time
+                // and cannot be skipped for recent or future versions.
+                //
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V9`, then verify that:
+                //   - the program checksum is present in the deployment
+                //   - the program owner is present in the deployment
+                // If the `CONSENSUS_VERSION` is greater than or equal to `V13`, then verify that:
+                //   - the program's mappings do not use non-existent structs.
+                if consensus_version >= ConsensusVersion::V9 {
+                    ensure!(
+                        deployment.program_checksum().is_some(),
+                        "Invalid deployment transaction '{id}' - missing program checksum"
+                    );
+                    ensure!(
+                        deployment.program_owner().is_some(),
+                        "Invalid deployment transaction '{id}' - missing program owner"
+                    );
+                }
                 if consensus_version >= ConsensusVersion::V12 {
                     ensure!(
                         !deployment.program().contains_string_type(),
                         "Invalid deployment transaction '{id}' - program uses string type after `ConsensusVersion::V12`"
-                    );
-                }
-                if consensus_version < ConsensusVersion::V13 {
-                    ensure!(
-                        !deployment.program().contains_external_struct(),
-                        "Invalid deployment transaction '{id}' - external structs may only be used beginning with `ConsensusVersion::V13`"
                     );
                 }
                 if consensus_version >= ConsensusVersion::V13 {
