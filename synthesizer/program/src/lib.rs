@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,6 +58,7 @@ mod to_checksum;
 use console::{
     network::{
         ConsensusVersion,
+        consensus_config_value,
         prelude::{
             Debug,
             Deserialize,
@@ -112,7 +113,7 @@ use console::{
     },
     types::U8,
 };
-use snarkvm_utilities::cfg_iter;
+use snarkvm_utilities::{cfg_find_map, cfg_iter};
 
 use indexmap::{IndexMap, IndexSet};
 use std::collections::BTreeSet;
@@ -279,7 +280,8 @@ impl<N: Network> ProgramCore<N> {
     /// the keywords in the list should be restricted.
     #[rustfmt::skip]
     pub const RESTRICTED_KEYWORDS: &'static [(ConsensusVersion, &'static [&'static str])] = &[
-        (ConsensusVersion::V6, &["constructor"])
+        (ConsensusVersion::V6, &["constructor"]),
+        (ConsensusVersion::V14, &["identifier"])
     ];
 
     /// Initializes an empty program.
@@ -1110,12 +1112,8 @@ impl<N: Network> ProgramCore<N> {
     /// This includes:
     /// 1. `.raw` hash or signature verification variants
     /// 2. `ecdsa.verify.*` opcodes
-    /// 3. arrays that exceed the previous maximum length of 32.
     #[inline]
     pub fn contains_v11_syntax(&self) -> bool {
-        // The previous maximum array size before V11.
-        const V10_MAX_ARRAY_ELEMENTS: u32 = 32;
-
         // Helper to check if any of the opcodes:
         // - start with `ecdsa.verify`, `serialize`, or `deserialize`
         // - end with `.raw` or `.native`
@@ -1144,10 +1142,7 @@ impl<N: Network> ProgramCore<N> {
             .chain(cfg_iter!(self.constructor).flat_map(|constructor| constructor.commands()))
             .any(|command| matches!(command, Command::Instruction(instruction) if has_op(*instruction.opcode())));
 
-        // Determine if any of the array types exceed the previous maximum length of 32.
-        let array_size_exceeds = self.exceeds_max_array_size(V10_MAX_ARRAY_ELEMENTS);
-
-        function_contains || closure_contains || command_contains || array_size_exceeds
+        function_contains || closure_contains || command_contains
     }
 
     /// Returns `true` if a program contains any V12 syntax.
@@ -1164,6 +1159,146 @@ impl<N: Network> ProgramCore<N> {
                 })
             })
         })
+    }
+
+    /// Checks that the program size does not exceed the maximum allowed size for the given block height.
+    pub fn check_program_size(&self, block_height: u32) -> Result<()> {
+        // Calculate the program size.
+        let program_size = self.to_string().len();
+        // Determine the maximum allowed program size for the current consensus version.
+        let maximum_allowed_program_size = consensus_config_value!(N, MAX_PROGRAM_SIZE, block_height)
+            .ok_or(anyhow!("Failed to fetch maximum program size"))?;
+
+        ensure!(
+            program_size <= maximum_allowed_program_size,
+            "Program size of {program_size} bytes exceeds the maximum allowed size of {maximum_allowed_program_size} bytes for the current height {block_height} (consensus version {}).",
+            N::CONSENSUS_VERSION(block_height)?
+        );
+
+        Ok(())
+    }
+
+    /// Checks that the program writes size does not exceed the maximum allowed size for the given block height.
+    pub fn check_program_writes(&self, block_height: u32) -> Result<()> {
+        // Determine the maximum allowed program size for the current consensus version.
+        let max_num_writes = consensus_config_value!(N, MAX_WRITES, block_height)
+            .ok_or(anyhow!("Failed to fetch maximum program size"))?;
+
+        // Check if the constructor exceeds the maximum number of writes.
+        if self.constructor().is_some_and(|constructor| constructor.num_writes() > max_num_writes) {
+            bail!(
+                "Program constructor exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
+                N::CONSENSUS_VERSION(block_height)?
+            );
+        }
+
+        // Find the first function whose finalize logic exceeds the maximum writes.
+        if let Some(name) = cfg_find_map!(self.functions(), |function| {
+            function
+                .finalize_logic()
+                .is_some_and(|finalize| finalize.num_writes() > max_num_writes)
+                .then(|| *function.name())
+        }) {
+            bail!(
+                "Program function '{name}' exceeds the maximum allowed writes ({max_num_writes}) for the current height {block_height} (consensus version {}).",
+                N::CONSENSUS_VERSION(block_height)?
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Returns `true` if a program contains any V14 syntax.
+    /// This includes `snark.verify.*` opcodes, `Operand::AleoGenerator`, `Operand::AleoGeneratorPowers`,
+    /// or `Literal::Identifier`. Also checks for identifier type declarations in function inputs/outputs,
+    /// finalize inputs/outputs, closures, structs, mappings, and records.
+    /// This is enforced to be `false` for programs before `ConsensusVersion::V14`.
+    #[inline]
+    pub fn contains_v14_syntax(&self) -> Result<bool> {
+        /// Returns `true` if the operand is V14 syntax.
+        fn is_v14_operand<N: Network>(operand: &Operand<N>) -> bool {
+            matches!(
+                operand,
+                Operand::AleoGeneratorPowers(_)
+                    | Operand::AleoGenerator
+                    | Operand::Literal(console::program::Literal::Identifier(..))
+            )
+        }
+
+        // Check functions: instructions, finalize commands, and type declarations in one pass.
+        for (_, function) in self.functions() {
+            if function.instructions().iter().any(|instruction| {
+                instruction.opcode().starts_with("snark.verify")
+                    || cfg_iter!(instruction.operands()).any(is_v14_operand)
+            }) {
+                return Ok(true);
+            }
+            if function
+                .finalize_logic()
+                .map(|finalize| {
+                    finalize.commands().iter().any(|cmd| {
+                        matches!(cmd, Command::Instruction(instr) if instr.opcode().starts_with("snark.verify"))
+                            || cfg_iter!(cmd.operands()).any(is_v14_operand)
+                    })
+                })
+                .unwrap_or(false)
+            {
+                return Ok(true);
+            }
+            if function.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        // Check closures: instructions and type declarations in one pass.
+        for (_, closure) in self.closures() {
+            if closure.instructions().iter().any(|instruction| {
+                instruction.opcode().starts_with("snark.verify")
+                    || cfg_iter!(instruction.operands()).any(is_v14_operand)
+            }) {
+                return Ok(true);
+            }
+            if closure.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        // Check constructor commands.
+        let constructor_contains = self.constructor.iter().any(|constructor| {
+            constructor.commands().iter().any(|cmd| {
+                matches!(cmd, Command::Instruction(instr) if instr.opcode().starts_with("snark.verify"))
+                    || cfg_iter!(cmd.operands()).any(is_v14_operand)
+            })
+        });
+        if constructor_contains {
+            return Ok(true);
+        }
+
+        // Check constructor for identifier types in cast destinations and type declarations.
+        if let Some(constructor) = &self.constructor {
+            if constructor.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        // Check remaining type definitions: mappings, structs, records.
+        for mapping in self.mappings.values() {
+            if mapping.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for struct_type in self.structs.values() {
+            if struct_type.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+        for record_type in self.records.values() {
+            if record_type.contains_identifier_type()? {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 
     /// Returns `true` if a program contains any string type.

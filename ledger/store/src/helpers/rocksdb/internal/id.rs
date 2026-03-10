@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -202,6 +202,9 @@ pub enum TransitionMap {
 pub enum ProgramMap {
     ProgramID = DataID::ProgramIDMap as u16,
     KeyValueID = DataID::KeyValueMap as u16,
+    MappingUpdate = DataID::MappingUpdateMap as u16,
+    MappingUpdateHeights = DataID::MappingUpdateHeightsMap as u16,
+    StakingRewards = DataID::StakingRewardsMap as u16,
 }
 
 /// The RocksDB map prefix for test-related entries.
@@ -303,6 +306,12 @@ enum DataID {
     IDEditionMap,
     // Track deployments that contain an optional checksum
     DeploymentChecksumMap,
+    // Historical mappings.
+    MappingUpdateMap,
+    // Historical mapping update heights.
+    MappingUpdateHeightsMap,
+    /// Historical staking rewards.
+    StakingRewardsMap,
 
     // Testing
     #[cfg(test)]

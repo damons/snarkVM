@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -82,6 +82,18 @@ impl<N: Network> ValueType<N> {
             self,
             Constant(plaintext) | Public(plaintext) | Private(plaintext) if plaintext.contains_string_type()
         )
+    }
+
+    /// Returns `true` if the value type contains an identifier type.
+    /// Record, external record, and future types are checked elsewhere.
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        match self {
+            Self::Constant(plaintext) | Self::Public(plaintext) | Self::Private(plaintext) => {
+                plaintext.contains_identifier_type()
+            }
+            // Record, external record, and future types are checked elsewhere.
+            Self::Record(_) | Self::ExternalRecord(_) | Self::Future(_) => Ok(false),
+        }
     }
 
     /// Returns `true` if the value type is an array and the size exceeds the given maximum.

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -171,7 +171,9 @@ impl<N: Network> Command<N> {
     ) -> Result<Option<FinalizeOperation<N>>> {
         match self {
             // Finalize the instruction, and return no finalize operation.
-            Command::Instruction(instruction) => instruction.finalize(stack, registers).map(|_| None),
+            Command::Instruction(instruction) => {
+                instruction.finalize(stack, registers).map_err(Into::into).map(|_| None)
+            }
             // `await` commands are processed by the caller of this method.
             Command::Await(_) => bail!("`await` commands cannot be finalized directly."),
             // Finalize the 'contains' command, and return no finalize operation.
@@ -215,6 +217,14 @@ impl<N: Network> Command<N> {
     /// Returns `true` if the command contains a string type.
     pub fn contains_string_type(&self) -> bool {
         self.operands().iter().any(|operand| operand.contains_string_type())
+    }
+
+    /// Returns `true` if the command contains an identifier type in its cast type.
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        match self {
+            Command::Instruction(instruction) => instruction.contains_identifier_type(),
+            _ => Ok(false),
+        }
     }
 
     /// Returns `true` if the command contains an array type with a size that exceeds the given maximum.

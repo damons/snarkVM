@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -88,6 +88,15 @@ impl<N: Network> RegisterType<N> {
         match self {
             Self::Plaintext(plaintext_type) => plaintext_type.contains_string_type(),
             _ => false, // Record, external record, and future types are checked elsewhere.
+        }
+    }
+
+    /// Returns `true` if the register type contains an identifier type.
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        match self {
+            Self::Plaintext(plaintext_type) => plaintext_type.contains_identifier_type(),
+            // Record, external record, and future types are checked elsewhere.
+            Self::Record(_) | Self::ExternalRecord(_) | Self::Future(_) => Ok(false),
         }
     }
 

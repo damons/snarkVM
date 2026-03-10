@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 Provable Inc.
+// Copyright (c) 2019-2026 Provable Inc.
 // This file is part of the snarkVM library.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,6 +54,14 @@ impl<N: Network> CastType<N> {
     pub fn exceeds_max_array_size(&self, max_array_size: u32) -> bool {
         matches!(self,
             Self::Plaintext(plaintext_type) if plaintext_type.exceeds_max_array_size(max_array_size))
+    }
+
+    /// Returns `true` if the cast type contains an identifier type.
+    pub fn contains_identifier_type(&self) -> Result<bool> {
+        match self {
+            Self::Plaintext(plaintext_type) => plaintext_type.contains_identifier_type(),
+            _ => Ok(false),
+        }
     }
 }
 
@@ -418,8 +426,8 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
                     bail!("Casting to an array requires at least {} operand(s)", N::MIN_ARRAY_ELEMENTS)
                 }
                 // Ensure the number of elements does not exceed the maximum.
-                if inputs.len() > N::MAX_ARRAY_ELEMENTS {
-                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::MAX_ARRAY_ELEMENTS)
+                if inputs.len() > N::LATEST_MAX_ARRAY_ELEMENTS() {
+                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::LATEST_MAX_ARRAY_ELEMENTS())
                 }
 
                 // Ensure that the number of operands is equal to the number of array entries.
@@ -722,8 +730,8 @@ impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
                     bail!("Casting to an array requires at least {} operand(s)", N::MIN_ARRAY_ELEMENTS)
                 }
                 // Ensure the number of elements does not exceed the maximum.
-                if input_types.len() > N::MAX_ARRAY_ELEMENTS {
-                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::MAX_ARRAY_ELEMENTS)
+                if input_types.len() > N::LATEST_MAX_ARRAY_ELEMENTS() {
+                    bail!("Casting to array '{array_type}' cannot exceed {} elements", N::LATEST_MAX_ARRAY_ELEMENTS())
                 }
 
                 // Ensure that the number of input types is equal to the number of array entries.
@@ -1023,7 +1031,7 @@ impl<N: Network, const VARIANT: u8> Parser for CastOperation<N, VARIANT> {
             | CastType::GroupYCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         match !operands.is_empty() && (operands.len() <= max_operands) {
@@ -1071,7 +1079,7 @@ impl<N: Network, const VARIANT: u8> Display for CastOperation<N, VARIANT> {
             | CastType::GroupXCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         if self.operands.is_empty() || self.operands.len() > max_operands {
@@ -1097,8 +1105,11 @@ impl<N: Network, const VARIANT: u8> FromBytes for CastOperation<N, VARIANT> {
         // Ensure that the number of operands does not exceed the upper bound.
         // Note: Although a similar check is performed later, this check is performed to ensure that an exceedingly large number of operands is not allocated.
         // Note: This check is purely a sanity check, as it is not type-aware.
-        if num_operands.is_zero() || num_operands > N::MAX_ARRAY_ELEMENTS {
-            return Err(error(format!("The number of operands must be nonzero and <= {}", N::MAX_ARRAY_ELEMENTS)));
+        if num_operands.is_zero() || num_operands > N::LATEST_MAX_ARRAY_ELEMENTS() {
+            return Err(error(format!(
+                "The number of operands must be nonzero and <= {}",
+                N::LATEST_MAX_ARRAY_ELEMENTS()
+            )));
         }
 
         // Initialize the vector for the operands.
@@ -1120,7 +1131,7 @@ impl<N: Network, const VARIANT: u8> FromBytes for CastOperation<N, VARIANT> {
             | CastType::GroupXCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         if num_operands.is_zero() || num_operands > max_operands {
@@ -1141,7 +1152,7 @@ impl<N: Network, const VARIANT: u8> ToBytes for CastOperation<N, VARIANT> {
             | CastType::GroupXCoordinate
             | CastType::Plaintext(PlaintextType::Literal(_)) => 1,
             CastType::Plaintext(PlaintextType::Struct(_) | PlaintextType::ExternalStruct(_)) => N::MAX_STRUCT_ENTRIES,
-            CastType::Plaintext(PlaintextType::Array(_)) => N::MAX_ARRAY_ELEMENTS,
+            CastType::Plaintext(PlaintextType::Array(_)) => N::LATEST_MAX_ARRAY_ELEMENTS(),
             CastType::Record(_) | CastType::ExternalRecord(_) => N::MAX_RECORD_ENTRIES,
         };
         if self.operands.is_empty() || self.operands.len() > max_operands {
@@ -1268,5 +1279,41 @@ mod tests {
         }
         string.push_str(&format!("into r{} as foo", CurrentNetwork::MAX_STRUCT_ENTRIES + 1));
         assert!(Cast::<CurrentNetwork>::parse(&string).is_err(), "Parser did not error");
+    }
+
+    #[test]
+    fn test_cast_type_contains_identifier_type() {
+        // Identifier literal type should be detected.
+        let cast_type = CastType::<CurrentNetwork>::Plaintext(PlaintextType::Literal(LiteralType::Identifier));
+        assert!(cast_type.contains_identifier_type().unwrap());
+
+        // Non-identifier literal types should not be detected.
+        let cast_type = CastType::<CurrentNetwork>::Plaintext(PlaintextType::Literal(LiteralType::Field));
+        assert!(!cast_type.contains_identifier_type().unwrap());
+        let cast_type = CastType::<CurrentNetwork>::Plaintext(PlaintextType::Literal(LiteralType::U64));
+        assert!(!cast_type.contains_identifier_type().unwrap());
+
+        // Non-plaintext cast types should not be detected.
+        let cast_type = CastType::<CurrentNetwork>::GroupXCoordinate;
+        assert!(!cast_type.contains_identifier_type().unwrap());
+        let cast_type = CastType::<CurrentNetwork>::GroupYCoordinate;
+        assert!(!cast_type.contains_identifier_type().unwrap());
+        let cast_type = CastType::<CurrentNetwork>::Record(Identifier::from_str("token").unwrap());
+        assert!(!cast_type.contains_identifier_type().unwrap());
+    }
+
+    #[test]
+    fn test_cast_instruction_contains_identifier_type() {
+        // A cast to identifier type should be detected.
+        let (_, cast) = Cast::<CurrentNetwork>::parse("cast r0 into r1 as identifier").unwrap();
+        assert!(cast.cast_type().contains_identifier_type().unwrap());
+
+        // A cast to field type should not be detected.
+        let (_, cast) = Cast::<CurrentNetwork>::parse("cast r0 into r1 as field").unwrap();
+        assert!(!cast.cast_type().contains_identifier_type().unwrap());
+
+        // A cast.lossy to identifier type should be detected.
+        let (_, cast) = CastLossy::<CurrentNetwork>::parse("cast.lossy r0 into r1 as identifier").unwrap();
+        assert!(cast.cast_type().contains_identifier_type().unwrap());
     }
 }
