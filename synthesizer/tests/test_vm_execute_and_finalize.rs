@@ -40,6 +40,7 @@ use snarkvm_synthesizer_program::FinalizeGlobalState;
 use anyhow::Result;
 use indexmap::IndexMap;
 use snarkvm_console::account::Address;
+use tracing_subscriber::{EnvFilter, fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 use utilities::*;
 
 #[cfg(not(feature = "rocks"))]
@@ -49,6 +50,9 @@ type LedgerType = snarkvm_ledger_store::helpers::rocksdb::ConsensusDB<CurrentNet
 
 #[test]
 fn test_vm_execute_and_finalize() {
+    // Enable logging.
+    tracing_subscriber::registry().with(fmt::layer()).with(EnvFilter::from_default_env()).init();
+
     // Load the tests.
     let tests =
         load_tests::<_, ProgramTest>("./tests/vm/execute_and_finalize", "./expectations/vm/execute_and_finalize");
